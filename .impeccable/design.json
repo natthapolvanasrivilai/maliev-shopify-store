@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-16T14:36:01.7788648Z",
+  "title": "Design System: MALIEV Storefront",
+  "extensions": {
+    "colorMeta": {
+      "foundry-navy": {
+        "role": "secondary",
+        "displayName": "Foundry Navy",
+        "canonical": "#07182D",
+        "tonalRamp": ["oklch(15% 0.035 252)", "oklch(25% 0.045 252)", "oklch(35% 0.05 252)", "oklch(45% 0.045 252)", "oklch(58% 0.035 252)", "oklch(70% 0.025 252)", "oklch(84% 0.014 252)", "oklch(95% 0.006 252)"]
+      },
+      "deep-workshop-blue": {
+        "role": "secondary",
+        "displayName": "Deep Workshop Blue",
+        "canonical": "#0B2442",
+        "tonalRamp": ["oklch(15% 0.04 252)", "oklch(25% 0.055 252)", "oklch(35% 0.06 252)", "oklch(45% 0.052 252)", "oklch(58% 0.04 252)", "oklch(70% 0.03 252)", "oklch(84% 0.016 252)", "oklch(95% 0.007 252)"]
+      },
+      "precision-blue": {
+        "role": "primary",
+        "displayName": "Precision Blue",
+        "canonical": "#075DE8",
+        "tonalRamp": ["oklch(15% 0.11 260)", "oklch(25% 0.15 260)", "oklch(35% 0.19 260)", "oklch(45% 0.22 260)", "oklch(58% 0.2 260)", "oklch(70% 0.15 260)", "oklch(84% 0.08 260)", "oklch(95% 0.025 260)"]
+      },
+      "precision-blue-active": {
+        "role": "primary",
+        "displayName": "Pressed Precision Blue",
+        "canonical": "#064DCC",
+        "tonalRamp": ["oklch(15% 0.1 260)", "oklch(25% 0.14 260)", "oklch(35% 0.18 260)", "oklch(45% 0.2 260)", "oklch(58% 0.18 260)", "oklch(70% 0.13 260)", "oklch(84% 0.07 260)", "oklch(95% 0.022 260)"]
+      },
+      "blueprint-wash": {
+        "role": "neutral",
+        "displayName": "Blueprint Wash",
+        "canonical": "#EAF2FF",
+        "tonalRamp": ["oklch(15% 0.02 260)", "oklch(25% 0.026 260)", "oklch(35% 0.03 260)", "oklch(45% 0.032 260)", "oklch(58% 0.03 260)", "oklch(70% 0.026 260)", "oklch(84% 0.02 260)", "oklch(95% 0.012 260)"]
+      },
+      "engineering-ink": {
+        "role": "neutral",
+        "displayName": "Engineering Ink",
+        "canonical": "#111F33",
+        "tonalRamp": ["oklch(15% 0.025 252)", "oklch(25% 0.03 252)", "oklch(35% 0.032 252)", "oklch(45% 0.03 252)", "oklch(58% 0.025 252)", "oklch(70% 0.02 252)", "oklch(84% 0.012 252)", "oklch(95% 0.005 252)"]
+      },
+      "alloy-gray": {
+        "role": "neutral",
+        "displayName": "Alloy Gray",
+        "canonical": "#5B6777",
+        "tonalRamp": ["oklch(15% 0.014 250)", "oklch(25% 0.018 250)", "oklch(35% 0.02 250)", "oklch(45% 0.022 250)", "oklch(58% 0.02 250)", "oklch(70% 0.016 250)", "oklch(84% 0.01 250)", "oklch(95% 0.004 250)"]
+      },
+      "optical-white": {
+        "role": "neutral",
+        "displayName": "Optical White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["oklch(15% 0 0)", "oklch(25% 0 0)", "oklch(35% 0 0)", "oklch(45% 0 0)", "oklch(58% 0 0)", "oklch(70% 0 0)", "oklch(84% 0 0)", "oklch(100% 0 0)"]
+      },
+      "cool-workshop-canvas": {
+        "role": "neutral",
+        "displayName": "Cool Workshop Canvas",
+        "canonical": "#F4F7FB",
+        "tonalRamp": ["oklch(15% 0.006 250)", "oklch(25% 0.008 250)", "oklch(35% 0.01 250)", "oklch(45% 0.011 250)", "oklch(58% 0.01 250)", "oklch(70% 0.009 250)", "oklch(84% 0.007 250)", "oklch(97% 0.004 250)"]
+      },
+      "fine-rule": {
+        "role": "neutral",
+        "displayName": "Fine Rule",
+        "canonical": "#DCE4EE",
+        "tonalRamp": ["oklch(15% 0.012 250)", "oklch(25% 0.016 250)", "oklch(35% 0.018 250)", "oklch(45% 0.02 250)", "oklch(58% 0.018 250)", "oklch(70% 0.015 250)", "oklch(84% 0.011 250)", "oklch(93% 0.007 250)"]
+      },
+      "safety-yellow": {
+        "role": "tertiary",
+        "displayName": "Safety Yellow",
+        "canonical": "#FFD21C",
+        "tonalRamp": ["oklch(15% 0.07 95)", "oklch(25% 0.1 95)", "oklch(35% 0.13 95)", "oklch(45% 0.16 95)", "oklch(58% 0.18 95)", "oklch(70% 0.16 95)", "oklch(84% 0.11 95)", "oklch(95% 0.04 95)"]
+      },
+      "support-green": {
+        "role": "tertiary",
+        "displayName": "Support Green",
+        "canonical": "#00A36C",
+        "tonalRamp": ["oklch(15% 0.06 160)", "oklch(25% 0.09 160)", "oklch(35% 0.12 160)", "oklch(45% 0.14 160)", "oklch(58% 0.13 160)", "oklch(70% 0.1 160)", "oklch(84% 0.055 160)", "oklch(95% 0.02 160)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Product Launch Display", "purpose": "One dominant product claim per major launch viewport." },
+      "headline": { "displayName": "Story Headline", "purpose": "Major transitions in the machine story." },
+      "title": { "displayName": "Technical Title", "purpose": "Product names, card titles, and technical subtopics." },
+      "body": { "displayName": "Explanatory Body", "purpose": "Readable bilingual explanation capped at 65-72 characters." },
+      "label": { "displayName": "Technical Label", "purpose": "Prices, specifications, controls, and concise metadata." }
+    },
+    "shadows": [
+      { "name": "action-lift", "value": "0 4px 8px rgba(7, 93, 232, 0.22)", "purpose": "Primary-button hover or focus response only." },
+      { "name": "overlay-separation", "value": "0 10px 28px rgba(16, 44, 78, 0.10)", "purpose": "Menus, predictive search, and floating interface layers." }
+    ],
+    "motion": [
+      { "name": "interaction-responsive", "value": "180ms cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Buttons, cards, links, and compact control feedback." },
+      { "name": "reduced-motion", "value": "0.01ms", "purpose": "Removes translation and animation while preserving the final informational state." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "640px" },
+      { "name": "compact-layout", "value": "990px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The dominant demo, quotation, or purchase action.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Schedule a demonstration</button>",
+      "css": ".ds-btn-primary { min-height: 48px; padding: 12px 24.8px; border: 1px solid var(--maliev-blue, #075DE8); border-radius: 4px; background: var(--maliev-blue, #075DE8); color: #FFFFFF; font: 600 16px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; cursor: pointer; transition: background-color 180ms cubic-bezier(0.22,1,0.36,1), border-color 180ms cubic-bezier(0.22,1,0.36,1), box-shadow 180ms cubic-bezier(0.22,1,0.36,1), transform 180ms cubic-bezier(0.22,1,0.36,1); } .ds-btn-primary:hover { background: #064DCC; border-color: #064DCC; box-shadow: 0 4px 8px rgba(7,93,232,.22); transform: translateY(-2px); } .ds-btn-primary:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(0); } @media (prefers-reduced-motion: reduce) { .ds-btn-primary { transition-duration: .01ms; } .ds-btn-primary:hover { transform: none; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A specifications, comparison, or contact action beside one stronger CTA.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Download specifications</button>",
+      "css": ".ds-btn-secondary { min-height: 48px; padding: 12px 22px; border: 1px solid var(--maliev-blue, #075DE8); border-radius: 4px; background: #FFFFFF; color: var(--maliev-blue, #075DE8); font: 600 16px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; cursor: pointer; transition: background-color 180ms cubic-bezier(0.22,1,0.36,1), border-color 180ms cubic-bezier(0.22,1,0.36,1), color 180ms cubic-bezier(0.22,1,0.36,1); } .ds-btn-secondary:hover { background: #EAF2FF; border-color: #064DCC; color: #064DCC; } .ds-btn-secondary:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; } .ds-btn-secondary:active { background: #DCE9FF; }"
+    },
+    {
+      "name": "Specification Chip",
+      "kind": "chip",
+      "description": "Compact machine facts that help customers scan a featured model.",
+      "html": "<span class=\"ds-spec-chip\">30g shot capacity</span>",
+      "css": ".ds-spec-chip { display: inline-flex; align-items: center; min-height: 34px; padding: 8px 10px; border: 1px solid rgba(7,93,232,.16); border-radius: 999px; background: #EAF2FF; color: #245578; font: 600 12px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-spec-chip:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; }"
+    },
+    {
+      "name": "Product Card",
+      "kind": "card",
+      "refersTo": "product-card",
+      "description": "A quiet catalog surface whose image and product name carry the hierarchy.",
+      "html": "<article class=\"ds-product-card\"><div class=\"ds-product-card-media\" aria-label=\"Product image area\"></div><div class=\"ds-product-card-copy\"><h3>30g injection molding machine</h3><p>Compact pneumatic production for prototypes and small batches.</p></div></article>",
+      "css": ".ds-product-card { width: min(320px,100%); overflow: hidden; border: 1px solid #DCE4EE; border-radius: 12px; background: #FFFFFF; color: #111F33; transition: border-color 180ms cubic-bezier(0.22,1,0.36,1), transform 180ms cubic-bezier(0.22,1,0.36,1); } .ds-product-card:hover { border-color: rgba(7,93,232,.42); transform: translateY(-2px); } .ds-product-card-media { aspect-ratio: 4/3; background: #F4F7FB; } .ds-product-card-copy { padding: 16px; } .ds-product-card h3 { margin: 0 0 8px; font: 600 20px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; letter-spacing: -.01em; } .ds-product-card p { margin: 0; color: #5B6777; font: 400 15px/1.5 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-product-card:focus-within { outline: 3px solid #FFD21C; outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { .ds-product-card { transition-duration: .01ms; } .ds-product-card:hover { transform: none; } }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-standard",
+      "description": "A compact, high-contrast field for quotation and contact flows.",
+      "html": "<label class=\"ds-field\"><span>Work email</span><input type=\"email\" placeholder=\"name@company.com\"></label>",
+      "css": ".ds-field { display: grid; gap: 8px; width: min(360px,100%); color: #111F33; font: 600 13px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-field input { min-height: 48px; padding: 12px 16px; border: 1px solid #DCE4EE; border-radius: 4px; background: #FFFFFF; color: #111F33; font: 400 16px/1.5 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-field input::placeholder { color: #5B6777; opacity: 1; } .ds-field input:hover { border-color: #9DAFC3; } .ds-field input:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; border-color: #075DE8; } .ds-field input:disabled { background: #F4F7FB; color: #5B6777; cursor: not-allowed; }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "description": "A restrained white navigation bar that keeps product discovery and contact routes obvious.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><strong>MALIEV</strong><a href=\"#machines\">Machines</a><a href=\"#support\">Support</a><a class=\"ds-nav-active\" href=\"#demo\">Schedule demo</a></nav>",
+      "css": ".ds-nav { min-height: 72px; display: flex; align-items: center; gap: 24px; padding: 0 32px; border-bottom: 1px solid #DCE4EE; background: #FFFFFF; color: #111F33; font: 400 15px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-nav strong { margin-right: auto; font-weight: 600; letter-spacing: -.02em; } .ds-nav a { color: #111F33; text-decoration: none; } .ds-nav a:hover, .ds-nav .ds-nav-active { color: #075DE8; } .ds-nav a:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; } @media (max-width: 640px) { .ds-nav { min-height: 64px; gap: 16px; padding: 0 20px; } .ds-nav a:not(.ds-nav-active) { display: none; } }"
+    },
+    {
+      "name": "Featured Product Stage",
+      "kind": "custom",
+      "refersTo": "feature-panel",
+      "description": "The signature keynote surface pairing dominant machine imagery with pricing, proof, and commercial action.",
+      "html": "<article class=\"ds-feature-stage\"><div class=\"ds-feature-media\" aria-label=\"Machine image area\"></div><div class=\"ds-feature-copy\"><span>Compact production</span><h2>MALIEV 30g injection molding machine</h2><p>Serious small-batch capability for workshops with limited space.</p><strong>From ฿99,000</strong><button type=\"button\">Request a quotation</button></div></article>",
+      "css": ".ds-feature-stage { display: grid; grid-template-columns: minmax(280px,.95fr) minmax(0,1.05fr); overflow: hidden; border: 1px solid #DCE4EE; border-radius: 6px; background: #FFFFFF; color: #111F33; } .ds-feature-media { min-height: 480px; background: #F4F7FB; } .ds-feature-copy { align-content: center; display: grid; gap: 14px; padding: clamp(28px,5vw,52px); } .ds-feature-copy span { color: #075DE8; font: 600 13px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-feature-copy h2 { max-width: 12ch; margin: 0; font: 600 clamp(32px,4vw,48px)/1 Inter, 'Noto Sans Thai', system-ui, sans-serif; letter-spacing: -.02em; text-wrap: balance; } .ds-feature-copy p { max-width: 52ch; margin: 0; color: #5B6777; font: 400 16px/1.5 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-feature-copy strong { color: #075DE8; font: 600 clamp(30px,4vw,42px)/1 Inter, 'Noto Sans Thai', system-ui, sans-serif; } .ds-feature-copy button { justify-self: start; min-height: 48px; padding: 12px 24px; border: 1px solid #075DE8; border-radius: 4px; background: #075DE8; color: #FFFFFF; font: 600 16px/1.2 Inter, 'Noto Sans Thai', system-ui, sans-serif; cursor: pointer; } .ds-feature-copy button:hover { background: #064DCC; border-color: #064DCC; } .ds-feature-copy button:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; } @media (max-width: 990px) { .ds-feature-stage { grid-template-columns: 1fr; } .ds-feature-media { min-height: 360px; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Compact Production Keynote",
+    "overview": "The storefront should feel like a precise product unveiling held inside a bright, exceptionally organized workshop. It borrows the discipline of an Apple product launch—decisive imagery, progressive explanation, controlled pacing, confident pricing, and purposeful motion—without borrowing Apple's assets, voice, or interface styling. MALIEV remains the subject: ingenious Thai engineering made dependable and approachable. Product imagery carries the emotional weight. Typography and layout establish the reading order, then get out of the machine's way. Each major viewport should advance one idea: compact fit, credible output, accessible ownership, local manufacturing, serviceability, or the next commercial action. Dense specifications belong in structured comparisons and downloadable documents, not in an undifferentiated wall of catalog content. This system explicitly rejects anything that looks or behaves like a lightly customized Shopify template, especially recognizable Dawn patterns. It also rejects generic industrial-supplier clutter and visual theatrics that obscure engineering facts, pricing, or contact paths.",
+    "keyCharacteristics": [
+      "Product-first compositions with accurate, high-quality machine imagery.",
+      "Deep navy structure, optical white space, and a controlled precision-blue action color.",
+      "One sans-serif family with disciplined weight, scale, and Thai-language support.",
+      "Flat, crisp surfaces with compact radii and restrained functional elevation.",
+      "Choreographed explanation with an equivalent reduced-motion still state.",
+      "Clear routes to schedule a demo, request a quotation, chat on LINE, or download specifications."
+    ],
+    "rules": [
+      { "name": "The Precision Blue Rule", "body": "Precision Blue marks an action, an active state, or a technical point of focus; it never becomes ambient decoration.", "section": "colors" },
+      { "name": "The Safety Yellow Rule", "body": "Safety Yellow is reserved for keyboard focus and genuine attention states; using it as a promotional accent is prohibited.", "section": "colors" },
+      { "name": "The Two-Weight Rule", "body": "Use 400 for sustained reading and 600 for hierarchy; heavier weights and artificial boldness are prohibited.", "section": "typography" },
+      { "name": "The One Clear Claim Rule", "body": "Every major product-story viewport gets one dominant headline; secondary text must support it rather than compete with it.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "A surface at rest has no decorative shadow; if every card appears to float, the hierarchy has failed.", "section": "elevation" },
+      { "name": "The Eight-Pixel Ceiling Rule", "body": "Bordered controls may use a response shadow with no more than 8px blur; broad ghost-card shadows are forbidden.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do lead major pages with accurate machine imagery and one clear claim.",
+      "Do borrow Apple product-launch discipline—pacing, photography, progressive explanation, engineering detail, and pricing clarity—while keeping MALIEV's own brand, voice, and visual assets.",
+      "Do use Precision Blue (#075DE8) for primary action and active technical focus.",
+      "Do keep product specifications, dimensions, warranty, replacement parts, and local support easy to verify.",
+      "Do provide dedicated desktop and mobile image compositions rather than relying on destructive automatic crops.",
+      "Do preserve WCAG 2.2 AA contrast, keyboard access, visible focus, and equivalent reduced-motion states.",
+      "Do retain Shopify section schemas and merchant-editable content when implementing the system."
+    ],
+    "donts": [
+      "Don't make the storefront look or behave like a lightly customized Shopify template, especially recognizable Dawn patterns.",
+      "Don't reproduce Apple's typography, copy, assets, device chrome, or signature layouts; the reference is product-story discipline, not imitation.",
+      "Don't introduce generic industrial-supplier clutter, dense walls of specifications, or visual theatrics that obscure engineering facts, pricing, or contact paths.",
+      "Don't use cream, sand, parchment, gradient text, decorative glassmorphism, or CSS grid-pattern backgrounds as shortcuts to a designed appearance.",
+      "Don't repeat tiny uppercase tracked eyebrows or numbered markers as section scaffolding. Labels must describe real technical hierarchy or sequence.",
+      "Don't pair a 1px decorative border with a broad shadow, use card radii above 12px, or turn every surface into a floating card.",
+      "Don't gate content visibility on animation or ship motion without a reduced-motion equivalent.",
+      "Don't show customer-owned molds, parts, names, or logos without explicit permission."
+    ]
+  }
+}
