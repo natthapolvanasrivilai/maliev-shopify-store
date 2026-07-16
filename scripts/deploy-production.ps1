@@ -31,7 +31,7 @@ try {
         throw 'Theme verification failed. Production was not changed.'
     }
 
-    shopify theme push `
+    npx shopify theme push `
         --store $store `
         --theme $expectedThemeId `
         --allow-live `

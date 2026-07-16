@@ -6,8 +6,8 @@ This repository contains the editable Shopify Online Store 2.0 theme for `shop.m
 
 - Store: `10b918-e4.myshopify.com`
 - Live theme: `190305730839`
-- Never push to the live theme unless the user explicitly authorizes a production deployment.
-- Use `scripts/deploy-production.ps1` for production. Do not bypass its clean-tree, branch, confirmation, or Theme Check gates.
+- Merges and pushes to `main` automatically deploy through the guarded GitHub Actions workflow authorized by the store owner.
+- Do not push directly to the live theme from a feature branch. Use `scripts/deploy-production.ps1` only for an explicitly authorized recovery deployment, and do not bypass its clean-tree, branch, confirmation, or Theme Check gates.
 - Production deployment intentionally excludes `config/settings_data.json` so merchant changes made in the Theme Editor are not overwritten accidentally.
 
 ## Development workflow

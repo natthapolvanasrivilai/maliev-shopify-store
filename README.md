@@ -7,7 +7,7 @@ The repository was initialized from the live `Maliev` theme (`190305730839`). Th
 ## Prerequisites
 
 - Node.js 20 or newer
-- A Shopify account with Themes permission
+- The official Shopify Theme Access app and its theme-development password
 - GitHub CLI for repository and pull-request work
 
 Install the pinned Shopify CLI:
@@ -15,6 +15,11 @@ Install the pinned Shopify CLI:
 ```powershell
 npm ci
 ```
+
+Store the Theme Access password outside the repository as the
+`SHOPIFY_CLI_THEME_TOKEN` user environment variable. The same value is stored in
+GitHub Actions as the encrypted `SHOPIFY_CLI_THEME_TOKEN` repository secret.
+Never add the password to an `.env` file or commit it.
 
 ## Local development
 
@@ -60,13 +65,23 @@ Review and commit the resulting diff before beginning unrelated work.
 
 ## Production deployment
 
-Production deployment is manual and intentionally guarded. It requires `main`, a clean working tree, a passing Theme Check, and the exact live theme ID:
+After a pull request is merged, the successful `Theme Check` workflow
+automatically publishes the verified `main` commit to the existing live theme
+`190305730839`. The publish job uses the Theme Access secret, requires the check
+job to pass, and cannot create or select a different theme.
+
+`config/settings_data.json` is excluded from automatic deployment. This prevents
+a stale branch from overwriting merchant-managed Theme Editor configuration.
+
+For a deliberate recovery deployment from a verified local `main`, the guarded
+manual command is:
 
 ```powershell
 pwsh ./scripts/deploy-production.ps1 -ConfirmThemeId 190305730839
 ```
 
-The deployment excludes `config/settings_data.json` by default. This prevents a stale branch from overwriting merchant-managed Theme Editor configuration. Deploy that file only as a separate, explicitly reviewed operation.
+Deploy `config/settings_data.json` only as a separate, explicitly reviewed
+operation when a code change intentionally adds or migrates Theme Editor state.
 
 ## Branch workflow
 
@@ -76,4 +91,4 @@ The deployment excludes `config/settings_data.json` by default. This prevents a 
 4. Run `npm run verify` and complete responsive browser checks.
 5. Open a pull request.
 6. Merge only after CI and visual review pass.
-7. Deploy the reviewed `main` commit manually.
+7. GitHub Actions automatically publishes the verified `main` commit.

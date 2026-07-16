@@ -33,3 +33,40 @@ jobs:
 
       - name: Validate Liquid and theme files
         run: npm run verify
+
+  publish-production:
+    name: Publish production theme
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: theme-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://shop.maliev.com/
+    env:
+      SHOPIFY_CLI_THEME_TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+    steps:
+      - name: Check out verified theme
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install pinned Shopify CLI
+        run: npm ci
+
+      - name: Require Theme Access credential
+        shell: bash
+        run: test -n "$SHOPIFY_CLI_THEME_TOKEN"
+
+      - name: Publish to the existing live theme
+        run: >-
+          npx shopify theme push
+          --store 10b918-e4.myshopify.com
+          --theme 190305730839
+          --allow-live
+          --strict
+          --ignore config/settings_data.json
