@@ -1,0 +1,698 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin language editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "general": {
+    "password_page": {
+      "login_form_heading": "Zadejte heslo, abyste mohli vstoupit do obchodu:",
+      "login_password_button": "Vstoupit pomocí hesla",
+      "login_form_password_label": "Heslo",
+      "login_form_password_placeholder": "Vaše heslo",
+      "login_form_error": "Heslo není správné!",
+      "login_form_submit": "Zadat",
+      "admin_link_html": "Jste majitelem obchodu? <a href=\"/admin\" class=\"link underlined-link\">Přihlaste se zde</a>",
+      "powered_by_shopify_html": "Obchod bude využívat platformu {{ shopify }}"
+    },
+    "social": {
+      "alt_text": {
+        "share_on_facebook": "Sdílet na Facebooku",
+        "share_on_twitter": "Sdílení přes X",
+        "share_on_pinterest": "Připnout na Pinterestu"
+      },
+      "links": {
+        "twitter": "X (Twitter)",
+        "facebook": "Facebook",
+        "pinterest": "Pinterest",
+        "instagram": "Instagram",
+        "tumblr": "Tumblr",
+        "snapchat": "Snapchat",
+        "youtube": "YouTube",
+        "vimeo": "Vimeo",
+        "tiktok": "TikTok"
+      }
+    },
+    "continue_shopping": "Pokračovat v nákupu",
+    "pagination": {
+      "label": "Stránkování",
+      "page": "Strana {{ number }}",
+      "next": "Další stránka",
+      "previous": "Předchozí stránka"
+    },
+    "search": {
+      "search": "Hledání",
+      "reset": "Vymazat hledaný termín"
+    },
+    "cart": {
+      "view": "Zobrazit košík ({{ count }})",
+      "item_added": "Položka byla přidána do košíku",
+      "view_empty_cart": "Zobrazit košík"
+    },
+    "share": {
+      "copy_to_clipboard": "Kopírovat odkaz",
+      "share_url": "Odkaz",
+      "success_message": "Odkaz byl zkopírován do schránky",
+      "close": "Zavřít okno pro sdílení"
+    },
+    "slider": {
+      "of": "z",
+      "next_slide": "Snímek vpravo",
+      "previous_slide": "Snímek vlevo",
+      "name": "Posuvník"
+    }
+  },
+  "newsletter": {
+    "label": "E-mail",
+    "success": "Děkujeme za přihlášení k odběru",
+    "button_label": "Přihlásit k odběru"
+  },
+  "accessibility": {
+    "skip_to_text": "Přejít k obsahu",
+    "close": "Zavřít",
+    "unit_price_separator": "za",
+    "vendor": "Vendor:",
+    "error": "Chyba",
+    "refresh_page": "Po volbě výběru se obnoví celá stránka.",
+    "loading": "Načítání...",
+    "link_messages": {
+      "new_window": "Otevře se v novém okně.",
+      "external": "Otevře externí webovou stránku."
+    },
+    "skip_to_product_info": "Přejít na informace o produktu",
+    "total_reviews": "celkový počet recenzí",
+    "star_reviews_info": "{{ rating_value }} z {{ rating_max }} hvězdiček",
+    "collapsible_content_title": "Sbalitelný obsah",
+    "complementary_products": "Doplňkové produkty"
+  },
+  "blogs": {
+    "article": {
+      "blog": "Blog",
+      "read_more_title": "Přečtěte si více: {{ title }}",
+      "moderated": "Upozorňujeme, že komentáře musí být před zveřejněním schváleny.",
+      "comment_form_title": "Napište komentář",
+      "name": "Název",
+      "email": "E-mail",
+      "message": "Komentář",
+      "post": "Zveřejnit komentář",
+      "back_to_blog": "Zpět na blog",
+      "share": "Nasdílet tento článek",
+      "success": "Váš komentář byl úspěšně publikován! Děkujeme!",
+      "success_moderated": "Váš komentář byl úspěšně publikován. Zveřejníme jej až za chvíli, protože náš blog je moderován.",
+      "comments": {
+        "one": "{{ count }} komentář",
+        "other": "Počet komentářů: {{ count }}",
+        "few": "Počet komentářů: {{ count }}",
+        "many": "Počet komentářů: {{ count }}"
+      }
+    }
+  },
+  "onboarding": {
+    "product_title": "Vzorový název produktu",
+    "collection_title": "Název vaší kolekce"
+  },
+  "products": {
+    "product": {
+      "add_to_cart": "Přidat do košíku",
+      "description": "Popis",
+      "on_sale": "Sleva",
+      "share": "Sdílet tento produkt",
+      "sold_out": "Vyprodáno",
+      "unavailable": "Není k dispozici",
+      "vendor": "Vendor",
+      "video_exit_message": "{{ title }} otevře ve stejném okně video na celé obrazovce.",
+      "xr_button": "Zobrazit ve vašem prostoru",
+      "xr_button_label": "Zobrazit ve vašem prostoru: Umožňuje načíst položku v okně rozšířené reality",
+      "quantity": {
+        "label": "Množství",
+        "input_label": "Množství produktu {{ product }}",
+        "increase": "Zvýšit množství produktu {{ product }}",
+        "decrease": "Snížit množství produktu {{ product }}",
+        "minimum_of": "Minimum: {{ quantity }}",
+        "maximum_of": "Maximum: {{ quantity }}",
+        "multiples_of": "Přírůstky: {{ quantity }}",
+        "in_cart_html": "<span class=\"quantity-cart\">{{ quantity }}</span> v košíku",
+        "note": "Zobrazit pravidla množství",
+        "min_of": "Minimum {{ quantity }}",
+        "max_of": "Maximum {{ quantity }}",
+        "in_cart_aria_label": "Množství ({{ quantity }} v košíku)"
+      },
+      "price": {
+        "from_price_html": "Od {{ price }}",
+        "regular_price": "Běžná cena",
+        "sale_price": "Výprodejová cena",
+        "unit_price": "Jednotková cena"
+      },
+      "pickup_availability": {
+        "view_store_info": "Zobrazit informace o obchodě",
+        "check_other_stores": "Zkontrolovat dostupnost v ostatních obchodech",
+        "pick_up_available": "Vyzvednutí k dispozici",
+        "pick_up_available_at_html": "Vyzvednutí je k dispozici v lokalitě <span class=\"color-foreground\">{{ location_name }}</span>",
+        "pick_up_unavailable_at_html": "Vyzvednutí není momentálně v lokalitě <span class=\"color-foreground\">{{ location_name }}</span> k dispozici",
+        "unavailable": "Dostupnost vyzvednutí nebylo možné načíst",
+        "refresh": "Aktualizovat"
+      },
+      "media": {
+        "open_media": "Otevřít multimédia {{ index }} v modálním okně",
+        "play_model": "Přehrát v 3D prohlížeči",
+        "play_video": "Přehrát video",
+        "gallery_viewer": "Prohlížeč galerie",
+        "load_image": "Načíst obrázek {{ index }} do zobrazení galerie",
+        "load_model": "Načíst 3D model {{ index }} do zobrazení galerie",
+        "load_video": "Přehrát video {{ index }} v zobrazení galerie",
+        "image_available": "Obrázek {{ index }} je nyní k dispozici v zobrazení galerie"
+      },
+      "nested_label": "{{ title }} pro {{ parent_title }}",
+      "view_full_details": "Zobrazit veškeré podrobnosti",
+      "shipping_policy_html": "<a href=\"{{ link }}\">Poštovné</a> se vypočítá na pokladně.",
+      "choose_options": "Výběr možností",
+      "choose_product_options": "Zvolte možnosti pro: {{ product_name }}",
+      "value_unavailable": "{{ option_value }} – není k dispozici",
+      "variant_sold_out_or_unavailable": "Vyprodaná nebo nedostupná varianta",
+      "inventory_in_stock": "Skladem",
+      "inventory_in_stock_show_count": "{{ quantity }} skladem",
+      "inventory_low_stock": "Skladové zásoby docházejí",
+      "inventory_low_stock_show_count": "Skladové zásoby docházejí, zbývající množství: {{ quantity }}",
+      "inventory_out_of_stock": "Není skladem",
+      "sku": "SKU",
+      "inventory_out_of_stock_continue_selling": "Skladem",
+      "volume_pricing": {
+        "title": "Ceny s objemovou slevou",
+        "note": "Ceny s objemovou slevou k dispozici",
+        "minimum": "{{ quantity }} a více",
+        "price_range": "{{ minimum }}–{{ maximum }}",
+        "price_at_each_html": "{{ price }} / ks"
+      },
+      "product_variants": "Varianty produktu",
+      "taxes_included": "Včetně daní.",
+      "duties_included": "Včetně cla.",
+      "duties_and_taxes_included": "Včetně cla a daní."
+    },
+    "modal": {
+      "label": "Galerie multimédií"
+    },
+    "facets": {
+      "apply": "Použít",
+      "clear": "Vymazat",
+      "clear_all": "Odebrat vše",
+      "from": "Od",
+      "filter_and_sort": "Filtrování a řazení",
+      "filter_by_label": "Filtrovat:",
+      "filter_button": "Filtr",
+      "max_price": "Nejvyšší cena je {{ price }}",
+      "reset": "Resetovat",
+      "sort_button": "Seřadit",
+      "sort_by_label": "Seřadit podle:",
+      "to": "Do",
+      "filters_selected": {
+        "one": "Vybráno: {{ count }}",
+        "other": "Vybráno: {{ count }}",
+        "few": "Vybráno: {{ count }}",
+        "many": "Vybráno: {{ count }}"
+      },
+      "product_count": {
+        "one": "{{ product_count }} z {{ count }} produktu",
+        "other": "{{ product_count }} z {{ count }} produktů",
+        "few": "{{ product_count }} z {{ count }} produktů",
+        "many": "{{ product_count }} z {{ count }} produktů"
+      },
+      "product_count_simple": {
+        "one": "Počet produktů: {{ count }}",
+        "other": "Počet produktů: {{ count }}",
+        "few": "Počet produktů: {{ count }}",
+        "many": "Počet produktů: {{ count }}"
+      },
+      "clear_filter": "Odebrat filtr",
+      "filter_selected_accessibility": "{{ type }} (počet vybraných filtrů: {{ count }})",
+      "show_more": "Zobrazit více",
+      "show_less": "Zobrazit méně",
+      "filter_and_operator_subtitle": "Shoda se všemi kritérii"
+    }
+  },
+  "templates": {
+    "search": {
+      "no_results": "Nebyly nalezeny žádné výsledky pro {{ terms }}. Zkontrolujte pravopis nebo zadejte jiné slovo či slovní spojení.",
+      "title": "Výsledky hledání",
+      "results_with_count": {
+        "one": "{{ count }} výsledek",
+        "other": "Výsledky: {{ count }}",
+        "few": "Výsledky: {{ count }}",
+        "many": "Výsledky: {{ count }}"
+      },
+      "page": "Stránka",
+      "products": "Produkty",
+      "search_for": "Vyhledat: {{ terms }}",
+      "results_with_count_and_term": {
+        "one": "Pro dotaz {{ terms }} byl nalezen {{ count }} výsledek",
+        "other": "Pro dotaz {{ terms }} byl nalezen tento počet výsledků: {{ count }}",
+        "few": "Pro dotaz {{ terms }} byl nalezen tento počet výsledků: {{ count }}",
+        "many": "Pro dotaz {{ terms }} byl nalezen tento počet výsledků: {{ count }}"
+      },
+      "results_pages_with_count": {
+        "one": "{{ count }} stránka",
+        "other": "{{ count }} str.",
+        "few": "{{ count }} str.",
+        "many": "{{ count }} str."
+      },
+      "results_products_with_count": {
+        "one": "{{ count }} produkt",
+        "other": "{{ count }} prod.",
+        "few": "{{ count }} prod.",
+        "many": "{{ count }} prod."
+      },
+      "suggestions": "Návrhy",
+      "pages": "Stránky",
+      "results_suggestions_with_count": {
+        "one": "Počet návrhů: {{ count }}",
+        "other": "Počet návrhů: {{ count }}",
+        "few": "Počet návrhů: {{ count }}",
+        "many": "Počet návrhů: {{ count }}"
+      }
+    },
+    "cart": {
+      "cart": "Košík"
+    },
+    "contact": {
+      "form": {
+        "name": "Jméno",
+        "email": "E-mail",
+        "phone": "Telefonní číslo",
+        "comment": "Komentář",
+        "send": "Odeslat",
+        "post_success": "Děkujeme, že jste nás kontaktovali. Ozveme se vám co možná nejdříve.",
+        "error_heading": "Upravte prosím následující informace:",
+        "title": "Kontaktní formulář"
+      }
+    },
+    "404": {
+      "title": "Stránka nebyla nalezena",
+      "subtext": "404"
+    }
+  },
+  "sections": {
+    "header": {
+      "announcement": "Oznámení",
+      "menu": "Nabídka",
+      "cart_count": {
+        "one": "{{ count }} položka",
+        "other": "{{ count }} polož.",
+        "few": "{{ count }} polož.",
+        "many": "{{ count }} polož."
+      }
+    },
+    "cart": {
+      "title": "Váš košík",
+      "caption": "Položky košíku",
+      "remove_title": "Odebrat: {{ title }}",
+      "note": "Zvláštní pokyny k objednávce",
+      "checkout": "Pokladna",
+      "empty": "Košík je prázdný",
+      "cart_error": "Při aktualizaci vašeho košíku došlo k chybě. Zkuste to prosím znovu.",
+      "cart_quantity_error_html": "Do košíku můžete přidat jen následující množství dané položky: {{ quantity }}.",
+      "update": "Aktualizovat",
+      "headings": {
+        "product": "Produkt",
+        "price": "Cena",
+        "total": "Celkem",
+        "quantity": "Množství",
+        "image": "Obrázek produktu"
+      },
+      "login": {
+        "title": "Máte účet?",
+        "paragraph_html": "<a href=\"{{ link }}\" class=\"link underlined-link\">Přihlaste se</a>, abyste si urychlili proces pokladny."
+      },
+      "estimated_total": "Odhadovaný součet",
+      "new_estimated_total": "Nový odhadovaný součet",
+      "duties_and_taxes_included_shipping_at_checkout_with_policy_html": "Včetně cla a daní. Slevy a <a href=\"{{ link }}\">poštovné</a> se vypočítají na pokladně.",
+      "duties_and_taxes_included_shipping_at_checkout_without_policy": "Včetně cla a daní. Slevy a poštovné se vypočítají na pokladně.",
+      "taxes_included_shipping_at_checkout_with_policy_html": "Včetně daní. Slevy a <a href=\"{{ link }}\">poštovné</a> se vypočítají na pokladně.",
+      "taxes_included_shipping_at_checkout_without_policy": "Včetně daní. Slevy a poštovné se vypočítají na pokladně.",
+      "duties_included_taxes_at_checkout_shipping_at_checkout_with_policy_html": "Včetně cla. Daně, slevy a <a href=\"{{ link }}\">poštovné</a> se vypočítají na pokladně.",
+      "duties_included_taxes_at_checkout_shipping_at_checkout_without_policy": "Včetně cla. Daně, slevy a poštovné se vypočítají na pokladně.",
+      "taxes_at_checkout_shipping_at_checkout_with_policy_html": "Daně, slevy a <a href=\"{{ link }}\">poštovné</a> se vypočítají na pokladně.",
+      "taxes_at_checkout_shipping_at_checkout_without_policy": "Daně, slevy a poštovné se vypočítají na pokladně."
+    },
+    "footer": {
+      "payment": "Platební metody"
+    },
+    "featured_blog": {
+      "view_all": "Zobrazit vše",
+      "onboarding_title": "Blogový příspěvek",
+      "onboarding_content": "Shrňte pro zákazníky obsah svého blogového příspěvku"
+    },
+    "featured_collection": {
+      "view_all": "Zobrazit vše",
+      "view_all_label": "Zobrazit všechny produkty v kolekci {{ collection_name }}"
+    },
+    "collection_list": {
+      "view_all": "Zobrazit vše"
+    },
+    "collection_template": {
+      "title": "Kolekce",
+      "empty": "Nenalezeny žádné produkty",
+      "use_fewer_filters_html": "Můžete použít méně filtrů nebo <a class=\"{{ class }}\" href=\"{{ link }}\">všechny odebrat</a>"
+    },
+    "video": {
+      "load_video": "Načíst video: {{ description }}"
+    },
+    "slideshow": {
+      "load_slide": "Načíst snímek",
+      "previous_slideshow": "Předchozí snímek",
+      "next_slideshow": "Další snímek",
+      "pause_slideshow": "Pozastavit prezentaci",
+      "play_slideshow": "Přehrát prezentaci",
+      "carousel": "Karusel",
+      "slide": "Snímek"
+    },
+    "page": {
+      "title": "Název stránky"
+    },
+    "announcements": {
+      "previous_announcement": "Předchozí oznámení",
+      "next_announcement": "Další oznámení",
+      "carousel": "Karusel",
+      "announcement": "Oznámení",
+      "announcement_bar": "Panel oznámení"
+    },
+    "quick_order_list": {
+      "product_total": "Mezisoučet produktu",
+      "view_cart": "Zobrazit košík",
+      "each": "{{ money }} / ks",
+      "product": "Produkt",
+      "variant": "Varianta",
+      "variant_total": "Varianta celkem",
+      "items_added": {
+        "one": "Byla přidána {{ quantity }} položka",
+        "other": "Byl přidán tento počet položek: {{ quantity }}",
+        "few": "Byl přidán tento počet položek: {{ quantity }}",
+        "many": "Byl přidán tento počet položek: {{ quantity }}"
+      },
+      "items_removed": {
+        "one": "Byla odebrána {{ quantity }} položka",
+        "other": "Byla odebrán tento počet položek: {{ quantity }}",
+        "few": "Byla odebrán tento počet položek: {{ quantity }}",
+        "many": "Byla odebrán tento počet položek: {{ quantity }}"
+      },
+      "product_variants": "Varianty produktu",
+      "total_items": "Celkový počet položek",
+      "remove_all_items_confirmation": "Chcete z košíku odebrat všechny položky ({{ quantity }})?",
+      "remove_all": "Odebrat vše",
+      "cancel": "Zrušit",
+      "remove_all_single_item_confirmation": "Chcete odebrat 1 položku z košíku?",
+      "min_error": "Tato položka vyžaduje minimum: {{ min }}",
+      "max_error": "Tato položka vyžaduje maximum: {{ max }}",
+      "step_error": "Tuto položku můžete přidat jen v přírůstcích hodnoty: {{ step }}"
+    }
+  },
+  "localization": {
+    "country_label": "Země/oblast",
+    "language_label": "Jazyk",
+    "update_language": "Aktualizovat jazyk",
+    "update_country": "Aktualizovat zemi/oblast",
+    "search": "Začněte hledat",
+    "popular_countries_regions": "Oblíbené země/oblasti",
+    "country_results_count": "Byl nalezen tento počet zemí/oblastí: {{ count }}"
+  },
+  "customer": {
+    "account": {
+      "title": "Účet",
+      "details": "Podrobnosti účtu",
+      "view_addresses": "Zobrazit adresy",
+      "return": "Vrátit se k podrobnostem účtu"
+    },
+    "account_fallback": "Účet",
+    "log_in": "Přihlásit se",
+    "log_out": "Odhlásit se",
+    "activate_account": {
+      "title": "Aktivovat účet",
+      "subtext": "Vytvořte heslo pro aktivaci účtu.",
+      "password": "Heslo",
+      "password_confirm": "Potvrdit heslo",
+      "submit": "Aktivovat účet",
+      "cancel": "Odmítnout pozvánku"
+    },
+    "addresses": {
+      "title": "Adresy",
+      "default": "Výchozí",
+      "add_new": "Přidat novou adresu",
+      "edit_address": "Upravit adresu",
+      "first_name": "Jméno",
+      "last_name": "Příjmení",
+      "company": "Společnost",
+      "address1": "Adresa 1",
+      "address2": "Adresa 2",
+      "city": "Město",
+      "country": "Země/oblast",
+      "province": "Provincie",
+      "zip": "PSČ",
+      "phone": "Telefon",
+      "set_default": "Nastavit jako výchozí adresu",
+      "add": "Přidat adresu",
+      "update": "Aktualizovat adresu",
+      "cancel": "Zrušit",
+      "edit": "Upravit",
+      "delete": "Odstranit",
+      "delete_confirm": "Opravdu chcete tuto adresu odstranit?"
+    },
+    "login_page": {
+      "cancel": "Zrušit",
+      "create_account": "Vytvořit účet",
+      "email": "E-mail",
+      "forgot_password": "Zapomněli jste heslo?",
+      "guest_continue": "Pokračovat",
+      "guest_title": "Pokračovat jako host",
+      "password": "Heslo",
+      "title": "Přihlášení",
+      "sign_in": "Přihlásit se",
+      "submit": "Odeslat",
+      "alternate_provider_separator": "nebo"
+    },
+    "orders": {
+      "title": "Historie objednávek",
+      "order_number": "Objednávka",
+      "order_number_link": "Číslo objednávky: {{ number }}",
+      "date": "Datum",
+      "payment_status": "Stav platby",
+      "fulfillment_status": "Stav plnění",
+      "total": "Celkem",
+      "none": "Zatím jste nezadali žádné objednávky."
+    },
+    "recover_password": {
+      "title": "Resetujte si heslo",
+      "subtext": "Pošleme vám e-mail, abyste si mohli resetovat heslo",
+      "success": "Poslali jsme vám e-mail s odkazem na aktualizaci hesla."
+    },
+    "register": {
+      "title": "Vytvořit účet",
+      "first_name": "Jméno",
+      "last_name": "Příjmení",
+      "email": "E-mail",
+      "password": "Heslo",
+      "submit": "Vytvořit"
+    },
+    "reset_password": {
+      "title": "Resetujte heslo účtu",
+      "subtext": "Zadejte nové heslo",
+      "password": "Heslo",
+      "password_confirm": "Potvrdit heslo",
+      "submit": "Resetovat heslo"
+    },
+    "order": {
+      "title": "Objednávka {{ name }}",
+      "date_html": "Datum vytvoření: {{ date }}",
+      "cancelled_html": "Datum zrušení objednávky: {{ date }}",
+      "cancelled_reason": "Důvod: {{ reason }}",
+      "billing_address": "Fakturační adresa",
+      "payment_status": "Stav platby",
+      "shipping_address": "Dodací adresa",
+      "fulfillment_status": "Stav plnění",
+      "discount": "Sleva",
+      "shipping": "Doprava",
+      "tax": "Daň",
+      "product": "Produkt",
+      "sku": "SKU",
+      "price": "Cena",
+      "quantity": "Množství",
+      "total": "Celkem",
+      "fulfilled_at_html": "Splněno: {{ date }}",
+      "track_shipment": "Sledovat zásilku",
+      "tracking_url": "Odkaz pro sledování",
+      "tracking_company": "Dopravce",
+      "tracking_number": "Číslo pro sledování",
+      "subtotal": "Mezisoučet",
+      "total_duties": "Cla",
+      "total_refunded": "Vrácená částka"
+    }
+  },
+  "gift_cards": {
+    "issued": {
+      "title": "Zůstatek vaší dárkové karty pro obchod {{ shop }} je: {{ value }}!",
+      "subtext": "Vaše dárková karta",
+      "gift_card_code": "Kód dárkové karty",
+      "shop_link": "Navštívit online obchod",
+      "add_to_apple_wallet": "Přidat do Apple Peněženky",
+      "qr_image_alt": "QR kód: po naskenování můžete uplatnit svou dárkovou kartu",
+      "copy_code": "Zkopírovat kód dárkové karty",
+      "expired": "Platnost vypršela",
+      "copy_code_success": "Kód byl úspěšně zkopírován",
+      "how_to_use_gift_card": "Použijte kód dárkové karty online nebo QR kód na prodejně",
+      "expiration_date": "Platnost skončí {{ expires_on }}"
+    }
+  },
+  "recipient": {
+    "form": {
+      "checkbox": "Chci zboží poslat jako dárek",
+      "email_label": "E-mail příjemce",
+      "email": "E-mail",
+      "name_label": "Jméno příjemce (volitelné)",
+      "name": "Jméno",
+      "message_label": "Zpráva (volitelné)",
+      "message": "Zpráva",
+      "max_characters": "Maximální počet znaků: {{ max_chars }}",
+      "email_label_optional_for_no_js_behavior": "E-mail příjemce (volitelné)",
+      "send_on": "RRRR-MM-DD",
+      "send_on_label": "Datum odeslání (volitelné)",
+      "expanded": "Formulář pro příjemce dárkové karty se rozbalil.",
+      "collapsed": "Formulář pro příjemce dárkové karty se sbalil."
+    }
+  },
+  "maliev_home_i18n": {
+    "aria": {
+      "storefront": "MALIEV manufacturing storefront",
+      "product_lines": "MALIEV product lines",
+      "buying_workflow": "Buying workflow"
+    },
+    "hero": {
+      "eyebrow": "Manufacturing tools and products",
+      "title": "Machines, molds, and manufacturing support from MALIEV.",
+      "lead": "Shop compact injection molding machines, mold resources, SimMount hardware, 3D printed products, and custom manufacturing services.",
+      "shop_machine_lineup": "Shop machine lineup",
+      "request_quote": "Request manufacturing quote",
+      "eyebrow_cover": "Manufacturing tools and products",
+      "title_cover": "Machines, molds, and manufacturing support from MALIEV.",
+      "lead_cover": "Shop compact injection molding machines, mold resources, SimMount hardware, 3D printed products, and custom manufacturing services.",
+      "shop_machine_lineup_cover": "Shop machine lineup"
+    },
+    "stats": {
+      "machines_title": "Machines",
+      "machines_text": "Injection molding equipment for small-batch production.",
+      "molds_title": "Molds",
+      "molds_text": "Tooling and mold resources for injection molding projects.",
+      "sim_title": "Sim racing",
+      "sim_text": "SimMount hardware for racing rigs and tactile feedback setups.",
+      "services_title": "Services",
+      "services_text": "Manufacturing support for custom parts, prototypes, and product development."
+    },
+    "families": {
+      "title": "Shop by product family.",
+      "text": "Find the right MALIEV product line for machine work, tooling, sim racing hardware, or printed products.",
+      "machines_title": "Injection molding machines",
+      "machines_text": "30g and 50g lineup, accessories, and mold planning content.",
+      "sim_title": "SimMount hardware",
+      "sim_text": "Mounting solutions and accessories for sim racing rigs.",
+      "printed_title": "3D printed products",
+      "printed_text": "Finished printed products designed and produced by MALIEV."
+    },
+    "workflow": {
+      "step1_title": "Shop injection molding machines",
+      "step1_text": "Compare the 30g and new 50g pneumatic machines for small-batch plastic production.",
+      "step2_title": "Plan molds and tooling",
+      "step2_text": "Use mold references, injection port guidance, and tooling support before production.",
+      "step3_title": "Find workshop products",
+      "step3_text": "Browse SimMount hardware, replacement parts, 3D printed products, and accessories.",
+      "step4_title": "Request custom manufacturing",
+      "step4_text": "Contact MALIEV for prototype parts, small production runs, and made-to-order work."
+    },
+    "lineup": {
+      "title": "Machines, molds, and accessories in one place.",
+      "text": "Compare injection molding machines, mold resources, and supporting products for small-batch plastic production.",
+      "injection_panel": "Injection molding",
+      "machine_lineup": "Machine lineup",
+      "machine_30_title": "Pneumatic Injection Molding Machine 30g",
+      "machine_30_text": "Standard 30g capacity model",
+      "machine_50_title": "Pneumatic Injection Molding Machine 50g",
+      "machine_50_text": "New larger-capacity addition",
+      "molds_title": "Molds and tooling support",
+      "molds_text": "Standard molds and custom mold planning",
+      "sim_panel": "Sim racing",
+      "sim_subtitle": "Separate product family",
+      "simmount_title": "SimMount Pro VESA",
+      "simmount_text": "Racing rig accessory",
+      "parts_title": "Replacement parts guide",
+      "parts_text": "Fix common bass shaker rattling issues",
+      "ecosystem_title": "Mounting ecosystem",
+      "ecosystem_text": "Accessories for cleaner rig installation"
+    },
+    "featured": {
+      "title": "Featured machine for compact plastic production.",
+      "text": "Swipe between the standard 30g machine and the new higher-capacity 50g addition for compact plastic production.",
+      "panel_title": "Featured product",
+      "panel_subtitle": "30g machine",
+      "eyebrow": "Injection molding machine",
+      "product_title": "Pneumatic Injection Molding Machine 30g",
+      "description": "A compact pneumatic injection molding machine for low-volume plastic part production, prototyping, classroom projects, and recycled-plastic experiments. It supports up to 30g shot size with dual PID-controlled heating zones.",
+      "pill_capacity": "30g shot capacity",
+      "pill_heaters": "2 x 300W heaters",
+      "pill_lead_time": "30 day lead time",
+      "pill_compressor": "Optional compressor",
+      "view_30g": "View 30g machine",
+      "compare_lineup": "Compare lineup",
+      "pill_heaters_50": "2 x 350W hot runner heaters",
+      "pill_meltzone_50": "Steel melt zone",
+      "view_50g": "View 50g machine",
+      "description_50": "The new 50g model increases shot capacity, upgrades the melt zone to steel, and uses 2 x 220V 350W hot runner heater bands for faster heat-up and higher-temperature durability.",
+      "swipe_hint": "Swipe for 50g",
+      "product_title_50": "Pneumatic Injection Molding Machine 50g",
+      "carousel_label": "Featured injection molding machine carousel",
+      "pill_capacity_50": "50g shot capacity",
+      "panel_subtitle_50": "New 50g machine"
+    },
+    "blog": {
+      "title": "Guides, updates, and practical product notes.",
+      "text": "Read MALIEV articles about sim racing hardware, workshop fixtures, 3D printed products, and manufacturing improvements.",
+      "sim_category": "Sim racing support",
+      "sim_title": "Bass Shaker Rattling? How SimMount Replacement Parts Fix Common OEM Issues",
+      "sim_text": "Learn how replacement parts reduce noise and improve tactile feedback setups.",
+      "tooling_category": "Tooling guide",
+      "tooling_title": "Improve Your Tapping Process with the Aluminum Profile Tap Guide",
+      "tooling_text": "A practical fixture for cleaner alignment and more consistent aluminum profile tapping.",
+      "product_category": "Product guide",
+      "product_title": "Why You Need Hex Socket Screw Covers",
+      "product_text": "Simple covers that improve appearance and help keep debris out of socket head screws."
+    },
+    "article": {
+      "eyebrow": "Workshop guide",
+      "title": "Improve your tapping process with the Aluminum Profile Tap Guide.",
+      "text": "The tap guide helps align taps during aluminum profile work, reducing setup time and improving thread consistency for workshop builds and fixture assembly.",
+      "pill_profile": "Aluminum profile",
+      "pill_tapping": "Tapping guide",
+      "pill_fixture": "Workshop fixture",
+      "pill_process": "Process improvement"
+    },
+    "quote": {
+      "title": "Need something manufactured instead of bought from the shelf?",
+      "text": "Send us your part requirements, prototype plan, or production problem. MALIEV can help with product design, 3D printing, machining, tooling, and manufacturing support.",
+      "request_quote": "Request a quote",
+      "read_guides": "Read guides"
+    },
+    "alt": {
+      "machine": "Pneumatic injection molding machine",
+      "simmount": "SimMount hardware",
+      "printed_collection": "3D printed product collection",
+      "machine_30": "30g pneumatic injection molding machine",
+      "machine_lineup": "Injection molding machine lineup",
+      "mold": "Injection mold and molded plastic parts",
+      "simmount_vesa": "SimMount Pro VESA",
+      "simmount_parts": "SimMount replacement parts guide",
+      "simmount_ecosystem": "SimMount ecosystem",
+      "bass_shaker": "Bass shaker replacement guide",
+      "tap_guide": "Aluminum profile tap guide",
+      "screw_covers": "Hex socket screw covers",
+      "tap_fixture": "Aluminum profile tap guide fixture"
+    }
+  }
+}

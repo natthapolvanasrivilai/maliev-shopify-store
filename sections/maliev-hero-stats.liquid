@@ -1,0 +1,232 @@
+{{ 'maliev-home-sections.css' | asset_url | stylesheet_tag }}
+
+<section class="maliev-home" aria-label="{{ section.settings.aria_label | escape }}">
+  <div class="mh">
+    <div class="mh__hero">
+      <div class="mh__copy">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="mh__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- endif -%}
+        <h1 class="mh__title">
+          {%- if section.settings.title_line_1 != blank -%}
+            <span class="mh__title-line">{{ section.settings.title_line_1 | escape }}</span>
+          {%- endif -%}
+          {%- if section.settings.title_line_2 != blank -%}
+            <span class="mh__title-line">{{ section.settings.title_line_2 | escape }}</span>
+          {%- endif -%}
+          {%- if section.settings.title_line_3 != blank -%}
+            <span class="mh__title-line">{{ section.settings.title_line_3 | escape }}</span>
+          {%- endif -%}
+          {%- if section.settings.title_line_4 != blank -%}
+            <span class="mh__title-line mh__title-line--brand">
+              <span>{{ section.settings.title_line_4 | escape }}</span>
+              {%- if section.settings.show_logo and settings.logo != blank -%}
+                {%- assign logo_alt = settings.logo.alt | default: section.settings.brand_text | default: shop.name | escape -%}
+                {{ settings.logo | image_url: width: 560 | image_tag: class: 'mh__title-logo', loading: 'eager', alt: logo_alt }}
+              {%- elsif section.settings.brand_text != blank -%}
+                <span class="mh__title-logo-text">{{ section.settings.brand_text | escape }}</span>
+              {%- endif -%}
+            </span>
+          {%- endif -%}
+        </h1>
+        {%- if section.settings.lead != blank -%}
+          <p class="mh__lead">{{ section.settings.lead | escape }}</p>
+        {%- endif -%}
+        <div class="mh__actions">
+          {%- if section.settings.primary_label != blank and section.settings.primary_link != blank -%}
+            <a class="mh__button" href="{{ section.settings.primary_link }}">{{ section.settings.primary_label | escape }}</a>
+          {%- endif -%}
+          {%- if section.settings.secondary_label != blank and section.settings.secondary_link != blank -%}
+            <a class="mh__button mh__button--secondary" href="{{ section.settings.secondary_link }}">{{ section.settings.secondary_label | escape }}</a>
+          {%- endif -%}
+        </div>
+      </div>
+      <div class="mh__stage" aria-hidden="true">
+        {%- if section.settings.hero_image != blank -%}
+          {{ section.settings.hero_image | image_url: width: 3000 | image_tag: loading: 'eager', fetchpriority: 'high', preload: true, alt: section.settings.hero_image_alt, sizes: '100vw', widths: '640, 960, 1440, 1920, 2560, 3000' }}
+        {%- elsif section.settings.hero_image_url != blank -%}
+          {%- assign hero_image_url = section.settings.hero_image_url -%}
+          {%- assign hero_query_separator = '?' -%}
+          {%- if hero_image_url contains '?' -%}
+            {%- assign hero_query_separator = '&' -%}
+          {%- endif -%}
+          {%- assign hero_640_url = hero_image_url | append: hero_query_separator | append: 'width=640' -%}
+          {%- assign hero_960_url = hero_image_url | append: hero_query_separator | append: 'width=960' -%}
+          {%- assign hero_1440_url = hero_image_url | append: hero_query_separator | append: 'width=1440' -%}
+          {%- assign hero_1920_url = hero_image_url | append: hero_query_separator | append: 'width=1920' -%}
+          {%- assign hero_2560_url = hero_image_url | append: hero_query_separator | append: 'width=2560' -%}
+          {%- assign hero_3000_url = hero_image_url | append: hero_query_separator | append: 'width=3000' -%}
+          <link
+            rel="preload"
+            as="image"
+            href="{{ hero_1920_url | escape }}"
+            imagesrcset="{{ hero_640_url | escape }} 640w, {{ hero_960_url | escape }} 960w, {{ hero_1440_url | escape }} 1440w, {{ hero_1920_url | escape }} 1920w, {{ hero_2560_url | escape }} 2560w, {{ hero_3000_url | escape }} 3000w"
+            imagesizes="100vw"
+            fetchpriority="high"
+          >
+          <img
+            src="{{ hero_1920_url | escape }}"
+            srcset="{{ hero_640_url | escape }} 640w, {{ hero_960_url | escape }} 960w, {{ hero_1440_url | escape }} 1440w, {{ hero_1920_url | escape }} 1920w, {{ hero_2560_url | escape }} 2560w, {{ hero_3000_url | escape }} 3000w"
+            sizes="100vw"
+            alt="{{ section.settings.hero_image_alt | escape }}"
+            width="3000"
+            height="1286"
+            loading="eager"
+            fetchpriority="high"
+          >
+        {%- endif -%}
+      </div>
+    </div>
+
+    <div class="mh__stats" aria-label="{{ section.settings.stats_aria_label | escape }}">
+      {%- for block in section.blocks -%}
+        <div class="mh__stat" {{ block.shopify_attributes }}>
+          <strong>{{ block.settings.title | escape }}</strong>
+          <span>{{ block.settings.text | escape }}</span>
+        </div>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "MALIEV hero + stats",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "MALIEV storefront"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Manufacturing tools from MALIEV"
+    },
+    {
+      "type": "text",
+      "id": "title_line_1",
+      "label": "Title line 1",
+      "default": "Machines,"
+    },
+    {
+      "type": "text",
+      "id": "title_line_2",
+      "label": "Title line 2",
+      "default": "molds, and"
+    },
+    {
+      "type": "text",
+      "id": "title_line_3",
+      "label": "Title line 3",
+      "default": "manufacturing"
+    },
+    {
+      "type": "text",
+      "id": "title_line_4",
+      "label": "Title line 4",
+      "default": "support from"
+    },
+    {
+      "type": "text",
+      "id": "brand_text",
+      "label": "Brand text fallback",
+      "default": "MALIEV"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_logo",
+      "label": "Use theme logo in the title",
+      "default": true
+    },
+    {
+      "type": "textarea",
+      "id": "lead",
+      "label": "Lead text",
+      "default": "Shop compact injection molding machines, mold resources, SimMount hardware, 3D printed products, and custom manufacturing services."
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label",
+      "default": "Shop machine lineup"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary button label",
+      "default": "Chat with us on LINE"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "image_picker",
+      "id": "hero_image",
+      "label": "Hero image"
+    },
+    {
+      "type": "text",
+      "id": "hero_image_url",
+      "label": "Fallback hero image URL",
+      "default": "https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-hero-desktop-right.28.png"
+    },
+    {
+      "type": "text",
+      "id": "hero_image_alt",
+      "label": "Hero image alt text"
+    },
+    {
+      "type": "text",
+      "id": "stats_aria_label",
+      "label": "Stats accessibility label",
+      "default": "Product lines"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "stat",
+      "name": "Stat",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Machines"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Injection molding equipment for small-batch production."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV hero + stats",
+      "blocks": [
+        { "type": "stat" },
+        { "type": "stat" },
+        { "type": "stat" },
+        { "type": "stat" }
+      ]
+    }
+  ]
+}
+{% endschema %}

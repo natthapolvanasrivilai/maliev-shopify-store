@@ -1,0 +1,1513 @@
+/* MALIEV production homepage component styles. Generated from maliev-modern-home-v4.liquid and scoped for reusable sections. */
+.maliev-home {
+    --maliev-home-ink: #101214;
+    --maliev-home-muted: #697078;
+    --maliev-home-paper: #f4f6f7;
+    --maliev-home-panel: #ffffff;
+    --maliev-home-line: rgba(16, 18, 20, 0.1);
+    --maliev-home-blue: #006fd6;
+    --maliev-home-green: #00a36c;
+    --maliev-home-dark: #101418;
+    background: var(--maliev-home-paper);
+    color: var(--maliev-home-ink);
+  }
+
+  .maliev-home .mh {
+    background: var(--maliev-home-paper);
+    font-family: var(--font-body-family);
+    overflow: clip;
+  }
+
+  .maliev-home .mh__hero {
+    background: #ffffff;
+    display: grid;
+    grid-template-columns: 1fr;
+    isolation: isolate;
+    min-height: clamp(68rem, 88vh, 92rem);
+    overflow: hidden;
+    padding: 0 max(2rem, calc((100vw - 128rem) / 2));
+    place-items: center start;
+    position: relative;
+  }
+
+  .maliev-home .mh__copy {
+    align-content: center;
+    display: grid;
+    gap: 1.8rem;
+    justify-items: start;
+    max-width: 68rem;
+    min-height: inherit;
+    padding: clamp(6.8rem, 8vw, 9.6rem) 2rem;
+    position: relative;
+    text-align: left;
+    z-index: 2;
+  }
+
+  .maliev-home .mh__eyebrow {
+    color: var(--maliev-home-blue);
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__title,
+  .maliev-home .mh__section-title {
+    color: var(--maliev-home-ink);
+    font-family: var(--font-heading-family);
+    font-weight: 600;
+    letter-spacing: 0;
+    margin: 0;
+  }
+
+  .maliev-home .mh__title {
+    font-size: clamp(5.2rem, 6vw, 8.6rem);
+    line-height: 0.94;
+    max-width: 72rem;
+    overflow-wrap: normal;
+    text-wrap: balance;
+    word-break: normal;
+  }
+
+  .maliev-home .mh__title--thai {
+    font-size: clamp(5.2rem, 5.8vw, 8.2rem);
+    max-width: 72rem;
+  }
+
+  .maliev-home .mh__title-line {
+    display: block;
+    hyphens: none;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  .maliev-home .mh__title-line--brand {
+    align-items: start;
+    display: grid;
+    gap: clamp(1.2rem, 1.4vw, 2.2rem);
+  }
+
+  .maliev-home .mh__title-logo {
+    display: block;
+    height: 0.58em;
+    max-width: 3.1em;
+    object-fit: contain;
+    width: auto;
+  }
+
+  .maliev-home .mh__title-logo-text {
+    white-space: nowrap;
+  }
+
+  .maliev-home .mh__lead {
+    color: var(--maliev-home-muted);
+    font-size: clamp(1.7rem, 1.8vw, 2.1rem);
+    line-height: 1.48;
+    margin: 0;
+    max-width: 58rem;
+  }
+
+  .maliev-home .mh__hero .mh__eyebrow {
+    color: #7dccff;
+  }
+
+  .maliev-home .mh__hero .mh__title {
+    color: var(--maliev-home-ink);
+    text-shadow: none;
+  }
+
+  .maliev-home .mh__hero .mh__lead {
+    color: #4e5963;
+    max-width: 72rem;
+    text-shadow: none;
+  }
+
+  .maliev-home .mh__hero .mh__actions {
+    justify-content: start;
+  }
+
+  .maliev-home .mh__hero .mh__button--secondary {
+    background: transparent;
+    border-color: transparent;
+    color: #4e5963;
+    font-weight: 600;
+    min-height: auto;
+    padding: 0.8rem 0;
+  }
+
+  .maliev-home .mh__hero .mh__button--secondary:hover,
+  .maliev-home .mh__hero .mh__button--secondary:focus-visible {
+    box-shadow: none;
+    color: var(--maliev-home-blue);
+    transform: none;
+  }
+
+  .maliev-home .mh__actions,
+  .maliev-home .mh__price-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .maliev-home .mh__button {
+    align-items: center;
+    background: var(--maliev-home-blue);
+    border: 1px solid var(--maliev-home-blue);
+    border-radius: 999px;
+    color: #ffffff;
+    display: inline-flex;
+    font-size: 1.35rem;
+    font-weight: 600;
+    justify-content: center;
+    min-height: 4.7rem;
+    padding: 1.2rem 1.8rem;
+    text-decoration: none;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .maliev-home .mh__button:hover,
+  .maliev-home .mh__button:focus-visible {
+    box-shadow: 0 1rem 2.4rem rgba(0, 111, 214, 0.22);
+    transform: translateY(-1px);
+  }
+
+  .maliev-home .mh__button--secondary {
+    background: #ffffff;
+    border-color: rgba(16, 18, 20, 0.12);
+    color: var(--maliev-home-ink);
+  }
+
+  .maliev-home .mh__stage {
+    background: #101418;
+    border: 0;
+    border-radius: 0;
+    inset: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: 0;
+  }
+
+  .maliev-home .mh__stage::after {
+    content: none;
+  }
+
+  .maliev-home .mh__stage img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    position: relative;
+    width: 100%;
+    z-index: 0;
+  }
+
+  .maliev-home .mh__stats {
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: 0 2rem clamp(4rem, 6vw, 6rem);
+  }
+
+  .maliev-home .mh__stat {
+    background: #ffffff;
+    border: 1px solid rgba(16, 18, 20, 0.08);
+    display: grid;
+    gap: 0.7rem;
+    min-height: 12rem;
+    padding: clamp(1.8rem, 3vw, 2.4rem);
+  }
+
+  .maliev-home .mh__stat strong {
+    color: var(--maliev-home-ink);
+    font-size: clamp(2rem, 2.8vw, 3rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  .maliev-home .mh__stat span {
+    color: var(--maliev-home-muted);
+    font-size: 1.3rem;
+    font-weight: 600;
+    line-height: 1.32;
+  }
+
+  .maliev-home .mh__tool {
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: 0 2rem clamp(4.8rem, 6vw, 7.2rem);
+  }
+
+  .maliev-home .mh__tool-panel {
+    background:
+      radial-gradient(circle at 84% 18%, rgba(0, 111, 214, 0.14), transparent 32rem),
+      linear-gradient(135deg, #101418 0%, #171d24 54%, #0f171d 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    color: #ffffff;
+    display: grid;
+    gap: clamp(2.4rem, 5vw, 5.2rem);
+    grid-template-columns: minmax(0, 0.98fr) minmax(38rem, 1.02fr);
+    overflow: hidden;
+    padding: clamp(2rem, 4vw, 4.2rem);
+    position: relative;
+  }
+
+  .maliev-home .mh__tool-copy {
+    align-content: center;
+    display: grid;
+    gap: 1.7rem;
+    min-width: 0;
+  }
+
+  .maliev-home .mh__tool-copy .mh__eyebrow {
+    color: #7dccff;
+  }
+
+  .maliev-home .mh__tool-copy h2 {
+    color: #ffffff;
+    font-family: var(--font-heading-family);
+    font-size: clamp(3.4rem, 4.6vw, 6rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin: 0;
+    max-width: 12ch;
+    text-wrap: balance;
+  }
+
+  .maliev-home .mh__tool-copy p {
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 1.55rem;
+    line-height: 1.52;
+    margin: 0;
+    max-width: 62ch;
+  }
+
+  .maliev-home .mh__tool-list {
+    display: grid;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .maliev-home .mh__tool-list li {
+    align-items: start;
+    color: rgba(255, 255, 255, 0.82);
+    display: grid;
+    font-size: 1.35rem;
+    gap: 0.8rem;
+    grid-template-columns: auto 1fr;
+    line-height: 1.35;
+  }
+
+  .maliev-home .mh__tool-list li::before {
+    background: #00a36c;
+    border-radius: 999px;
+    content: "";
+    height: 0.8rem;
+    margin-top: 0.45rem;
+    width: 0.8rem;
+  }
+
+  .maliev-home .mh__tool-pricing {
+    display: grid;
+    gap: 1.2rem;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: clamp(1.6rem, 3vw, 2.6rem);
+  }
+
+  .maliev-home .mh__tool-price-card {
+    background: linear-gradient(180deg, rgba(37, 44, 53, 0.96), rgba(17, 23, 30, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 12px;
+    box-shadow: 0 1.8rem 4.4rem rgba(0, 0, 0, 0.22);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    min-height: 31rem;
+    overflow: hidden;
+    text-decoration: none;
+  }
+
+  .maliev-home .mh__tool-price-card--featured {
+    background:
+      radial-gradient(circle at 82% 0%, rgba(95, 130, 255, 0.44), transparent 12rem),
+      linear-gradient(180deg, rgba(36, 47, 78, 0.98), rgba(15, 20, 29, 0.98));
+    border-color: rgba(125, 204, 255, 0.46);
+    transform: translateY(-0.6rem);
+  }
+
+  .maliev-home .mh__tool-price-top {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-height: 17rem;
+    padding: 1.45rem;
+  }
+
+  .maliev-home .mh__tool-price-row {
+    align-items: center;
+    display: flex;
+    gap: 0.8rem;
+    justify-content: space-between;
+  }
+
+  .maliev-home .mh__tool-plan {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__tool-badge {
+    background: rgba(0, 111, 214, 0.28);
+    border: 1px solid rgba(125, 204, 255, 0.46);
+    border-radius: 999px;
+    color: #beddff;
+    flex: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 0.28rem 0.65rem;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__tool-price-card h3 {
+    color: #ffffff;
+    font-size: 1.55rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.08;
+    margin: 0;
+  }
+
+  .maliev-home .mh__tool-amount {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .maliev-home .mh__tool-amount strong {
+    color: #ffffff;
+    font-size: clamp(2.8rem, 3vw, 3.8rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .maliev-home .mh__tool-amount small {
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .maliev-home .mh__tool-summary {
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 1.22rem;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .maliev-home .mh__tool-plan-cta {
+    align-items: center;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    color: #ffffff;
+    display: inline-flex;
+    font-size: 1.18rem;
+    font-weight: 600;
+    justify-content: center;
+    margin-top: auto;
+    min-height: 4rem;
+    text-decoration: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    width: 100%;
+  }
+
+  .maliev-home .mh__tool-price-card--featured .mh__tool-plan-cta {
+    background: linear-gradient(180deg, #2c8dff, #006fd6);
+    border-color: rgba(190, 221, 255, 0.64);
+    box-shadow: 0 0 0 4px rgba(0, 111, 214, 0.18), 0 1.2rem 2.8rem rgba(0, 111, 214, 0.32);
+  }
+
+  .maliev-home .mh__tool-price-card:hover .mh__tool-plan-cta,
+  .maliev-home .mh__tool-price-card:focus-within .mh__tool-plan-cta {
+    border-color: rgba(125, 204, 255, 0.58);
+    box-shadow: 0 1rem 2.4rem rgba(0, 111, 214, 0.24);
+    transform: translateY(-1px);
+  }
+
+  .maliev-home .mh__tool-features {
+    flex: 1;
+    padding: 1.35rem 1.45rem 1.5rem;
+  }
+
+  .maliev-home .mh__tool-features p {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    margin: 0 0 0.9rem;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__tool-features ul {
+    display: grid;
+    gap: 0.78rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .maliev-home .mh__tool-features li {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 1.16rem;
+    line-height: 1.4;
+    padding-left: 1.8rem;
+    position: relative;
+  }
+
+  .maliev-home .mh__tool-features li::before {
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.46);
+    border-radius: 50%;
+    color: #6fe5a8;
+    content: "✓";
+    display: flex;
+    font-size: 0.8rem;
+    height: 1.15rem;
+    justify-content: center;
+    left: 0;
+    position: absolute;
+    top: 0.22rem;
+    width: 1.15rem;
+  }
+
+  .maliev-home .mh__tool .mh__button--secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+  }
+
+  .maliev-home .mh__tool-media {
+    align-self: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    box-shadow: 0 2.4rem 5rem rgba(0, 0, 0, 0.24);
+    overflow: hidden;
+  }
+
+  .maliev-home .mh__tool-media img,
+  .maliev-home .mh__tool-media video {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .maliev-home .mh__section {
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: clamp(4.8rem, 7vw, 7.2rem) 2rem;
+  }
+
+  .maliev-home .mh__section-head {
+    align-items: end;
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: minmax(0, 1fr) minmax(28rem, 40rem);
+    margin-bottom: 2.6rem;
+  }
+
+  .maliev-home .mh__section-title {
+    font-size: clamp(3.6rem, 5vw, 6.2rem);
+    line-height: 0.96;
+    max-width: 72rem;
+    text-wrap: balance;
+  }
+
+  .maliev-home .mh__section-head p {
+    color: var(--maliev-home-muted);
+    font-size: 1.55rem;
+    line-height: 1.48;
+    margin: 0;
+  }
+
+  .maliev-home .mh__line-grid {
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: 1.15fr 0.85fr 0.85fr;
+  }
+
+  .maliev-home .mh__tile {
+    background: #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 12px;
+    color: var(--maliev-home-ink);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 28rem;
+    overflow: hidden;
+    position: relative;
+    text-decoration: none;
+  }
+
+  .maliev-home .mh__tile--large {
+    min-height: 38rem;
+  }
+
+  .maliev-home .mh__tile--large .mh__tile-copy {
+    padding-bottom: 1.4rem;
+  }
+
+  .maliev-home .mh__tile--dark {
+    background: var(--maliev-home-dark);
+    color: #ffffff;
+  }
+
+  .maliev-home .mh__tile-copy {
+    display: grid;
+    gap: 0.8rem;
+    padding: clamp(1.8rem, 3vw, 2.6rem) clamp(1.8rem, 3vw, 2.6rem) 1rem;
+    z-index: 2;
+  }
+
+  .maliev-home .mh__tile-copy strong {
+    color: inherit;
+    font-size: clamp(2.4rem, 3vw, 3.2rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  .maliev-home .mh__tile-copy span {
+    color: rgba(16, 18, 20, 0.64);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.3;
+    max-width: 28ch;
+  }
+
+  .maliev-home .mh__tile--dark .mh__tile-copy span {
+    color: rgba(255, 255, 255, 0.66);
+  }
+
+  .maliev-home .mh__tile img {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+    object-position: center center;
+    width: 100%;
+  }
+
+  .maliev-home .mh__tile--large img {
+    object-position: right center;
+  }
+
+  .maliev-home .mh__workflow {
+    background: #ffffff;
+    border-bottom: 1px solid rgba(16, 18, 20, 0.08);
+    border-top: 1px solid rgba(16, 18, 20, 0.08);
+  }
+
+  .maliev-home .mh__workflow-inner {
+    display: grid;
+    gap: 1.8rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: clamp(3.2rem, 5vw, 4.6rem) 2rem;
+  }
+
+  .maliev-home .mh__step {
+    border-left: 2px solid var(--maliev-home-line);
+    display: grid;
+    gap: 0.9rem;
+    padding-left: 1.8rem;
+  }
+
+  .maliev-home .mh__step b {
+    color: var(--maliev-home-blue);
+    font-size: 1.15rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__step strong {
+    color: var(--maliev-home-ink);
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  .maliev-home .mh__step span {
+    color: var(--maliev-home-muted);
+    font-size: 1.3rem;
+    line-height: 1.35;
+  }
+
+  .maliev-home .mh__collection-grid {
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .maliev-home .mh__collection-panel,
+  .maliev-home .mh__product-panel,
+  .maliev-home .mh__article-cta {
+    background: #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .maliev-home .mh__collection-panel--dark {
+    background: var(--maliev-home-dark);
+    color: #ffffff;
+  }
+
+  .maliev-home .mh__panel-head {
+    align-items: center;
+    border-bottom: 1px solid rgba(16, 18, 20, 0.08);
+    display: flex;
+    justify-content: space-between;
+    min-height: 5.4rem;
+    padding: 0 1.8rem;
+  }
+
+  .maliev-home .mh__collection-panel--dark .mh__panel-head {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .maliev-home .mh__panel-head strong {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__panel-head span {
+    color: var(--maliev-home-muted);
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+
+  .maliev-home .mh__collection-panel--dark .mh__panel-head span {
+    color: rgba(255, 255, 255, 0.64);
+  }
+
+  .maliev-home .mh__mini-products {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 1.8rem;
+  }
+
+  .maliev-home .mh__mini-product {
+    background: #ffffff;
+    border: 1px solid rgba(16, 18, 20, 0.08);
+    border-radius: 10px;
+    color: var(--maliev-home-ink);
+    display: grid;
+    gap: 0;
+    grid-template-rows: clamp(14rem, 13vw, 17.6rem) auto auto;
+    overflow: hidden;
+    padding-bottom: 1.4rem;
+    text-decoration: none;
+  }
+
+  .maliev-home .mh__mini-product-media {
+    background: transparent;
+    display: block;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .maliev-home .mh__mini-product img {
+    display: block;
+    height: calc(100% + 2px);
+    margin: -1px;
+    object-fit: cover;
+    object-position: center center;
+    padding: 0;
+    transform: scale(1.08);
+    transform-origin: center center;
+    width: calc(100% + 2px);
+  }
+
+  .maliev-home .mh__collection-panel:not(.mh__collection-panel--dark) .mh__mini-product:nth-child(-n + 2) img {
+    object-position: center 54%;
+  }
+
+  .maliev-home .mh__mini-product > strong,
+  .maliev-home .mh__mini-product > span:not(.mh__mini-product-media) {
+    margin: 0 1.2rem;
+  }
+
+  .maliev-home .mh__mini-product strong {
+    color: inherit;
+    font-size: 1.45rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.12;
+    margin-top: 1.2rem;
+  }
+
+  .maliev-home .mh__mini-product > span:not(.mh__mini-product-media) {
+    color: var(--maliev-home-muted);
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .maliev-home .mh__product-layout {
+    display: grid;
+    gap: 0;
+    grid-template-columns: minmax(28rem, 0.95fr) minmax(0, 1.05fr);
+  }
+
+  .maliev-home .mh__product-carousel {
+    display: grid;
+    gap: 1rem;
+    overflow: hidden;
+  }
+
+  .maliev-home .mh__product-track {
+    cursor: grab;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-padding: 0;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    touch-action: pan-y;
+    user-select: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .maliev-home .mh__product-track.is-dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+  }
+
+  .maliev-home .mh__product-track img {
+    pointer-events: none;
+  }
+
+  .maliev-home .mh__product-track::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
+  .maliev-home .mh__product-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .maliev-home .mh__product-slide .mh__product-panel {
+    height: 100%;
+  }
+
+  .maliev-home .mh__carousel-hint {
+    align-items: center;
+    color: var(--maliev-home-muted);
+    display: flex;
+    font-size: 1.25rem;
+    font-weight: 600;
+    gap: 0.8rem;
+    justify-content: flex-end;
+  }
+
+  .maliev-home .mh__carousel-button {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid rgba(16, 18, 20, 0.14);
+    border-radius: 999px;
+    color: var(--maliev-home-ink);
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    font-size: 1.5rem;
+    font-weight: 600;
+    height: 3.6rem;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+    width: 3.6rem;
+  }
+
+  .maliev-home .mh__carousel-button:hover,
+  .maliev-home .mh__carousel-button:focus-visible {
+    background: var(--maliev-home-blue);
+    border-color: var(--maliev-home-blue);
+    color: #ffffff;
+  }
+
+  .maliev-home .mh__carousel-dot {
+    background: rgba(16, 18, 20, 0.22);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-block;
+    height: 0.7rem;
+    padding: 0;
+    width: 2rem;
+  }
+
+  .maliev-home .mh__carousel-dot--active {
+    background: var(--maliev-home-blue);
+    width: 3.6rem;
+  }
+
+  .maliev-home .mh__product-media {
+    background: #ffffff;
+    min-height: clamp(48rem, 44vw, 62rem);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .maliev-home .mh__product-media::after {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
+    content: "";
+    inset: 0 0 0 auto;
+    pointer-events: none;
+    position: absolute;
+    width: clamp(7rem, 12vw, 18rem);
+    z-index: 1;
+  }
+
+  .maliev-home .mh__product-media img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    padding: 0;
+    transform: scale(1.015);
+    width: 100%;
+  }
+
+  .maliev-home .mh__product-copy {
+    align-content: center;
+    display: grid;
+    gap: 1.4rem;
+    padding: clamp(2.8rem, 5vw, 5.2rem);
+  }
+
+  .maliev-home .mh__product-copy h3 {
+    color: var(--maliev-home-ink);
+    font-size: clamp(3.2rem, 4vw, 4.8rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.96;
+    margin: 0;
+  }
+
+  .maliev-home .mh__product-copy p {
+    color: var(--maliev-home-muted);
+    font-size: 1.5rem;
+    line-height: 1.48;
+    margin: 0;
+    max-width: 62rem;
+  }
+
+  .maliev-home .mh__price {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .maliev-home .mh__price s {
+    color: #8a9198;
+    font-size: clamp(1.8rem, 2vw, 2.4rem);
+    font-weight: 600;
+  }
+
+  .maliev-home .mh__price strong {
+    color: var(--maliev-home-blue);
+    font-size: clamp(3rem, 4vw, 4.2rem);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .maliev-home .mh__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  .maliev-home .mh__pills span {
+    background: #eef3f8;
+    border: 1px solid rgba(0, 111, 214, 0.16);
+    border-radius: 999px;
+    color: #245578;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.8rem 1rem;
+  }
+
+  .maliev-home .mh__blog-grid {
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .maliev-home .mh__blog-card {
+    background: #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 12px;
+    color: var(--maliev-home-ink);
+    display: grid;
+    grid-template-rows: 21rem minmax(17rem, auto);
+    min-height: 38rem;
+    overflow: hidden;
+    text-decoration: none;
+  }
+
+  .maliev-home .mh__blog-card img {
+    display: block;
+    height: 21rem;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .maliev-home .mh__blog-placeholder {
+    align-items: center;
+    background: #e8eef4;
+    color: var(--maliev-home-blue);
+    display: flex;
+    font-size: 4.8rem;
+    font-weight: 600;
+    height: 21rem;
+    justify-content: center;
+    line-height: 1;
+    width: 100%;
+  }
+
+  .maliev-home .mh__blog-body {
+    display: grid;
+    gap: 0.8rem;
+    padding: clamp(1.6rem, 3vw, 2.2rem);
+  }
+
+  .maliev-home .mh__blog-body b {
+    color: var(--maliev-home-blue);
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .maliev-home .mh__blog-body strong {
+    color: inherit;
+    font-size: clamp(1.95rem, 2vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.08;
+  }
+
+  .maliev-home .mh__blog-body span {
+    color: var(--maliev-home-muted);
+    font-size: 1.35rem;
+    line-height: 1.38;
+  }
+
+  .maliev-home .mh__article-cta {
+    background: #ffffff;
+    display: grid;
+    gap: clamp(2rem, 4vw, 3.4rem);
+    grid-template-columns: minmax(28rem, 0.85fr) minmax(0, 1.15fr);
+    margin-top: 1.6rem;
+    padding: clamp(2rem, 4vw, 3.2rem);
+  }
+
+  .maliev-home a.mh__article-cta {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .maliev-home .mh__article-cta img {
+    aspect-ratio: 16 / 10;
+    border-radius: 12px;
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .maliev-home .mh__article-copy {
+    align-content: center;
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .maliev-home .mh__article-copy h3 {
+    color: var(--maliev-home-ink);
+    font-size: clamp(3rem, 4vw, 5rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin: 0;
+  }
+
+  .maliev-home .mh__article-copy p {
+    color: var(--maliev-home-muted);
+    font-size: 1.55rem;
+    line-height: 1.52;
+    margin: 0;
+  }
+
+  .maliev-home .mh__quote {
+    background:
+      linear-gradient(135deg, rgba(0, 111, 214, 0.12), rgba(0, 163, 108, 0.08)),
+      #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 14px;
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin: 0 auto clamp(5rem, 7vw, 8rem);
+    max-width: 128rem;
+    padding: clamp(2.6rem, 5vw, 4.6rem);
+  }
+
+  .maliev-home .mh__quote h2 {
+    color: var(--maliev-home-ink);
+    font-size: clamp(3.2rem, 4.5vw, 5.4rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin: 0 0 1rem;
+  }
+
+  .maliev-home .mh__quote p {
+    color: var(--maliev-home-muted);
+    font-size: 1.55rem;
+    line-height: 1.45;
+    margin: 0;
+    max-width: 68rem;
+  }
+
+  .maliev-home .mh__quote-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: end;
+  }
+
+  @media screen and (max-width: 990px) {
+    .maliev-home .mh__hero,
+    .maliev-home .mh__section-head,
+    .maliev-home .mh__line-grid,
+    .maliev-home .mh__tool-panel,
+    .maliev-home .mh__workflow-inner,
+    .maliev-home .mh__collection-grid,
+    .maliev-home .mh__product-layout,
+    .maliev-home .mh__blog-grid,
+    .maliev-home .mh__article-cta,
+    .maliev-home .mh__quote {
+      grid-template-columns: 1fr;
+    }
+
+    .maliev-home .mh__hero {
+      min-height: clamp(58rem, 78vh, 74rem);
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .maliev-home .mh__copy {
+      padding: clamp(5.6rem, 10vw, 7.2rem) 2rem;
+    }
+
+    .maliev-home .mh__stage img {
+      object-position: 58% center;
+    }
+
+    .maliev-home .mh__stats,
+    .maliev-home .mh__mini-products {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .maliev-home .mh__tool-price-card--featured {
+      transform: none;
+    }
+
+    .maliev-home .mh__tool-pricing {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .maliev-home .mh__quote-actions {
+      justify-content: start;
+    }
+
+    .maliev-home .mh__blog-card {
+      grid-template-rows: 22rem auto;
+      min-height: auto;
+    }
+
+    .maliev-home .mh__blog-card img,
+    .maliev-home .mh__blog-placeholder {
+      height: 22rem;
+    }
+  }
+
+  @media screen and (max-width: 640px) {
+    .maliev-home .mh__stats,
+    .maliev-home .mh__tool-pricing,
+    .maliev-home .mh__mini-products {
+      grid-template-columns: 1fr;
+    }
+
+    .maliev-home .mh__title {
+      font-size: clamp(3.8rem, 11vw, 5.2rem);
+    }
+
+    .maliev-home .mh__title--thai {
+      font-size: clamp(3.6rem, 11vw, 5.4rem);
+    }
+
+    .maliev-home .mh__hero {
+      min-height: 62rem;
+    }
+
+    .maliev-home .mh__copy {
+      padding: 4.8rem 1.6rem;
+    }
+
+    .maliev-home .mh__tile,
+    .maliev-home .mh__tile--large {
+      min-height: 31rem;
+    }
+
+    .maliev-home .mh__tool {
+      padding-left: 1.2rem;
+      padding-right: 1.2rem;
+    }
+
+    .maliev-home .mh__tool-panel {
+      border-radius: 14px;
+      padding: 1.6rem;
+    }
+
+    .maliev-home .mh__tool-price-card {
+      min-height: auto;
+    }
+  }
+
+/* MALIEV design-language modernization - 2026-07-16 */
+.maliev-home {
+  --maliev-home-paper: #ffffff;
+  --maliev-home-panel: #ffffff;
+  --maliev-home-ink: #111f33;
+  --maliev-home-muted: #526174;
+  --maliev-home-line: rgba(17, 31, 51, 0.12);
+  --maliev-home-blue: #075de8;
+  --maliev-home-yellow: #ffd21c;
+}
+
+.maliev-home .mh__hero {
+  min-height: clamp(62rem, 80vh, 78rem);
+}
+
+.maliev-home .mh__copy {
+  gap: 1.6rem;
+  max-width: 59rem;
+  padding-bottom: clamp(6.4rem, 8vw, 8.8rem);
+  padding-top: clamp(6.4rem, 8vw, 8.8rem);
+}
+
+.maliev-home .mh__hero .mh__eyebrow {
+  color: var(--maliev-home-blue);
+  letter-spacing: 0.08em;
+}
+
+.maliev-home .mh__title {
+  font-size: clamp(4.6rem, 4.8vw, 6.8rem);
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+  max-width: 62rem;
+}
+
+#MainContent .maliev-home .mh__hero .mh__title {
+  font-size: clamp(4.6rem, 4.8vw, 6.8rem) !important;
+}
+
+.maliev-home .mh__lead {
+  color: var(--maliev-home-muted);
+  font-size: clamp(1.6rem, 1.6vw, 1.9rem);
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.maliev-home .mh__button {
+  border-radius: 4px;
+  font-size: 1.45rem;
+  min-height: 4.8rem;
+  padding: 1.25rem 2.2rem;
+  transition:
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.maliev-home .mh__button:hover,
+.maliev-home .mh__button:focus-visible {
+  box-shadow: 0 4px 8px rgba(7, 93, 232, 0.22);
+  transform: translateY(-2px);
+}
+
+.maliev-home .mh__hero .mh__button--secondary {
+  background: #ffffff;
+  border-color: var(--maliev-home-blue);
+  color: var(--maliev-home-blue);
+  min-height: 4.8rem;
+  padding: 1.25rem 2.2rem;
+}
+
+.maliev-home .mh__hero .mh__button--secondary:hover,
+.maliev-home .mh__hero .mh__button--secondary:focus-visible {
+  background: #eef5ff;
+  border-color: #064fc4;
+  box-shadow: 0 4px 8px rgba(7, 93, 232, 0.16);
+  color: #064fc4;
+  transform: translateY(-2px);
+}
+
+.maliev-home .mh__button:focus-visible,
+.maliev-home .mh__carousel-button:focus-visible,
+.maliev-home .mh__carousel-dot:focus-visible,
+.maliev-home a:focus-visible {
+  outline: 3px solid var(--maliev-home-yellow);
+  outline-offset: 3px;
+}
+
+.maliev-home .mh__stats {
+  margin-top: -3.8rem;
+  padding-bottom: clamp(4rem, 6vw, 6rem);
+  position: relative;
+  z-index: 3;
+}
+
+.maliev-home .mh__stat {
+  min-height: 10.5rem;
+  padding: clamp(1.6rem, 2.4vw, 2.2rem);
+}
+
+.maliev-home .mh__stat strong {
+  font-size: clamp(1.8rem, 2.4vw, 2.6rem);
+}
+
+.maliev-home .mh__section {
+  padding-bottom: clamp(4.4rem, 6vw, 6.4rem);
+  padding-top: clamp(4.4rem, 6vw, 6.4rem);
+}
+
+.maliev-home .mh__section-title {
+  font-size: clamp(3.4rem, 4.4vw, 5.6rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.maliev-home .mh__tool-panel,
+.maliev-home .mh__tool-media,
+.maliev-home .mh__tile,
+.maliev-home .mh__collection-panel,
+.maliev-home .mh__product-panel,
+.maliev-home .mh__article-cta,
+.maliev-home .mh__article-cta img,
+.maliev-home .mh__blog-card,
+.maliev-home .mh__quote {
+  border-radius: 6px;
+}
+
+.maliev-home .mh__mini-product,
+.maliev-home .mh__tool-price-card,
+.maliev-home .mh__tool-plan-cta {
+  border-radius: 4px;
+}
+
+.maliev-home .mh__tile,
+.maliev-home .mh__blog-card,
+.maliev-home .mh__mini-product {
+  transition:
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.maliev-home .mh__tile:hover,
+.maliev-home .mh__tile:focus-visible,
+.maliev-home .mh__blog-card:hover,
+.maliev-home .mh__blog-card:focus-visible,
+.maliev-home .mh__mini-product:hover,
+.maliev-home .mh__mini-product:focus-visible {
+  border-color: rgba(7, 93, 232, 0.42);
+  transform: translateY(-2px);
+}
+
+.maliev-home .mh__workflow-inner {
+  gap: 2.4rem;
+}
+
+.maliev-home .mh__step {
+  border-left: 0;
+  border-top: 1px solid var(--maliev-home-line);
+  padding-left: 0;
+  padding-top: 1.6rem;
+}
+
+.maliev-home .mh__step b {
+  letter-spacing: 0.08em;
+}
+
+.maliev-home .mh__product-copy h3,
+.maliev-home .mh__article-copy h3,
+.maliev-home .mh__quote h2 {
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+@media screen and (max-width: 990px) {
+  .maliev-home .mh__hero {
+    min-height: 62rem;
+  }
+
+  .maliev-home .mh__stage::after {
+    background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.96) 44%, rgba(255, 255, 255, 0.42) 74%, rgba(255, 255, 255, 0) 100%);
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: 1;
+  }
+
+  .maliev-home .mh__stage img {
+    object-position: 68% center;
+  }
+
+  .maliev-home .mh__stats {
+    margin-top: 0;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .maliev-home .mh__hero {
+    min-height: 58rem;
+  }
+
+  .maliev-home .mh__copy {
+    gap: 1.4rem;
+    max-width: 100%;
+    padding: 4.8rem 1.8rem 6rem;
+  }
+
+  .maliev-home .mh__title,
+  .maliev-home .mh__title--thai {
+    font-size: clamp(3.7rem, 10.5vw, 4.8rem);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    max-width: 8.5em;
+  }
+
+  #MainContent .maliev-home .mh__hero .mh__title,
+  #MainContent .maliev-home .mh__hero .mh__title--thai {
+    font-size: clamp(3.7rem, 10.5vw, 4.8rem) !important;
+  }
+
+  .maliev-home .mh__lead {
+    font-size: 1.55rem;
+    line-height: 1.52;
+    max-width: 31ch;
+  }
+
+  .maliev-home .mh__stage::after {
+    background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.97) 52%, rgba(255, 255, 255, 0.58) 76%, rgba(255, 255, 255, 0.12) 100%);
+  }
+
+  .maliev-home .mh__stage img {
+    object-position: 76% center;
+  }
+
+  .maliev-home .mh__actions {
+    align-items: stretch;
+    display: grid;
+    max-width: 26rem;
+    width: 100%;
+  }
+
+  .maliev-home .mh__hero .mh__button--secondary {
+    justify-self: stretch;
+  }
+
+  .maliev-home .mh__stats {
+    gap: 1px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-left: 1.2rem;
+    padding-right: 1.2rem;
+  }
+
+  .maliev-home .mh__stat {
+    min-height: 11rem;
+    padding: 1.4rem;
+  }
+
+  .maliev-home .mh__stat strong {
+    font-size: 1.9rem;
+  }
+
+  .maliev-home .mh__section {
+    padding-left: 1.6rem;
+    padding-right: 1.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maliev-home *,
+  .maliev-home *::before,
+  .maliev-home *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .maliev-home .mh__button:hover,
+  .maliev-home .mh__button:focus-visible,
+  .maliev-home .mh__tile:hover,
+  .maliev-home .mh__tile:focus-visible,
+  .maliev-home .mh__blog-card:hover,
+  .maliev-home .mh__blog-card:focus-visible,
+  .maliev-home .mh__mini-product:hover,
+  .maliev-home .mh__mini-product:focus-visible {
+    transform: none;
+  }
+}

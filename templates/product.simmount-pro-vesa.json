@@ -1,0 +1,352 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "slideshow_JjbcJx": {
+      "type": "slideshow",
+      "blocks": {
+        "slide_qGBLdM": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.14.png",
+            "image_overlay_opacity": 0,
+            "heading": "<strong>SimMount </strong>PRO VESA",
+            "heading_size": "h1",
+            "subheading": "Flexible mounting solution for your monitor",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "bottom-right",
+            "text_alignment": "right",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-1"
+          }
+        },
+        "slide_QrVCHh": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.15.png",
+            "image_overlay_opacity": 0,
+            "heading": "<strong>Drop In </strong>Installation",
+            "heading_size": "h0",
+            "subheading": "Make your monitor, <strong>QuickRelease</strong>",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "top-left",
+            "text_alignment": "left",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-4"
+          }
+        }
+      },
+      "block_order": [
+        "slide_qGBLdM",
+        "slide_QrVCHh"
+      ],
+      "custom_css": [],
+      "settings": {
+        "layout": "full_bleed",
+        "slide_height": "medium",
+        "slider_visual": "dots",
+        "auto_rotate": true,
+        "change_slides_speed": 5,
+        "image_behavior": "none",
+        "show_text_below": true,
+        "accessibility_info": "Slideshow about our machine"
+      }
+    },
+    "multirow_RjeRRr": {
+      "type": "multirow",
+      "blocks": {
+        "row_xJ4JWi": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.16.png",
+            "caption": "Precision Engineering",
+            "heading": "Perfect Alignment for Your Monitors",
+            "text": "<p>Achieve the ultimate racing setup with vertical, horizontal, tilt, and pivot adjustments for precise monitor positioning. Customize your view for comfort and immersion.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_NYyLVd": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.18.png",
+            "caption": "Universal Compatibility",
+            "heading": "Fits VESA 75x75mm & 100x100mm",
+            "text": "<p>Designed to support most monitors on the market, the SimMount Pro VESA Kit adapts seamlessly to single or multi-monitor setups.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_4HtN73": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.6.png",
+            "caption": "Built for Sim Rigs",
+            "heading": "Fits 40x80 Aluminum Profiles",
+            "text": "<p>Securely mounts to 40x80 aluminum profiles with 10mm slots using M8 screws, ensuring stability and reliability for any racing rig.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_LRQeHd": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.2.png",
+            "caption": "Sleek and Durable",
+            "heading": "Anodized Black Finish",
+            "text": "<p>The premium anodized black coating blends perfectly with your sim rig, offering both style and durability.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_4EMPyW": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.1.png",
+            "caption": "Easy Installation",
+            "heading": "Complete Hardware Included",
+            "text": "<p>Comes with all the screws and washers you need, including set screws, countersunk screws, and washers for a hassle-free setup.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_BrabfU": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.20.png",
+            "caption": "Customizable Adjustments",
+            "heading": "Fine-Tuned Range of Motion",
+            "text": "<p>Enjoy vertical height adjustment of 25mm, horizontal adjustment of 12mm, and tilt and pivot angles of ±5° for a truly personalized racing view.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_yKHNT8": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/simmount-pro-vesa.19.png",
+            "caption": "Engineered for Performance",
+            "heading": "Stability Meets Durability",
+            "text": "<p>Constructed with high-quality materials, the SimMount Pro VESA Kit is built to withstand the demands of intense racing sessions while maintaining perfect monitor alignment.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        }
+      },
+      "block_order": [
+        "row_xJ4JWi",
+        "row_NYyLVd",
+        "row_4HtN73",
+        "row_LRQeHd",
+        "row_4EMPyW",
+        "row_BrabfU",
+        "row_yKHNT8"
+      ],
+      "custom_css": [
+        ".image-with-text__media {border: 0; border-radius: 24px;}",
+        ".caption-with-letter-spacing--medium {font-size: 1.4rem;}"
+      ],
+      "settings": {
+        "image_height": "medium",
+        "desktop_image_width": "medium",
+        "image_layout": "alternate-left",
+        "heading_size": "h1",
+        "text_style": "body",
+        "button_style": "secondary",
+        "desktop_content_position": "middle",
+        "desktop_content_alignment": "left",
+        "mobile_content_alignment": "left",
+        "section_color_scheme": "",
+        "row_color_scheme": "",
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "blocks": {
+        "vendor": {
+          "type": "text",
+          "settings": {
+            "text": "",
+            "text_style": "uppercase"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {}
+        },
+        "price": {
+          "type": "price",
+          "settings": {}
+        },
+        "custom_liquid_nVrDVL": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{% assign is_th = false %}\n{% if localization.language.iso_code == 'th' or request.locale.iso_code == 'th' %}{% assign is_th = true %}{% endif %}\n{% if product.metafields.custom.lead_time != blank %}\n\t{% if is_th %}\n\t\t<p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} วัน</span></p>\n\t{% elsif product.metafields.custom.lead_time > 1 %}\n\t\t<p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} days</span></p>\n\t{% else %}\n\t\t<p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} day</span></p>\n\t{% endif %}\n{% else %}\n\t{% if is_th %}\n\t\t<p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">1 วัน</span></p>\n\t{% else %}\n\t\t<p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">1 day</span></p>\n\t{% endif %}\n{% endif %}"
+          }
+        },
+        "variant_picker": {
+          "type": "variant_picker",
+          "settings": {
+            "picker_type": "button",
+            "swatch_shape": "none"
+          }
+        },
+        "quantity_selector_i4kVnT": {
+          "type": "quantity_selector",
+          "settings": {}
+        },
+        "buy_buttons": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_dynamic_checkout": true,
+            "show_gift_card_recipient": true
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "vendor",
+        "title",
+        "price",
+        "custom_liquid_nVrDVL",
+        "variant_picker",
+        "quantity_selector_i4kVnT",
+        "buy_buttons",
+        "description"
+      ],
+      "custom_css": [
+        "iframe {width: 100%; aspect-ratio: 16 / 9; height: auto;}",
+        ".leadtime {font-size: 1em;}",
+        ".leadtime_duration {font-weight: 600;}"
+      ],
+      "settings": {
+        "enable_sticky_info": true,
+        "color_scheme": "scheme-1",
+        "media_size": "small",
+        "constrain_to_viewport": true,
+        "media_fit": "contain",
+        "gallery_layout": "stacked",
+        "mobile_thumbnails": "show",
+        "media_position": "left",
+        "image_zoom": "lightbox",
+        "hide_variants": true,
+        "enable_video_looping": false,
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    },
+    "related-products": {
+      "type": "related-products",
+      "custom_css": [],
+      "settings": {
+        "heading": "<strong>You may also like</strong>",
+        "heading_size": "h1",
+        "products_to_show": 4,
+        "columns_desktop": 4,
+        "columns_mobile": "2",
+        "color_scheme": "scheme-2",
+        "image_ratio": "square",
+        "image_shape": "default",
+        "show_secondary_image": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
+    },
+    "17598267606bb4282a": {
+      "type": "apps",
+      "settings": {
+        "include_margins": true
+      }
+    },
+    "multicolumn_Ve34LV": {
+      "type": "multicolumn",
+      "blocks": {
+        "column_bekxPG": {
+          "type": "column",
+          "settings": {
+            "image": "shopify://shop_images/thailand-thailand-svgrepo-com.svg",
+            "title": "<strong>Based in Thailand</strong>",
+            "text": "<p>Our incredibly talented staff is based in <strong>Nonthaburi, Thailand</strong>, handling support, shipping, and development from our headquarters.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_zQfLCh": {
+          "type": "column",
+          "settings": {
+            "image": "shopify://shop_images/chat-svgrepo-com.svg",
+            "title": "<strong>Online Support</strong>",
+            "text": "<p>For all your custom manufacturing needs, our team is ready to help. Contact us on LINE Official Account <a href=\"http://line.me/ti/p/@maliev\" target=\"_blank\" title=\"Add us on LINE Official Account\">@maliev</a> for quick assistance.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_pGBWf4": {
+          "type": "column",
+          "settings": {
+            "image": "shopify://shop_images/mobile-payment-debit-card-phone-svgrepo-com.svg",
+            "title": "<strong>Secure Payment</strong>",
+            "text": "<p>We support safe payments through Opn Payment (Omise), including credit/debit cards, ShopeePay, LINE Pay, QR PromptPay, and more, with industry-leading security.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "column_bekxPG",
+        "column_zQfLCh",
+        "column_pGBWf4"
+      ],
+      "custom_css": [
+        ".rte {font-size: 1.4rem;}",
+        ".multicolumn-card__info {padding-top: 0.5em;}",
+        ".multicolumn-card__image-wrapper {max-width: 50px;}",
+        ".inline-richtext {font-size: 1.6rem;}"
+      ],
+      "settings": {
+        "title": "",
+        "heading_size": "h1",
+        "image_width": "third",
+        "image_ratio": "adapt",
+        "button_label": "",
+        "button_link": "",
+        "columns_desktop": 3,
+        "column_alignment": "left",
+        "background_style": "none",
+        "color_scheme": "scheme-2",
+        "columns_mobile": "1",
+        "swipe_on_mobile": false,
+        "padding_top": 0,
+        "padding_bottom": 48
+      }
+    }
+  },
+  "order": [
+    "slideshow_JjbcJx",
+    "multirow_RjeRRr",
+    "main",
+    "related-products",
+    "17598267606bb4282a",
+    "multicolumn_Ve34LV"
+  ]
+}

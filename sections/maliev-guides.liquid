@@ -1,0 +1,150 @@
+{{ 'maliev-home-sections.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign recent_blog = section.settings.blog
+  assign show_recent_articles = false
+  if recent_blog != blank and recent_blog.articles_count > 0
+    assign show_recent_articles = true
+  endif
+-%}
+
+<section class="maliev-home">
+  <div class="mh">
+    <div class="mh__section">
+      <div class="mh__section-head">
+        <h2 class="mh__section-title">{{ section.settings.heading | escape }}</h2>
+        {%- if section.settings.text != blank -%}
+          <p>{{ section.settings.text | escape }}</p>
+        {%- endif -%}
+      </div>
+      <div class="mh__blog-grid">
+        {%- if show_recent_articles -%}
+          {%- for article in recent_blog.articles limit: section.settings.post_limit -%}
+            {%- liquid
+              assign article_category = recent_blog.title
+              if article.tags.size > 0
+                assign article_category = article.tags | first
+              endif
+              assign article_alt = article.image.alt | default: article.title
+            -%}
+            <a class="mh__blog-card" href="{{ article.url }}">
+              {%- if article.image != blank -%}
+                {{ article.image | image_url: width: 1200 | image_tag: loading: 'lazy', alt: article_alt, widths: '540, 720, 960, 1200' }}
+              {%- elsif section.settings.fallback_image_url != blank -%}
+                <img src="{{ section.settings.fallback_image_url | escape }}" alt="{{ article.title | escape }}" width="1200" height="800" loading="lazy">
+              {%- else -%}
+                <span class="mh__blog-placeholder" aria-hidden="true">{{ article.title | slice: 0, 1 | upcase }}</span>
+              {%- endif -%}
+              <span class="mh__blog-body">
+                <b>{{ article_category | escape }}</b>
+                <strong>{{ article.title | escape }}</strong>
+                <span>
+                  {%- if article.excerpt.size > 0 -%}
+                    {{ article.excerpt | strip_html | truncatewords: 18 }}
+                  {%- else -%}
+                    {{ article.content | strip_html | truncatewords: 18 }}
+                  {%- endif -%}
+                </span>
+              </span>
+            </a>
+          {%- endfor -%}
+        {%- else -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'blog_card' -%}
+              <a class="mh__blog-card" href="{{ block.settings.link }}" {{ block.shopify_attributes }}>
+                {%- if block.settings.image != blank -%}
+                  {{ block.settings.image | image_url: width: 1200 | image_tag: loading: 'lazy', alt: block.settings.image_alt, widths: '540, 720, 960, 1200' }}
+                {%- elsif block.settings.image_url != blank -%}
+                  <img src="{{ block.settings.image_url | escape }}" alt="{{ block.settings.image_alt | escape }}" width="1200" height="800" loading="lazy">
+                {%- endif -%}
+                <span class="mh__blog-body">
+                  <b>{{ block.settings.category | escape }}</b>
+                  <strong>{{ block.settings.title | escape }}</strong>
+                  <span>{{ block.settings.text | escape }}</span>
+                </span>
+              </a>
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      </div>
+
+      <a class="mh__article-cta" href="{{ section.settings.article_link }}">
+        {%- if section.settings.article_image != blank -%}
+          {{ section.settings.article_image | image_url: width: 1500 | image_tag: loading: 'lazy', alt: section.settings.article_image_alt, widths: '720, 960, 1200, 1500' }}
+        {%- elsif section.settings.article_image_url != blank -%}
+          <img src="{{ section.settings.article_image_url | escape }}" alt="{{ section.settings.article_image_alt | escape }}" width="1500" height="1000" loading="lazy">
+        {%- endif -%}
+        <div class="mh__article-copy">
+          {%- if section.settings.article_eyebrow != blank -%}
+            <p class="mh__eyebrow">{{ section.settings.article_eyebrow | escape }}</p>
+          {%- endif -%}
+          <h3>{{ section.settings.article_title | escape }}</h3>
+          <p>{{ section.settings.article_text | escape }}</p>
+          {%- assign pill_lines = section.settings.article_pills | newline_to_br | split: '<br />' -%}
+          {%- if section.settings.article_pills != blank -%}
+            <div class="mh__pills">
+              {%- for pill in pill_lines -%}
+                {%- assign trimmed_pill = pill | strip -%}
+                {%- if trimmed_pill != blank -%}
+                  <span>{{ trimmed_pill | escape }}</span>
+                {%- endif -%}
+              {%- endfor -%}
+            </div>
+          {%- endif -%}
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "MALIEV guides",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Guides, product notes, and workshop ideas." },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Use MALIEV guides to plan your setup, troubleshoot products, and improve workshop processes." },
+    { "type": "blog", "id": "blog", "label": "Recent posts blog" },
+    { "type": "range", "id": "post_limit", "min": 1, "max": 3, "step": 1, "label": "Recent post cards", "default": 3 },
+    { "type": "text", "id": "fallback_image_url", "label": "Fallback recent post image URL" },
+    { "type": "url", "id": "article_link", "label": "Featured article link" },
+    { "type": "image_picker", "id": "article_image", "label": "Featured article image" },
+    { "type": "text", "id": "article_image_url", "label": "Fallback featured article image URL", "default": "https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/feature.jpg?v=1740041381&width=1500" },
+    { "type": "text", "id": "article_image_alt", "label": "Featured article image alt text", "default": "Aluminum profile tap guide" },
+    { "type": "text", "id": "article_eyebrow", "label": "Featured article eyebrow", "default": "Workshop guide" },
+    { "type": "text", "id": "article_title", "label": "Featured article title", "default": "Improve your tapping process with repeatable fixtures" },
+    { "type": "textarea", "id": "article_text", "label": "Featured article text", "default": "Learn how aluminum profile tap guides make workshop preparation cleaner, faster, and more repeatable." },
+    { "type": "textarea", "id": "article_pills", "label": "Featured article pills", "default": "Aluminum profile\nTapping\nFixture\nProcess" }
+  ],
+  "blocks": [
+    {
+      "type": "blog_card",
+      "name": "Blog card",
+      "settings": [
+        { "type": "text", "id": "category", "label": "Category", "default": "Product" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Workshop article" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Short description for this guide." },
+        { "type": "url", "id": "link", "label": "Link" },
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "image_url", "label": "Fallback image URL" },
+        { "type": "text", "id": "image_alt", "label": "Image alt text" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV guides",
+      "blocks": [
+        { "type": "blog_card" },
+        { "type": "blog_card" },
+        { "type": "blog_card" }
+      ]
+    }
+  ]
+}
+{% endschema %}
+

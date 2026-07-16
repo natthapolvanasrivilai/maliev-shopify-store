@@ -1,0 +1,204 @@
+{{ 'section-image-banner.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    background: #101317;
+    color: #f6f4ef;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 520px);
+    min-height: min(690px, 72vh);
+    overflow: hidden;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2rem;
+    padding: clamp(4rem, 8vw, 9rem) clamp(2rem, 6vw, 7rem);
+    position: relative;
+    z-index: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__copy::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(90deg, #000 0%, transparent 75%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__eyebrow {
+    color: #77d7ff;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__title {
+    color: #ffffff;
+    font-size: clamp(4.2rem, 7vw, 8.4rem);
+    line-height: 0.95;
+    margin: 0;
+    max-width: 9ch;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__text {
+    color: #d8dde1;
+    font-size: clamp(1.7rem, 2vw, 2.1rem);
+    line-height: 1.45;
+    margin: 0;
+    max-width: 58rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    max-width: 64rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__metric {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    padding: 1.3rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__metric strong {
+    color: #ffffff;
+    display: block;
+    font-size: clamp(2rem, 3vw, 3rem);
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__metric span {
+    color: #aeb8bf;
+    display: block;
+    font-size: 1.2rem;
+    margin-top: 0.6rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__button {
+    background: #ffffff;
+    border: 1px solid #ffffff;
+    border-radius: 4px;
+    color: #101317;
+    display: inline-flex;
+    font-weight: 600;
+    min-height: 4.8rem;
+    padding: 1.3rem 2rem;
+    text-decoration: none;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__button--secondary {
+    background: transparent;
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__media {
+    align-items: end;
+    background: #f2f0ea;
+    display: flex;
+    justify-content: center;
+    min-height: 100%;
+    padding: clamp(2rem, 4vw, 5rem);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-home__media img {
+    display: block;
+    height: auto;
+    max-height: 62rem;
+    object-fit: contain;
+    width: min(100%, 52rem);
+  }
+
+  @media screen and (max-width: 749px) {
+    #shopify-section-{{ section.id }} .pimm50-home {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-home__copy {
+      padding: 4rem 2rem 3rem;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-home__metrics {
+      grid-template-columns: 1fr;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-home__media {
+      min-height: 34rem;
+      padding: 2rem;
+    }
+  }
+{%- endstyle -%}
+
+<section class="pimm50-home" aria-label="Pneumatic Injection Molding Machine 50g launch">
+  <div class="pimm50-home__copy">
+    <p class="pimm50-home__eyebrow">New product launch</p>
+    <h1 class="pimm50-home__title">Pneumatic Injection Molding Machine 50g</h1>
+    <p class="pimm50-home__text">
+      A larger-capacity pneumatic injection molding machine with a steel melt zone, upgraded 700W heater package, and a taller frame for higher-performance small-batch production.
+    </p>
+    <div class="pimm50-home__metrics" aria-label="Pneumatic Injection Molding Machine 50g key specifications">
+      <div class="pimm50-home__metric">
+        <strong>50g</strong>
+        <span>shot capacity</span>
+      </div>
+      <div class="pimm50-home__metric">
+        <strong>700W</strong>
+        <span>heater power</span>
+      </div>
+      <div class="pimm50-home__metric">
+        <strong>30 days</strong>
+        <span>lead time</span>
+      </div>
+    </div>
+    <div class="pimm50-home__actions">
+      <a class="pimm50-home__button" href="/products/pneumatic-injection-molding-machine-50g">View 50g machine</a>
+      <a class="pimm50-home__button pimm50-home__button--secondary" href="/collections/injection-molding-products">Injection molding lineup</a>
+    </div>
+  </div>
+  <div class="pimm50-home__media">
+    <img
+      src="{{ 'pimm-50g-hero-reference-faithful.png' | asset_url }}"
+      alt="Pneumatic Injection Molding Machine 50g pneumatic injection molding machine"
+      width="1254"
+      height="1254"
+      loading="eager"
+    >
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "IMM 50g home",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [],
+  "presets": [
+    {
+      "name": "IMM 50g home"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,58 @@
+{{ 'maliev-home-sections.css' | asset_url | stylesheet_tag }}
+
+<section class="maliev-home">
+  <div class="mh">
+    <div class="mh__workflow" aria-label="{{ section.settings.aria_label | escape }}">
+      <div class="mh__workflow-inner">
+        {%- for block in section.blocks -%}
+          <div class="mh__step" {{ block.shopify_attributes }}>
+            <b>{{ block.settings.step_number | escape }}</b>
+            <strong>{{ block.settings.title | escape }}</strong>
+            <span>{{ block.settings.text | escape }}</span>
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "MALIEV workflow",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "Buying workflow"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Workflow step",
+      "settings": [
+        { "type": "text", "id": "step_number", "label": "Step number", "default": "01" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Choose the machine" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Pick the machine size and workshop setup that matches your production target." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV workflow",
+      "blocks": [
+        { "type": "step" },
+        { "type": "step" },
+        { "type": "step" },
+        { "type": "step" }
+      ]
+    }
+  ]
+}
+{% endschema %}

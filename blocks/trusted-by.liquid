@@ -1,0 +1,624 @@
+{% doc %}
+  @prompt
+    Create a “Trusted By” section that dynamically displays company logos, hides the section if no logos are added, and supports configurable maximum width (specific value or full width) with fully configurable padding (including 0px). Logos must keep consistent size whether static or scrolling, and in static mode they should only display once without repeats. The section should be fully responsive, with horizontal scrolling automatically enabled on smaller devices. Scrolling mode must run in a seamless infinite loop with logos reinserted one-by-one, no blank gaps, and with configurable scrolling speed between 0 (still) and 300 (very fast). All extra padding (top, bottom, left, right) in the scrolling container must be removable, with optional configurable animation padding. Add fade-out effects at the top of the logos to blend with the section above, and on the left and right edges of the scroll area, fading to transparent alpha (not darker color), to create the effect of logos fading in from the right and fading out to the left., The animation didn't work. The logo is not horizontally scrolled. It stays static., Create a “Trusted By” section that dynamically displays company logos and hides the section if none are provided; support a configurable maximum width (specific px or full width) and fully configurable padding (top/right/bottom/left) including 0px; keep logo size identical between static and animated modes and do not repeat logos in static mode; disable any hover or tap visual changes so logos remain visually identical on mouse hover or mobile tap. Provide an optional ticker-style continuous horizontal scroll that loops indefinitely with no blank gaps and with configurable direction (default leftward so logos enter from the right and exit left); when enabled duplicate and reinsert logos one-by-one to fill the viewport and ensure the animation actually moves (not static), does not stall, and does not restart only a few loops then pause. Scrolling speed must be configurable 0–300 where 0 = still and 300 = very fast with a linear mapping (higher = faster) and must allow speeds slower than current implementation. Remove all automatic extra padding from the scrolling container (including top/bottom) by default when ticker is enabled but allow an optional configurable animation padding value. Add fade masks at the top of the logo area to blend with the previous section and on the left/right edges of the scroll area that fade to transparent alpha (not darke
+
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% liquid
+  assign has_logos = false
+  for i in (1..8)
+    assign logo_key = 'logo_' | append: i
+    if block.settings[logo_key] != blank
+      assign has_logos = true
+      break
+    endif
+  endfor
+%}
+
+{% if has_logos %}
+  {% style %}
+    .ai-trusted-by-{{ ai_gen_id }} {
+      width: 100%;
+      {% if block.settings.max_width == 'full' %}
+        max-width: 100%;
+      {% else %}
+        max-width: {{ block.settings.max_width_value }}px;
+        margin: 0 auto;
+      {% endif %}
+      padding: {{ block.settings.padding_top }}px {{ block.settings.padding_right }}px {{ block.settings.padding_bottom }}px {{ block.settings.padding_left }}px;
+      position: relative;
+    }
+
+    .ai-trusted-by-header-{{ ai_gen_id }} {
+      text-align: {{ block.settings.text_alignment }};
+      margin-bottom: {{ block.settings.header_spacing }}px;
+    }
+
+    .ai-trusted-by-title-{{ ai_gen_id }} {
+      font-size: {{ block.settings.title_size }}px;
+      color: {{ block.settings.title_color }};
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .ai-trusted-by-subtitle-{{ ai_gen_id }} {
+      font-size: {{ block.settings.subtitle_size }}px;
+      color: {{ block.settings.subtitle_color }};
+      margin: 8px 0 0 0;
+    }
+
+    .ai-trusted-by-logos-container-{{ ai_gen_id }} {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      {% if block.settings.enable_fade_top %}
+        margin-top: {{ block.settings.fade_top_distance }}px;
+      {% endif %}}
+
+    {% if block.settings.enable_fade_top %}
+      .ai-trusted-by-logos-container-{{ ai_gen_id }}::before {
+        content: '';
+        position: absolute;
+        top: -{{ block.settings.fade_top_distance }}px;
+        left: 0;
+        right: 0;
+        height: {{ block.settings.fade_top_distance }}px;
+        background: linear-gradient(to bottom, transparent0%, {{ block.settings.background_color }} 100%);
+        z-index: 2;
+        pointer-events: none;
+      }
+    {% endif %}
+
+    .ai-trusted-by-logos-container-{{ ai_gen_id }}::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        to right,
+        {{ block.settings.background_color }} 0%,
+        transparent {{ block.settings.fade_edge_width }}%,
+        transparent {{ 100 | minus: block.settings.fade_edge_width }}%,
+        {{ block.settings.background_color }} 100%
+      );
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .ai-trusted-by-logos-wrapper-{{ ai_gen_id }} {
+      display: flex;
+      align-items: center;
+      gap: {{ block.settings.logo_spacing }}px;
+      {% if block.settings.enable_ticker %}
+        padding: {{ block.settings.animation_padding }}px 0;
+        width: fit-content;
+      {% else %}
+        justify-content: {{ block.settings.logo_alignment }};
+        flex-wrap: wrap;
+        padding: 0;
+      {% endif %}
+    }
+
+    .ai-trusted-by-logo-{{ ai_gen_id }} {
+      flex-shrink: 0;
+      width: {{ block.settings.logo_width }}px;
+      height: {{ block.settings.logo_height }}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: {{ block.settings.logo_opacity | divided_by: 100.0 }};
+    }
+
+    .ai-trusted-by-logo-{{ ai_gen_id }} img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      filter: {% if block.settings.logo_grayscale %}grayscale(100%){% else %}none{% endif %};
+    }
+
+    @media screen and (max-width: 749px) {
+      .ai-trusted-by-{{ ai_gen_id }} {
+        padding: {{ block.settings.padding_top | times: 0.8 }}px {{ block.settings.padding_right | times: 0.8 }}px {{ block.settings.padding_bottom | times: 0.8 }}px {{ block.settings.padding_left | times: 0.8 }}px;
+      }
+
+      {% unless block.settings.enable_ticker %}
+        .ai-trusted-by-logos-container-{{ ai_gen_id }} {
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+
+        .ai-trusted-by-logos-wrapper-{{ ai_gen_id }} {
+          justify-content: flex-start;flex-wrap: nowrap;
+          padding-bottom: 10px;
+        }
+      {% endunless %}
+
+      .ai-trusted-by-logo-{{ ai_gen_id }} {
+        width: {{ block.settings.logo_width | times: 0.8 }}px;
+        height: {{ block.settings.logo_height | times: 0.8 }}px;
+      }
+    }
+  {% endstyle %}
+
+  <trusted-by-{{ ai_gen_id }}
+    class="ai-trusted-by-{{ ai_gen_id }}"
+    data-enable-ticker="{{ block.settings.enable_ticker }}"
+    data-scroll-speed="{{ block.settings.scroll_speed }}"
+    data-scroll-direction="{{ block.settings.scroll_direction }}"
+    data-logo-spacing="{{ block.settings.logo_spacing }}"
+    {{ block.shopify_attributes }}
+  >
+    {% if block.settings.title != blank or block.settings.subtitle != blank %}
+      <div class="ai-trusted-by-header-{{ ai_gen_id }}">
+        {% if block.settings.title != blank %}
+          <h2 class="ai-trusted-by-title-{{ ai_gen_id }}">{{ block.settings.title }}</h2>
+        {% endif %}
+        {% if block.settings.subtitle != blank %}
+          <p class="ai-trusted-by-subtitle-{{ ai_gen_id }}">{{ block.settings.subtitle }}</p>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="ai-trusted-by-logos-container-{{ ai_gen_id }}">
+      <div class="ai-trusted-by-logos-wrapper-{{ ai_gen_id }}" data-logos-wrapper>
+        {% for i in (1..8) %}
+          {% assign logo_key = 'logo_' | append: i %}
+          {% assign logo = block.settings[logo_key] %}
+          {% if logo != blank %}
+            <div class="ai-trusted-by-logo-{{ ai_gen_id }}">
+              <img
+                src="{{ logo | image_url: width: 400}}"
+                alt="{{ logo.alt | escape }}"
+                loading="lazy"
+                width="{{ block.settings.logo_width }}"
+                height="{{ block.settings.logo_height }}"
+              >
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </trusted-by-{{ ai_gen_id }}><script>
+    (function() {
+      class TrustedBy{{ ai_gen_id }} extends HTMLElement {
+        constructor() {
+          super();
+          this.enableTicker = this.dataset.enableTicker === 'true';
+          this.scrollSpeed = parseInt(this.dataset.scrollSpeed);
+          this.scrollDirection = this.dataset.scrollDirection;
+          this.logoSpacing = parseInt(this.dataset.logoSpacing);
+          this.animationId = null;
+          this.currentTransform = 0;
+        }
+
+        connectedCallback() {
+          if (this.enableTicker && this.scrollSpeed > 0) {
+            this.setupTicker();
+          }
+        }
+
+        disconnectedCallback() {
+          if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+          }
+        }
+
+        setupTicker() {
+          const wrapper = this.querySelector('[data-logos-wrapper]');
+          if (!wrapper) return;
+
+          const originalLogos = Array.from(wrapper.children);
+          if (originalLogos.length === 0) return;
+
+          const containerWidth = this.querySelector('.ai-trusted-by-logos-container-{{ ai_gen_id }}').offsetWidth;
+          const logoWidth = originalLogos[0].offsetWidth;
+          const totalLogoWidth = logoWidth + this.logoSpacing;
+          const logosNeeded = Math.ceil(containerWidth / totalLogoWidth) + originalLogos.length + 2;
+
+          for (let i = originalLogos.length; i < logosNeeded; i++) {
+            const clone = originalLogos[i % originalLogos.length].cloneNode(true);
+            wrapper.appendChild(clone);
+          }
+
+          this.startAnimation(wrapper, totalLogoWidth);
+        }
+
+        startAnimation(wrapper, totalLogoWidth) {
+          const pixelsPerSecond = (this.scrollSpeed / 300) * 200;
+          const pixelsPerFrame = pixelsPerSecond / 60;
+
+          const animate = () => {
+            if (this.scrollDirection === 'right') {
+              this.currentTransform += pixelsPerFrame;
+              if (this.currentTransform >= totalLogoWidth) {
+                this.currentTransform -= totalLogoWidth;
+              }
+            } else {
+              this.currentTransform -= pixelsPerFrame;
+              if (this.currentTransform <= -totalLogoWidth) {
+                this.currentTransform += totalLogoWidth;
+              }
+            }
+
+            wrapper.style.transform = `translateX(${this.currentTransform}px)`;
+            this.animationId = requestAnimationFrame(animate);
+          };
+
+          this.animationId = requestAnimationFrame(animate);
+        }
+      }
+
+      customElements.define('trusted-by-{{ ai_gen_id }}', TrustedBy{{ ai_gen_id }});
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Trusted by",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "Trusted by"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Subtitle"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "header_spacing",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "label": "Header spacing",
+      "default": 32
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Maximum width",
+      "options": [
+        {
+          "value": "full",
+          "label": "Full width"
+        },
+        {
+          "value": "custom",
+          "label": "Custom width"
+        }
+      ],
+      "default": "full"
+    },
+    {
+      "type": "range",
+      "id": "max_width_value",
+      "min": 400,
+      "max": 1600,
+      "step": 50,
+      "unit": "px",
+      "label": "Custom width",
+      "default": 1200
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Top padding",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_right",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Right padding",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Bottom padding",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_left",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Left padding",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Logo settings"
+    },
+    {
+      "type": "range",
+      "id": "logo_width",
+      "min": 60,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "label": "Logo width",
+      "default": 120
+    },
+    {
+      "type": "range",
+      "id": "logo_height",
+      "min": 30,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "label": "Logo height",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "logo_spacing",
+      "min": 20,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "label": "Logo spacing",
+      "default": 40
+    },
+    {
+      "type": "select",
+      "id": "logo_alignment",
+      "label": "Logo alignment (static mode)",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Right"
+        },
+        {
+          "value": "space-between",
+          "label": "Space between"
+        },
+        {
+          "value": "space-around",
+          "label": "Space around"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "logo_opacity",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "label": "Logo opacity",
+      "default": 70
+    },
+    {
+      "type": "checkbox",
+      "id": "logo_grayscale",
+      "label": "Grayscale logos",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Ticker animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_ticker",
+      "label": "Enable ticker animation",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "scroll_direction",
+      "label": "Scroll direction",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left (logos enter from right)"
+        },
+        {
+          "value": "right",
+          "label": "Right (logos enter from left)"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "scroll_speed",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "label": "Scroll speed",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "animation_padding",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "label": "Animation padding",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Fade effects"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_fade_top",
+      "label": "Enable top fade",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "fade_top_distance",
+      "min": 10,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "label": "Top fade distance",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "fade_edge_width",
+      "min": 5,
+      "max": 25,
+      "step": 1,
+      "unit": "%",
+      "label": "Side fade width",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "subtitle_color",
+      "label": "Subtitle color",
+      "default": "#666666"
+    },
+    {
+      "type": "range",
+      "id": "title_size",
+      "min": 16,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "label": "Title size",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "subtitle_size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "label": "Subtitle size",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Company logos"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_1",
+      "label": "Logo 1"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_2",
+      "label": "Logo 2"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_3",
+      "label": "Logo 3"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_4",
+      "label": "Logo 4"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_5",
+      "label": "Logo 5"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_6",
+      "label": "Logo 6"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_7",
+      "label": "Logo 7"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_8",
+      "label": "Logo 8"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Trusted by"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,119 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "main": {
+      "type": "main-article",
+      "blocks": {
+        "featured_image": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "adapt"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {
+            "blog_show_date": true,
+            "blog_show_author": false
+          }
+        },
+        "content": {
+          "type": "content",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "featured_image",
+        "title",
+        "content"
+      ],
+      "custom_css": [
+        "iframe {width: 100%; aspect-ratio: 16 / 9; height: auto;}",
+        ".article-template__back {display: none;}",
+        "header,.article-template__content {max-width: 100rem;}"
+      ],
+      "settings": {}
+    },
+    "featured_product_7rRaBR": {
+      "type": "featured-product",
+      "blocks": {
+        "text_hxC9Y3": {
+          "type": "text",
+          "settings": {
+            "text": "{{ section.settings.product.vendor }}",
+            "text_style": "uppercase"
+          }
+        },
+        "title_P7GgF6": {
+          "type": "title",
+          "settings": {
+            "heading_size": "h1"
+          }
+        },
+        "price_BTYycW": {
+          "type": "price",
+          "settings": {}
+        },
+        "variant_picker_egQhUT": {
+          "type": "variant_picker",
+          "settings": {
+            "picker_type": "button",
+            "swatch_shape": "circle"
+          }
+        },
+        "quantity_selector_QPYBxN": {
+          "type": "quantity_selector",
+          "settings": {}
+        },
+        "buy_buttons_LzYeCB": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_dynamic_checkout": true,
+            "show_gift_card_recipient": true
+          }
+        },
+        "share_A9tU6R": {
+          "type": "share",
+          "settings": {
+            "share_label": "Share"
+          }
+        }
+      },
+      "block_order": [
+        "text_hxC9Y3",
+        "title_P7GgF6",
+        "price_BTYycW",
+        "variant_picker_egQhUT",
+        "quantity_selector_QPYBxN",
+        "buy_buttons_LzYeCB",
+        "share_A9tU6R"
+      ],
+      "settings": {
+        "product": "pneumatic-injection-molding-machine",
+        "color_scheme": "",
+        "secondary_background": false,
+        "media_size": "small",
+        "constrain_to_viewport": true,
+        "media_fit": "contain",
+        "media_position": "right",
+        "image_zoom": "lightbox",
+        "hide_variants": false,
+        "enable_video_looping": false,
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    }
+  },
+  "order": [
+    "main",
+    "featured_product_7rRaBR"
+  ]
+}

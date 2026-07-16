@@ -1,0 +1,489 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "slideshow_JjbcJx": {
+      "type": "slideshow",
+      "blocks": {
+        "slide_8idMkn": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/front_view_2_machines_on_left.39.png",
+            "image_overlay_opacity": 0,
+            "heading": "Solution for <strong>Precision Injection Molding </strong>at<strong> Home</strong>",
+            "heading_size": "h0",
+            "subheading": "Reliable performance for prototypes and low-volume manufacturing.",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "middle-right",
+            "text_alignment": "right",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-1"
+          }
+        },
+        "slide_gKFA3e": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/machine_on_table_white_background.46.png",
+            "image_overlay_opacity": 0,
+            "heading": "Designed for <strong>Ease</strong>, <strong>Efficiency</strong>, and <strong>Durability</strong>",
+            "heading_size": "h0",
+            "subheading": "Streamlined operation for hassle-free manufacturing.",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "top-left",
+            "text_alignment": "left",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-1"
+          }
+        },
+        "slide_w7bkrp": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/control_instruments.50.png",
+            "image_overlay_opacity": 0,
+            "heading": "Fully <strong>Customizable</strong> Injection Settings",
+            "heading_size": "h0",
+            "subheading": "Adjust parameters to suit diverse materials and designs.",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "top-right",
+            "text_alignment": "right",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-1"
+          }
+        },
+        "slide_nY33dt": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/long_lasting_performance.52.png",
+            "image_overlay_opacity": 0,
+            "heading": "<strong>Long-Lasting</strong> Performance",
+            "heading_size": "h0",
+            "subheading": "Durable construction with minimal maintenance requirements.",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "bottom-left",
+            "text_alignment": "left",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-1"
+          }
+        },
+        "slide_PefnfU": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/DSC_1208_scaled.png",
+            "image_overlay_opacity": 30,
+            "heading": "<strong>Cost-Effective</strong> Manufacturing Solutions",
+            "heading_size": "h0",
+            "subheading": "Maximize productivity without breaking the budget.",
+            "button_label": "",
+            "link": "",
+            "button_style_secondary": false,
+            "show_text_box": false,
+            "box_align": "bottom-right",
+            "text_alignment": "right",
+            "text_alignment_mobile": "left",
+            "color_scheme": "scheme-4"
+          }
+        }
+      },
+      "block_order": [
+        "slide_8idMkn",
+        "slide_gKFA3e",
+        "slide_w7bkrp",
+        "slide_nY33dt",
+        "slide_PefnfU"
+      ],
+      "custom_css": [
+        ".content-container--full-width-mobile {padding-top: 1em; padding-bottom: 1em;}"
+      ],
+      "settings": {
+        "layout": "full_bleed",
+        "slide_height": "large",
+        "slider_visual": "dots",
+        "auto_rotate": true,
+        "change_slides_speed": 7,
+        "image_behavior": "none",
+        "show_text_below": true,
+        "accessibility_info": "Slideshow about our machine"
+      }
+    },
+    "multirow_RjeRRr": {
+      "type": "multirow",
+      "blocks": {
+        "row_JeJPTC": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/compact_design.36.png",
+            "caption": "Compact and Ergonomic",
+            "heading": "<strong>Compact Design</strong> for Any Workspace",
+            "text": "<p>The machine fits seamlessly into any workshop or manufacturing floor. Its small footprint and ergonomic design make it an ideal choice for tight spaces while maintaining full functionality.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_WQ9Ukm": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/base-plate-system.26.png",
+            "caption": "Customizable Mounting",
+            "heading": "<strong>Flexible</strong> Mounting System with <strong>M10</strong> Grid Plate",
+            "text": "<p>The base plate is designed with a grid of <strong>M10 </strong>threaded holes, allowing for versatile mounting of molds, jigs, and additional equipment. This provides unmatched flexibility for customized manufacturing setups.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_QCwq4U": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/mold_and_parts.37.png",
+            "caption": "Consistent Results",
+            "heading": "<strong>Precision</strong> in Every Injection",
+            "text": "<p>Engineered for accuracy, the machine delivers consistent and precise molding results. Perfect for prototypes and small-scale production where tolerances matter most.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_mzUQgK": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/large_mold_size.37.png",
+            "caption": "Flexible Mold Area",
+            "heading": "<strong>Large</strong> Mold Sizes",
+            "text": "<p>Accommodates large molds up to <strong>240 x 150 mm</strong> (horizontal x vertical) with unlimited length, enhancing the ability to produce a wide range of parts.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "row_J88LiJ": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/plastic-bottle-tops.jpg",
+            "caption": "Sustainable and Efficient",
+            "heading": "Eco-Friendly Manufacturing with <strong>Recycled Materials</strong>",
+            "text": "<p>Optimized for compatibility with recycled plastics, the machine supports sustainable production. Reduce waste and save costs without compromising on quality.</p>",
+            "button_label": "",
+            "button_link": ""
+          }
+        }
+      },
+      "block_order": [
+        "row_JeJPTC",
+        "row_WQ9Ukm",
+        "row_QCwq4U",
+        "row_mzUQgK",
+        "row_J88LiJ"
+      ],
+      "custom_css": [],
+      "settings": {
+        "image_height": "medium",
+        "desktop_image_width": "medium",
+        "image_layout": "alternate-left",
+        "heading_size": "h1",
+        "text_style": "body",
+        "button_style": "secondary",
+        "desktop_content_position": "top",
+        "desktop_content_alignment": "left",
+        "mobile_content_alignment": "left",
+        "section_color_scheme": "scheme-2",
+        "row_color_scheme": "scheme-2",
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "blocks": {
+        "vendor": {
+          "type": "text",
+          "settings": {
+            "text": "",
+            "text_style": "uppercase"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {}
+        },
+        "price": {
+          "type": "price",
+          "settings": {}
+        },
+        "custom_liquid_nVrDVL": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{% assign is_th = false %}\n{% if localization.language.iso_code == 'th' or request.locale.iso_code == 'th' %}{% assign is_th = true %}{% endif %}\n{% if product.metafields.custom.lead_time != blank %}\n\t{% if is_th %}\n\t\t<p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} วัน</span></p>\n\t{% elsif product.metafields.custom.lead_time > 1 %}\n\t\t<p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} days</span></p>\n\t{% else %}\n\t\t<p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} day</span></p>\n\t{% endif %}\n{% else %}\n\t{% if is_th %}\n\t\t<p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">1 วัน</span></p>\n\t{% else %}\n\t\t<p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">1 day</span></p>\n\t{% endif %}\n{% endif %}"
+          }
+        },
+        "variant_picker": {
+          "type": "variant_picker",
+          "settings": {
+            "picker_type": "dropdown",
+            "swatch_shape": "none"
+          }
+        },
+        "quantity_selector_i4kVnT": {
+          "type": "quantity_selector",
+          "settings": {}
+        },
+        "buy_buttons": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_dynamic_checkout": true,
+            "show_gift_card_recipient": true
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        },
+        "essential_upsell_frequently_bought_together_app_block_EUqF9Q": {
+          "type": "shopify://apps/essential-upsell/blocks/frequently-bought-together-app-block/50627fd9-24fd-4250-8614-accc12826d80",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "vendor",
+        "title",
+        "price",
+        "custom_liquid_nVrDVL",
+        "variant_picker",
+        "quantity_selector_i4kVnT",
+        "buy_buttons",
+        "description",
+        "essential_upsell_frequently_bought_together_app_block_EUqF9Q"
+      ],
+      "custom_css": [
+        "iframe {width: 100%; aspect-ratio: 16 / 9; height: auto;}",
+        ".leadtime {font-size: 1em;}",
+        ".leadtime_duration {font-weight: 600;}"
+      ],
+      "settings": {
+        "enable_sticky_info": true,
+        "color_scheme": "scheme-1",
+        "media_size": "small",
+        "constrain_to_viewport": true,
+        "media_fit": "cover",
+        "gallery_layout": "thumbnail_slider",
+        "mobile_thumbnails": "show",
+        "media_position": "right",
+        "image_zoom": "hover",
+        "hide_variants": true,
+        "enable_video_looping": false,
+        "padding_top": 36,
+        "padding_bottom": 16
+      }
+    },
+    "image_with_text_RXCbYL": {
+      "type": "image-with-text",
+      "blocks": {
+        "heading_NwB8wr": {
+          "type": "heading",
+          "settings": {
+            "heading": "<strong>Build.</strong> Test. Produce.",
+            "heading_size": "h1"
+          }
+        },
+        "text_fGmEiH": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Compact, powerful, and affordable. Learn how this pneumatic injection molding machine helps you start producing plastic parts fast with minimal setup and maintenance.<br/></p>",
+            "text_style": "body"
+          }
+        }
+      },
+      "block_order": [
+        "heading_NwB8wr",
+        "text_fGmEiH"
+      ],
+      "custom_css": [],
+      "name": "t:sections.image-with-text.presets.name",
+      "settings": {
+        "image": "shopify://shop_images/machine-portrait.14.png",
+        "height": "adapt",
+        "desktop_image_width": "medium",
+        "layout": "image_first",
+        "image_behavior": "none",
+        "content_layout": "no-overlap",
+        "desktop_content_position": "middle",
+        "desktop_content_alignment": "left",
+        "mobile_content_alignment": "left",
+        "section_color_scheme": "scheme-1",
+        "color_scheme": "scheme-1",
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    },
+    "image_with_text_DgEND8": {
+      "type": "image-with-text",
+      "blocks": {
+        "heading_afVX96": {
+          "type": "heading",
+          "settings": {
+            "heading": "<strong>Need Assistance? We're Here to Help!</strong>",
+            "heading_size": "h2"
+          }
+        },
+        "text_9HkUp9": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Have questions about our Injection Molding Machine? Chat with us directly on <strong>LINE Official Account</strong> for instant assistance!</p>",
+            "text_style": "body"
+          }
+        },
+        "button_FNbf3C": {
+          "type": "button",
+          "settings": {
+            "button_label": "Chat on LINE: @maliev",
+            "button_link": "http://line.me/ti/p/@maliev",
+            "button_style_secondary": false
+          }
+        },
+        "caption_BQPKmG": {
+          "type": "caption",
+          "settings": {
+            "caption": "Schedule a demo session with us!",
+            "text_style": "caption-with-letter-spacing",
+            "text_size": "medium"
+          }
+        }
+      },
+      "block_order": [
+        "heading_afVX96",
+        "text_9HkUp9",
+        "button_FNbf3C",
+        "caption_BQPKmG"
+      ],
+      "custom_css": [
+        ".image-with-text__media-item {box-shadow: rgba(0, 0, 0, 0.25) 0px 54px 55px, rgba(0, 0, 0, 0.12) 0px -12px 30px, rgba(0, 0, 0, 0.12) 0px 4px 6px, rgba(0, 0, 0, 0.17) 0px 12px 13px, rgba(0, 0, 0, 0.09) 0px -3px 5px;}"
+      ],
+      "settings": {
+        "image": "shopify://shop_images/L_gainfriends_2dbarcodes_BW.png",
+        "height": "adapt",
+        "desktop_image_width": "small",
+        "layout": "image_first",
+        "image_behavior": "none",
+        "content_layout": "no-overlap",
+        "desktop_content_position": "middle",
+        "desktop_content_alignment": "center",
+        "mobile_content_alignment": "center",
+        "section_color_scheme": "scheme-1",
+        "color_scheme": "scheme-8b63eea5-e50f-4146-af2e-126fa45cf770",
+        "padding_top": 52,
+        "padding_bottom": 64
+      }
+    },
+    "related-products": {
+      "type": "related-products",
+      "settings": {
+        "heading": "<strong>You may also like</strong>",
+        "heading_size": "h1",
+        "products_to_show": 3,
+        "columns_desktop": 3,
+        "columns_mobile": "2",
+        "color_scheme": "scheme-2",
+        "image_ratio": "adapt",
+        "image_shape": "default",
+        "show_secondary_image": true,
+        "show_vendor": false,
+        "show_rating": true,
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
+    },
+    "1759826068bf1da713": {
+      "type": "apps",
+      "settings": {
+        "include_margins": true
+      }
+    },
+    "multicolumn_CfnjkK": {
+      "type": "multicolumn",
+      "blocks": {
+        "column_CLaRPx": {
+          "type": "column",
+          "settings": {
+            "image": "shopify://shop_images/thailand-thailand-svgrepo-com.svg",
+            "title": "<strong>Based in Thailand</strong>",
+            "text": "<p>Our incredibly talented staff is based in <strong>Nonthaburi, Thailand</strong>, handling support, shipping, and development from our headquarters.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_6BAaYD": {
+          "type": "column",
+          "settings": {
+            "image": "shopify://shop_images/chat-svgrepo-com.svg",
+            "title": "<strong>Online Support</strong>",
+            "text": "<p>For all your custom manufacturing needs, our team is ready to help. Contact us on LINE Official Account <a href=\"http://line.me/ti/p/@maliev\" target=\"_blank\" title=\"Add us on LINE Official Account\">@maliev</a> for quick assistance.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_jdWRMD": {
+          "type": "column",
+          "settings": {
+            "image": "shopify://shop_images/mobile-payment-debit-card-phone-svgrepo-com.svg",
+            "title": "<strong>Secure Payment</strong>",
+            "text": "<p>We support safe payments through Opn Payment (Omise), including credit/debit cards, ShopeePay, LINE Pay, QR PromptPay, and more, with industry-leading security.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "column_CLaRPx",
+        "column_6BAaYD",
+        "column_jdWRMD"
+      ],
+      "custom_css": [
+        ".rte {font-size: 1.4rem;}",
+        ".multicolumn-card__info {padding-top: 0.5em;}",
+        ".multicolumn-card__image-wrapper {max-width: 50px;}",
+        ".inline-richtext {font-size: 1.6rem;}"
+      ],
+      "settings": {
+        "title": "",
+        "heading_size": "h1",
+        "image_width": "third",
+        "image_ratio": "adapt",
+        "button_label": "",
+        "button_link": "",
+        "columns_desktop": 3,
+        "column_alignment": "left",
+        "background_style": "none",
+        "color_scheme": "scheme-2",
+        "columns_mobile": "1",
+        "swipe_on_mobile": true,
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
+    }
+  },
+  "order": [
+    "slideshow_JjbcJx",
+    "multirow_RjeRRr",
+    "main",
+    "image_with_text_RXCbYL",
+    "image_with_text_DgEND8",
+    "related-products",
+    "1759826068bf1da713",
+    "multicolumn_CfnjkK"
+  ]
+}

@@ -1,0 +1,1275 @@
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    --maliev-home-ink: #101214;
+    --maliev-home-muted: #697078;
+    --maliev-home-paper: #f4f6f7;
+    --maliev-home-panel: #ffffff;
+    --maliev-home-line: rgba(16, 18, 20, 0.1);
+    --maliev-home-blue: #006fd6;
+    --maliev-home-green: #00a36c;
+    --maliev-home-dark: #101418;
+    background: var(--maliev-home-paper);
+    color: var(--maliev-home-ink);
+  }
+
+  #shopify-section-{{ section.id }} .mh {
+    background: var(--maliev-home-paper);
+    font-family: var(--font-body-family);
+    overflow: clip;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero {
+    background: #ffffff;
+    display: grid;
+    grid-template-columns: 1fr;
+    isolation: isolate;
+    min-height: clamp(68rem, 88vh, 92rem);
+    overflow: hidden;
+    padding: 0 max(2rem, calc((100vw - 128rem) / 2));
+    place-items: center start;
+    position: relative;
+  }
+
+  #shopify-section-{{ section.id }} .mh__copy {
+    align-content: center;
+    display: grid;
+    gap: 1.8rem;
+    justify-items: start;
+    max-width: 68rem;
+    min-height: inherit;
+    padding: clamp(6.8rem, 8vw, 9.6rem) 2rem;
+    position: relative;
+    text-align: left;
+    z-index: 2;
+  }
+
+  #shopify-section-{{ section.id }} .mh__eyebrow {
+    color: var(--maliev-home-blue);
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .mh__title,
+  #shopify-section-{{ section.id }} .mh__section-title {
+    color: var(--maliev-home-ink);
+    font-family: var(--font-heading-family);
+    font-weight: 600;
+    letter-spacing: 0;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__title {
+    font-size: clamp(5.2rem, 6vw, 8.6rem);
+    line-height: 0.94;
+    max-width: 72rem;
+    overflow-wrap: normal;
+    text-wrap: balance;
+    word-break: normal;
+  }
+
+  #shopify-section-{{ section.id }} .mh__title--thai {
+    font-size: clamp(5.2rem, 5.8vw, 8.2rem);
+    max-width: 72rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__title-line {
+    display: block;
+    hyphens: none;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  #shopify-section-{{ section.id }} .mh__title-line--brand {
+    align-items: start;
+    display: grid;
+    gap: clamp(1.2rem, 1.4vw, 2.2rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__title-logo {
+    display: block;
+    height: 0.58em;
+    max-width: 3.1em;
+    object-fit: contain;
+    width: auto;
+  }
+
+  #shopify-section-{{ section.id }} .mh__title-logo-text {
+    white-space: nowrap;
+  }
+
+  #shopify-section-{{ section.id }} .mh__lead {
+    color: var(--maliev-home-muted);
+    font-size: clamp(1.7rem, 1.8vw, 2.1rem);
+    line-height: 1.48;
+    margin: 0;
+    max-width: 58rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero .mh__eyebrow {
+    color: #7dccff;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero .mh__title {
+    color: var(--maliev-home-ink);
+    text-shadow: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero .mh__lead {
+    color: #4e5963;
+    max-width: 72rem;
+    text-shadow: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero .mh__actions {
+    justify-content: start;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero .mh__button--secondary {
+    background: transparent;
+    border-color: transparent;
+    color: #4e5963;
+    font-weight: 600;
+    min-height: auto;
+    padding: 0.8rem 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__hero .mh__button--secondary:hover,
+  #shopify-section-{{ section.id }} .mh__hero .mh__button--secondary:focus-visible {
+    box-shadow: none;
+    color: var(--maliev-home-blue);
+    transform: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__actions,
+  #shopify-section-{{ section.id }} .mh__price-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__button {
+    align-items: center;
+    background: var(--maliev-home-blue);
+    border: 1px solid var(--maliev-home-blue);
+    border-radius: 999px;
+    color: #ffffff;
+    display: inline-flex;
+    font-size: 1.35rem;
+    font-weight: 600;
+    justify-content: center;
+    min-height: 4.7rem;
+    padding: 1.2rem 1.8rem;
+    text-decoration: none;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  #shopify-section-{{ section.id }} .mh__button:hover,
+  #shopify-section-{{ section.id }} .mh__button:focus-visible {
+    box-shadow: 0 1rem 2.4rem rgba(0, 111, 214, 0.22);
+    transform: translateY(-1px);
+  }
+
+  #shopify-section-{{ section.id }} .mh__button--secondary {
+    background: #ffffff;
+    border-color: rgba(16, 18, 20, 0.12);
+    color: var(--maliev-home-ink);
+  }
+
+  #shopify-section-{{ section.id }} .mh__stage {
+    background: #101418;
+    border: 0;
+    border-radius: 0;
+    inset: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__stage::after {
+    content: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__stage img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    position: relative;
+    width: 100%;
+    z-index: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__stats {
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: 0 2rem clamp(4rem, 6vw, 6rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__stat {
+    background: #ffffff;
+    border: 1px solid rgba(16, 18, 20, 0.08);
+    display: grid;
+    gap: 0.7rem;
+    min-height: 12rem;
+    padding: clamp(1.8rem, 3vw, 2.4rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__stat strong {
+    color: var(--maliev-home-ink);
+    font-size: clamp(2rem, 2.8vw, 3rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .mh__stat span {
+    color: var(--maliev-home-muted);
+    font-size: 1.3rem;
+    font-weight: 600;
+    line-height: 1.32;
+  }
+
+  #shopify-section-{{ section.id }} .mh__section {
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: clamp(4.8rem, 7vw, 7.2rem) 2rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__section-head {
+    align-items: end;
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: minmax(0, 1fr) minmax(28rem, 40rem);
+    margin-bottom: 2.6rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__section-title {
+    font-size: clamp(3.6rem, 5vw, 6.2rem);
+    line-height: 0.96;
+    max-width: 72rem;
+    text-wrap: balance;
+  }
+
+  #shopify-section-{{ section.id }} .mh__section-head p {
+    color: var(--maliev-home-muted);
+    font-size: 1.55rem;
+    line-height: 1.48;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__line-grid {
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: 1.15fr 0.85fr 0.85fr;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile {
+    background: #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 12px;
+    color: var(--maliev-home-ink);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 28rem;
+    overflow: hidden;
+    position: relative;
+    text-decoration: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile--large {
+    min-height: 38rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile--large .mh__tile-copy {
+    padding-bottom: 1.4rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile--dark {
+    background: var(--maliev-home-dark);
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile-copy {
+    display: grid;
+    gap: 0.8rem;
+    padding: clamp(1.8rem, 3vw, 2.6rem) clamp(1.8rem, 3vw, 2.6rem) 1rem;
+    z-index: 2;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile-copy strong {
+    color: inherit;
+    font-size: clamp(2.4rem, 3vw, 3.2rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile-copy span {
+    color: rgba(16, 18, 20, 0.64);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.3;
+    max-width: 28ch;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile--dark .mh__tile-copy span {
+    color: rgba(255, 255, 255, 0.66);
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile img {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+    object-position: center center;
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__tile--large img {
+    object-position: right center;
+  }
+
+  #shopify-section-{{ section.id }} .mh__workflow {
+    background: #ffffff;
+    border-bottom: 1px solid rgba(16, 18, 20, 0.08);
+    border-top: 1px solid rgba(16, 18, 20, 0.08);
+  }
+
+  #shopify-section-{{ section.id }} .mh__workflow-inner {
+    display: grid;
+    gap: 1.8rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: clamp(3.2rem, 5vw, 4.6rem) 2rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__step {
+    border-left: 2px solid var(--maliev-home-line);
+    display: grid;
+    gap: 0.9rem;
+    padding-left: 1.8rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__step b {
+    color: var(--maliev-home-blue);
+    font-size: 1.15rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .mh__step strong {
+    color: var(--maliev-home-ink);
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .mh__step span {
+    color: var(--maliev-home-muted);
+    font-size: 1.3rem;
+    line-height: 1.35;
+  }
+
+  #shopify-section-{{ section.id }} .mh__collection-grid {
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #shopify-section-{{ section.id }} .mh__collection-panel,
+  #shopify-section-{{ section.id }} .mh__product-panel,
+  #shopify-section-{{ section.id }} .mh__article-cta {
+    background: #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  #shopify-section-{{ section.id }} .mh__collection-panel--dark {
+    background: var(--maliev-home-dark);
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .mh__panel-head {
+    align-items: center;
+    border-bottom: 1px solid rgba(16, 18, 20, 0.08);
+    display: flex;
+    justify-content: space-between;
+    min-height: 5.4rem;
+    padding: 0 1.8rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__collection-panel--dark .mh__panel-head {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+
+  #shopify-section-{{ section.id }} .mh__panel-head strong {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .mh__panel-head span {
+    color: var(--maliev-home-muted);
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+
+  #shopify-section-{{ section.id }} .mh__collection-panel--dark .mh__panel-head span {
+    color: rgba(255, 255, 255, 0.64);
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-products {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 1.8rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-product {
+    background: #ffffff;
+    border: 1px solid rgba(16, 18, 20, 0.08);
+    border-radius: 10px;
+    color: var(--maliev-home-ink);
+    display: grid;
+    gap: 0;
+    grid-template-rows: clamp(14rem, 13vw, 17.6rem) auto auto;
+    overflow: hidden;
+    padding-bottom: 1.4rem;
+    text-decoration: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-product-media {
+    background: transparent;
+    display: block;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-product img {
+    display: block;
+    height: calc(100% + 2px);
+    margin: -1px;
+    object-fit: cover;
+    object-position: center center;
+    padding: 0;
+    transform: scale(1.08);
+    transform-origin: center center;
+    width: calc(100% + 2px);
+  }
+
+  #shopify-section-{{ section.id }} .mh__collection-panel:not(.mh__collection-panel--dark) .mh__mini-product:nth-child(-n + 2) img {
+    object-position: center 54%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-product > strong,
+  #shopify-section-{{ section.id }} .mh__mini-product > span:not(.mh__mini-product-media) {
+    margin: 0 1.2rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-product strong {
+    color: inherit;
+    font-size: 1.45rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.12;
+    margin-top: 1.2rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__mini-product > span:not(.mh__mini-product-media) {
+    color: var(--maliev-home-muted);
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-layout {
+    display: grid;
+    gap: 0;
+    grid-template-columns: minmax(28rem, 0.95fr) minmax(0, 1.05fr);
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-carousel {
+    display: grid;
+    gap: 1rem;
+    overflow: hidden;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-track {
+    cursor: grab;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-padding: 0;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    touch-action: pan-y;
+    user-select: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-track.is-dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-track img {
+    pointer-events: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-track::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-slide .mh__product-panel {
+    height: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__carousel-hint {
+    align-items: center;
+    color: var(--maliev-home-muted);
+    display: flex;
+    font-size: 1.25rem;
+    font-weight: 600;
+    gap: 0.8rem;
+    justify-content: flex-end;
+  }
+
+  #shopify-section-{{ section.id }} .mh__carousel-button {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid rgba(16, 18, 20, 0.14);
+    border-radius: 999px;
+    color: var(--maliev-home-ink);
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    font-size: 1.5rem;
+    font-weight: 600;
+    height: 3.6rem;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+    width: 3.6rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__carousel-button:hover,
+  #shopify-section-{{ section.id }} .mh__carousel-button:focus-visible {
+    background: var(--maliev-home-blue);
+    border-color: var(--maliev-home-blue);
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .mh__carousel-dot {
+    background: rgba(16, 18, 20, 0.22);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-block;
+    height: 0.7rem;
+    padding: 0;
+    width: 2rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__carousel-dot--active {
+    background: var(--maliev-home-blue);
+    width: 3.6rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-media {
+    background: #ffffff;
+    min-height: clamp(48rem, 44vw, 62rem);
+    overflow: hidden;
+    position: relative;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-media::after {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
+    content: "";
+    inset: 0 0 0 auto;
+    pointer-events: none;
+    position: absolute;
+    width: clamp(7rem, 12vw, 18rem);
+    z-index: 1;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-media img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    padding: 0;
+    transform: scale(1.015);
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-copy {
+    align-content: center;
+    display: grid;
+    gap: 1.4rem;
+    padding: clamp(2.8rem, 5vw, 5.2rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-copy h3 {
+    color: var(--maliev-home-ink);
+    font-size: clamp(3.2rem, 4vw, 4.8rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.96;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__product-copy p {
+    color: var(--maliev-home-muted);
+    font-size: 1.5rem;
+    line-height: 1.48;
+    margin: 0;
+    max-width: 62rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__price {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__price s {
+    color: #8a9198;
+    font-size: clamp(1.8rem, 2vw, 2.4rem);
+    font-weight: 600;
+  }
+
+  #shopify-section-{{ section.id }} .mh__price strong {
+    color: var(--maliev-home-blue);
+    font-size: clamp(3rem, 4vw, 4.2rem);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__pills span {
+    background: #eef3f8;
+    border: 1px solid rgba(0, 111, 214, 0.16);
+    border-radius: 999px;
+    color: #245578;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.8rem 1rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-grid {
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-card {
+    background: #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 12px;
+    color: var(--maliev-home-ink);
+    display: grid;
+    grid-template-rows: 21rem minmax(17rem, auto);
+    min-height: 38rem;
+    overflow: hidden;
+    text-decoration: none;
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-card img {
+    display: block;
+    height: 21rem;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-body {
+    display: grid;
+    gap: 0.8rem;
+    padding: clamp(1.6rem, 3vw, 2.2rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-body b {
+    color: var(--maliev-home-blue);
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-body strong {
+    color: inherit;
+    font-size: clamp(1.95rem, 2vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.08;
+  }
+
+  #shopify-section-{{ section.id }} .mh__blog-body span {
+    color: var(--maliev-home-muted);
+    font-size: 1.35rem;
+    line-height: 1.38;
+  }
+
+  #shopify-section-{{ section.id }} .mh__article-cta {
+    background: #ffffff;
+    display: grid;
+    gap: clamp(2rem, 4vw, 3.4rem);
+    grid-template-columns: minmax(28rem, 0.85fr) minmax(0, 1.15fr);
+    margin-top: 1.6rem;
+    padding: clamp(2rem, 4vw, 3.2rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__article-cta img {
+    aspect-ratio: 16 / 10;
+    border-radius: 12px;
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .mh__article-copy {
+    align-content: center;
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__article-copy h3 {
+    color: var(--maliev-home-ink);
+    font-size: clamp(3rem, 4vw, 5rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__article-copy p {
+    color: var(--maliev-home-muted);
+    font-size: 1.55rem;
+    line-height: 1.52;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .mh__quote {
+    background:
+      linear-gradient(135deg, rgba(0, 111, 214, 0.12), rgba(0, 163, 108, 0.08)),
+      #ffffff;
+    border: 1px solid var(--maliev-home-line);
+    border-radius: 14px;
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin: 0 auto clamp(5rem, 7vw, 8rem);
+    max-width: 128rem;
+    padding: clamp(2.6rem, 5vw, 4.6rem);
+  }
+
+  #shopify-section-{{ section.id }} .mh__quote h2 {
+    color: var(--maliev-home-ink);
+    font-size: clamp(3.2rem, 4.5vw, 5.4rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin: 0 0 1rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__quote p {
+    color: var(--maliev-home-muted);
+    font-size: 1.55rem;
+    line-height: 1.45;
+    margin: 0;
+    max-width: 68rem;
+  }
+
+  #shopify-section-{{ section.id }} .mh__quote-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: end;
+  }
+
+  @media screen and (max-width: 990px) {
+    #shopify-section-{{ section.id }} .mh__hero,
+    #shopify-section-{{ section.id }} .mh__section-head,
+    #shopify-section-{{ section.id }} .mh__line-grid,
+    #shopify-section-{{ section.id }} .mh__workflow-inner,
+    #shopify-section-{{ section.id }} .mh__collection-grid,
+    #shopify-section-{{ section.id }} .mh__product-layout,
+    #shopify-section-{{ section.id }} .mh__blog-grid,
+    #shopify-section-{{ section.id }} .mh__article-cta,
+    #shopify-section-{{ section.id }} .mh__quote {
+      grid-template-columns: 1fr;
+    }
+
+    #shopify-section-{{ section.id }} .mh__hero {
+      min-height: clamp(58rem, 78vh, 74rem);
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    #shopify-section-{{ section.id }} .mh__copy {
+      padding: clamp(5.6rem, 10vw, 7.2rem) 2rem;
+    }
+
+    #shopify-section-{{ section.id }} .mh__stage img {
+      object-position: 58% center;
+    }
+
+    #shopify-section-{{ section.id }} .mh__stats,
+    #shopify-section-{{ section.id }} .mh__mini-products {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #shopify-section-{{ section.id }} .mh__quote-actions {
+      justify-content: start;
+    }
+
+    #shopify-section-{{ section.id }} .mh__blog-card {
+      grid-template-rows: 22rem auto;
+      min-height: auto;
+    }
+
+    #shopify-section-{{ section.id }} .mh__blog-card img {
+      height: 22rem;
+    }
+  }
+
+  @media screen and (max-width: 640px) {
+    #shopify-section-{{ section.id }} .mh__stats,
+    #shopify-section-{{ section.id }} .mh__mini-products {
+      grid-template-columns: 1fr;
+    }
+
+    #shopify-section-{{ section.id }} .mh__title {
+      font-size: clamp(3.8rem, 11vw, 5.2rem);
+    }
+
+    #shopify-section-{{ section.id }} .mh__title--thai {
+      font-size: clamp(3.6rem, 11vw, 5.4rem);
+    }
+
+    #shopify-section-{{ section.id }} .mh__hero {
+      min-height: 62rem;
+    }
+
+    #shopify-section-{{ section.id }} .mh__copy {
+      padding: 4.8rem 1.6rem;
+    }
+
+    #shopify-section-{{ section.id }} .mh__tile,
+    #shopify-section-{{ section.id }} .mh__tile--large {
+      min-height: 31rem;
+    }
+  }
+{%- endstyle -%}
+
+{%- liquid
+  assign maliev_is_thai = false
+  if localization.language.iso_code == 'th' or request.locale.iso_code contains 'th' or request.path contains '/th'
+    assign maliev_is_thai = true
+  endif
+-%}
+
+<section class="mh" aria-label="{{ 'maliev_home_i18n.aria.storefront' | t }}">
+  <div class="mh__hero">
+    <div class="mh__copy">
+      <p class="mh__eyebrow">
+        {%- if maliev_is_thai -%}
+          เครื่องมือการผลิตจาก MALIEV
+        {%- else -%}
+          {{ 'maliev_home_i18n.hero.eyebrow_cover' | t }}
+        {%- endif -%}
+      </p>
+      <h1 class="mh__title{% if maliev_is_thai %} mh__title--thai{% endif %}">
+        {%- if maliev_is_thai -%}
+          <span class="mh__title-line">ยกระดับเวิร์กช็อป</span>
+          <span class="mh__title-line">ให้พร้อมผลิตจริง</span>
+        {%- else -%}
+          <span class="mh__title-line">Machines,</span>
+          <span class="mh__title-line">molds, and</span>
+          <span class="mh__title-line">manufacturing</span>
+          <span class="mh__title-line mh__title-line--brand">
+            <span>support from</span>
+            {%- if settings.logo != blank -%}
+              {%- assign maliev_home_logo_alt = settings.logo.alt | default: shop.name | escape -%}
+              {{ settings.logo | image_url: width: 560 | image_tag: class: 'mh__title-logo', loading: 'eager', alt: maliev_home_logo_alt }}
+            {%- else -%}
+              <span class="mh__title-logo-text">MALIEV</span>
+            {%- endif -%}
+          </span>
+        {%- endif -%}
+      </h1>
+      <p class="mh__lead">
+        {%- if maliev_is_thai -%}
+          รวมเครื่องฉีดพลาสติก แม่พิมพ์ อุปกรณ์ SimMount และบริการผลิตชิ้นงานสำหรับงานต้นแบบ งานทดสอบ และการผลิตจำนวนน้อย
+        {%- else -%}
+          {{ 'maliev_home_i18n.hero.lead_cover' | t }}
+        {%- endif -%}
+      </p>
+      <div class="mh__actions">
+        <a class="mh__button" href="{{ routes.collections_url }}/%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%89%E0%B8%B5%E0%B8%94%E0%B8%9E%E0%B8%A5%E0%B8%B2%E0%B8%AA%E0%B8%95%E0%B8%B4%E0%B8%81">
+          {%- if maliev_is_thai -%}
+            ดูไลน์อัปเครื่องฉีดพลาสติก
+          {%- else -%}
+            {{ 'maliev_home_i18n.hero.shop_machine_lineup_cover' | t }}
+          {%- endif -%}
+        </a>
+        <a class="mh__button mh__button--secondary" href="http://line.me/ti/p/@maliev" target="_blank" rel="noopener">{{ 'maliev_home_i18n.hero.request_quote' | t }}</a>
+      </div>
+    </div>
+    <div class="mh__stage" aria-hidden="true">
+      <img
+        src="https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-hero-desktop-right.28.png"
+        alt=""
+        width="3000"
+        height="1286"
+        loading="eager"
+      >
+    </div>
+  </div>
+
+  <div class="mh__stats" aria-label="{{ 'maliev_home_i18n.aria.product_lines' | t }}">
+    <div class="mh__stat"><strong>{{ 'maliev_home_i18n.stats.machines_title' | t }}</strong><span>{{ 'maliev_home_i18n.stats.machines_text' | t }}</span></div>
+    <div class="mh__stat"><strong>{{ 'maliev_home_i18n.stats.molds_title' | t }}</strong><span>{{ 'maliev_home_i18n.stats.molds_text' | t }}</span></div>
+    <div class="mh__stat"><strong>{{ 'maliev_home_i18n.stats.sim_title' | t }}</strong><span>{{ 'maliev_home_i18n.stats.sim_text' | t }}</span></div>
+    <div class="mh__stat"><strong>{{ 'maliev_home_i18n.stats.services_title' | t }}</strong><span>{{ 'maliev_home_i18n.stats.services_text' | t }}</span></div>
+  </div>
+
+  <div class="mh__section">
+    <div class="mh__section-head">
+      <h2 class="mh__section-title">{{ 'maliev_home_i18n.families.title' | t }}</h2>
+      <p>{{ 'maliev_home_i18n.families.text' | t }}</p>
+    </div>
+    <div class="mh__line-grid">
+      <a class="mh__tile mh__tile--large" href="{{ routes.collections_url }}/%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%89%E0%B8%B5%E0%B8%94%E0%B8%9E%E0%B8%A5%E0%B8%B2%E0%B8%AA%E0%B8%95%E0%B8%B4%E0%B8%81">
+        <span class="mh__tile-copy"><strong>{{ 'maliev_home_i18n.families.machines_title' | t }}</strong><span>{{ 'maliev_home_i18n.families.machines_text' | t }}</span></span>
+        <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-portrait.14.png?v=1737114840" alt="{{ 'maliev_home_i18n.alt.machine' | t }}" width="3000" height="3000">
+      </a>
+      <a class="mh__tile mh__tile--dark" href="{{ routes.collections_url }}/sim-racing-solutions">
+        <span class="mh__tile-copy"><strong>{{ 'maliev_home_i18n.families.sim_title' | t }}</strong><span>{{ 'maliev_home_i18n.families.sim_text' | t }}</span></span>
+        <img src="https://shop.maliev.com/cdn/shop/files/simmount-pro-vesa.6.png?v=1736670814&width=750" alt="{{ 'maliev_home_i18n.alt.simmount' | t }}" width="2000" height="2000">
+      </a>
+      <a class="mh__tile" href="{{ routes.collections_url }}/littlelegends">
+        <span class="mh__tile-copy"><strong>{{ 'maliev_home_i18n.families.printed_title' | t }}</strong><span>{{ 'maliev_home_i18n.families.printed_text' | t }}</span></span>
+        <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/files/Generated_Image_October_19_2025_-_11_01PM_1__imgupscaler.ai_v1_Fast__2K.png" alt="{{ 'maliev_home_i18n.alt.printed_collection' | t }}" width="2000" height="2000">
+      </a>
+    </div>
+  </div>
+
+  <div class="mh__workflow" aria-label="{{ 'maliev_home_i18n.aria.buying_workflow' | t }}">
+    <div class="mh__workflow-inner">
+      <div class="mh__step"><b>01</b><strong>{{ 'maliev_home_i18n.workflow.step1_title' | t }}</strong><span>{{ 'maliev_home_i18n.workflow.step1_text' | t }}</span></div>
+      <div class="mh__step"><b>02</b><strong>{{ 'maliev_home_i18n.workflow.step2_title' | t }}</strong><span>{{ 'maliev_home_i18n.workflow.step2_text' | t }}</span></div>
+      <div class="mh__step"><b>03</b><strong>{{ 'maliev_home_i18n.workflow.step3_title' | t }}</strong><span>{{ 'maliev_home_i18n.workflow.step3_text' | t }}</span></div>
+      <div class="mh__step"><b>04</b><strong>{{ 'maliev_home_i18n.workflow.step4_title' | t }}</strong><span>{{ 'maliev_home_i18n.workflow.step4_text' | t }}</span></div>
+    </div>
+  </div>
+
+  <div class="mh__section">
+    <div class="mh__section-head">
+      <h2 class="mh__section-title">{{ 'maliev_home_i18n.lineup.title' | t }}</h2>
+      <p>{{ 'maliev_home_i18n.lineup.text' | t }}</p>
+    </div>
+    <div class="mh__collection-grid">
+      <div class="mh__collection-panel">
+        <div class="mh__panel-head"><strong>{{ 'maliev_home_i18n.lineup.injection_panel' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.machine_lineup' | t }}</span></div>
+        <div class="mh__mini-products">
+          <a class="mh__mini-product" href="/products/pneumatic-injection-molding-machine">
+            <span class="mh__mini-product-media"><img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-portrait.14.png?v=1737114840" alt="{{ 'maliev_home_i18n.alt.machine_30' | t }}" width="3000" height="3000"></span>
+            <strong>{{ 'maliev_home_i18n.lineup.machine_30_title' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.machine_30_text' | t }}</span>
+          </a>
+          <a class="mh__mini-product" href="/products/pneumatic-injection-molding-machine-50g">
+            <span class="mh__mini-product-media"><img src="{{ 'machine-portrait-50g-front-studio.png' | asset_url }}" alt="{{ 'maliev_home_i18n.alt.machine_lineup' | t }}" width="3000" height="3000"></span>
+            <strong>{{ 'maliev_home_i18n.lineup.machine_50_title' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.machine_50_text' | t }}</span>
+          </a>
+          <a class="mh__mini-product" href="{{ routes.collections_url }}/molds">
+            <span class="mh__mini-product-media"><img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/collections/FAFCDBFF-D6E6-46AA-BD45-6EF75DBDCC4C.jpg?v=1735170180&width=720" alt="{{ 'maliev_home_i18n.alt.mold' | t }}" width="4016" height="4016"></span>
+            <strong>{{ 'maliev_home_i18n.lineup.molds_title' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.molds_text' | t }}</span>
+          </a>
+        </div>
+      </div>
+      <div class="mh__collection-panel mh__collection-panel--dark">
+        <div class="mh__panel-head"><strong>{{ 'maliev_home_i18n.lineup.sim_panel' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.sim_subtitle' | t }}</span></div>
+        <div class="mh__mini-products">
+          <a class="mh__mini-product" href="{{ routes.collections_url }}/sim-racing-solutions">
+            <span class="mh__mini-product-media"><img src="https://shop.maliev.com/cdn/shop/files/simmount-pro-vesa.6.png?v=1736670814&width=750" alt="{{ 'maliev_home_i18n.alt.simmount_vesa' | t }}" width="2000" height="2000"></span>
+            <strong>{{ 'maliev_home_i18n.lineup.simmount_title' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.simmount_text' | t }}</span>
+          </a>
+          <a class="mh__mini-product" href="/blogs/news/revitalize-your-bass-shaker-how-simmount-replacement-parts-fix-common-oem-issues">
+            <span class="mh__mini-product-media"><img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/DSC_3187.jpg?v=1742813679&width=720" alt="{{ 'maliev_home_i18n.alt.simmount_parts' | t }}" width="3840" height="2160"></span>
+            <strong>{{ 'maliev_home_i18n.lineup.parts_title' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.parts_text' | t }}</span>
+          </a>
+          <a class="mh__mini-product" href="{{ routes.collections_url }}/sim-racing-solutions">
+            <span class="mh__mini-product-media"><img src="https://shop.maliev.com/cdn/shop/files/simmount-pro-vesa.19.png?v=1736670814&width=750" alt="{{ 'maliev_home_i18n.alt.simmount_ecosystem' | t }}" width="2000" height="2000"></span>
+            <strong>{{ 'maliev_home_i18n.lineup.ecosystem_title' | t }}</strong><span>{{ 'maliev_home_i18n.lineup.ecosystem_text' | t }}</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mh__section">
+    <div class="mh__section-head">
+      <h2 class="mh__section-title">{{ 'maliev_home_i18n.featured.title' | t }}</h2>
+      <p>{{ 'maliev_home_i18n.featured.text' | t }}</p>
+    </div>
+    <div class="mh__product-carousel" aria-label="{{ 'maliev_home_i18n.featured.carousel_label' | t }}">
+      <div class="mh__product-track">
+        <article class="mh__product-slide">
+          <div class="mh__product-panel">
+            <div class="mh__panel-head"><strong>{{ 'maliev_home_i18n.featured.panel_title' | t }}</strong><span>{{ 'maliev_home_i18n.featured.panel_subtitle' | t }}</span></div>
+            <div class="mh__product-layout">
+              <div class="mh__product-media">
+                <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-portrait.14.png?v=1737114840" alt="{{ 'maliev_home_i18n.alt.machine_30' | t }}" width="3000" height="3000" draggable="false">
+              </div>
+              <div class="mh__product-copy">
+                <p class="mh__eyebrow">{{ 'maliev_home_i18n.featured.eyebrow' | t }}</p>
+                <h3>{{ 'maliev_home_i18n.featured.product_title' | t }}</h3>
+                <p>{{ 'maliev_home_i18n.featured.description' | t }}</p>
+                <div class="mh__price"><s>฿115,000</s><strong>฿99,000</strong></div>
+                <div class="mh__pills"><span>{{ 'maliev_home_i18n.featured.pill_capacity' | t }}</span><span>{{ 'maliev_home_i18n.featured.pill_heaters' | t }}</span><span>{{ 'maliev_home_i18n.featured.pill_lead_time' | t }}</span><span>{{ 'maliev_home_i18n.featured.pill_compressor' | t }}</span></div>
+                <div class="mh__price-actions">
+                  <a class="mh__button" href="/products/pneumatic-injection-molding-machine">{{ 'maliev_home_i18n.featured.view_30g' | t }}</a>
+                  <a class="mh__button mh__button--secondary" href="{{ routes.collections_url }}/%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%89%E0%B8%B5%E0%B8%94%E0%B8%9E%E0%B8%A5%E0%B8%B2%E0%B8%AA%E0%B8%95%E0%B8%B4%E0%B8%81">{{ 'maliev_home_i18n.featured.compare_lineup' | t }}</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="mh__product-slide">
+          <div class="mh__product-panel">
+            <div class="mh__panel-head"><strong>{{ 'maliev_home_i18n.featured.panel_title' | t }}</strong><span>{{ 'maliev_home_i18n.featured.panel_subtitle_50' | t }}</span></div>
+            <div class="mh__product-layout">
+              <div class="mh__product-media">
+                <img src="{{ 'machine-portrait-50g-front-studio.png' | asset_url }}" alt="{{ 'maliev_home_i18n.alt.machine_lineup' | t }}" width="3000" height="3000" draggable="false">
+              </div>
+              <div class="mh__product-copy">
+                <p class="mh__eyebrow">{{ 'maliev_home_i18n.featured.eyebrow' | t }}</p>
+                <h3>{{ 'maliev_home_i18n.featured.product_title_50' | t }}</h3>
+                <p>{{ 'maliev_home_i18n.featured.description_50' | t }}</p>
+                <div class="mh__price"><s>฿199,000</s><strong>฿170,000</strong></div>
+                <div class="mh__pills"><span>{{ 'maliev_home_i18n.featured.pill_capacity_50' | t }}</span><span>{{ 'maliev_home_i18n.featured.pill_heaters_50' | t }}</span><span>{{ 'maliev_home_i18n.featured.pill_meltzone_50' | t }}</span><span>{{ 'maliev_home_i18n.featured.pill_lead_time' | t }}</span></div>
+                <div class="mh__price-actions">
+                  <a class="mh__button" href="/products/pneumatic-injection-molding-machine-50g">{{ 'maliev_home_i18n.featured.view_50g' | t }}</a>
+                  <a class="mh__button mh__button--secondary" href="{{ routes.collections_url }}/%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%89%E0%B8%B5%E0%B8%94%E0%B8%9E%E0%B8%A5%E0%B8%B2%E0%B8%AA%E0%B8%95%E0%B8%B4%E0%B8%81">{{ 'maliev_home_i18n.featured.compare_lineup' | t }}</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+      <div class="mh__carousel-hint">
+        <button class="mh__carousel-button" type="button" data-carousel-prev aria-label="Previous featured machine">&#8592;</button>
+        <button class="mh__carousel-dot mh__carousel-dot--active" type="button" data-carousel-dot="0" aria-label="Show 30g machine" aria-current="true"></button>
+        <button class="mh__carousel-dot" type="button" data-carousel-dot="1" aria-label="Show 50g machine" aria-current="false"></button>
+        <button class="mh__carousel-button" type="button" data-carousel-next aria-label="Next featured machine">&#8594;</button>
+        <span>{{ 'maliev_home_i18n.featured.swipe_hint' | t }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mh__section">
+    <div class="mh__section-head">
+      <h2 class="mh__section-title">{{ 'maliev_home_i18n.blog.title' | t }}</h2>
+      <p>{{ 'maliev_home_i18n.blog.text' | t }}</p>
+    </div>
+    <div class="mh__blog-grid">
+      <a class="mh__blog-card" href="/blogs/news/revitalize-your-bass-shaker-how-simmount-replacement-parts-fix-common-oem-issues">
+        <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/DSC_3187.jpg?v=1742813679&width=1000" alt="{{ 'maliev_home_i18n.alt.bass_shaker' | t }}" width="3840" height="2160">
+        <span class="mh__blog-body"><b>{{ 'maliev_home_i18n.blog.sim_category' | t }}</b><strong>{{ 'maliev_home_i18n.blog.sim_title' | t }}</strong><span>{{ 'maliev_home_i18n.blog.sim_text' | t }}</span></span>
+      </a>
+      <a class="mh__blog-card" href="/blogs/news/improve-your-tapping-process-with-the-aluminum-profile-tap-guide">
+        <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/feature.jpg?v=1740041381&width=1000" alt="{{ 'maliev_home_i18n.alt.tap_guide' | t }}" width="6016" height="4016">
+        <span class="mh__blog-body"><b>{{ 'maliev_home_i18n.blog.tooling_category' | t }}</b><strong>{{ 'maliev_home_i18n.blog.tooling_title' | t }}</strong><span>{{ 'maliev_home_i18n.blog.tooling_text' | t }}</span></span>
+      </a>
+      <a class="mh__blog-card" href="/blogs/news/the-unsung-hero-of-your-projects-why-you-need-hex-socket-screw-covers">
+        <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/cover-preview_520x500_520x500_f0b2104d-c801-4cb6-b371-b22f426709b5.png?v=1736948970&width=1000" alt="{{ 'maliev_home_i18n.alt.screw_covers' | t }}" width="520" height="347">
+        <span class="mh__blog-body"><b>{{ 'maliev_home_i18n.blog.product_category' | t }}</b><strong>{{ 'maliev_home_i18n.blog.product_title' | t }}</strong><span>{{ 'maliev_home_i18n.blog.product_text' | t }}</span></span>
+      </a>
+    </div>
+
+    <div class="mh__article-cta">
+      <img src="https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/feature.jpg?v=1740041381&width=1500" alt="{{ 'maliev_home_i18n.alt.tap_fixture' | t }}" width="6016" height="4016">
+      <div class="mh__article-copy">
+        <p class="mh__eyebrow">{{ 'maliev_home_i18n.article.eyebrow' | t }}</p>
+        <h3>{{ 'maliev_home_i18n.article.title' | t }}</h3>
+        <p>{{ 'maliev_home_i18n.article.text' | t }}</p>
+        <div class="mh__pills"><span>{{ 'maliev_home_i18n.article.pill_profile' | t }}</span><span>{{ 'maliev_home_i18n.article.pill_tapping' | t }}</span><span>{{ 'maliev_home_i18n.article.pill_fixture' | t }}</span><span>{{ 'maliev_home_i18n.article.pill_process' | t }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mh__quote">
+    <div>
+      <h2>{{ 'maliev_home_i18n.quote.title' | t }}</h2>
+      <p>{{ 'maliev_home_i18n.quote.text' | t }}</p>
+    </div>
+    <div class="mh__quote-actions">
+      <a class="mh__button" href="/pages/contact">{{ 'maliev_home_i18n.quote.request_quote' | t }}</a>
+      <a class="mh__button mh__button--secondary" href="/blogs/news">{{ 'maliev_home_i18n.quote.read_guides' | t }}</a>
+    </div>
+  </div>
+</section>
+
+<script>
+  (() => {
+    const root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+
+    const track = root.querySelector('.mh__product-track');
+    const slides = Array.from(root.querySelectorAll('.mh__product-slide'));
+    const dots = Array.from(root.querySelectorAll('[data-carousel-dot]'));
+    const previous = root.querySelector('[data-carousel-prev]');
+    const next = root.querySelector('[data-carousel-next]');
+    if (!track || slides.length < 2) return;
+
+    const getIndex = () => Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+
+    const update = () => {
+      const activeIndex = getIndex();
+      dots.forEach((dot, index) => {
+        dot.classList.toggle('mh__carousel-dot--active', index === activeIndex);
+        dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+      });
+    };
+
+    const goTo = (index, behavior = 'smooth') => {
+      const targetIndex = (index + slides.length) % slides.length;
+      track.scrollTo({ left: targetIndex * track.clientWidth, behavior });
+      window.requestAnimationFrame(update);
+    };
+
+    dots.forEach((dot, index) => {
+      dot.addEventListener('click', () => goTo(index));
+    });
+
+    previous?.addEventListener('click', () => goTo(getIndex() - 1));
+    next?.addEventListener('click', () => goTo(getIndex() + 1));
+
+    let pointerDown = false;
+    let startX = 0;
+    let startLeft = 0;
+    let didDrag = false;
+
+    const startDrag = (event) => {
+      if (pointerDown || (event.button !== undefined && event.button !== 0)) return;
+      pointerDown = true;
+      didDrag = false;
+      startX = event.clientX;
+      startLeft = track.scrollLeft;
+      track.classList.add('is-dragging');
+    };
+
+    const moveDrag = (event) => {
+      if (!pointerDown) return;
+      const delta = event.clientX - startX;
+      if (Math.abs(delta) > 4) didDrag = true;
+      track.scrollLeft = startLeft - delta;
+    };
+
+    track.addEventListener('pointerdown', (event) => {
+      startDrag(event);
+      track.setPointerCapture?.(event.pointerId);
+    });
+
+    track.addEventListener('pointermove', moveDrag);
+
+    const endDrag = () => {
+      if (!pointerDown) return;
+      pointerDown = false;
+      track.classList.remove('is-dragging');
+      goTo(getIndex());
+    };
+
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('pointerleave', endDrag);
+    track.addEventListener('dragstart', (event) => event.preventDefault());
+    track.addEventListener('mousedown', startDrag);
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', endDrag);
+    track.addEventListener('click', (event) => {
+      if (!didDrag) return;
+      event.preventDefault();
+      event.stopPropagation();
+      didDrag = false;
+    }, true);
+    track.addEventListener('scroll', () => window.requestAnimationFrame(update), { passive: true });
+    window.addEventListener('resize', () => goTo(getIndex(), 'auto'));
+    update();
+  })();
+
+  (() => {
+    const isThai = location.pathname === '/th' || location.pathname.startsWith('/th/');
+    if (!isThai) return;
+
+    const root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+
+    const setText = (selector, value) => {
+      const element = root.querySelector(selector);
+      if (element) element.textContent = value;
+    };
+
+    const setHtml = (selector, value) => {
+      const element = root.querySelector(selector);
+      if (element) element.innerHTML = value;
+    };
+
+    setText('.mh__hero .mh__eyebrow', 'เครื่องมือการผลิตจาก MALIEV');
+    const title = root.querySelector('.mh__hero .mh__title');
+    if (title) title.classList.add('mh__title--thai');
+    setHtml('.mh__hero .mh__title', '<span class="mh__title-line">ยกระดับเวิร์กช็อป</span><span class="mh__title-line">ให้พร้อมผลิตจริง</span>');
+    setText('.mh__hero .mh__lead', 'รวมเครื่องฉีดพลาสติก แม่พิมพ์ อุปกรณ์ SimMount และบริการผลิตชิ้นงานสำหรับงานต้นแบบ งานทดสอบ และการผลิตจำนวนน้อย');
+    setText('.mh__hero .mh__actions .mh__button:first-child', 'ดูไลน์อัปเครื่องฉีดพลาสติก');
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "MALIEV localized home",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [],
+  "presets": [
+    {
+      "name": "MALIEV localized home"
+    }
+  ]
+}
+{% endschema %}

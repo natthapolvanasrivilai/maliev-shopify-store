@@ -1,0 +1,220 @@
+{{ 'maliev-home-sections.css' | asset_url | stylesheet_tag }}
+
+<section class="maliev-home">
+  <div class="mh">
+    <div class="mh__tool" aria-label="{{ section.settings.aria_label | escape }}">
+      <div class="mh__tool-panel">
+        <div class="mh__tool-copy">
+          {%- if section.settings.eyebrow != blank -%}
+            <p class="mh__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+          {%- endif -%}
+          <h2>{{ section.settings.heading | escape }}</h2>
+          {%- if section.settings.text != blank -%}
+            <p>{{ section.settings.text | escape }}</p>
+          {%- endif -%}
+          {%- assign feature_lines = section.settings.features | newline_to_br | split: '<br />' -%}
+          {%- if feature_lines.size > 0 and section.settings.features != blank -%}
+            <ul class="mh__tool-list">
+              {%- for feature in feature_lines -%}
+                {%- assign trimmed_feature = feature | strip -%}
+                {%- if trimmed_feature != blank -%}
+                  <li>{{ trimmed_feature | escape }}</li>
+                {%- endif -%}
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+          <div class="mh__actions">
+            {%- if section.settings.primary_label != blank and section.settings.primary_link != blank -%}
+              <a class="mh__button" href="{{ section.settings.primary_link }}">{{ section.settings.primary_label | escape }}</a>
+            {%- endif -%}
+            {%- if section.settings.secondary_label != blank and section.settings.secondary_link != blank -%}
+              <a class="mh__button mh__button--secondary" href="{{ section.settings.secondary_link }}">{{ section.settings.secondary_label | escape }}</a>
+            {%- endif -%}
+          </div>
+        </div>
+        <div class="mh__tool-media" aria-hidden="true">
+          {%- if section.settings.media_type == 'video' and section.settings.video_url != blank -%}
+            <video src="{{ section.settings.video_url | escape }}" width="1536" height="1536" autoplay loop muted playsinline preload="metadata"></video>
+          {%- elsif section.settings.image != blank -%}
+            {{ section.settings.image | image_url: width: 1536 | image_tag: loading: 'lazy', alt: section.settings.image_alt, widths: '720, 960, 1200, 1536' }}
+          {%- elsif section.settings.image_url != blank -%}
+            <img src="{{ section.settings.image_url | escape }}" alt="{{ section.settings.image_alt | escape }}" width="1536" height="1536" loading="lazy">
+          {%- endif -%}
+        </div>
+        <div class="mh__tool-pricing" aria-label="{{ section.settings.pricing_aria_label | escape }}">
+          {%- for block in section.blocks -%}
+            {%- assign plan_features = block.settings.features | newline_to_br | split: '<br />' -%}
+            <article class="mh__tool-price-card{% if block.settings.featured %} mh__tool-price-card--featured{% endif %}" {{ block.shopify_attributes }}>
+              <div class="mh__tool-price-top">
+                <div class="mh__tool-price-row">
+                  <p class="mh__tool-plan">{{ block.settings.plan | escape }}</p>
+                  {%- if block.settings.badge != blank -%}
+                    <span class="mh__tool-badge">{{ block.settings.badge | escape }}</span>
+                  {%- endif -%}
+                </div>
+                <h3>{{ block.settings.title | escape }}</h3>
+                <p class="mh__tool-amount">
+                  <strong>{{ block.settings.amount | escape }}</strong>
+                  {%- if block.settings.amount_note != blank -%}
+                    <small>{{ block.settings.amount_note | escape }}</small>
+                  {%- endif -%}
+                </p>
+                {%- if block.settings.summary != blank -%}
+                  <p class="mh__tool-summary">{{ block.settings.summary | escape }}</p>
+                {%- endif -%}
+                {%- if block.settings.cta_label != blank and block.settings.cta_link != blank -%}
+                  <a class="mh__tool-plan-cta" href="{{ block.settings.cta_link }}">{{ block.settings.cta_label | escape }}</a>
+                {%- endif -%}
+              </div>
+              {%- if block.settings.features != blank -%}
+                <div class="mh__tool-features">
+                  <p>{{ block.settings.features_heading | escape }}</p>
+                  <ul>
+                    {%- for feature in plan_features -%}
+                      {%- assign trimmed_feature = feature | strip -%}
+                      {%- if trimmed_feature != blank -%}
+                        <li>{{ trimmed_feature | escape }}</li>
+                      {%- endif -%}
+                    {%- endfor -%}
+                  </ul>
+                </div>
+              {%- endif -%}
+            </article>
+          {%- endfor -%}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "MALIEV tool pricing",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "MALIEV Mesh Splitter tool"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Browser tool"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Mesh Splitter for oversized STL files"
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Prepare large models for smaller 3D printers directly in the browser. Upload an STL, scale it, set your printer build volume, split into labeled parts, add connectors, review in 3D, and export one ZIP with labeled STLs plus a PDF assembly guide."
+    },
+    {
+      "type": "textarea",
+      "id": "features",
+      "label": "Feature list",
+      "default": "Runs on the customer's device, with no server-side model processing\nMade for makers, engineers, 3D print shops, and teams fitting large models onto smaller printers\nTry 3 free exports every month, then pay only when more exports are needed"
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label",
+      "default": "Open Mesh Splitter"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary button label",
+      "default": "View pricing details"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "select",
+      "id": "media_type",
+      "label": "Media type",
+      "default": "video",
+      "options": [
+        { "value": "video", "label": "Video URL" },
+        { "value": "image", "label": "Image" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "video_url",
+      "label": "Video URL",
+      "default": "https://cdn.shopify.com/videos/c/o/v/98eb9a0da3d54a8cae7010bcf57fdb9e.mp4"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "image_url",
+      "label": "Fallback image URL"
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Image alt text"
+    },
+    {
+      "type": "text",
+      "id": "pricing_aria_label",
+      "label": "Pricing accessibility label",
+      "default": "Mesh Splitter pricing"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "plan",
+      "name": "Pricing plan",
+      "settings": [
+        { "type": "text", "id": "plan", "label": "Plan label", "default": "Free monthly plan" },
+        { "type": "text", "id": "badge", "label": "Badge" },
+        { "type": "text", "id": "title", "label": "Title", "default": "3 exports monthly" },
+        { "type": "text", "id": "amount", "label": "Amount", "default": "Free" },
+        { "type": "text", "id": "amount_note", "label": "Amount note", "default": "per month" },
+        { "type": "textarea", "id": "summary", "label": "Summary", "default": "Start testing real models before buying any credits." },
+        { "type": "text", "id": "cta_label", "label": "Button label", "default": "Start free" },
+        { "type": "url", "id": "cta_link", "label": "Button link" },
+        { "type": "text", "id": "features_heading", "label": "Features heading", "default": "Includes" },
+        { "type": "textarea", "id": "features", "label": "Features", "default": "Upload, split, and review in 3D\nExport ZIP with STLs and PDF guide\nFree allowance resets monthly" },
+        { "type": "checkbox", "id": "featured", "label": "Featured card", "default": false }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV tool pricing",
+      "blocks": [
+        { "type": "plan" },
+        { "type": "plan" },
+        { "type": "plan" },
+        { "type": "plan" }
+      ]
+    }
+  ]
+}
+{% endschema %}

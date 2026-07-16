@@ -1,0 +1,90 @@
+{{ 'maliev-home-sections.css' | asset_url | stylesheet_tag }}
+
+<section class="maliev-home">
+  <div class="mh">
+    <div class="mh__section">
+      <div class="mh__section-head">
+        <h2 class="mh__section-title">{{ section.settings.heading | escape }}</h2>
+        {%- if section.settings.text != blank -%}
+          <p>{{ section.settings.text | escape }}</p>
+        {%- endif -%}
+      </div>
+      <div class="mh__line-grid">
+        {%- for block in section.blocks -%}
+          <a class="mh__tile{% if block.settings.style == 'large' %} mh__tile--large{% elsif block.settings.style == 'dark' %} mh__tile--dark{% endif %}" href="{{ block.settings.link }}" {{ block.shopify_attributes }}>
+            <span class="mh__tile-copy">
+              <strong>{{ block.settings.title | escape }}</strong>
+              <span>{{ block.settings.text | escape }}</span>
+            </span>
+            {%- if block.settings.image != blank -%}
+              {{ block.settings.image | image_url: width: 2000 | image_tag: loading: 'lazy', alt: block.settings.image_alt, widths: '720, 960, 1200, 1600, 2000' }}
+            {%- elsif block.settings.image_url != blank -%}
+              <img src="{{ block.settings.image_url | escape }}" alt="{{ block.settings.image_alt | escape }}" width="2000" height="2000" loading="lazy">
+            {%- endif -%}
+          </a>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "MALIEV family grid",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Shop by product family"
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Start with the product line that matches your workshop, then move into parts, tooling, and setup support."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "tile",
+      "name": "Family tile",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title", "default": "Injection molding machines" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Compact machines for prototypes and small-batch production." },
+        { "type": "url", "id": "link", "label": "Link" },
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "image_url", "label": "Fallback image URL" },
+        { "type": "text", "id": "image_alt", "label": "Image alt text" },
+        {
+          "type": "select",
+          "id": "style",
+          "label": "Style",
+          "default": "default",
+          "options": [
+            { "value": "default", "label": "Default" },
+            { "value": "large", "label": "Large" },
+            { "value": "dark", "label": "Dark" }
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV family grid",
+      "blocks": [
+        { "type": "tile" },
+        { "type": "tile" },
+        { "type": "tile" }
+      ]
+    }
+  ]
+}
+{% endschema %}
+
