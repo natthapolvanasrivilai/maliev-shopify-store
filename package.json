@@ -1,0 +1,17 @@
+{
+  "name": "maliev-shopify-store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Version-controlled Shopify Online Store 2.0 theme for MALIEV.",
+  "scripts": {
+    "dev": "shopify theme dev --store 10b918-e4.myshopify.com --theme-editor-sync",
+    "verify": "shopify theme check --path . --fail-level error --no-color",
+    "sync:live": "shopify theme pull --store 10b918-e4.myshopify.com --theme 190305730839 --nodelete"
+  },
+  "devDependencies": {
+    "@shopify/cli": "4.5.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

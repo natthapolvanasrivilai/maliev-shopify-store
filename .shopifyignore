@@ -1,0 +1,8 @@
+.git/
+.github/
+.agents/
+AGENTS.md
+README.md
+package.json
+package-lock.json
+scripts/

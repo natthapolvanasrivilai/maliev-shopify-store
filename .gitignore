@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+.shopify/
+node_modules/
+npm-debug.log*
+theme-check-results.json
