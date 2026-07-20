@@ -174,46 +174,25 @@
       "settings": {
         "aria_label": "Guides and workshop notes",
         "heading": "Guides and workshop notes.",
-        "link_label": "Read the blog",
+        "link_label": "See all posts",
         "link": "/blogs/news"
-      },
-      "blocks": {
-        "guide_bass": {
-          "type": "article",
-          "settings": {
-            "article": "news/revitalize-your-bass-shaker-how-simmount-replacement-parts-fix-common-oem-issues"
-          }
-        },
-        "guide_tapping": {
-          "type": "article",
-          "settings": {
-            "article": "news/improve-your-tapping-process-with-the-aluminum-profile-tap-guide"
-          }
-        },
-        "guide_covers": {
-          "type": "article",
-          "settings": {
-            "article": "news/the-unsung-hero-of-your-projects-why-you-need-hex-socket-screw-covers"
-          }
-        }
-      },
-      "block_order": ["guide_bass", "guide_tapping", "guide_covers"]
+      }
     },
     "keynote_cta": {
       "type": "maliev-keynote-cta",
       "settings": {
-        "aria_label": "Book a factory visit",
-        "heading": "See it run. Then decide.",
-        "lead": "Visit the MALIEV factory, watch the machine mold real parts, and talk through molds, materials, and ownership with the engineers who build it. When you are ready, a 50% deposit starts your machine's production.",
-        "primary_label": "Book a factory visit",
-        "primary_link": "/pages/contact",
-        "secondary_label": "Chat with us on LINE",
-        "secondary_link": "https://line.me/ti/p/@maliev",
-        "tertiary_label": "Machine documents",
-        "tertiary_link": "/pages/product-documents",
-        "note": "Here for sim racing gear instead?",
-        "note_link_label": "SimMount ships worldwide",
-        "note_link": "#simmount"
+        "aria_label": "Contact MALIEV",
+        "heading": "Still deciding? Let's talk.",
+        "lead": "Comparing machines, planning a visit, or picking SimMount parts — our team replies on LINE, usually within the day.",
+        "primary_label": "Chat with us on LINE",
+        "primary_link": "https://line.me/ti/p/@maliev",
+        "secondary_label": "Request a quotation",
+        "secondary_link": "/pages/contact",
+        "link_a_label": "Compare machines",
+        "link_a": "#machines",
+        "link_b_label": "Machine documents",
+        "link_b": "/pages/product-documents",
+        "note": "Real engineers reply during Thailand business hours."
       }
     }
   },

@@ -2,7 +2,7 @@
 <script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Machine lineup chapter: stage render, model cards, actions. {%- endcomment -%}
 
-<section class="mkey mkey--chapter" aria-label="{{ section.settings.aria_label | escape }}">
+<section id="machines" class="mkey mkey--chapter" aria-label="{{ section.settings.aria_label | escape }}">
   <div class="mkey__frame">
     <div class="mkey__intro" data-mkr-group>
       <h2 class="mkey__headline" data-mkr>{{ section.settings.heading }}</h2>
@@ -98,6 +98,79 @@
       </ul>
     {%- endif -%}
 
+    {%- if section.settings.inaction_video_asset_name != blank or section.settings.inaction_video_url != blank -%}
+      <div class="mkey__inaction" data-mkr-group>
+        <div class="mkey__inaction-head" data-mkr>
+          <h3 class="mkey__title">{{ section.settings.inaction_heading }}</h3>
+          {%- if section.settings.inaction_lead != blank -%}
+            <p class="mkey__lead mkey__inaction-lead">{{ section.settings.inaction_lead }}</p>
+          {%- endif -%}
+        </div>
+
+        <ul class="mkey__filmstrip" data-mkr role="list">
+          {%- if section.settings.inaction_beat1_asset_name != blank -%}
+            <li class="mkey__filmstrip-item">
+              <div class="mkey__filmstrip-media">
+                <img src="{{ section.settings.inaction_beat1_asset_name | asset_url }}" alt="{{ section.settings.inaction_beat1_caption | escape }}" loading="lazy" width="900" height="1000">
+              </div>
+              {%- if section.settings.inaction_beat1_caption != blank -%}
+                <p class="mkey__filmstrip-caption">{{ section.settings.inaction_beat1_caption }}</p>
+              {%- endif -%}
+            </li>
+            <li class="mkey__filmstrip-arrow" aria-hidden="true">&rarr;</li>
+          {%- endif -%}
+          {%- if section.settings.inaction_beat2_asset_name != blank -%}
+            <li class="mkey__filmstrip-item">
+              <div class="mkey__filmstrip-media">
+                <img src="{{ section.settings.inaction_beat2_asset_name | asset_url }}" alt="{{ section.settings.inaction_beat2_caption | escape }}" loading="lazy" width="900" height="1000">
+              </div>
+              {%- if section.settings.inaction_beat2_caption != blank -%}
+                <p class="mkey__filmstrip-caption">{{ section.settings.inaction_beat2_caption }}</p>
+              {%- endif -%}
+            </li>
+            <li class="mkey__filmstrip-arrow" aria-hidden="true">&rarr;</li>
+          {%- endif -%}
+          {%- if section.settings.inaction_beat3_asset_name != blank -%}
+            <li class="mkey__filmstrip-item">
+              <div class="mkey__filmstrip-media">
+                <img src="{{ section.settings.inaction_beat3_asset_name | asset_url }}" alt="{{ section.settings.inaction_beat3_caption | escape }}" loading="lazy" width="900" height="1000">
+              </div>
+              {%- if section.settings.inaction_beat3_caption != blank -%}
+                <p class="mkey__filmstrip-caption">{{ section.settings.inaction_beat3_caption }}</p>
+              {%- endif -%}
+            </li>
+          {%- endif -%}
+        </ul>
+
+        <div class="mkey__inaction-video" data-mkr="media">
+          <video
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            {%- if section.settings.inaction_video_poster_asset != blank -%}
+              poster="{{ section.settings.inaction_video_poster_asset | asset_url }}"
+            {%- endif -%}
+            aria-label="{{ section.settings.inaction_video_caption | escape }}"
+          >
+            {%- if section.settings.inaction_video_asset_name != blank -%}
+              <source src="{{ section.settings.inaction_video_asset_name | asset_url }}" type="video/mp4">
+            {%- elsif section.settings.inaction_video_url != blank -%}
+              <source src="{{ section.settings.inaction_video_url }}" type="video/mp4">
+            {%- endif -%}
+          </video>
+          <button type="button" class="mkey__video-toggle" aria-pressed="false" aria-label="{{ section.settings.inaction_video_toggle_label | default: 'Pause video' | escape }}">
+            <svg class="mkey__video-toggle-pause" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.6" height="12" rx="0.8"/><rect x="9.4" y="2" width="3.6" height="12" rx="0.8"/></svg>
+            <svg class="mkey__video-toggle-play" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.4a.8.8 0 0 1 1.22-.68l9 5.6a.8.8 0 0 1 0 1.36l-9 5.6A.8.8 0 0 1 4 13.6z"/></svg>
+          </button>
+        </div>
+        {%- if section.settings.inaction_video_caption != blank -%}
+          <p class="mkey__note mkey__inaction-video-caption">{{ section.settings.inaction_video_caption }}</p>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
     <div class="mkey__actions" data-mkr-group>
       {%- if section.settings.primary_label != blank -%}
         <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}" data-mkr>{{ section.settings.primary_label }}</a>
@@ -173,6 +246,87 @@
       "id": "stage_image_alt",
       "label": "Stage image alt text",
       "default": "MALIEV PIMM injection molding machines in the workshop studio"
+    },
+    {
+      "type": "header",
+      "content": "See it run"
+    },
+    {
+      "type": "text",
+      "id": "inaction_heading",
+      "label": "\"See it run\" heading",
+      "default": "How it runs."
+    },
+    {
+      "type": "textarea",
+      "id": "inaction_lead",
+      "label": "\"See it run\" lead text",
+      "default": "Set the zone temperature. Load the resin. The ram drives each shot home — the same cycle, every time."
+    },
+    {
+      "type": "text",
+      "id": "inaction_beat1_asset_name",
+      "label": "Beat 1 image (theme asset)",
+      "default": "maliev-action-temperature.webp"
+    },
+    {
+      "type": "text",
+      "id": "inaction_beat1_caption",
+      "label": "Beat 1 caption",
+      "default": "Set the zone temperature"
+    },
+    {
+      "type": "text",
+      "id": "inaction_beat2_asset_name",
+      "label": "Beat 2 image (theme asset)",
+      "default": "maliev-action-resin.webp"
+    },
+    {
+      "type": "text",
+      "id": "inaction_beat2_caption",
+      "label": "Beat 2 caption",
+      "default": "Load the resin"
+    },
+    {
+      "type": "text",
+      "id": "inaction_beat3_asset_name",
+      "label": "Beat 3 image (theme asset)",
+      "default": "maliev-action-valve.webp"
+    },
+    {
+      "type": "text",
+      "id": "inaction_beat3_caption",
+      "label": "Beat 3 caption",
+      "default": "Trigger the shot"
+    },
+    {
+      "type": "text",
+      "id": "inaction_video_asset_name",
+      "label": "\"See it run\" video (theme asset)",
+      "default": "maliev-ram-action.mp4"
+    },
+    {
+      "type": "url",
+      "id": "inaction_video_url",
+      "label": "Fallback video URL"
+    },
+    {
+      "type": "text",
+      "id": "inaction_video_poster_asset",
+      "label": "Video poster image (theme asset)",
+      "default": "maliev-ram-action-poster.webp"
+    },
+    {
+      "type": "text",
+      "id": "inaction_video_caption",
+      "label": "Video caption",
+      "default": "The ram drives it home."
+    },
+    {
+      "type": "text",
+      "id": "inaction_video_toggle_label",
+      "label": "Video pause button label (accessibility)",
+      "default": "Pause video"
     },
     {
       "type": "text",

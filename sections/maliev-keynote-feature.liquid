@@ -2,7 +2,7 @@
 <script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
 
 <section
-  class="mkey mkey--chapter mkey--feature{% if section.settings.media_side == 'left' %} mkey--media-left{% endif %}{% if section.settings.background == 'white' %} mkey--guides{% endif %}"
+  class="mkey mkey--chapter mkey--feature{% if section.settings.media_side == 'left' %} mkey--media-left{% endif %}{% if section.settings.background == 'white' %} mkey--bg-white{% endif %}"
   aria-label="{{ section.settings.aria_label | escape }}"
 >
   <div class="mkey__frame" data-mkr-group>

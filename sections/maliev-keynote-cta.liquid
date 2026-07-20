@@ -9,69 +9,74 @@
     {%- endif -%}
     <div class="mkey__actions" data-mkr>
       {%- if section.settings.primary_label != blank -%}
-        <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}">{{ section.settings.primary_label }}</a>
+        <a
+          class="mkey__btn"
+          href="{{ section.settings.primary_link | default: 'https://line.me/ti/p/@maliev' }}"
+          {% if section.settings.primary_link contains '://' %}target="_blank" rel="noopener"{% endif %}
+        >{{ section.settings.primary_label }}</a>
       {%- endif -%}
       {%- if section.settings.secondary_label != blank -%}
         <a
           class="mkey__btn mkey__btn--secondary"
-          href="{{ section.settings.secondary_link }}"
+          href="{{ section.settings.secondary_link | default: '/pages/contact' }}"
           {% if section.settings.secondary_link contains '://' %}target="_blank" rel="noopener"{% endif %}
         >{{ section.settings.secondary_label }}</a>
       {%- endif -%}
     </div>
-    {%- if section.settings.tertiary_label != blank -%}
-      <a class="mkey__textlink" href="{{ section.settings.tertiary_link }}" data-mkr>
-        {{ section.settings.tertiary_label }}
-        <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
-      </a>
-    {%- endif -%}
+    <div class="mkey__actions" data-mkr>
+      {%- if section.settings.link_a_label != blank -%}
+        <a class="mkey__textlink" href="{{ section.settings.link_a }}">
+          {{ section.settings.link_a_label }}
+          <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      {%- endif -%}
+      {%- if section.settings.link_b_label != blank -%}
+        <a class="mkey__textlink" href="{{ section.settings.link_b }}">
+          {{ section.settings.link_b_label }}
+          <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      {%- endif -%}
+    </div>
     {%- if section.settings.note != blank -%}
-      <p class="mkey__note" data-mkr>
-        {{ section.settings.note }}
-        {%- if section.settings.note_link_label != blank %}
-          <a class="mkey__textlink" href="{{ section.settings.note_link | default: '#simmount' }}">
-            {{ section.settings.note_link_label }}
-            <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
-          </a>
-        {%- endif -%}
-      </p>
+      <p class="mkey__note" data-mkr>{{ section.settings.note }}</p>
     {%- endif -%}
   </div>
 </section>
 
 {% schema %}
 {
-  "name": "Keynote closing CTA",
+  "name": "Keynote contact hub",
   "tag": "div",
   "settings": [
     {
       "type": "text",
       "id": "aria_label",
       "label": "Section accessibility label",
-      "default": "Book a factory visit"
+      "default": "Contact MALIEV"
     },
     {
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "See it run. Then decide."
+      "default": "Still deciding? Let's talk."
     },
     {
       "type": "textarea",
       "id": "lead",
       "label": "Lead text",
-      "default": "Visit the MALIEV factory, watch the machine mold real parts, and talk through molds, materials, and ownership with the engineers who build it. When you are ready, a 50% deposit starts your machine's production."
+      "default": "Comparing machines, planning a visit, or picking SimMount parts — our team replies on LINE, usually within the day."
     },
     {
       "type": "text",
       "id": "primary_label",
       "label": "Primary button label",
-      "default": "Book a factory visit"
+      "default": "Chat with us on LINE"
     },
     {
       "type": "url",
       "id": "primary_link",
-      "label": "Primary button link"
+      "label": "Primary button link",
+      "info": "Defaults to LINE"
     },
     {
       "type": "text",
@@ -82,37 +87,40 @@
     {
       "type": "url",
       "id": "secondary_link",
-      "label": "Secondary button link"
+      "label": "Secondary button link",
+      "info": "Defaults to /pages/contact"
     },
     {
       "type": "text",
-      "id": "tertiary_label",
-      "label": "Text link label",
-      "default": "Chat with us on LINE"
+      "id": "link_a_label",
+      "label": "Text link A label",
+      "default": "Compare machines"
     },
     {
-      "type": "url",
-      "id": "tertiary_link",
-      "label": "Text link"
+      "type": "text",
+      "id": "link_a",
+      "label": "Text link A",
+      "default": "#machines"
+    },
+    {
+      "type": "text",
+      "id": "link_b_label",
+      "label": "Text link B label",
+      "default": "Machine documents"
+    },
+    {
+      "type": "text",
+      "id": "link_b",
+      "label": "Text link B",
+      "default": "/pages/product-documents"
     },
     {
       "type": "text",
       "id": "note",
-      "label": "Audience note",
-      "info": "For example: Here for sim racing gear instead?"
-    },
-    {
-      "type": "text",
-      "id": "note_link_label",
-      "label": "Audience note link label"
-    },
-    {
-      "type": "text",
-      "id": "note_link",
-      "label": "Audience note link",
-      "info": "Accepts anchors like #simmount"
+      "label": "Trust line",
+      "default": "Real engineers reply during Thailand business hours."
     }
   ],
-  "presets": [{ "name": "Keynote closing CTA" }]
+  "presets": [{ "name": "Keynote contact hub" }]
 }
 {% endschema %}
