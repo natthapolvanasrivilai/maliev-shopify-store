@@ -1,0 +1,162 @@
+/* MALIEV store-shell overrides.
+   Brings the Dawn header and footer onto the storefront design system
+   (DESIGN.md): fine-rule header on optical white, Foundry Dark footer,
+   Precision Blue actions. Scoped to shell chrome only. */
+
+/* In-page anchor jumps (for example the hero's #simmount link) glide instead of teleporting. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ---------- Header: optical white + fine rule, compact ---------- */
+
+:root {
+  --maliev-header-h: 5.6rem;
+}
+
+.header-wrapper {
+  border-bottom: 0.1rem solid rgba(16, 18, 20, 0.1);
+}
+
+.section-header .header {
+  padding-bottom: 0.4rem;
+  padding-top: 0.4rem;
+}
+
+.header__heading-logo-wrapper {
+  max-width: 10.4rem;
+}
+
+.header__menu-item {
+  font-size: 1.4rem;
+}
+
+.section-header .header__menu-item {
+  padding-bottom: 0.8rem;
+  padding-top: 0.8rem;
+}
+
+.header__menu-item:hover,
+.header__menu-item:focus-visible {
+  color: #006fd6;
+}
+
+/* ---------- Privacy banner: compact corner card, not a page-wide wall ---------- */
+
+#shopify-pc__banner.shopify-pc__banner__dialog {
+  background: #ffffff;
+  border: 0.1rem solid rgba(16, 18, 20, 0.1);
+  border-radius: 1.2rem;
+  bottom: 1.2rem;
+  box-shadow: 0 10px 28px rgba(16, 44, 78, 0.1);
+  left: 1.2rem;
+  max-width: min(31rem, calc(100vw - 2.4rem));
+  padding: 1.6rem;
+  right: auto;
+  top: auto;
+}
+
+#shopify-pc__banner .shopify-pc__banner__wrapper {
+  display: block;
+  margin: 0;
+  max-width: none;
+  padding: 0;
+}
+
+#shopify-pc__banner #shopify-pc__banner__body-title {
+  color: #101214;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  margin: 0 0 0.4rem;
+}
+
+#shopify-pc__banner .shopify-pc__banner__body p {
+  color: #3d4650;
+  font-size: 1.2rem;
+  line-height: 1.45;
+  margin: 0 0 1.2rem;
+}
+
+#shopify-pc__banner .shopify-pc__banner__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+#shopify-pc__banner .shopify-pc__banner__btns button {
+  border-radius: 0.4rem;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  margin: 0;
+  min-height: 3.6rem;
+  padding: 0.6rem 1.2rem;
+  text-transform: none;
+  width: auto;
+}
+
+#shopify-pc__banner #shopify-pc__banner__btn-accept {
+  background: #006fd6;
+  border: 0.1rem solid #006fd6;
+  color: #ffffff;
+}
+
+#shopify-pc__banner #shopify-pc__banner__btn-accept:hover {
+  background: #064fc4;
+  border-color: #064fc4;
+}
+
+#shopify-pc__banner #shopify-pc__banner__btn-decline {
+  background: #ffffff;
+  border: 0.1rem solid #006fd6;
+  color: #006fd6;
+}
+
+#shopify-pc__banner #shopify-pc__banner__btn-manage-prefs {
+  background: transparent;
+  border: 0;
+  color: #697078;
+  order: 3;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+#shopify-pc__banner #shopify-pc__banner__btn-manage-prefs:hover {
+  color: #101214;
+}
+
+/* ---------- Footer: Foundry Dark, one contrast surface ---------- */
+
+.footer.color-scheme-3,
+.footer .color-scheme-3 {
+  --color-background: 16, 20, 24;
+  --gradient-background: #101418;
+  --color-foreground: 235, 238, 241;
+  --color-button: 0, 111, 214;
+  --color-button-text: 255, 255, 255;
+  --color-secondary-button: 16, 20, 24;
+  --color-secondary-button-text: 235, 238, 241;
+  --color-link: 235, 238, 241;
+  --color-badge-background: 22, 28, 34;
+  --color-badge-border: 235, 238, 241;
+}
+
+.footer {
+  border-top: 0.1rem solid rgba(244, 246, 247, 0.12);
+}
+
+.footer .footer__content-bottom {
+  border-top-color: rgba(244, 246, 247, 0.12);
+}
+
+.footer .newsletter-form__field-wrapper .field__input {
+  background: #161c22;
+  border-radius: 0.4rem;
+}
+

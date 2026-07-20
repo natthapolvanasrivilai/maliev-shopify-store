@@ -1,0 +1,118 @@
+{{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
+
+<section class="mkey mkey--cta" aria-label="{{ section.settings.aria_label | escape }}">
+  <div class="mkey__frame" data-mkr-group>
+    <h2 class="mkey__headline" data-mkr>{{ section.settings.heading }}</h2>
+    {%- if section.settings.lead != blank -%}
+      <p class="mkey__lead" data-mkr>{{ section.settings.lead }}</p>
+    {%- endif -%}
+    <div class="mkey__actions" data-mkr>
+      {%- if section.settings.primary_label != blank -%}
+        <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}">{{ section.settings.primary_label }}</a>
+      {%- endif -%}
+      {%- if section.settings.secondary_label != blank -%}
+        <a
+          class="mkey__btn mkey__btn--secondary"
+          href="{{ section.settings.secondary_link }}"
+          {% if section.settings.secondary_link contains '://' %}target="_blank" rel="noopener"{% endif %}
+        >{{ section.settings.secondary_label }}</a>
+      {%- endif -%}
+    </div>
+    {%- if section.settings.tertiary_label != blank -%}
+      <a class="mkey__textlink" href="{{ section.settings.tertiary_link }}" data-mkr>
+        {{ section.settings.tertiary_label }}
+        <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    {%- endif -%}
+    {%- if section.settings.note != blank -%}
+      <p class="mkey__note" data-mkr>
+        {{ section.settings.note }}
+        {%- if section.settings.note_link_label != blank %}
+          <a class="mkey__textlink" href="{{ section.settings.note_link | default: '#simmount' }}">
+            {{ section.settings.note_link_label }}
+            <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        {%- endif -%}
+      </p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Keynote closing CTA",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "Book a factory visit"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "See it run. Then decide."
+    },
+    {
+      "type": "textarea",
+      "id": "lead",
+      "label": "Lead text",
+      "default": "Visit the MALIEV factory, watch the machine mold real parts, and talk through molds, materials, and ownership with the engineers who build it. When you are ready, a 50% deposit starts your machine's production."
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label",
+      "default": "Book a factory visit"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary button label",
+      "default": "Request a quotation"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "text",
+      "id": "tertiary_label",
+      "label": "Text link label",
+      "default": "Chat with us on LINE"
+    },
+    {
+      "type": "url",
+      "id": "tertiary_link",
+      "label": "Text link"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Audience note",
+      "info": "For example: Here for sim racing gear instead?"
+    },
+    {
+      "type": "text",
+      "id": "note_link_label",
+      "label": "Audience note link label"
+    },
+    {
+      "type": "text",
+      "id": "note_link",
+      "label": "Audience note link",
+      "info": "Accepts anchors like #simmount"
+    }
+  ],
+  "presets": [{ "name": "Keynote closing CTA" }]
+}
+{% endschema %}

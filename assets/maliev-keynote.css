@@ -1,0 +1,1041 @@
+/* MALIEV keynote homepage system.
+   Scroll-choreographed product chapters. Light workshop stage by default;
+   .mkey--carbon is the single dark SimMount stage.
+   Content is fully visible without JS: reveal states only exist under .mk-motion. */
+
+.mkey {
+  --mk-ink: #101214;
+  --mk-body: #3d4650;
+  --mk-muted: #5b6470;
+  --mk-white: #ffffff;
+  --mk-canvas: #f4f6f7;
+  --mk-line: rgba(16, 18, 20, 0.1);
+  --mk-blue: #006fd6;
+  --mk-blue-pressed: #064fc4;
+  --mk-green: #00a36c;
+  --mk-focus: #ffd21c;
+  --mk-carbon: #0c1114;
+  --mk-asphalt: #161c22;
+  --mk-cyan: #18b7ff;
+  --mk-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mk-width: 125rem;
+  --mk-gutter: clamp(2rem, 4vw, 4.8rem);
+  --mk-display-font: 'Archivo', 'Inter', 'Noto Sans Thai', system-ui, sans-serif;
+
+  background: var(--mk-white);
+  color: var(--mk-ink);
+  font-family: var(--font-body-family, 'Inter', 'Noto Sans Thai', system-ui, sans-serif);
+}
+
+.mkey *,
+.mkey *::before,
+.mkey *::after {
+  box-sizing: border-box;
+}
+
+.mkey a:not(.mkey__btn):not(.mkey__textlink) {
+  color: inherit;
+}
+
+.mkey img,
+.mkey video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Yellow ring alone vanishes on light stages; the ink halo keeps it >=3:1 everywhere. */
+.mkey :focus-visible {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: 0.2rem;
+  box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
+}
+
+.mkey__frame {
+  margin: 0 auto;
+  max-width: var(--mk-width);
+  padding-left: var(--mk-gutter);
+  padding-right: var(--mk-gutter);
+}
+
+/* ---------- Type ---------- */
+
+/* Display voice: Archivo, expanded — industrial signage over the Inter body. */
+.mkey__display,
+.mkey__headline,
+.mkey__title {
+  font-family: var(--mk-display-font);
+  color: var(--mk-ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.mkey__display {
+  font-size: clamp(4.2rem, 5.4vw, 7.8rem);
+  font-stretch: 118%;
+  line-height: 0.96;
+}
+
+.mkey__headline {
+  font-size: clamp(3.2rem, 4.4vw, 5.8rem);
+  font-stretch: 114%;
+  line-height: 0.98;
+}
+
+.mkey__title {
+  font-size: clamp(1.9rem, 1.9vw, 2.4rem);
+  font-stretch: 108%;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+}
+
+.mkey__lead {
+  color: var(--mk-body);
+  font-size: clamp(1.7rem, 1.75vw, 2.05rem);
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 58rem;
+  text-wrap: pretty;
+}
+
+.mkey__note {
+  color: var(--mk-muted);
+  font-size: 1.4rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Commercially load-bearing notes (availability scoping) read at body strength. */
+.mkey__note--scope {
+  color: var(--mk-body);
+  font-size: 1.5rem;
+}
+
+/* A note inside the actions row wraps to its own full-width line, tight under the buttons. */
+.mkey__actions .mkey__note {
+  flex: 0 0 100%;
+  margin-top: 0.4rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.mkey__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.mkey__btn {
+  align-items: center;
+  background: var(--mk-blue);
+  border: 0.1rem solid var(--mk-blue);
+  border-radius: 0.4rem;
+  color: var(--mk-white);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 1.45rem;
+  font-weight: 600;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 4.8rem;
+  padding: 1.25rem 2.2rem;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 180ms var(--mk-ease),
+    border-color 180ms var(--mk-ease),
+    color 180ms var(--mk-ease),
+    box-shadow 180ms var(--mk-ease),
+    transform 180ms var(--mk-ease);
+}
+
+.mkey__btn:hover {
+  background: var(--mk-blue-pressed);
+  border-color: var(--mk-blue-pressed);
+  box-shadow: 0 0.4rem 0.8rem rgba(0, 111, 214, 0.22);
+  transform: translateY(-0.2rem);
+}
+
+.mkey__btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 100ms;
+}
+
+.mkey__btn--secondary {
+  background: var(--mk-white);
+  border-color: var(--mk-blue);
+  color: var(--mk-blue);
+}
+
+.mkey__btn--secondary:hover {
+  background: var(--mk-canvas);
+  box-shadow: none;
+  color: var(--mk-blue-pressed);
+}
+
+.mkey__textlink {
+  align-items: center;
+  color: var(--mk-blue);
+  display: inline-flex;
+  font-size: 1.45rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  padding-block: 0.3rem;
+  text-decoration: none;
+}
+
+.mkey__textlink:hover {
+  color: var(--mk-blue-pressed);
+  text-decoration: underline;
+  text-underline-offset: 0.3rem;
+}
+
+.mkey__textlink .mkey__arrow {
+  transition: transform 180ms var(--mk-ease);
+}
+
+.mkey__textlink:hover .mkey__arrow {
+  transform: translateX(0.3rem);
+}
+
+/* ---------- Chips ---------- */
+
+.mkey__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__chip {
+  background: var(--mk-canvas);
+  border: 0.1rem solid var(--mk-line);
+  border-radius: 99.9rem;
+  color: var(--mk-ink);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.6rem 1.4rem;
+  white-space: nowrap;
+}
+
+/* ---------- Hero ---------- */
+
+.mkey--hero {
+  overflow: clip;
+  position: relative;
+}
+
+.mkey--hero .mkey__frame {
+  align-items: center;
+  display: grid;
+  gap: clamp(2.4rem, 4vw, 6rem);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  min-height: min(88vh, 92rem);
+  padding-bottom: clamp(4.8rem, 6vw, 8rem);
+  padding-top: clamp(4.8rem, 6vw, 8rem);
+}
+
+.mkey--hero .mkey__copy {
+  display: grid;
+  gap: 2.2rem;
+  justify-items: start;
+}
+
+.mkey--hero .mkey__media img {
+  margin-inline: auto;
+  width: min(100%, 72rem);
+}
+
+/* Overlay layout: the render is the full-bleed stage, copy sits in its left clear zone. */
+
+/* CSS studio stage + alpha machine cutout: no baked background, no seams. */
+.mkey--hero-overlay .mkey__hero-bg {
+  background:
+    radial-gradient(92rem 58rem at 76% 78%, rgba(255, 255, 255, 0.85), transparent 64%),
+    linear-gradient(180deg, #f7f9fa 0%, #eaeef1 58%, #e2e7ea 100%);
+  inset: 0;
+  overflow: hidden;
+  position: absolute;
+}
+
+.mkey--hero-overlay .mkey__hero-bg img {
+  bottom: clamp(2.4rem, 6vh, 6.4rem);
+  height: min(86%, 88rem);
+  object-fit: contain;
+  object-position: bottom;
+  position: absolute;
+  right: clamp(3rem, 9vw, 16rem);
+  width: auto;
+}
+
+/* Fill the viewport below the shell header. */
+.mkey--hero-overlay .mkey__frame {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100svh - var(--maliev-header-h, 7.3rem) - 0.1rem);
+  position: relative;
+}
+
+.mkey--hero-overlay .mkey__copy {
+  max-width: 68rem;
+}
+
+/* ---------- Chapter shell ---------- */
+
+.mkey--chapter {
+  background: var(--mk-canvas);
+  overflow: clip;
+}
+
+.mkey--chapter .mkey__frame {
+  display: grid;
+  gap: clamp(3.2rem, 5vw, 6.4rem);
+  padding-bottom: clamp(6.4rem, 9vw, 12rem);
+  padding-top: clamp(6.4rem, 9vw, 12rem);
+}
+
+.mkey__intro {
+  display: grid;
+  gap: 1.8rem;
+  justify-items: start;
+  max-width: 78rem;
+}
+
+/* ---------- Machines chapter ---------- */
+
+.mkey__stage-media {
+  border-radius: 1.2rem;
+  overflow: hidden;
+}
+
+.mkey__stage-media img {
+  width: 100%;
+}
+
+.mkey__models {
+  display: grid;
+  gap: clamp(1.6rem, 2.5vw, 3.2rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(30rem, 100%), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__model {
+  background: var(--mk-white);
+  border: 0.1rem solid var(--mk-line);
+  border-radius: 1.2rem;
+  display: grid;
+  gap: 1.4rem;
+  padding: clamp(2rem, 2.6vw, 3.2rem);
+  position: relative;
+  transition: border-color 180ms var(--mk-ease);
+}
+
+.mkey__model:hover {
+  border-color: var(--mk-blue);
+}
+
+/* Showcase media: the machine dominates the card. */
+.mkey__model-media {
+  align-items: flex-end;
+  display: flex;
+  justify-content: center;
+  min-height: 34rem;
+  padding-bottom: 1.6rem;
+}
+
+.mkey__model-media img {
+  max-height: 40rem;
+  object-fit: contain;
+  transition: transform 300ms var(--mk-ease);
+  width: auto;
+}
+
+.mkey__model:hover .mkey__model-media img {
+  transform: translateY(-0.5rem);
+}
+
+.mkey__model-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.6rem;
+  justify-content: space-between;
+}
+
+.mkey__model-name {
+  font-size: 2rem;
+}
+
+.mkey__model-name a {
+  text-decoration: none;
+}
+
+.mkey__model-name a::after {
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.mkey__model-name a:focus-visible::after {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: 1.2rem;
+}
+
+.mkey__model-copy {
+  color: var(--mk-body);
+  font-size: 1.5rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mkey__model-meta {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.mkey__price {
+  color: var(--mk-ink);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.mkey__price small {
+  color: var(--mk-muted);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+/* ---------- Carbon stage (SimMount) ---------- */
+
+.mkey--carbon {
+  background: var(--mk-carbon);
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__display,
+.mkey--carbon .mkey__headline,
+.mkey--carbon .mkey__title {
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__lead {
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.55;
+}
+
+.mkey--carbon .mkey__note {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.mkey--carbon .mkey__chip {
+  background: var(--mk-asphalt);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--mk-cyan);
+}
+
+.mkey--carbon .mkey__btn {
+  background: var(--mk-cyan);
+  border-color: var(--mk-cyan);
+  color: var(--mk-carbon);
+}
+
+.mkey--carbon .mkey__btn:hover {
+  background: #4cc7ff;
+  border-color: #4cc7ff;
+  box-shadow: 0 0.4rem 0.8rem rgba(24, 183, 255, 0.25);
+}
+
+.mkey--carbon .mkey__btn--secondary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__btn--secondary:hover {
+  background: var(--mk-asphalt);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: none;
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__textlink {
+  color: var(--mk-cyan);
+}
+
+.mkey--carbon .mkey__textlink:hover {
+  color: #4cc7ff;
+}
+
+.mkey__rigs {
+  display: grid;
+  gap: clamp(1.6rem, 2.5vw, 2.8rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__rig {
+  background: var(--mk-asphalt);
+  border-radius: 1.6rem;
+  display: grid;
+  gap: 1.2rem;
+  padding: clamp(2rem, 2.4vw, 2.8rem);
+  position: relative;
+  transition: transform 300ms var(--mk-ease);
+}
+
+.mkey__rig:hover {
+  transform: translateY(-0.4rem);
+}
+
+.mkey__rig-media {
+  align-items: center;
+  background: #10161b;
+  border-radius: 0.8rem;
+  display: flex;
+  justify-content: center;
+  min-height: 20rem;
+  overflow: hidden;
+}
+
+.mkey__rig-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.mkey__rig-name {
+  color: var(--mk-white);
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.mkey__rig-name a {
+  text-decoration: none;
+}
+
+.mkey__rig-name a::after {
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+/* Card-covering links: one ring on the ::after overlay, none on the inline text. */
+.mkey__rig-name a:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
+.mkey__rig-name a:focus-visible::after {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: 1.6rem;
+  box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
+}
+
+.mkey__rig-spec {
+  color: var(--mk-cyan);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mkey__rig-price {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ---------- Feature chapter (Mesh Splitter / Services) ---------- */
+
+.mkey--feature .mkey__frame {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.mkey--feature .mkey__copy {
+  display: grid;
+  gap: 1.8rem;
+  justify-items: start;
+}
+
+.mkey--feature .mkey__media {
+  border-radius: 1.2rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.mkey__video-toggle {
+  align-items: center;
+  background: rgba(16, 18, 20, 0.72);
+  border: 0;
+  border-radius: 0.4rem;
+  bottom: 1.2rem;
+  color: var(--mk-white);
+  cursor: pointer;
+  display: flex;
+  height: 4.8rem;
+  justify-content: center;
+  position: absolute;
+  right: 1.2rem;
+  width: 4.8rem;
+}
+
+.mkey__video-toggle:hover {
+  background: rgba(16, 18, 20, 0.88);
+}
+
+.mkey__video-toggle .mkey__video-toggle-play,
+.mkey__video-toggle[aria-pressed='true'] .mkey__video-toggle-pause {
+  display: none;
+}
+
+.mkey__video-toggle[aria-pressed='true'] .mkey__video-toggle-play {
+  display: block;
+}
+
+.mkey--feature .mkey__media img,
+.mkey--feature .mkey__media video {
+  width: 100%;
+}
+
+.mkey--feature.mkey--media-left .mkey__media {
+  order: -1;
+}
+
+.mkey__panels {
+  display: grid;
+  gap: 1.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__panel {
+  background: var(--mk-white);
+  border: 0.1rem solid var(--mk-line);
+  border-radius: 0.8rem;
+  transition: border-color 180ms var(--mk-ease);
+}
+
+.mkey__panel:hover {
+  border-color: var(--mk-blue);
+}
+
+.mkey__panel a {
+  align-items: baseline;
+  display: flex;
+  gap: 1.2rem;
+  justify-content: space-between;
+  padding: 1.6rem 2rem;
+  text-decoration: none;
+}
+
+.mkey__panel-name {
+  color: var(--mk-ink);
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.mkey__panel-hint {
+  color: var(--mk-muted);
+  font-size: 1.35rem;
+  text-align: right;
+}
+
+/* ---------- Guides strip ---------- */
+
+.mkey--guides {
+  background: var(--mk-white);
+}
+
+.mkey--guides .mkey__frame {
+  display: grid;
+  gap: clamp(2.4rem, 3.5vw, 4rem);
+  padding-bottom: clamp(5.6rem, 7vw, 9.6rem);
+  padding-top: clamp(5.6rem, 7vw, 9.6rem);
+}
+
+.mkey__guides-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6rem;
+  justify-content: space-between;
+}
+
+.mkey__articles {
+  display: grid;
+  gap: clamp(1.6rem, 2.5vw, 2.8rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(28rem, 100%), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__article {
+  display: grid;
+  gap: 1.2rem;
+  position: relative;
+}
+
+.mkey__article-media {
+  aspect-ratio: 3 / 2;
+  background: var(--mk-canvas);
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.mkey__article-media img {
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms var(--mk-ease);
+  width: 100%;
+}
+
+.mkey__article:hover .mkey__article-media img {
+  transform: scale(1.03);
+}
+
+.mkey__article-title {
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.mkey__article-title a {
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.mkey__article-title a::after {
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.mkey__article-title a:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
+.mkey__article-title a:focus-visible::after {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: 0.8rem;
+  box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
+}
+
+/* ---------- Closing CTA ---------- */
+
+.mkey--cta {
+  background: var(--mk-white);
+}
+
+.mkey--cta .mkey__frame {
+  display: grid;
+  gap: 2.4rem;
+  justify-items: center;
+  padding-bottom: clamp(8rem, 11vw, 14rem);
+  padding-top: clamp(8rem, 11vw, 14rem);
+  text-align: center;
+}
+
+.mkey--cta .mkey__headline {
+  max-width: 86rem;
+}
+
+.mkey--cta .mkey__lead {
+  max-width: 64rem;
+}
+
+.mkey--cta .mkey__actions {
+  justify-content: center;
+}
+
+/* ---------- Scroll choreography ----------
+   Reveal states exist only when JS added .mk-motion to <html>.
+   Without JS or with reduced motion, everything renders in final state. */
+
+.mk-motion .mkey [data-mkr] {
+  opacity: 0;
+  transform: translateY(2.4rem);
+}
+
+.mk-motion .mkey [data-mkr='media'] {
+  transform: translateY(1.6rem) scale(1.03);
+}
+
+.mk-motion .mkey [data-mkr='fade'] {
+  transform: none;
+}
+
+/* Directional entrances: model cards approach from their own side,
+   SimMount hardware arrives along the racing line. */
+.mk-motion .mkey [data-mkr='left'] {
+  transform: translateX(-3.6rem);
+}
+
+.mk-motion .mkey [data-mkr='right'] {
+  transform: translateX(3.6rem);
+}
+
+.mk-motion .mkey [data-mkr='race'] {
+  transform: translateX(5.6rem);
+}
+
+.mk-motion .mkey .mk-in[data-mkr='race'] {
+  transition-delay: calc(var(--mkr-i, 0) * 130ms);
+  transition-duration: 800ms;
+}
+
+.mk-motion .mkey .mk-in[data-mkr] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 700ms var(--mk-ease),
+    transform 700ms var(--mk-ease);
+  transition-delay: calc(var(--mkr-i, 0) * 90ms);
+}
+
+.mk-motion .mkey .mk-in[data-mkr='media'] {
+  transition-duration: 900ms;
+}
+
+/* --- Hero signature entrance: the machine lands first, copy follows. --- */
+
+@keyframes mk-hero-machine {
+  from {
+    opacity: 0;
+    transform: translateY(2.8rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mk-motion .mkey--hero-overlay .mkey__hero-bg img {
+  animation: mk-hero-machine 900ms var(--mk-ease) both;
+}
+
+.mk-motion .mkey--hero-overlay .mkey__copy .mk-in[data-mkr] {
+  transition-delay: calc(250ms + var(--mkr-i, 0) * 110ms);
+}
+
+/* Depth on scroll where the browser supports scroll-driven animations. */
+@supports (animation-timeline: view()) {
+  @keyframes mk-hero-parallax {
+    to {
+      transform: translateY(7rem);
+    }
+  }
+
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg {
+    animation: mk-hero-parallax linear both;
+    animation-range: exit 0% exit 100%;
+    animation-timeline: view();
+  }
+
+  /* The lineup stage settles from a slight zoom as it enters. */
+  @keyframes mk-stage-zoom {
+    from {
+      transform: scale(1.06);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  .mk-motion .mkey__stage-media img {
+    animation: mk-stage-zoom linear both;
+    animation-range: entry 0% cover 55%;
+    animation-timeline: view();
+  }
+}
+
+/* --- Machines stage: wipe open instead of the generic rise. --- */
+
+.mk-motion .mkey__stage-media [data-mkr] {
+  clip-path: inset(12% 7% 12% 7% round 1.2rem);
+  transform: translateY(1.2rem);
+}
+
+.mk-motion .mkey__stage-media .mk-in[data-mkr] {
+  clip-path: inset(0 0 0 0 round 1.2rem);
+  transition:
+    opacity 700ms var(--mk-ease),
+    transform 900ms var(--mk-ease),
+    clip-path 900ms var(--mk-ease);
+}
+
+/* --- SimMount: the start-line draws under the headline. --- */
+
+.mkey--carbon .mkey__headline {
+  padding-bottom: 1.8rem;
+  position: relative;
+}
+
+.mkey--carbon .mkey__headline::after {
+  background: var(--mk-cyan);
+  border-radius: 0.2rem;
+  bottom: 0;
+  content: '';
+  height: 0.4rem;
+  left: 0;
+  position: absolute;
+  transform-origin: left center;
+  width: 7.2rem;
+}
+
+.mk-motion .mkey--carbon .mkey__headline[data-mkr]::after {
+  transform: scaleX(0);
+}
+
+.mk-motion .mkey--carbon .mkey__headline.mk-in[data-mkr]::after {
+  transform: scaleX(1);
+  transition: transform 700ms var(--mk-ease) 250ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-motion .mkey [data-mkr] {
+    clip-path: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg,
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg img,
+  .mk-motion .mkey__stage-media img {
+    animation: none;
+  }
+
+  .mk-motion .mkey--carbon .mkey__headline[data-mkr]::after {
+    transform: scaleX(1);
+    transition: none;
+  }
+
+  .mkey__model-media img {
+    transition: none;
+  }
+
+  .mkey__btn,
+  .mkey__rig,
+  .mkey__article-media img,
+  .mkey__textlink .mkey__arrow {
+    transition: none;
+  }
+
+  .mkey__btn:hover,
+  .mkey__btn:active {
+    transform: none;
+  }
+
+  .mkey__rig:hover,
+  .mkey__model:hover .mkey__model-media img {
+    transform: none;
+  }
+
+  .mkey__article:hover .mkey__article-media img {
+    transform: none;
+  }
+}
+
+/* ---------- Responsive ---------- */
+
+@media screen and (max-width: 989px) {
+  .mkey--hero .mkey__frame {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .mkey--hero .mkey__media {
+    order: -1;
+  }
+
+  .mkey--hero .mkey__media img {
+    max-height: 48vh;
+    object-fit: contain;
+    width: auto;
+  }
+
+  /* Below 990px the render has no clear copy zone, so stack: copy first, render below. */
+  .mkey--hero-overlay {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - var(--maliev-header-h, 6.4rem) - 0.1rem);
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    order: 2;
+    padding: 2.4rem 0 3.2rem;
+    position: static;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg img {
+    height: auto;
+    max-height: 56vh;
+    position: static;
+    width: auto;
+  }
+
+  .mkey--hero-overlay .mkey__frame {
+    min-height: 0;
+  }
+
+  .mkey--feature .mkey__frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mkey--feature.mkey--media-left .mkey__media {
+    order: 0;
+  }
+}
+
+@media screen and (max-width: 749px) {
+  .mkey__display {
+    font-size: clamp(3.4rem, 10.5vw, 4.6rem);
+  }
+
+  .mkey__headline {
+    font-size: clamp(2.8rem, 8.5vw, 3.6rem);
+  }
+
+  .mkey__btn {
+    flex: 1 1 auto;
+  }
+
+  .mkey__model-media {
+    min-height: 18rem;
+  }
+
+  .mkey__model-media img {
+    max-height: 22rem;
+  }
+}
+

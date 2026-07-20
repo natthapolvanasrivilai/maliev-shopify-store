@@ -148,8 +148,9 @@
     -%}
 
     {%- if section.settings.logo_position != 'middle-center' -%}
+      {%- comment -%} The homepage h1 belongs to the keynote hero, not the logo. {%- endcomment -%}
       {%- if request.page_type == 'index' -%}
-        <h1 class="header__heading">
+        <div class="header__heading">
       {%- endif -%}
       <a href="{{ routes.root_url }}" class="header__heading-link link link--text focus-inset">
         {%- if settings.logo != blank -%}
@@ -176,7 +177,7 @@
         {%- endif -%}
       </a>
       {%- if request.page_type == 'index' -%}
-        </h1>
+        </div>
       {%- endif -%}
     {%- endif -%}
 
@@ -192,7 +193,7 @@
 
     {%- if section.settings.logo_position == 'middle-center' -%}
       {%- if request.page_type == 'index' -%}
-        <h1 class="header__heading">
+        <div class="header__heading">
       {%- endif -%}
       <a href="{{ routes.root_url }}" class="header__heading-link link link--text focus-inset">
         {%- if settings.logo != blank -%}
@@ -219,7 +220,7 @@
         {%- endif -%}
       </a>
       {%- if request.page_type == 'index' -%}
-        </h1>
+        </div>
       {%- endif -%}
     {%- endif -%}
 

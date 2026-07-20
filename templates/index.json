@@ -1,517 +1,232 @@
-/*
- * ------------------------------------------------------------
- * IMPORTANT: The contents of this file are auto-generated.
- *
- * This file may be updated by the Shopify admin theme editor
- * or related systems. Please exercise caution as any changes
- * made to this file may be overwritten.
- * ------------------------------------------------------------
- */
 {
   "sections": {
-    "maliev_hero_stats": {
-      "type": "maliev-hero-stats",
-      "blocks": {
-        "machines": {
-          "type": "stat",
-          "settings": {
-            "title": "Machines",
-            "text": "Injection molding equipment for small-batch production."
-          }
-        },
-        "molds": {
-          "type": "stat",
-          "settings": {
-            "title": "Molds",
-            "text": "Tooling and mold resources for injection molding projects."
-          }
-        },
-        "sim": {
-          "type": "stat",
-          "settings": {
-            "title": "Sim racing",
-            "text": "SimMount hardware for racing rigs and tactile feedback setups."
-          }
-        },
-        "services": {
-          "type": "stat",
-          "settings": {
-            "title": "Services",
-            "text": "Manufacturing support for custom parts, prototypes, and product development."
-          }
-        }
-      },
-      "block_order": [
-        "machines",
-        "molds",
-        "sim",
-        "services"
-      ],
+    "keynote_hero": {
+      "type": "maliev-keynote-hero",
       "settings": {
-        "aria_label": "MALIEV storefront",
-        "eyebrow": "Manufacturing tools from MALIEV",
-        "title_line_1": "Machines,",
-        "title_line_2": "molds, and",
-        "title_line_3": "manufacturing",
-        "title_line_4": "support from",
-        "brand_text": "MALIEV",
-        "show_logo": true,
-        "lead": "Shop compact injection molding machines, mold resources, SimMount hardware, 3D printed products, and custom manufacturing services.",
-        "primary_label": "Shop machine lineup",
-        "primary_link": "/collections/เครื่องฉีดพลาสติก",
-        "secondary_label": "Chat with us on LINE",
-        "secondary_link": "http://line.me/ti/p/@maliev",
-        "hero_image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-hero-desktop-right.28.png",
-        "hero_image_alt": "",
-        "stats_aria_label": "Product lines"
+        "aria_label": "MALIEV introduction",
+        "heading": "Injection molding, sized for your workshop.",
+        "lead": "MALIEV designs and builds compact pneumatic injection molding machines in Thailand — serious small-batch production without the industrial footprint.",
+        "primary_label": "Book a factory visit",
+        "primary_link": "/pages/contact",
+        "secondary_label": "Explore the machines",
+        "secondary_link": "/collections/เครื่องฉีดพลาสติก",
+        "tertiary_label": "Sim racing? See SimMount",
+        "tertiary_link": "#simmount",
+        "layout": "overlay",
+        "asset_name": "maliev-pimm-hero-alpha.webp",
+        "mobile_asset_name": "",
+        "image_alt": "MALIEV compact pneumatic injection molding machine, three-quarter studio view",
+        "note": "Built in-house. Supported in Thailand. One-year warranty."
       }
     },
-    "maliev_tool_pricing": {
-      "type": "maliev-tool-pricing",
+    "keynote_machines": {
+      "type": "maliev-keynote-machines",
+      "settings": {
+        "aria_label": "Injection molding machines",
+        "heading": "Real production. Workshop footprint.",
+        "lead": "Every PIMM — our pneumatic injection molding machine — is engineered and assembled at the MALIEV factory. Pneumatic clamping and injection, precise heat control, and mold costs that make small-batch production practical.",
+        "chips": "Made in Thailand | One-year warranty | Replacement parts in stock | Mold-making assistance",
+        "stage_asset_name": "maliev-pimm-lineup-wide.webp",
+        "stage_image_alt": "MALIEV PIMM 30G and PIMM 50G injection molding machines side by side in a bright studio",
+        "primary_label": "Book a factory visit",
+        "primary_link": "/pages/contact",
+        "secondary_label": "Chat on LINE",
+        "secondary_link": "https://line.me/ti/p/@maliev",
+        "tertiary_label": "Compare the lineup",
+        "tertiary_link": "/collections/เครื่องฉีดพลาสติก",
+        "note": "Machines are sold and supported within Thailand. SimMount accessories below ship worldwide."
+      },
       "blocks": {
-        "free": {
-          "type": "plan",
+        "model_30g": {
+          "type": "model",
           "settings": {
-            "plan": "Free monthly plan",
-            "badge": "",
-            "title": "3 exports monthly",
-            "amount": "Free",
-            "amount_note": "per month",
-            "summary": "Start testing real models before buying any credits.",
-            "cta_label": "Start free",
-            "cta_link": "/customer_authentication/login?return_to=%2Ftools%2Fmesh-splitter%2Fapp",
-            "features_heading": "Includes",
-            "features": "Upload, split, and review in 3D\nExport ZIP with STLs and PDF guide\nFree allowance resets monthly",
-            "featured": false
+            "product": "pneumatic-injection-molding-machine",
+            "name": "PIMM 30G",
+            "description": "The entry point to in-house molding. Compact enough for a desk-height bench, capable enough for production parts up to 30 grams.",
+            "spec": "30 g shot capacity",
+            "price_note": "50% deposit starts production",
+            "asset_name": "maliev-pimm-30g-alpha.webp",
+            "image_alt": "MALIEV PIMM 30G injection molding machine, three-quarter studio view"
           }
         },
-        "starter": {
-          "type": "plan",
+        "model_50g": {
+          "type": "model",
           "settings": {
-            "plan": "Starter credit pack",
-            "badge": "",
-            "title": "10 export credits",
-            "amount": "฿329",
-            "amount_note": "฿32.90 / export",
-            "summary": "For trying real customer parts after the free allowance.",
-            "cta_label": "Buy credits",
-            "cta_link": "/tools/mesh-splitter#pricing",
-            "features_heading": "Includes",
-            "features": "10 paid exports\nConnected to the Shopify customer account\nPay only when more exports are needed",
-            "featured": false
-          }
-        },
-        "maker": {
-          "type": "plan",
-          "settings": {
-            "plan": "Maker credit pack",
-            "badge": "Best value",
-            "title": "30 export credits",
-            "amount": "฿879",
-            "amount_note": "฿29.30 / export",
-            "summary": "For regular makers splitting several models each month.",
-            "cta_label": "Buy credits",
-            "cta_link": "/tools/mesh-splitter#pricing",
-            "features_heading": "Includes",
-            "features": "30 paid exports\nLower cost per export than Starter\nGood fit for monthly production work",
-            "featured": true
-          }
-        },
-        "studio": {
-          "type": "plan",
-          "settings": {
-            "plan": "Studio credit pack",
-            "badge": "",
-            "title": "100 export credits",
-            "amount": "฿2,490",
-            "amount_note": "฿24.90 / export",
-            "summary": "For print farms, studios, and service bureaus.",
-            "cta_label": "Buy credits",
-            "cta_link": "/tools/mesh-splitter#pricing",
-            "features_heading": "Includes",
-            "features": "100 paid exports\nLowest cost per export\nBuilt for teams exporting often",
-            "featured": false
+            "product": "pneumatic-injection-molding-machine-50g",
+            "name": "PIMM 50G",
+            "description": "More shot volume, taller mold space, and the same footprint discipline — for bigger parts and longer production runs.",
+            "spec": "50 g shot capacity",
+            "price_note": "50% deposit starts production",
+            "asset_name": "maliev-pimm-50g-alpha.webp",
+            "image_alt": "MALIEV PIMM 50G injection molding machine, three-quarter studio view"
           }
         }
       },
-      "block_order": [
-        "free",
-        "starter",
-        "maker",
-        "studio"
-      ],
+      "block_order": ["model_30g", "model_50g"]
+    },
+    "keynote_simmount": {
+      "type": "maliev-keynote-simmount",
       "settings": {
-        "aria_label": "MALIEV Mesh Splitter tool",
-        "eyebrow": "Browser tool",
-        "heading": "Mesh Splitter for oversized STL files",
-        "text": "Prepare large models for smaller 3D printers directly in the browser. Upload an STL, scale it, set your printer build volume, split into labeled parts, add connectors, review in 3D, and export one ZIP with labeled STLs plus a PDF assembly guide.",
-        "features": "Runs on the customer's device, with no server-side model processing\nMade for makers, engineers, 3D print shops, and teams fitting large models onto smaller printers\nTry 3 free exports every month, then pay only when more exports are needed",
+        "aria_label": "SimMount sim racing hardware",
+        "heading": "SimMount. Built for the racing line.",
+        "lead": "Precision sim racing hardware, designed and manufactured in-house at MALIEV. Monitor mounts, bass-shaker hardware, and cockpit upgrades engineered to hold their line lap after lap.",
+        "chips": "Engineered 3D-printed structures | Fits 8020 aluminium rigs | Ships worldwide",
+        "primary_label": "Shop SimMount",
+        "primary_link": "/collections/sim-racing-solutions",
+        "note": "International shipping available on all SimMount products."
+      },
+      "blocks": {
+        "rig_pivot": {
+          "type": "rig_product",
+          "settings": {
+            "product": "simmount-pro-pivot-precision-triple-monitor-adapter-for-sim-racing",
+            "name": "SimMount Pro Pivot",
+            "spec": "Precision triple-monitor pivots",
+            "asset_name": "maliev-simmount-pivot-carbon.webp",
+            "image_alt": "SimMount Pro Pivot clamped on an 8020 aluminium rig rail, dark studio"
+          }
+        },
+        "rig_vesa": {
+          "type": "rig_product",
+          "settings": {
+            "product": "simmount-pro-vesa-kit-adjustable-monitor-mount-for-sim-racing-rigs",
+            "name": "SimMount Pro VESA",
+            "spec": "Adjustable VESA monitor mount",
+            "asset_name": "maliev-simmount-vesa-carbon.webp",
+            "image_alt": "SimMount Pro VESA kit with plate, brackets, and hardware laid out in a dark studio"
+          }
+        },
+        "rig_shake": {
+          "type": "rig_product",
+          "settings": {
+            "product": "simmount-shakeholder",
+            "name": "SimMount ShakeHolder",
+            "spec": "Rigid bass-shaker mounting",
+            "asset_name": "maliev-simmount-shake-carbon.webp",
+            "image_alt": "SimMount ShakeHolder bass-shaker mount with gold terminals, dark studio"
+          }
+        }
+      },
+      "block_order": ["rig_pivot", "rig_vesa", "rig_shake"]
+    },
+    "keynote_mesh": {
+      "type": "maliev-keynote-feature",
+      "settings": {
+        "aria_label": "Mesh Splitter browser tool",
+        "heading": "Split oversized STL files in your browser.",
+        "lead": "Mesh Splitter cuts large STL models into printable pieces with clean joints — no installation, no upload queue. It runs entirely in your browser.",
+        "media_side": "right",
+        "background": "white",
+        "video_asset_name": "maliev-mesh-splitter-loop.mp4",
+        "video_toggle_label": "Pause video",
+        "asset_name": "mesh-splitter-hero.webp",
+        "media_alt": "Mesh Splitter slicing an oversized STL model into printable parts",
         "primary_label": "Open Mesh Splitter",
         "primary_link": "/tools/mesh-splitter",
-        "secondary_label": "View pricing details",
+        "secondary_label": "See pricing",
         "secondary_link": "/tools/mesh-splitter#pricing",
-        "media_type": "video",
-        "video_url": "https://cdn.shopify.com/videos/c/o/v/98eb9a0da3d54a8cae7010bcf57fdb9e.mp4",
-        "image_url": "",
-        "image_alt": "",
-        "pricing_aria_label": "Mesh Splitter pricing"
+        "note": "Free tier available — start splitting in seconds."
       }
     },
-    "maliev_family_grid": {
-      "type": "maliev-family-grid",
+    "keynote_services": {
+      "type": "maliev-keynote-feature",
+      "settings": {
+        "aria_label": "Molds, parts, and custom manufacturing",
+        "heading": "Molds, parts, and custom manufacturing.",
+        "lead": "The same factory that builds our machines makes molds, spare parts, and custom production runs. Bring a part, a drawing, or an idea — we will help you match it to the right process.",
+        "media_side": "left",
+        "background": "canvas",
+        "asset_name": "maliev-pimm-nozzle-detail.webp",
+        "media_alt": "Mold and clamping area of a MALIEV PIMM injection molding machine",
+        "primary_label": "Talk to our engineers",
+        "primary_link": "/pages/contact"
+      },
       "blocks": {
-        "machines": {
-          "type": "tile",
+        "panel_molds": {
+          "type": "panel",
           "settings": {
-            "title": "Injection molding machines",
-            "text": "Compact machines for prototypes and small-batch production.",
-            "link": "/collections/เครื่องฉีดพลาสติก",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-portrait.14.png?v=1737114840",
-            "image_alt": "MALIEV injection molding machine",
-            "style": "large"
+            "name": "Mold making",
+            "hint": "Machined molds for PIMM machines",
+            "link": "/collections/molds"
           }
         },
-        "sim": {
-          "type": "tile",
+        "panel_parts": {
+          "type": "panel",
           "settings": {
-            "title": "SimMount hardware",
-            "text": "Rig hardware and tactile feedback parts for sim racing setups.",
-            "link": "/collections/sim-racing-solutions",
-            "image_url": "https://shop.maliev.com/cdn/shop/files/simmount-pro-vesa.6.png?v=1736670814&width=750",
-            "image_alt": "SimMount VESA mount",
-            "style": "dark"
+            "name": "Spare parts",
+            "hint": "Genuine MALIEV replacements",
+            "link": "/collections/spare-parts"
           }
         },
-        "printed": {
-          "type": "tile",
+        "panel_printed": {
+          "type": "panel",
           "settings": {
-            "title": "3D printed products",
-            "text": "Small production runs, replacement parts, and workshop accessories.",
-            "link": "/collections/3d-printed-products",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/files/Generated_Image_October_19_2025_-_11_01PM_1__imgupscaler.ai_v1_Fast__2K.png",
-            "image_alt": "3D printed products",
-            "style": "default"
+            "name": "3D printed products",
+            "hint": "Printed and finished in-house",
+            "link": "/collections/3d-printed-products"
           }
         }
       },
-      "block_order": [
-        "machines",
-        "sim",
-        "printed"
-      ],
-      "settings": {
-        "heading": "Shop by product family",
-        "text": "Start with the product line that matches your workshop, then move into parts, tooling, and setup support."
-      }
+      "block_order": ["panel_molds", "panel_parts", "panel_printed"]
     },
-    "maliev_workflow": {
-      "type": "maliev-workflow",
+    "keynote_guides": {
+      "type": "maliev-keynote-guides",
+      "settings": {
+        "aria_label": "Guides and workshop notes",
+        "heading": "Guides and workshop notes.",
+        "link_label": "Read the blog",
+        "link": "/blogs/news"
+      },
       "blocks": {
-        "step1": {
-          "type": "step",
+        "guide_bass": {
+          "type": "article",
           "settings": {
-            "step_number": "01",
-            "title": "Shop injection machines",
-            "text": "Choose compact injection molding equipment for prototypes and small-batch production."
+            "article": "news/revitalize-your-bass-shaker-how-simmount-replacement-parts-fix-common-oem-issues"
           }
         },
-        "step2": {
-          "type": "step",
+        "guide_tapping": {
+          "type": "article",
           "settings": {
-            "step_number": "02",
-            "title": "Plan molds and materials",
-            "text": "Match your machine with mold resources, tooling, pellets, and setup support."
+            "article": "news/improve-your-tapping-process-with-the-aluminum-profile-tap-guide"
           }
         },
-        "step3": {
-          "type": "step",
+        "guide_covers": {
+          "type": "article",
           "settings": {
-            "step_number": "03",
-            "title": "Find workshop hardware",
-            "text": "Explore SimMount hardware and 3D printed products for rigs, fixtures, and daily workshop use."
-          }
-        },
-        "step4": {
-          "type": "step",
-          "settings": {
-            "step_number": "04",
-            "title": "Request custom production",
-            "text": "Talk with MALIEV about parts, prototypes, and product development support."
+            "article": "news/the-unsung-hero-of-your-projects-why-you-need-hex-socket-screw-covers"
           }
         }
       },
-      "block_order": [
-        "step1",
-        "step2",
-        "step3",
-        "step4"
-      ],
-      "settings": {
-        "aria_label": "Buying workflow"
-      }
+      "block_order": ["guide_bass", "guide_tapping", "guide_covers"]
     },
-    "17835147321074c0f1": {
-      "type": "_blocks",
-      "blocks": {
-        "ai_gen_block_a81e18b_ygApxE": {
-          "type": "ai_gen_block_a81e18b",
-          "settings": {
-            "heading": "New Arrivals",
-            "subheading": "Discover our latest products",
-            "heading_alignment": "center",
-            "columns_desktop": 5,
-            "columns_tablet": 3,
-            "columns_mobile": "2",
-            "show_vendor": false,
-            "show_price": true,
-            "show_new_badge": true,
-            "show_card_shadow": true,
-            "enable_hover_effect": true,
-            "heading_color": "#121212",
-            "subheading_color": "#666666",
-            "card_background": "#ffffff",
-            "heading_size": 36,
-            "subheading_size": 16,
-            "heading_spacing": 40,
-            "section_padding_top": 60,
-            "section_padding_bottom": 60
-          },
-          "blocks": {}
-        }
-      },
-      "block_order": [
-        "ai_gen_block_a81e18b_ygApxE"
-      ],
-      "settings": {}
-    },
-    "maliev_product_showcase": {
-      "type": "maliev-product-showcase",
-      "blocks": {
-        "machine30": {
-          "type": "product_card",
-          "settings": {
-            "group": "panel_1",
-            "product": "pneumatic-injection-molding-machine",
-            "title": "30g pneumatic injection machine",
-            "text": "Compact setup for prototypes and small batches.",
-            "link": "/products/pneumatic-injection-molding-machine",
-            "asset_name": "",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-portrait.14.png?v=1737114840",
-            "image_alt": "MALIEV 30g injection molding machine"
-          }
-        },
-        "machine50": {
-          "type": "product_card",
-          "settings": {
-            "group": "panel_1",
-            "product": "pneumatic-injection-molding-machine-50g",
-            "title": "50g pneumatic injection machine",
-            "text": "Higher shot size for larger parts and production planning.",
-            "link": "/products/pneumatic-injection-molding-machine-50g",
-            "asset_name": "machine-portrait-50g-front-studio.png",
-            "image_url": "",
-            "image_alt": "MALIEV 50g injection molding machine"
-          }
-        },
-        "molds": {
-          "type": "product_card",
-          "settings": {
-            "group": "panel_1",
-            "product": "",
-            "title": "Molds and tooling",
-            "text": "Tooling resources for injection molding projects.",
-            "link": "/collections/molds",
-            "asset_name": "",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/collections/FAFCDBFF-D6E6-46AA-BD45-6EF75DBDCC4C.jpg?v=1735170180&width=720",
-            "image_alt": "Injection mold"
-          }
-        },
-        "simmount": {
-          "type": "product_card",
-          "settings": {
-            "group": "panel_2",
-            "product": "simmount-pro-vesa-kit-adjustable-monitor-mount-for-sim-racing-rigs",
-            "title": "SimMount Pro VESA",
-            "text": "Adjustable monitor mount hardware for sim racing rigs.",
-            "link": "/collections/sim-racing-solutions",
-            "asset_name": "",
-            "image_url": "https://shop.maliev.com/cdn/shop/files/simmount-pro-vesa.6.png?v=1736670814&width=750",
-            "image_alt": "SimMount Pro VESA"
-          }
-        },
-        "parts": {
-          "type": "product_card",
-          "settings": {
-            "group": "panel_2",
-            "product": "",
-            "title": "Replacement parts",
-            "text": "Practical fixes for common sim rig hardware issues.",
-            "link": "/blogs/news/revitalize-your-bass-shaker-how-simmount-replacement-parts-fix-common-oem-issues",
-            "asset_name": "",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/DSC_3187.jpg?v=1742813679&width=720",
-            "image_alt": "SimMount replacement parts"
-          }
-        },
-        "ecosystem": {
-          "type": "product_card",
-          "settings": {
-            "group": "panel_2",
-            "product": "",
-            "title": "SimMount ecosystem",
-            "text": "Mounting accessories for cockpit and tactile setups.",
-            "link": "/collections/sim-racing-solutions",
-            "asset_name": "",
-            "image_url": "https://shop.maliev.com/cdn/shop/files/simmount-pro-vesa.19.png?v=1736670814&width=750",
-            "image_alt": "SimMount ecosystem"
-          }
-        },
-        "featured30": {
-          "type": "featured_product",
-          "settings": {
-            "product": "pneumatic-injection-molding-machine",
-            "panel_title": "Injection machine",
-            "panel_subtitle": "30g compact model",
-            "eyebrow": "Featured machine",
-            "title": "MALIEV Pneumatic Injection Molding Machine",
-            "text": "Compact pneumatic injection molding machine for prototypes, small batches, and workshop production.",
-            "compare_price": "฿115,000",
-            "price": "฿99,000",
-            "pills": "30g capacity\nDual heaters\nLead time: 7-14 days\nAir compressor required",
-            "primary_label": "View 30g machine",
-            "primary_link": "/products/pneumatic-injection-molding-machine",
-            "secondary_label": "Compare lineup",
-            "secondary_link": "/collections/เครื่องฉีดพลาสติก",
-            "asset_name": "",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/files/machine-portrait.14.png?v=1737114840",
-            "image_alt": "MALIEV 30g injection molding machine",
-            "dot_label": "Show 30g machine"
-          }
-        },
-        "featured50": {
-          "type": "featured_product",
-          "settings": {
-            "product": "pneumatic-injection-molding-machine-50g",
-            "panel_title": "Injection machine",
-            "panel_subtitle": "50g larger shot model",
-            "eyebrow": "Featured machine",
-            "title": "MALIEV Pneumatic Injection Molding Machine 50g",
-            "text": "Higher-capacity 50g machine for larger shots, tooling trials, and workshop production planning.",
-            "compare_price": "฿199,000",
-            "price": "฿170,000",
-            "pills": "50g capacity\nDual heaters\nExtended melt zone\nLead time: 7-14 days",
-            "primary_label": "View 50g machine",
-            "primary_link": "/products/pneumatic-injection-molding-machine-50g",
-            "secondary_label": "Compare lineup",
-            "secondary_link": "/collections/เครื่องฉีดพลาสติก",
-            "asset_name": "machine-portrait-50g-front-studio.png",
-            "image_url": "",
-            "image_alt": "MALIEV 50g injection molding machine",
-            "dot_label": "Show 50g machine"
-          }
-        }
-      },
-      "block_order": [
-        "machine30",
-        "machine50",
-        "molds",
-        "simmount",
-        "parts",
-        "ecosystem",
-        "featured30",
-        "featured50"
-      ],
+    "keynote_cta": {
+      "type": "maliev-keynote-cta",
       "settings": {
-        "lineup_heading": "Build a compact production workflow",
-        "lineup_text": "Start with injection machines, then add molds, accessories, SimMount hardware, and workshop support.",
-        "panel_1_title": "Injection molding",
-        "panel_1_subtitle": "Machine lineup",
-        "panel_2_title": "SimMount hardware",
-        "panel_2_subtitle": "Rig and tactile accessories",
-        "featured_heading": "Featured machines",
-        "featured_text": "Compare the MALIEV machine sizes most customers start with.",
-        "carousel_aria_label": "Featured machines",
-        "prev_label": "Previous featured machine",
-        "next_label": "Next featured machine",
-        "swipe_hint": "Swipe or use arrows to compare machines"
-      }
-    },
-    "maliev_guides": {
-      "type": "maliev-guides",
-      "blocks": {
-        "bass_shaker": {
-          "type": "blog_card",
-          "settings": {
-            "category": "SimMount",
-            "title": "Revitalize your bass shaker setup",
-            "text": "Repair common OEM issues with replacement parts made for sim rigs.",
-            "link": "/blogs/news/revitalize-your-bass-shaker-how-simmount-replacement-parts-fix-common-oem-issues",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/DSC_3187.jpg?v=1742813679&width=1000",
-            "image_alt": "SimMount replacement parts"
-          }
-        },
-        "tapping": {
-          "type": "blog_card",
-          "settings": {
-            "category": "Tooling",
-            "title": "Improve your tapping process",
-            "text": "Use the aluminum profile tap guide for repeatable workshop prep.",
-            "link": "/blogs/news/improve-your-tapping-process-with-the-aluminum-profile-tap-guide",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/feature.jpg?v=1740041381&width=1000",
-            "image_alt": "Aluminum profile tap guide"
-          }
-        },
-        "covers": {
-          "type": "blog_card",
-          "settings": {
-            "category": "Product",
-            "title": "Why you need hex socket screw covers",
-            "text": "A small detail that cleans up project finishes.",
-            "link": "/blogs/news/the-unsung-hero-of-your-projects-why-you-need-hex-socket-screw-covers",
-            "image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/cover-preview_520x500_520x500_f0b2104d-c801-4cb6-b371-b22f426709b5.png?v=1736948970&width=1000",
-            "image_alt": "Hex socket screw covers"
-          }
-        }
-      },
-      "block_order": [
-        "bass_shaker",
-        "tapping",
-        "covers"
-      ],
-      "settings": {
-        "heading": "Guides, product notes, and workshop ideas.",
-        "text": "Use MALIEV guides to plan your setup, troubleshoot products, and improve workshop processes.",
-        "blog": "news",
-        "post_limit": 3,
-        "fallback_image_url": "",
-        "article_link": "/blogs/news/improve-your-tapping-process-with-the-aluminum-profile-tap-guide",
-        "article_image_url": "https://cdn.shopify.com/s/files/1/0856/7426/2807/articles/feature.jpg?v=1740041381&width=1500",
-        "article_image_alt": "Aluminum profile tap guide",
-        "article_eyebrow": "Workshop guide",
-        "article_title": "Improve your tapping process with repeatable fixtures",
-        "article_text": "Learn how aluminum profile tap guides make workshop preparation cleaner, faster, and more repeatable.",
-        "article_pills": "Aluminum profile\nTapping\nFixture\nProcess"
-      }
-    },
-    "maliev_quote_cta": {
-      "type": "maliev-quote-cta",
-      "settings": {
-        "heading": "Need help matching machines, molds, or custom parts?",
-        "text": "Send MALIEV your project details and we will help you choose the right machine, material, tooling path, or production support.",
-        "primary_label": "Request a quote",
+        "aria_label": "Book a factory visit",
+        "heading": "See it run. Then decide.",
+        "lead": "Visit the MALIEV factory, watch the machine mold real parts, and talk through molds, materials, and ownership with the engineers who build it. When you are ready, a 50% deposit starts your machine's production.",
+        "primary_label": "Book a factory visit",
         "primary_link": "/pages/contact",
-        "secondary_label": "Read guides",
-        "secondary_link": "/blogs/news"
+        "secondary_label": "Chat with us on LINE",
+        "secondary_link": "https://line.me/ti/p/@maliev",
+        "tertiary_label": "Machine documents",
+        "tertiary_link": "/pages/product-documents",
+        "note": "Here for sim racing gear instead?",
+        "note_link_label": "SimMount ships worldwide",
+        "note_link": "#simmount"
       }
     }
   },
   "order": [
-    "maliev_hero_stats",
-    "maliev_tool_pricing",
-    "maliev_family_grid",
-    "maliev_workflow",
-    "17835147321074c0f1",
-    "maliev_product_showcase",
-    "maliev_guides",
-    "maliev_quote_cta"
+    "keynote_hero",
+    "keynote_machines",
+    "keynote_simmount",
+    "keynote_mesh",
+    "keynote_services",
+    "keynote_guides",
+    "keynote_cta"
   ]
 }
+
+
+

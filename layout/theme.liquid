@@ -8,7 +8,7 @@
     <link rel="canonical" href="{{ canonical_url }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..700&family=Noto+Sans+Thai:wght@100..600&display=swap" rel="stylesheet">
 
     
     {%- if settings.favicon != blank -%}
@@ -37,6 +37,15 @@
       if request.page_type == 'product' and maliev_is_50g_product and maliev_is_thai_locale
         assign maliev_page_title = 'เครื่องฉีดพลาสติกระบบลม 50g'
         assign maliev_page_description = 'เครื่องฉีดพลาสติกระบบลมรุ่น 50g จาก MALIEV รองรับ shot สูงสุด 50g โซนหลอมวัสดุเหล็ก ฮีตเตอร์ hot runner 2 x 350W ความสูงเครื่อง 1014.5 มม. และระยะเวลาผลิตประมาณ 30 วัน'
+      endif
+      if request.page_type == 'index'
+        if maliev_is_thai_locale
+          assign maliev_page_title = 'เครื่องฉีดพลาสติกขนาดกะทัดรัด ผลิตในไทย'
+          assign maliev_page_description = 'MALIEV ออกแบบและผลิตเครื่องฉีดพลาสติกระบบลมขนาดกะทัดรัดในประเทศไทย พร้อมแม่พิมพ์ อะไหล่ บริการผลิตตามสั่ง และอุปกรณ์ซิมเรซซิ่ง SimMount ที่จัดส่งทั่วโลก'
+        else
+          assign maliev_page_title = 'Compact injection molding machines, made in Thailand'
+          assign maliev_page_description = 'MALIEV designs and builds compact pneumatic injection molding machines in Thailand — plus molds, spare parts, custom manufacturing, and SimMount sim racing hardware that ships worldwide.'
+        endif
       endif
     -%}
 
@@ -281,6 +290,7 @@
     {% endstyle %}
 
     {{ 'base.css' | asset_url | stylesheet_tag }}
+    {{ 'maliev-shell.css' | asset_url | stylesheet_tag }}
     <link rel="stylesheet" href="{{ 'component-cart-items.css' | asset_url }}" media="print" onload="this.media='all'">
 
     {%- if settings.cart_type == 'drawer' -%}
@@ -858,3 +868,4 @@
     {%- endif -%}
   </body>
 </html>
+

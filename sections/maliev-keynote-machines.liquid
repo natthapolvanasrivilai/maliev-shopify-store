@@ -1,0 +1,243 @@
+{{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Machine lineup chapter: stage render, model cards, actions. {%- endcomment -%}
+
+<section class="mkey mkey--chapter" aria-label="{{ section.settings.aria_label | escape }}">
+  <div class="mkey__frame">
+    <div class="mkey__intro" data-mkr-group>
+      <h2 class="mkey__headline" data-mkr>{{ section.settings.heading }}</h2>
+      {%- if section.settings.lead != blank -%}
+        <p class="mkey__lead" data-mkr>{{ section.settings.lead }}</p>
+      {%- endif -%}
+      {%- if section.settings.chips != blank -%}
+        <ul class="mkey__chips" data-mkr role="list">
+          {%- assign chip_items = section.settings.chips | split: '|' -%}
+          {%- for chip in chip_items -%}
+            <li class="mkey__chip">{{ chip | strip }}</li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+
+    {%- if section.settings.stage_image != blank
+      or section.settings.stage_asset_name != blank
+      or section.settings.stage_image_url != blank
+    -%}
+      <div class="mkey__stage-media" data-mkr-group>
+        <div data-mkr="media">
+          {%- if section.settings.stage_image != blank -%}
+            {{
+              section.settings.stage_image
+              | image_url: width: 2400
+              | image_tag:
+                widths: '750, 1100, 1500, 2400',
+                sizes: '(max-width: 989px) 100vw, 1250px',
+                loading: 'lazy',
+                alt: section.settings.stage_image_alt
+            }}
+          {%- elsif section.settings.stage_asset_name != blank -%}
+            <img src="{{ section.settings.stage_asset_name | asset_url }}" alt="{{ section.settings.stage_image_alt | escape }}" loading="lazy" width="2400" height="1350">
+          {%- else -%}
+            <img src="{{ section.settings.stage_image_url }}" alt="{{ section.settings.stage_image_alt | escape }}" loading="lazy" width="2400" height="1350">
+          {%- endif -%}
+        </div>
+      </div>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <ul class="mkey__models" data-mkr-group role="list">
+        {%- for block in section.blocks -%}
+          <li class="mkey__model" data-mkr="{% cycle 'left', 'right' %}" {{ block.shopify_attributes }}>
+            <div class="mkey__model-media">
+              {%- assign model_product = block.settings.product -%}
+              {%- if block.settings.image != blank -%}
+                {{
+                  block.settings.image
+                  | image_url: width: 1100
+                  | image_tag: widths: '550, 800, 1100', sizes: '(max-width: 749px) 92vw, 44vw', loading: 'lazy', alt: block.settings.image_alt
+                }}
+              {%- elsif block.settings.asset_name != blank -%}
+                <img src="{{ block.settings.asset_name | asset_url }}" alt="{{ block.settings.image_alt | escape }}" loading="lazy" width="1400" height="1750">
+              {%- elsif block.settings.image_url != blank -%}
+                <img src="{{ block.settings.image_url }}" alt="{{ block.settings.image_alt | escape }}" loading="lazy" width="900" height="900">
+              {%- elsif model_product.featured_image -%}
+                {{
+                  model_product.featured_image
+                  | image_url: width: 1100
+                  | image_tag: widths: '550, 800, 1100', sizes: '(max-width: 749px) 92vw, 44vw', loading: 'lazy'
+                }}
+              {%- endif -%}
+            </div>
+            <div class="mkey__model-head">
+              <h3 class="mkey__title mkey__model-name">
+                {%- if model_product != blank -%}
+                  <a href="{{ model_product.url }}">{{ block.settings.name | default: model_product.title }}</a>
+                {%- elsif block.settings.link != blank -%}
+                  <a href="{{ block.settings.link }}">{{ block.settings.name }}</a>
+                {%- else -%}
+                  {{ block.settings.name }}
+                {%- endif -%}
+              </h3>
+              {%- if model_product != blank -%}
+                <span class="mkey__price">{{ model_product.price | money }}</span>
+              {%- endif -%}
+            </div>
+            {%- if block.settings.description != blank -%}
+              <p class="mkey__model-copy">{{ block.settings.description }}</p>
+            {%- endif -%}
+            <div class="mkey__model-meta">
+              {%- if block.settings.spec != blank -%}
+                <span class="mkey__chip">{{ block.settings.spec }}</span>
+              {%- endif -%}
+              {%- if block.settings.price_note != blank -%}
+                <span class="mkey__note">{{ block.settings.price_note }}</span>
+              {%- endif -%}
+            </div>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+    <div class="mkey__actions" data-mkr-group>
+      {%- if section.settings.primary_label != blank -%}
+        <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}" data-mkr>{{ section.settings.primary_label }}</a>
+      {%- endif -%}
+      {%- if section.settings.secondary_label != blank -%}
+        <a
+          class="mkey__btn mkey__btn--secondary"
+          href="{{ section.settings.secondary_link }}"
+          {% if section.settings.secondary_link contains '://' %}target="_blank" rel="noopener"{% endif %}
+          data-mkr
+        >{{ section.settings.secondary_label }}</a>
+      {%- endif -%}
+      {%- if section.settings.tertiary_label != blank -%}
+        <a class="mkey__textlink" href="{{ section.settings.tertiary_link }}" data-mkr>
+          {{ section.settings.tertiary_label }}
+          <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      {%- endif -%}
+      {%- if section.settings.note != blank -%}
+        <p class="mkey__note mkey__note--scope" data-mkr>{{ section.settings.note }}</p>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Keynote machines",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "Injection molding machines"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Real production. Workshop footprint."
+    },
+    {
+      "type": "textarea",
+      "id": "lead",
+      "label": "Lead text",
+      "default": "Every PIMM machine is engineered and assembled at the MALIEV factory. Pneumatic clamping and injection, precise heat control, and mold costs that make small-batch production practical."
+    },
+    {
+      "type": "text",
+      "id": "chips",
+      "label": "Assurance chips (separate with |)",
+      "default": "Made in Thailand | One-year warranty | Replacement parts in stock | Mold-making assistance"
+    },
+    {
+      "type": "image_picker",
+      "id": "stage_image",
+      "label": "Stage image"
+    },
+    {
+      "type": "text",
+      "id": "stage_asset_name",
+      "label": "Theme asset filename",
+      "info": "Used when no image is picked, for example pimm-50g-wide-hero.png"
+    },
+    {
+      "type": "text",
+      "id": "stage_image_url",
+      "label": "Fallback stage image URL"
+    },
+    {
+      "type": "text",
+      "id": "stage_image_alt",
+      "label": "Stage image alt text",
+      "default": "MALIEV PIMM injection molding machines in the workshop studio"
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label",
+      "default": "Book a factory visit"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary button label",
+      "default": "Chat on LINE"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "text",
+      "id": "tertiary_label",
+      "label": "Text link label",
+      "default": "Compare the lineup"
+    },
+    {
+      "type": "url",
+      "id": "tertiary_link",
+      "label": "Text link"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Availability note",
+      "info": "For example: Machines are sold and supported within Thailand"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "model",
+      "name": "Machine model",
+      "settings": [
+        { "type": "product", "id": "product", "label": "Product" },
+        { "type": "text", "id": "name", "label": "Display name" },
+        { "type": "textarea", "id": "description", "label": "Description" },
+        { "type": "text", "id": "spec", "label": "Key spec chip", "info": "For example: 30 g shot capacity" },
+        { "type": "text", "id": "price_note", "label": "Price note", "info": "For example: 50% deposit starts production" },
+        { "type": "image_picker", "id": "image", "label": "Image override" },
+        { "type": "text", "id": "asset_name", "label": "Theme asset filename" },
+        { "type": "text", "id": "image_url", "label": "Fallback image URL" },
+        { "type": "text", "id": "image_alt", "label": "Image alt text" },
+        { "type": "url", "id": "link", "label": "Link override" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Keynote machines",
+      "blocks": [{ "type": "model" }, { "type": "model" }]
+    }
+  ]
+}
+{% endschema %}
+

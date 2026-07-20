@@ -3656,18 +3656,18 @@ details-disclosure > details {
   font-weight: var(--maliev-font-weight-strong) !important;
 }
 
-/* MALIEV global design system - 2026-07-16 */
+/* MALIEV global design system - refreshed 2026-07-19 to DESIGN.md tokens */
 :root {
-  --maliev-navy: #07182d;
-  --maliev-navy-soft: #0b2442;
-  --maliev-blue: #075de8;
-  --maliev-blue-dark: #064dcc;
+  --maliev-navy: #101418; /* foundry-dark */
+  --maliev-navy-soft: #161c22; /* asphalt */
+  --maliev-blue: #006fd6; /* precision-blue */
+  --maliev-blue-dark: #064fc4; /* precision-blue-pressed */
   --maliev-blue-soft: #eaf2ff;
-  --maliev-ink: #111f33;
-  --maliev-muted: #5b6777;
+  --maliev-ink: #101214; /* engineering-ink */
+  --maliev-muted: #697078; /* alloy-gray */
   --maliev-surface: #ffffff;
-  --maliev-canvas: #f4f7fb;
-  --maliev-line: #dce4ee;
+  --maliev-canvas: #f4f6f7; /* workshop-canvas */
+  --maliev-line: rgba(16, 18, 20, 0.1); /* fine-rule */
   --maliev-yellow: #ffd21c;
   --maliev-radius-control: 4px;
   --maliev-radius-card: 12px;
@@ -3701,7 +3701,8 @@ body main {
   line-height: 1.5;
 }
 
-body main h1 {
+/* Keynote sections (.mkey) own their display scale; exempt them from the shell caps. */
+body main h1:not(.mkey h1) {
   color: var(--maliev-ink);
   font-size: clamp(4rem, 4.2vw, 5.68rem) !important;
   font-weight: 600 !important;
@@ -3709,7 +3710,7 @@ body main h1 {
   line-height: 1.08 !important;
 }
 
-body main h2 {
+body main h2:not(.mkey h2) {
   color: var(--maliev-ink);
   font-size: clamp(2.8rem, 3vw, 3.76rem) !important;
   font-weight: 600 !important;
@@ -3717,7 +3718,7 @@ body main h2 {
   line-height: 1.15 !important;
 }
 
-body main h3 {
+body main h3:not(.mkey h3) {
   color: var(--maliev-ink);
   font-size: clamp(1.84rem, 1.8vw, 2.4rem) !important;
   font-weight: 600 !important;
@@ -3738,14 +3739,14 @@ body main h3 {
 }
 
 .header {
-  min-height: 7.2rem;
+  min-height: 5.6rem;
   padding-bottom: 0;
   padding-top: 0;
 }
 
 .header__heading-logo-wrapper,
 .header__heading-logo {
-  width: 14rem !important;
+  width: 10.4rem !important;
 }
 
 .header__menu-item,
@@ -4016,7 +4017,7 @@ html body #MainContent .maliev-home .mh__hero .mh__title {
 
 body .footer {
   background: var(--maliev-navy) !important;
-  color: #d8e2ed;
+  color: #ebeef1;
   padding: 0;
 }
 
@@ -4024,12 +4025,14 @@ body .footer.gradient {
   background: var(--maliev-navy) !important;
 }
 
+/* Footer containers share the keynote content grid: 125rem, same fluid gutter. */
 .footer .footer__content-top {
   display: grid;
   gap: 6rem;
   grid-template-columns: minmax(0, 2fr) minmax(32rem, 1fr);
-  max-width: 144rem;
-  padding: 4.8rem 3.2rem 3.2rem;
+  margin: 0 auto;
+  max-width: 125rem;
+  padding: 4.8rem clamp(2rem, 4vw, 4.8rem) 3.2rem;
 }
 
 body .footer .footer__blocks-wrapper,
@@ -4063,7 +4066,7 @@ body .footer .footer-block__brand-info,
 
 .footer .footer-block__brand-info .rte,
 .footer .footer-block__brand-info .rte p {
-  color: #d8e2ed;
+  color: #ebeef1;
   font-size: 1.4rem;
   line-height: 1.55;
   margin: 0;
@@ -4076,7 +4079,7 @@ body .footer .footer-block__brand-info,
 }
 
 .footer .list-social__link {
-  color: #d8e2ed;
+  color: #ebeef1;
   padding: 0.8rem;
 }
 
@@ -4102,27 +4105,48 @@ body .footer .footer-block__brand-info,
 
 .footer .field__label,
 .footer .field__button {
-  color: #d8e2ed;
+  color: #ebeef1;
 }
 
 .footer .footer__content-bottom {
-  border-top: 1px solid rgba(216, 226, 237, 0.18);
+  border-top: 1px solid rgba(244, 246, 247, 0.12);
   padding: 2rem 0;
 }
 
 .footer .footer__content-bottom-wrapper {
-  align-items: end;
+  align-items: center;
   display: grid;
   gap: 2rem 4rem;
   grid-template-columns: minmax(0, 1fr) auto;
-  max-width: 144rem;
-  padding-left: 3.2rem;
-  padding-right: 3.2rem;
+  margin: 0 auto;
+  max-width: 125rem;
+  padding-left: clamp(2rem, 4vw, 4.8rem);
+  padding-right: clamp(2rem, 4vw, 4.8rem);
 }
 
 .footer .footer__column {
   align-items: end;
   justify-content: flex-start;
+}
+
+.footer .footer__column--info {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+.footer .footer-block.grid__item {
+  padding-left: 0;
+  padding-top: 0;
+}
+
+.footer .footer__payment,
+.footer .footer__copyright,
+.footer .policies {
+  margin: 0;
 }
 
 .footer .footer__localization {
@@ -4148,7 +4172,7 @@ body .footer .footer-block__brand-info,
 
 .footer .footer__copyright,
 .footer .policies {
-  color: #d8e2ed;
+  color: #ebeef1;
   font-size: 1.3rem;
   letter-spacing: normal;
   text-align: left;
@@ -4156,7 +4180,7 @@ body .footer .footer-block__brand-info,
 
 .footer a,
 .footer .copyright__content a {
-  color: #d8e2ed;
+  color: #ebeef1;
 }
 
 .footer a:hover,

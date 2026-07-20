@@ -1,0 +1,210 @@
+{{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
+
+<section
+  class="mkey mkey--chapter mkey--feature{% if section.settings.media_side == 'left' %} mkey--media-left{% endif %}{% if section.settings.background == 'white' %} mkey--guides{% endif %}"
+  aria-label="{{ section.settings.aria_label | escape }}"
+>
+  <div class="mkey__frame" data-mkr-group>
+    <div class="mkey__copy">
+      <h2 class="mkey__headline" data-mkr>{{ section.settings.heading }}</h2>
+      {%- if section.settings.lead != blank -%}
+        <p class="mkey__lead" data-mkr>{{ section.settings.lead }}</p>
+      {%- endif -%}
+
+      {%- if section.blocks.size > 0 -%}
+        <ul class="mkey__panels" data-mkr role="list">
+          {%- for block in section.blocks -%}
+            <li class="mkey__panel" {{ block.shopify_attributes }}>
+              <a href="{{ block.settings.link }}">
+                <span class="mkey__panel-name">{{ block.settings.name }}</span>
+                {%- if block.settings.hint != blank -%}
+                  <span class="mkey__panel-hint">{{ block.settings.hint }}</span>
+                {%- endif -%}
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+
+      <div class="mkey__actions" data-mkr>
+        {%- if section.settings.primary_label != blank -%}
+          <a class="mkey__btn" href="{{ section.settings.primary_link }}">{{ section.settings.primary_label }}</a>
+        {%- endif -%}
+        {%- if section.settings.secondary_label != blank -%}
+          <a class="mkey__btn mkey__btn--secondary" href="{{ section.settings.secondary_link }}">{{ section.settings.secondary_label }}</a>
+        {%- endif -%}
+      </div>
+      {%- if section.settings.note != blank -%}
+        <p class="mkey__note" data-mkr>{{ section.settings.note }}</p>
+      {%- endif -%}
+    </div>
+
+    <div class="mkey__media" data-mkr="media">
+      {%- assign feature_video_src = '' -%}
+      {%- if section.settings.video_asset_name != blank -%}
+        {%- assign feature_video_src = section.settings.video_asset_name | asset_url -%}
+      {%- elsif section.settings.video_url != blank -%}
+        {%- assign feature_video_src = section.settings.video_url -%}
+      {%- endif -%}
+      {%- if feature_video_src != blank -%}
+        <video
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          {% if section.settings.image != blank %}
+            poster="{{ section.settings.image | image_url: width: 1400 }}"
+          {% elsif section.settings.asset_name != blank %}
+            poster="{{ section.settings.asset_name | asset_url }}"
+          {% elsif section.settings.image_url != blank %}
+            poster="{{ section.settings.image_url }}"
+          {% endif %}
+          aria-label="{{ section.settings.media_alt | escape }}"
+        >
+          <source src="{{ feature_video_src }}" type="video/mp4">
+        </video>
+        <button type="button" class="mkey__video-toggle" aria-pressed="false" aria-label="{{ section.settings.video_toggle_label | default: 'Pause video' | escape }}">
+          <svg class="mkey__video-toggle-pause" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.6" height="12" rx="0.8"/><rect x="9.4" y="2" width="3.6" height="12" rx="0.8"/></svg>
+          <svg class="mkey__video-toggle-play" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.4a.8.8 0 0 1 1.22-.68l9 5.6a.8.8 0 0 1 0 1.36l-9 5.6A.8.8 0 0 1 4 13.6z"/></svg>
+        </button>
+      {%- elsif section.settings.image != blank -%}
+        {{
+          section.settings.image
+          | image_url: width: 1600
+          | image_tag:
+            widths: '750, 1100, 1600',
+            sizes: '(max-width: 989px) 92vw, 48vw',
+            loading: 'lazy',
+            alt: section.settings.media_alt
+        }}
+      {%- elsif section.settings.asset_name != blank -%}
+        <img src="{{ section.settings.asset_name | asset_url }}" alt="{{ section.settings.media_alt | escape }}" loading="lazy" width="1400" height="1050">
+      {%- elsif section.settings.image_url != blank -%}
+        <img src="{{ section.settings.image_url }}" alt="{{ section.settings.media_alt | escape }}" loading="lazy" width="1400" height="1050">
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Keynote feature",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "Featured capability"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Split oversized STL files in your browser."
+    },
+    {
+      "type": "textarea",
+      "id": "lead",
+      "label": "Lead text"
+    },
+    {
+      "type": "select",
+      "id": "media_side",
+      "label": "Media position (desktop)",
+      "options": [
+        { "value": "right", "label": "Right" },
+        { "value": "left", "label": "Left" }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "background",
+      "label": "Background",
+      "options": [
+        { "value": "canvas", "label": "Workshop canvas" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "canvas"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "asset_name",
+      "label": "Theme asset filename",
+      "info": "Used when no image is picked, for example mesh-splitter-hero.webp"
+    },
+    {
+      "type": "text",
+      "id": "image_url",
+      "label": "Fallback image URL"
+    },
+    {
+      "type": "text",
+      "id": "video_toggle_label",
+      "label": "Video pause button label (accessibility)",
+      "default": "Pause video"
+    },
+    {
+      "type": "text",
+      "id": "video_asset_name",
+      "label": "Video theme asset filename",
+      "info": "Preferred over the video URL, for example maliev-mesh-splitter-loop.mp4"
+    },
+    {
+      "type": "text",
+      "id": "video_url",
+      "label": "Video URL (mp4, plays muted in a loop)"
+    },
+    {
+      "type": "text",
+      "id": "media_alt",
+      "label": "Media alt text"
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary button label"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Supporting note"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "panel",
+      "name": "Link panel",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Name" },
+        { "type": "text", "id": "hint", "label": "Hint text" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Keynote feature" }]
+}
+{% endschema %}
