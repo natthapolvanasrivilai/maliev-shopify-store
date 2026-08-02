@@ -7,6 +7,7 @@
   assign featured_product = product
   assign product_form_id = 'product-form-' | append: section.id
   assign variant_images = featured_product.images | where: 'attached_to_variant?', true | map: 'src'
+  assign first_3d_model = featured_product.media | where: 'media_type', 'model' | first
   assign placeholder = false
   if featured_product == blank
     assign placeholder = true
@@ -16,6 +17,10 @@
 {{ 'section-main-product.css' | asset_url | stylesheet_tag }}
 {{ 'component-slider.css' | asset_url | stylesheet_tag }}
 {{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+{%- if first_3d_model -%}
+  {{ 'component-product-model.css' | asset_url | stylesheet_tag }}
+  {{ 'component-model-viewer-ui.css' | asset_url | stylesheet_tag }}
+{%- endif -%}
 {%- unless featured_product.has_only_default_variant -%}
   {{ 'component-product-variant-picker.css' | asset_url | stylesheet_tag }}
   {{ 'component-swatch-input.css' | asset_url | stylesheet_tag }}
@@ -141,3 +146,7 @@
 </product-info>
 
 <script type="application/ld+json">{{ featured_product | structured_data }}</script>
+{%- if first_3d_model -%}
+  <script type="application/json" id="ProductJSON-{{ featured_product.id }}">{{ featured_product.media | where: 'media_type', 'model' | json }}</script>
+  <script src="{{ 'product-model.js' | asset_url }}" defer></script>
+{%- endif -%}

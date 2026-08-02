@@ -23,6 +23,10 @@
 {{ 'section-main-product.css' | asset_url | stylesheet_tag }}
 {{ 'component-slider.css' | asset_url | stylesheet_tag }}
 {{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+{%- if first_3d_model -%}
+  {{ 'component-product-model.css' | asset_url | stylesheet_tag }}
+  {{ 'component-model-viewer-ui.css' | asset_url | stylesheet_tag }}
+{%- endif -%}
 {%- unless product.has_only_default_variant -%}
   {{ 'component-product-variant-picker.css' | asset_url | stylesheet_tag }}
   {{ 'component-swatch-input.css' | asset_url | stylesheet_tag }}
