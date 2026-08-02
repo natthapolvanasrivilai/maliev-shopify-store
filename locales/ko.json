@@ -118,6 +118,11 @@
       "add_to_cart": "카트에 추가",
       "description": "설명",
       "on_sale": "할인",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "제품 이형 상품",
       "quantity": {
         "label": "수량",

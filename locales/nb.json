@@ -118,6 +118,11 @@
       "add_to_cart": "Legg i handlekurv",
       "description": "Beskrivelse",
       "on_sale": "Salg",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "quantity": {
         "label": "Antall",
         "input_label": "Antall for {{ product }}",

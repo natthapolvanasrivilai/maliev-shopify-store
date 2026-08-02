@@ -120,6 +120,11 @@
       "add_to_cart": "Pridať do košíka",
       "description": "Popis",
       "on_sale": "Zľava",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "Varianty produktu",
       "share": "Zdieľať tento produkt",
       "sold_out": "Vypredané",

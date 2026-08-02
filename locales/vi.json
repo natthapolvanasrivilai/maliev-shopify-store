@@ -118,6 +118,11 @@
       "add_to_cart": "Thêm vào giỏ hàng",
       "description": "Mô tả",
       "on_sale": "Giảm giá",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "Mẫu mã sản phẩm",
       "quantity": {
         "label": "Số lượng",

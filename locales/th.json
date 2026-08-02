@@ -118,6 +118,11 @@
       "add_to_cart": "เพิ่มลงในตะกร้าสินค้า",
       "description": "คำอธิบาย",
       "on_sale": "ลดราคา",
+      "badges": {
+        "label": "สถานะสินค้า",
+        "new": "สินค้าใหม่",
+        "best_seller": "สินค้าขายดี"
+      },
       "quantity": {
         "label": "จำนวน",
         "input_label": "จำนวนสำหรับ {{ product }}",

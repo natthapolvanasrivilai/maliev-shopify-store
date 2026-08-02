@@ -120,6 +120,11 @@
       "add_to_cart": "Dodaj do koszyka",
       "description": "Opis",
       "on_sale": "W promocji",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "share": "Udostępnij ten produkt",
       "sold_out": "Wyprzedane",
       "unavailable": "Niedostępny",

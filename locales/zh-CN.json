@@ -118,6 +118,11 @@
       "add_to_cart": "添加到购物车",
       "description": "描述",
       "on_sale": "促销",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "产品多属性",
       "quantity": {
         "label": "数量",

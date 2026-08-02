@@ -118,6 +118,11 @@
       "add_to_cart": "カートに追加する",
       "description": "商品説明",
       "on_sale": "セール",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "商品バリエーション",
       "quantity": {
         "label": "数量",

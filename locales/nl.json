@@ -118,6 +118,11 @@
       "add_to_cart": "Aan winkelwagen toevoegen",
       "description": "Beschrijving",
       "on_sale": "Aanbieding",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "quantity": {
         "label": "Aantal",
         "input_label": "Aantal voor {{ product }}",

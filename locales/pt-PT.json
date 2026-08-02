@@ -119,6 +119,11 @@
       "add_to_cart": "Adicionar ao carrinho",
       "description": "Descrição",
       "on_sale": "Em promoção",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "Variantes de produtos",
       "quantity": {
         "label": "Quantidade",

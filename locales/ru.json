@@ -120,6 +120,11 @@
       "add_to_cart": "Добавить в корзину",
       "description": "Описание",
       "on_sale": "Распродажа",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "share": "Поделиться этим продуктом",
       "sold_out": "Продано",
       "unavailable": "Недоступно",

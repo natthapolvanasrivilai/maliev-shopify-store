@@ -120,6 +120,11 @@
       "add_to_cart": "Įdėti į krepšelį",
       "description": "Aprašymas",
       "on_sale": "Išpardavimas",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "product_variants": "Gaminio variantai",
       "share": "Bendrinti šį gaminį",
       "sold_out": "Išparduota",
