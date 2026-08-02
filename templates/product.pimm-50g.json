@@ -10,7 +10,7 @@
 {
   "sections": {
     "launch": {
-      "type": "pimm-50g-launch",
+      "type": "maliev-pimm-50g-launch",
       "settings": {}
     },
     "main": {
