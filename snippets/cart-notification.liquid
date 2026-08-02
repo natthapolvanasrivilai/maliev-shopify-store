@@ -9,18 +9,18 @@
   {% render 'cart-notification' %}
 {% endcomment %}
 
-<cart-notification>
+<cart-notification class="mc-cart-notification">
   <div class="cart-notification-wrapper{% if desktop_menu_type != 'drawer' %} page-width{% endif %}">
     <div
       id="cart-notification"
-      class="cart-notification focus-inset{% if color_scheme %} color-{{ color_scheme }} gradient{% endif %}"
+      class="cart-notification mc-cart-notification__panel focus-inset{% if color_scheme %} color-{{ color_scheme }}{% endif %}"
       aria-modal="true"
       aria-label="{{ 'general.cart.item_added' | t }}"
       role="dialog"
       tabindex="-1"
     >
       <div class="cart-notification__header">
-        <h2 class="cart-notification__heading caption-large text-body">
+        <h2 class="cart-notification__heading mc-cart-notification__heading">
           {{- 'icon-checkmark.svg' | inline_asset_content -}}
           {{ 'general.cart.item_added' | t }}
         </h2>
@@ -34,8 +34,8 @@
           </span>
         </button>
       </div>
-      <div id="cart-notification-product" class="cart-notification-product"></div>
-      <div class="cart-notification__links">
+      <div id="cart-notification-product" class="cart-notification-product mc-cart-notification__product"></div>
+      <div class="cart-notification__links mc-cart-notification__links">
         <a
           href="{{ routes.cart_url }}"
           id="cart-notification-button"
