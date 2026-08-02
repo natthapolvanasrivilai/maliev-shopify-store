@@ -1103,6 +1103,39 @@
   transition-delay: calc(250ms + var(--mkr-i, 0) * 110ms);
 }
 
+/* Homepage hero copy reveals like a machine guard sliding clear: one decisive wipe,
+   followed by the explanation and actions at a measured 110ms cadence. */
+@keyframes mk-hero-copy-wipe {
+  from {
+    clip-path: inset(0 80% 0 0);
+    opacity: 0.25;
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__copy [data-mkr] {
+  clip-path: inset(0 80% 0 0);
+  opacity: 0.25;
+  transform: none;
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__copy .mk-in[data-mkr] {
+  animation: mk-hero-copy-wipe 760ms var(--mk-ease) both;
+  transition: none;
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__lead.mk-in[data-mkr] {
+  animation-delay: 110ms;
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__actions.mk-in[data-mkr] {
+  animation-delay: 220ms;
+}
+
 /* Depth on scroll where the browser supports scroll-driven animations. */
 @supports (animation-timeline: view()) {
   /* The lineup stage settles from a slight zoom as it enters. */
@@ -1177,6 +1210,13 @@
   .mk-motion .mkey--hero-overlay .mkey__hero-bg img,
   .mk-motion .mkey__stage-media img {
     animation: none;
+  }
+
+  .mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__copy [data-mkr] {
+    animation: none;
+    clip-path: none;
+    opacity: 1;
+    transform: none;
   }
 
   .mk-motion .mkey--carbon .mkey__headline[data-mkr]::after {
