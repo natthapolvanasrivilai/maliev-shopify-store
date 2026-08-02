@@ -25,7 +25,7 @@
       "type": "maliev-catalogue",
       "settings": {
         "aria_label": "MALIEV product catalogues",
-        "heading": "Everything MALIEV makes",
+        "heading": "Everything we make",
         "autoplay": true
       },
       "blocks": {
