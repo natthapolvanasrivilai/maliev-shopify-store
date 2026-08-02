@@ -1,3 +1,6 @@
+{% render 'maliev-cart-summary-core', section: section %}
+
+{% if false %}
 {{ 'component-cart.css' | asset_url | stylesheet_tag }}
 {{ 'component-totals.css' | asset_url | stylesheet_tag }}
 {{ 'component-price.css' | asset_url | stylesheet_tag }}
@@ -132,6 +135,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% schema %}
 {

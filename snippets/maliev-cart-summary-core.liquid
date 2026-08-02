@@ -1,0 +1,67 @@
+{% comment %}
+  MALIEV cart summary. The main-cart-footer ID and js-contents boundary are
+  consumed by cart.js after line-item changes.
+{% endcomment %}
+
+{{ 'component-totals.css' | asset_url | stylesheet_tag }}
+{{ 'component-discounts.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  #shopify-section-{{ section.id }} .mc-cart-summary {
+    padding-block: {{ section.settings.padding_top | times: 0.75 | round }}px {{ section.settings.padding_bottom | times: 0.75 | round }}px;
+  }
+  @media screen and (min-width: 750px) {
+    #shopify-section-{{ section.id }} .mc-cart-summary { padding-block: {{ section.settings.padding_top }}px {{ section.settings.padding_bottom }}px; }
+  }
+{%- endstyle -%}
+
+<div id="main-cart-footer" class="mc-cart-summary color-{{ section.settings.color_scheme }}{% if cart == empty %} is-empty{% endif %}" data-id="{{ section.id }}">
+  <div class="page-width">
+    <div class="cart__footer mc-cart-summary__layout">
+      {%- if settings.show_cart_note -%}
+        <cart-note class="cart__note mc-cart-summary__note">
+          <label for="Cart-note">{{ 'sections.cart.note' | t }}</label>
+          <textarea class="text-area field__input" name="note" form="cart" id="Cart-note" placeholder="{{ 'sections.cart.note' | t }}">{{ cart.note }}</textarea>
+        </cart-note>
+      {%- endif -%}
+
+      <div class="cart__blocks mc-cart-summary__panel">
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+            {%- when '@app' -%}
+              <div class="mc-cart-summary__app" {{ block.shopify_attributes }}>{% render block %}</div>
+            {%- when 'subtotal' -%}
+              <div class="js-contents" {{ block.shopify_attributes }}>
+                {%- if cart.cart_level_discount_applications.size > 0 -%}
+                  <ul class="discounts list-unstyled" role="list" aria-label="{{ 'customer.order.discount' | t }}">
+                    {%- for discount in cart.cart_level_discount_applications -%}<li>{{ 'icon-discount.svg' | inline_asset_content }} {{ discount.title | escape }} (−{{ discount.total_allocated_amount | money }})</li>{%- endfor -%}
+                  </ul>
+                {%- endif -%}
+                <div class="totals mc-cart-summary__total">
+                  <h2>{{ 'sections.cart.estimated_total' | t }}</h2>
+                  <p>{{ cart.total_price | money_with_currency }}</p>
+                </div>
+                <small class="tax-note rte">
+                  {%- if cart.duties_included and cart.taxes_included -%}
+                    {%- if shop.shipping_policy.body == blank -%}{{ 'sections.cart.duties_and_taxes_included_shipping_at_checkout_without_policy' | t }}{%- else -%}{{ 'sections.cart.duties_and_taxes_included_shipping_at_checkout_with_policy_html' | t: link: shop.shipping_policy.url }}{%- endif -%}
+                  {%- elsif cart.taxes_included -%}
+                    {%- if shop.shipping_policy.body == blank -%}{{ 'sections.cart.taxes_included_shipping_at_checkout_without_policy' | t }}{%- else -%}{{ 'sections.cart.taxes_included_shipping_at_checkout_with_policy_html' | t: link: shop.shipping_policy.url }}{%- endif -%}
+                  {%- elsif cart.duties_included -%}
+                    {%- if shop.shipping_policy.body == blank -%}{{ 'sections.cart.duties_included_taxes_at_checkout_shipping_at_checkout_without_policy' | t }}{%- else -%}{{ 'sections.cart.duties_included_taxes_at_checkout_shipping_at_checkout_with_policy_html' | t: link: shop.shipping_policy.url }}{%- endif -%}
+                  {%- else -%}
+                    {%- if shop.shipping_policy.body == blank -%}{{ 'sections.cart.taxes_at_checkout_shipping_at_checkout_without_policy' | t }}{%- else -%}{{ 'sections.cart.taxes_at_checkout_shipping_at_checkout_with_policy_html' | t: link: shop.shipping_policy.url }}{%- endif -%}
+                  {%- endif -%}
+                </small>
+              </div>
+            {%- when 'buttons' -%}
+              <div class="cart__ctas" {{ block.shopify_attributes }}>
+                <button type="submit" id="checkout" class="cart__checkout-button button" name="checkout" form="cart" {% if cart == empty %}disabled{% endif %}>{{ 'sections.cart.checkout' | t }}</button>
+              </div>
+              {%- if additional_checkout_buttons -%}<div class="cart__dynamic-checkout-buttons additional-checkout-buttons">{{ content_for_additional_checkout_buttons }}</div>{%- endif -%}
+          {%- endcase -%}
+        {%- endfor -%}
+        <div id="cart-errors" role="alert"></div>
+      </div>
+    </div>
+  </div>
+</div>
