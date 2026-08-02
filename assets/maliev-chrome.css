@@ -532,32 +532,27 @@
   width: auto;
 }
 
-/* Homepage pilot: the global shop navigation becomes a right-side product rail. */
+/* Homepage presentation: a compact fixed top bar keeps the product stage clear. */
+.mc-header--home {
+  background: rgba(239, 241, 242, 0.96);
+  border-bottom-color: rgba(17, 19, 21, 0.1);
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 35;
+}
+
 @media screen and (min-width: 990px) {
-  .mc-header--home {
-    background: transparent;
-    border-bottom: 0;
-    height: 0;
-    inset: 0 0 auto;
-    position: absolute;
-    z-index: 35;
-  }
-
   .mc-header--home .mc-header__inner {
-    display: block;
-    max-width: none;
-    min-height: 0;
-    padding: 0;
-  }
-
-  .mc-header--home .mc-brand {
-    left: clamp(2.4rem, 4vw, 6.4rem);
-    position: absolute;
-    top: clamp(2.4rem, 4vw, 5.2rem);
+    gap: clamp(1.6rem, 2.2vw, 3.6rem);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 7.2rem;
+    padding-inline: clamp(2.4rem, 4vw, 6.4rem);
   }
 
   .mc-header--home .mc-brand__logo {
-    max-width: 16rem;
+    max-width: 14rem;
   }
 
   .mc-header--home .mc-brand__wordmark {
@@ -569,31 +564,17 @@
     font-family: var(--maliev-font-sans);
   }
 
-  .mc-header--home .mc-nav {
-    position: absolute;
-    right: clamp(2.4rem, 4vw, 6.4rem);
-    top: clamp(11rem, 17vh, 18rem);
-  }
-
   .mc-header--home .mc-nav > ul {
-    align-items: flex-end;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .mc-header--home .mc-nav > ul > li {
+    gap: clamp(1.4rem, 2vw, 3.2rem);
     justify-content: flex-end;
-    width: 100%;
   }
 
   .mc-header--home .mc-nav > ul > li > a,
   .mc-header--home .mc-nav__group > summary {
-    font-size: 1.45rem;
+    font-size: 1.35rem;
     font-weight: 500;
-    justify-content: flex-end;
-    letter-spacing: 0.015em;
-    min-height: 3.4rem;
-    text-align: right;
+    letter-spacing: 0;
+    min-height: 4.4rem;
   }
 
   .mc-header--home .mc-nav > ul > li > a:hover,
@@ -608,21 +589,14 @@
   .mc-header--home .mc-nav__panel {
     font-family: var(--maliev-font-sans);
     left: auto;
-    right: calc(100% + 1.6rem);
-    top: 0;
-  }
-
-  .mc-header--home .mc-actions {
-    position: absolute;
-    right: clamp(2.4rem, 4vw, 6.4rem);
-    top: clamp(2.1rem, 3.5vw, 4.5rem);
+    right: 0;
+    top: calc(100% + 0.6rem);
   }
 
   .mc-header--home .mc-actions__search .header__icon,
   .mc-header--home .mc-icon-button,
   .mc-header--home .mc-localization__summary {
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(1rem);
+    background: transparent;
   }
 }
 
