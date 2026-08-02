@@ -94,9 +94,9 @@
           "type": "row",
           "settings": {
             "image": "shopify://shop_images/simmount-pro-vesa.6.png",
-            "caption": "Built for Sim Rigs",
+            "caption": "Profile Compatibility",
             "heading": "Fits 40x80 Aluminum Profiles",
-            "text": "<p>Securely mounts to 40x80 aluminum profiles with 10mm slots using M8 screws, ensuring stability and reliability for any racing rig.</p>",
+            "text": "<p>Mounts to compatible 40x80 aluminum profiles with 10 mm slots using the specified M8 hardware. Check your profile dimensions and slot size before ordering.</p>",
             "button_label": "",
             "button_link": ""
           }

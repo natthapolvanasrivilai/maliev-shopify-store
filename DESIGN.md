@@ -139,7 +139,7 @@ MALIEV's expression is its own: Thai manufacturing, compact production equipment
 
 ### Physical scene
 
-A Thai workshop owner reviews the store on a laptop beside a bright production bench in daytime. The room is practical and well maintained, not a showroom. Product images and specifications must remain legible in ambient light, so the default shell is light, crisp, and high contrast. SimMount earns a contained carbon mode because it is evaluated in a cockpit context, but the controls and information architecture remain the same.
+A Thai workshop owner reviews the store on a laptop beside a bright production bench in daytime. The room is practical and well maintained, not a showroom. Product images and specifications must remain legible in ambient light, so the default shell is light, crisp, and high contrast. SimMount earns a contained carbon mode because it is used in sim-racing environments, but its mounting hardware stays visually dominant and complete cockpits remain background context only. The controls and information architecture remain the same.
 
 ### Color strategy
 

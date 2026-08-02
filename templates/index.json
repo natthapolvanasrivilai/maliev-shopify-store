@@ -45,7 +45,7 @@
           "type": "catalogue",
           "settings": {
             "title": "SimMount",
-            "description": "Monitor and bass-shaker hardware for 8020 racing rigs.",
+            "description": "Monitor and bass-shaker hardware for 40 mm-series aluminium profiles.",
             "link_label": "Shop the range",
             "link": "/collections/sim-racing-solutions",
             "asset_name": "maliev-catalogue-simmount.webp",
@@ -168,14 +168,14 @@
         "aria_label": "SimMount sim racing hardware",
         "brand_label": "SimMount",
         "heading": "Hold your line.",
-        "lead": "Precision monitor and bass-shaker mounts for 8020 sim-racing rigs, engineered and made by MALIEV.",
+        "lead": "Purpose-built monitor and bass-shaker mounts for 40 mm-series aluminium profiles, engineered and made by MALIEV.",
         "asset_name": "maliev-simmount-campaign-wide.webp",
         "mobile_asset_name": "maliev-simmount-campaign-mobile.webp",
-        "image_alt": "Black 8020 sim-racing cockpit fitted with SimMount monitor and bass-shaker hardware",
+        "image_alt": "SimMount monitor and bass-shaker hardware installed on black 40 mm-series aluminium profiles",
         "primary_label": "Shop SimMount",
         "primary_link": "/collections/sim-racing-solutions",
         "product_nav_label": "Featured SimMount products",
-        "note": "Designed in Thailand. Ships worldwide."
+        "note": "Check each product page for supported profile sizes and slot hardware. Ships worldwide."
       },
       "blocks": {
         "rig_pivot": {

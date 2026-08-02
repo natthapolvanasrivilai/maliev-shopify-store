@@ -1,6 +1,24 @@
 {% comment %}theme-check-disable ImgLazyLoading{% endcomment %}
 {{ 'component-collection-hero.css' | asset_url | stylesheet_tag }}
 
+{%- if section.settings.title_override != blank -%}
+  {%- assign collection_title = section.settings.title_override -%}
+{%- elsif collection.handle == 'sim-racing-solutions' -%}
+  {%- assign collection_title = 'SimMount' -%}
+{%- else -%}
+  {%- assign collection_title = collection.title -%}
+{%- endif -%}
+
+{%- capture collection_description_content -%}
+  {%- if section.settings.description_override != blank -%}
+    {{ section.settings.description_override }}
+  {%- elsif collection.handle == 'sim-racing-solutions' -%}
+    <p>SimMount is a range of monitor and bass-shaker mounting hardware engineered by MALIEV for compatible 40 mm-series aluminium profiles. Supported sizes and slot hardware vary by product and mounting position—check each product page before ordering. Complete sim-racing cockpits and profile rigs are not sold by MALIEV.</p>
+  {%- else -%}
+    {{ collection.description }}
+  {%- endif -%}
+{%- endcapture -%}
+
 {%- style -%}
   @media screen and (max-width: 749px) {
     .collection-hero--with-image .collection-hero__inner {
@@ -14,11 +32,11 @@
     <div class="collection-hero__text-wrapper">
       <h1 class="collection-hero__title">
         <span class="visually-hidden">{{ 'sections.collection_template.title' | t }}: </span>
-        {{- collection.title | escape -}}
+        {{- collection_title | escape -}}
       </h1>
 
       {%- if section.settings.show_collection_description -%}
-        <div class="collection-hero__description rte">{{ collection.description }}</div>
+        <div class="collection-hero__description rte">{{ collection_description_content }}</div>
       {%- endif -%}
     </div>
 
@@ -46,12 +64,12 @@
 </div>
 
 
-{%- assign collection_description = collection.description | strip_html | strip_newlines | strip -%}
+{%- assign collection_description = collection_description_content | strip_html | strip_newlines | strip -%}
 <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    "name": {{ collection.title | json }},
+    "name": {{ collection_title | json }},
     {%- if collection_description != blank %}
     "description": {{ collection_description | json }},
     {%- endif %}
@@ -86,10 +104,22 @@
       "content": "t:sections.main-collection-banner.settings.paragraph.content"
     },
     {
+      "type": "text",
+      "id": "title_override",
+      "label": "Collection title override",
+      "info": "Leave blank to use the collection title from Shopify Admin."
+    },
+    {
       "type": "checkbox",
       "id": "show_collection_description",
       "default": true,
       "label": "t:sections.main-collection-banner.settings.show_collection_description.label"
+    },
+    {
+      "type": "richtext",
+      "id": "description_override",
+      "label": "Collection description override",
+      "info": "Leave blank to use the collection description from Shopify Admin."
     },
     {
       "type": "checkbox",
