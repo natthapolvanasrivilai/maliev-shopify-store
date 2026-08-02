@@ -12,7 +12,7 @@
   "type": "header",
   "sections": {
     "announcement-bar": {
-      "type": "announcement-bar",
+      "type": "maliev-announcement",
       "disabled": true,
       "custom_css": [
         ".icon-arrow {display: none;}"
