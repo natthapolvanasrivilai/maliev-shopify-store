@@ -1,282 +1,353 @@
 ---
-name: "MALIEV Storefront"
-description: "A clean engineering showroom with two spotlighted stages: compact injection molding machines and SimMount sim racing hardware."
+name: "MALIEV Workshop Commerce"
+description: "A custom product-led Shopify theme that presents engineered objects with the clarity of an excellent technical store and the confidence of a Thai manufacturer."
 colors:
-  precision-blue: "#006FD6"
-  precision-blue-pressed: "#064FC4"
-  engineering-ink: "#101214"
-  alloy-gray: "#697078"
-  optical-white: "#FFFFFF"
-  workshop-canvas: "#F4F6F7"
-  fine-rule: "#1012141A"
-  foundry-dark: "#101418"
-  support-green: "#00A36C"
-  safety-yellow: "#FFD21C"
-  carbon-black: "#0C1114"
-  asphalt: "#161C22"
-  telemetry-cyan: "#18B7FF"
+  ink: "#111315"
+  ink-soft: "#353A40"
+  graphite: "#626A73"
+  rule: "#D9DDE1"
+  canvas: "#F3F5F6"
+  surface: "#FFFFFF"
+  signal-blue: "#006FD6"
+  signal-blue-hover: "#005BB5"
+  focus-yellow: "#FFD21C"
+  success: "#087A55"
+  warning: "#9A5B00"
+  danger: "#B42318"
+  sim-carbon: "#0B0E11"
+  sim-panel: "#171B20"
+  sim-line: "#30363D"
+  sim-cyan: "#18B7FF"
 typography:
   display:
-    fontFamily: "Archivo, Inter, Noto Sans Thai, system-ui, sans-serif"
-    fontSize: "clamp(4.2rem, 5.4vw, 7.8rem)"
-    fontWeight: 700
-    fontStretch: "118%"
-    lineHeight: 0.96
-    letterSpacing: "-0.01em"
-  headline:
-    fontFamily: "Archivo, Inter, Noto Sans Thai, system-ui, sans-serif"
-    fontSize: "clamp(3.2rem, 4.4vw, 5.8rem)"
-    fontWeight: 700
-    fontStretch: "114%"
-    lineHeight: 0.98
-    letterSpacing: "-0.01em"
-  title:
-    fontFamily: "Archivo, Inter, Noto Sans Thai, system-ui, sans-serif"
-    fontSize: "clamp(1.9rem, 1.9vw, 2.4rem)"
+    fontFamily: "IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
+    fontSize: "clamp(3.6rem, 5.8vw, 7.2rem)"
     fontWeight: 600
-    fontStretch: "108%"
-    lineHeight: 1.2
-    letterSpacing: "-0.005em"
+    lineHeight: 0.98
+    letterSpacing: "-0.035em"
+  heading:
+    fontFamily: "IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
+    fontSize: "clamp(2.8rem, 4vw, 5.2rem)"
+    fontWeight: 600
+    lineHeight: 1.04
+    letterSpacing: "-0.025em"
+  title:
+    fontFamily: "IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
+    fontSize: "clamp(2rem, 2.2vw, 2.8rem)"
+    fontWeight: 600
+    lineHeight: 1.16
+    letterSpacing: "-0.012em"
   body:
-    fontFamily: "Inter, Noto Sans Thai, system-ui, sans-serif"
+    fontFamily: "IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
     fontSize: "1.6rem"
     fontWeight: 400
-    lineHeight: 1.5
+    lineHeight: 1.55
     letterSpacing: "normal"
   label:
-    fontFamily: "Inter, Noto Sans Thai, system-ui, sans-serif"
-    fontSize: "1.35rem"
-    fontWeight: 600
-    lineHeight: 1.2
+    fontFamily: "IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
+    fontSize: "1.4rem"
+    fontWeight: 500
+    lineHeight: 1.3
     letterSpacing: "normal"
+  data:
+    fontFamily: "IBM Plex Mono, ui-monospace, monospace"
+    fontSize: "1.35rem"
+    fontWeight: 400
+    lineHeight: 1.35
+    letterSpacing: "-0.01em"
 rounded:
   control: "4px"
-  feature: "8px"
-  card: "12px"
-  panel: "16px"
+  compact: "6px"
+  card: "10px"
+  panel: "14px"
   pill: "999px"
 spacing:
+  2xs: "4px"
   xs: "8px"
   sm: "12px"
   md: "16px"
   lg: "24px"
   xl: "32px"
-  section: "clamp(48px, 6vw, 88px)"
+  2xl: "48px"
+  section: "clamp(56px, 7vw, 104px)"
 components:
   button-primary:
-    backgroundColor: "{colors.precision-blue}"
-    textColor: "{colors.optical-white}"
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.surface}"
     typography: "{typography.label}"
     rounded: "{rounded.control}"
-    padding: "12.5px 22px"
     height: "48px"
-  button-primary-hover:
-    backgroundColor: "{colors.precision-blue-pressed}"
-    textColor: "{colors.optical-white}"
+    padding: "12px 22px"
+  button-action:
+    backgroundColor: "{colors.signal-blue}"
+    textColor: "{colors.surface}"
     typography: "{typography.label}"
     rounded: "{rounded.control}"
-    padding: "12.5px 22px"
     height: "48px"
+    padding: "12px 22px"
   button-secondary:
-    backgroundColor: "{colors.optical-white}"
-    textColor: "{colors.precision-blue}"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    borderColor: "{colors.ink}"
     typography: "{typography.label}"
     rounded: "{rounded.control}"
-    padding: "12.5px 22px"
     height: "48px"
-  button-simmount:
-    backgroundColor: "{colors.telemetry-cyan}"
-    textColor: "{colors.carbon-black}"
-    typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "12.5px 22px"
-    height: "48px"
-  input-standard:
-    backgroundColor: "{colors.optical-white}"
-    textColor: "{colors.engineering-ink}"
+    padding: "12px 22px"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    borderColor: "{colors.rule}"
     typography: "{typography.body}"
     rounded: "{rounded.control}"
-    padding: "12px 16px"
     height: "48px"
+    padding: "11px 14px"
   product-card:
-    backgroundColor: "{colors.optical-white}"
-    textColor: "{colors.engineering-ink}"
-    typography: "{typography.body}"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.card}"
-    padding: "16px"
-  chip:
-    backgroundColor: "{colors.workshop-canvas}"
-    textColor: "{colors.engineering-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.pill}"
-    padding: "6px 14px"
-  simmount-panel:
-    backgroundColor: "{colors.asphalt}"
-    textColor: "{colors.optical-white}"
-    typography: "{typography.body}"
-    rounded: "{rounded.panel}"
-    padding: "clamp(28px, 5vw, 52px)"
+    padding: "0"
+  spec-table:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    ruleColor: "{colors.rule}"
+    labelTypography: "{typography.label}"
+    valueTypography: "{typography.data}"
 ---
 
-# Design System: MALIEV Storefront
+# Design System: MALIEV Workshop Commerce
 
-## 1. Overview
+## 1. Creative direction
 
-**Creative North Star: "One Factory, Two Stages"**
+### North star: The precision workbench
 
-The storefront is a bright, exceptionally organized engineering showroom with two spotlighted stages inside it. The showroom itself — home, collections, cart, search, account — is a clean, functional store: cool white surfaces, honest prices, quiet structure, nothing performing. Step onto a product line's pages and the lights change. The injection molding machines stand on the workshop stage: optical white, precision blue, accurate renders, keynote pacing. SimMount stands on the paddock stage: carbon black, telemetry cyan, motorsport precision. One factory built both; the shared thread is engineering discipline, not shared styling.
+The storefront behaves like a beautifully organized workbench: every object has a clear purpose, every measurement is easy to find, and nothing decorative competes with the product. The physical product remains the dominant visual event. Structure, typography, and interaction make evaluation feel calm and competent.
 
-Product imagery carries the emotional weight on both stages. Typography and layout establish the reading order, then get out of the product's way. Each major viewport on a keynote page advances one idea: compact fit, credible output, accessible ownership, local manufacturing, serviceability, or the next commercial action. Dense specifications belong in structured comparisons and downloadable documents, never in an undifferentiated wall of catalog content.
+The system borrows four useful patterns from current product stores without copying their styling:
 
-This system explicitly rejects anything that looks or behaves like a lightly customized Shopify template — especially recognizable Dawn patterns — along with generic industrial-supplier clutter and gamer-RGB noise. The PIMM-50G dark cinematic launch page (near-black surfaces, heat-orange accents) is a deliberate campaign one-off; its palette is not part of this system and must not leak into other surfaces.
+- **Keychron:** product-family navigation, product-led merchandising, useful comparison, and a store that can carry a broad technical catalog.
+- **Mode:** large product moments, editorial restraint, and premium pacing.
+- **Framework:** compatibility, repair, parts, documentation, and ownership treated as commerce rather than footer material.
+- **Wooting:** technical differentiation explained in plain language before purchase.
 
-**Key Characteristics:**
+MALIEV's expression is its own: Thai manufacturing, compact production equipment, real support, and a strong relationship between the machine, the mold, the part, and the people who make them.
 
-- A neutral, transactional store shell that never competes with the product stages.
-- Machine stage: optical white, precision blue, accurate KeyShot/Blender renders, keynote pacing.
-- SimMount stage: carbon black and asphalt surfaces, telemetry cyan, motorsport-technical density.
-- One bilingual sans-serif family (Inter + Noto Sans Thai) at two weights, everywhere.
-- Flat, crisp surfaces; compact engineered radii; functional elevation only.
-- Clear routes to book a factory visit, place a production deposit, request a quote, chat on LINE — or simply add SimMount to cart.
+### Physical scene
 
-## 2. Colors
+A Thai workshop owner reviews the store on a laptop beside a bright production bench in daytime. The room is practical and well maintained, not a showroom. Product images and specifications must remain legible in ambient light, so the default shell is light, crisp, and high contrast. SimMount earns a contained carbon mode because it is evaluated in a cockpit context, but the controls and information architecture remain the same.
 
-A cool, product-studio neutral field with one blue voice for action — and a second, contained world of carbon and cyan reserved for SimMount surfaces.
+### Color strategy
 
-### Primary
+**Restrained with committed product chapters.** The global shell uses white, cool gray, ink, and sparse Signal Blue. Machine storytelling may commit to blue in one chapter at a time. SimMount uses Carbon and Cyan only inside its own surfaces. Neither accent becomes ambient decoration.
 
-- **Precision Blue** (`#006FD6`): primary actions, active states, focused technical links, and prices requiring emphasis across the store shell and machine pages. Its scarcity gives it authority.
-- **Pressed Precision Blue** (`#064FC4`): hover and active state for Precision Blue controls; never a competing decorative accent.
+## 2. Typography
 
-### Secondary
+The entire MALIEV web estate uses one coordinated IBM Plex superfamily.
 
-- **Telemetry Cyan** (`#18B7FF`): SimMount's action and emphasis color — CTAs, active states, data highlights, and speed cues on carbon surfaces. It does not appear on machine or store-shell surfaces.
-- **Carbon Black** (`#0C1114`): SimMount page field; the paddock-dark ground that makes cyan read like a HUD.
-- **Asphalt** (`#161C22`): SimMount panels and cards; one tonal step above Carbon Black for structure without borders.
+- **IBM Plex Sans:** Latin interface, editorial copy, headings, navigation, buttons, and prices.
+- **IBM Plex Sans Thai:** Thai glyphs in the same line and at the same hierarchy as Latin.
+- **IBM Plex Mono:** dimensions, tolerances, file sizes, material codes, part numbers, compatibility codes, and compact technical values only.
 
-### Tertiary
+Self-host the same subsets used by `R:\maliev-web\Maliev.Web`: Sans 400/500/600 Latin1 and Pi, Thai 400/500/600, and Mono 400/600 Latin1 and Pi. Use `font-display: swap` and unicode ranges so English visitors do not download Thai fonts unnecessarily.
 
-- **Safety Yellow** (`#FFD21C`): keyboard-focus treatment and rare safety-relevant emphasis only. It is not a marketing highlight color.
-- **Support Green** (`#00A36C`): verified service, availability, and success states only.
+Named rules:
 
-### Neutral
+- **One superfamily:** no Archivo, Inter, Noto Sans Thai, theme-selected body font, or decorative display face remains in the custom system.
+- **Three working weights:** 400 for reading, 500 for UI emphasis, 600 for headings and decisive emphasis. Never synthesize bold.
+- **Mono means data:** never use monospace for mood, labels, navigation, or entire specification paragraphs.
+- **Thai parity:** Thai headings do not shrink merely to imitate Latin line lengths. Test real localized strings at every breakpoint.
+- Display tracking never goes below `-0.035em`; body and Thai copy use normal tracking.
 
-- **Engineering Ink** (`#101214`): headings, body copy, controls, and technical facts on light surfaces.
-- **Alloy Gray** (`#697078`): supporting copy and metadata on white or canvas surfaces; never for sustained body paragraphs.
-- **Optical White** (`#FFFFFF`): product studio surfaces, cards, controls, and image-compatible breathing room; also text on dark SimMount surfaces.
-- **Workshop Canvas** (`#F4F6F7`): the restrained page field behind white surfaces in the store shell and machine pages.
-- **Fine Rule** (`#1012141A`, 10% ink): borders, dividers, and quiet structural separation on light surfaces.
-- **Foundry Dark** (`#101418`): the store shell's single dark contrast surface (footer, deliberate dark bands).
+## 3. Color
 
-### Named Rules
+### Global shell
 
-**The Precision Blue Rule.** Precision Blue marks an action, an active state, or a technical point of focus; it never becomes ambient decoration.
+- **Ink `#111315`:** headings, primary commercial controls, and high-priority facts.
+- **Ink Soft `#353A40`:** secondary headings and dense UI copy.
+- **Graphite `#626A73`:** metadata only, after contrast verification.
+- **Rule `#D9DDE1`:** dividers, form boundaries, and table structure.
+- **Canvas `#F3F5F6`:** alternate sections, media wells, and utility surfaces.
+- **Surface `#FFFFFF`:** default page field and controls.
+- **Signal Blue `#006FD6`:** links, selected states, machine conversion actions, and technical focus.
 
-**The Two Stages Rule.** Telemetry Cyan and carbon surfaces belong to SimMount; Precision Blue and workshop light belong to machines and the shell. The two palettes never mix on one surface.
+### Semantic states
 
-**The Campaign One-Off Rule.** The PIMM-50G launch page's dark heat palette (`#070B10`, `#FF7A1A`, `#FFB347`) is campaign scenery, not a system token. Do not reuse it on new surfaces.
+- Focus Yellow `#FFD21C` is reserved for a visible 3px keyboard-focus ring.
+- Success `#087A55`, Warning `#9A5B00`, and Danger `#B42318` always pair with text or an icon and are never decorative.
 
-**The Safety Yellow Rule.** Safety Yellow is reserved for keyboard focus and genuine attention states; using it as a promotional accent is prohibited.
+### SimMount mode
 
-## 3. Typography
+- Carbon `#0B0E11` is the section/page field.
+- Panel `#171B20` separates related controls and specifications.
+- Sim Line `#30363D` structures dark surfaces.
+- Cyan `#18B7FF` marks actions, compatibility, and selected states.
 
-**Display Font:** Archivo, expanded widths (with Inter, Noto Sans Thai, and system sans-serif fallback)
+Signal Blue and Sim Cyan never appear as competing accents on the same surface.
 
-**Body Font:** Inter (with Noto Sans Thai and system sans-serif fallback)
+## 4. Layout system
 
-**Character:** Two voices on one contrast axis: Archivo — a grotesque with industrial-signage DNA, run at expanded widths (108–118%) and bold weight — carries display claims, section headlines, and product names; Inter carries all sustained reading. The pairing contrasts through width and weight rather than through genre costume; Thai text renders in Noto Sans Thai at every level. The same pairing serves both stages; SimMount differentiates through color and density, not fonts.
+### Grid
 
-### Hierarchy
+- Maximum content width: `1440px`.
+- Reading/content width: `720px`.
+- Technical comparison width: up to `1200px`.
+- Gutters: `20px` mobile, `32px` tablet, `48px` desktop.
+- Major vertical sections use `clamp(56px, 7vw, 104px)` with deliberate tighter transitions between related chapters.
 
-- **Display** (Archivo 700 @ 118% width, fluid `4.2rem–7.8rem`, 0.96): hero claims on keynote pages only; balance the lines and never track tighter than `-0.035em`.
-- **Headline** (Archivo 700 @ 114% width, fluid `3.2rem–5.8rem`, 0.98): major product-story transitions and section-defining statements.
-- **Title** (Archivo 600 @ 108% width, fluid `1.9rem–2.4rem`, 1.2): product names, card titles, and technical subtopics.
-- **Body** (Inter 400, `1.6rem`, 1.5): explanation and supporting copy; cap sustained reading at 65–72 characters. Lead paragraphs may scale to `clamp(1.7rem, 1.8vw, 2.1rem)` at 1.48.
-- **Label** (Inter 600, `1.35rem`, 1.2): prices, specifications, buttons, and concise metadata. Uppercase with tracking is allowed only for compact panel labels, never as section scaffolding.
+Use Grid for product/media comparisons and Flexbox for toolbars, actions, metadata, and wrapping filters. Avoid container-shaped decoration. Surfaces become panels only when grouping improves a task.
 
-### Named Rules
+### Responsive rules
 
-**The Two-Voice Rule.** Archivo speaks only at display/headline/title level and only at 600–700; Inter 400 carries sustained reading and Inter 600 carries labels. No third family, no additional weights.
+- Mobile is composed, not cropped: dedicated image positions, stacked comparisons, adjacent labels and values, and full-width primary actions when necessary.
+- Header navigation becomes an accessible drawer below `990px`; search remains immediately available.
+- Filters move into a disclosure/drawer while active filters remain visible near results.
+- Product purchase controls remain in document order; any sticky purchase affordance mirrors state but never replaces the canonical form.
+- Tables become labeled rows or scroll only when the data relationship truly requires columns.
+- No viewport may develop horizontal document overflow at 320px or above.
 
-**The One Clear Claim Rule.** Every major keynote viewport gets one dominant headline; secondary text supports it rather than competes with it.
+## 5. Global shell
 
-## 4. Elevation
+### Announcement bar
 
-MALIEV is flat by default. Depth comes from tonal layering (white on canvas in the shell; asphalt on carbon for SimMount), precise rules, and image planes. Shadows are functional responses to state, never resting decoration. Static catalog cards and feature panels remain shadowless.
+One concise operational message only: Thailand machine availability, international SimMount shipping, or a genuine service notice. No carousel, countdown, or rotating promotions. Minimum height `36px`.
 
-### Shadow Vocabulary
+### Header
 
-- **Action Lift** (`0 4px 8px rgba(0, 111, 214, 0.22)`): primary-button hover or focus response only; SimMount substitutes a cyan-tinted equivalent at the same geometry.
-- **Overlay Separation** (`0 10px 28px rgba(16, 44, 78, 0.10)`): menus, predictive search, drawers, and other floating layers.
+The header is a custom, compact commerce instrument—not Dawn chrome.
 
-### Named Rules
+- Desktop height `68px`, mobile `60px`.
+- MALIEV wordmark at the start; product-family navigation in the center; search, market/language, account, and cart at the end.
+- Mega navigation organizes by Machines, SimMount, Parts & Molds, Tools, Learn, and Support. Each group contains a short path description, never promotional filler.
+- Search opens a full-width, task-focused layer with product, article, document, and collection result groups.
+- Cart count and active navigation state have accessible text equivalents.
 
-**The Flat-by-Default Rule.** A surface at rest has no decorative shadow; if every card appears to float, the hierarchy has failed.
+### Footer
 
-**The Eight-Pixel Ceiling Rule.** Control response shadows may blur no more than 8px; broad ghost-card shadows are forbidden.
+The footer is an ownership map: shop, service, documentation, contact, market/language, policies, and company identity. Keep newsletter secondary. Use a single Foundry-dark surface without decorative columns or oversized marketing copy.
 
-## 5. Components
+## 6. Commerce components
 
-Components feel precise, quiet, and product-first. Controls are compact enough for serious work but keep generous touch targets and visible keyboard focus. Transitions run at `180ms cubic-bezier(0.22, 1, 0.36, 1)`.
+### Buttons and links
 
-### Buttons
+- Primary neutral button: Ink on light surfaces; decisive universal commerce action.
+- Machine action: Signal Blue for demonstration, quotation, or qualified deposit.
+- SimMount action: Cyan on Carbon.
+- Secondary button: 1px Ink border without a resting shadow.
+- Text links use a visible underline on hover/focus and an arrow only when direction adds meaning.
+- Corners remain `4px`; commercial buttons are never pills.
+- All states: default, hover, focus, active, disabled, loading, and error.
 
-- **Shape:** compact engineered corners (`4px`); pills are prohibited for commercial actions.
-- **Primary:** Precision Blue with Optical White text, semibold `1.45rem` label, minimum `48px` height, `12.5px 22px` padding. On SimMount surfaces, Telemetry Cyan with Carbon Black text at identical geometry.
-- **Hover / Focus:** background deepens to Pressed Precision Blue; upward translation of at most `2px`; keyboard focus is a `3px` Safety Yellow outline with `3px` offset. Reduced motion removes translation.
-- **Secondary:** Optical White with Precision Blue text and a `1px` Precision Blue border. Text-only actions serve genuinely secondary paths (LINE chat, spec downloads) beside a stronger CTA.
+### Product cards
 
-### Chips
+Product cards are image-first catalog entries, not floating tiles.
 
-- **Style:** Workshop Canvas surface, Engineering Ink text, semibold label, full-pill geometry — chips are the only pill-shaped element in the system. On SimMount surfaces: Asphalt ground with Optical White or Telemetry Cyan text.
-- **State:** chips carry machine facts and spec metadata, not decorative badges. Selected states increase color commitment without shadows.
+- Flat at rest with no decorative shadow.
+- Media well on Canvas; consistent product scale within a family.
+- Name, one decision-relevant descriptor, price, availability, and compatibility follow in that order.
+- Quick add appears only for simple, low-risk products. Machines never use quick add.
+- Badges are limited to factual state: New, Pre-order, Sold out, or verified discount.
 
-### Cards / Containers
+### Product page
 
-- **Corner Style:** catalog cards `12px`; keynote feature panels `16px`; compact nested items and media frames `4–8px`.
-- **Background:** Optical White on Workshop Canvas in the shell and machine pages; Asphalt on Carbon Black for SimMount.
-- **Shadow Strategy:** flat at rest; structure comes from Fine Rule borders or tonal contrast.
-- **Border:** a single `1px` Fine Rule on light surfaces; SimMount panels rely on tonal steps instead of borders.
-- **Internal Padding:** begin at `16px`; featured panels expand responsively from `28px` to `52px`.
+- Gallery and purchase information form the first decision zone.
+- Product title, concise fit statement, price/deposit terms, availability, variants, and primary action remain grouped.
+- Machine templates replace cold-purchase emphasis with Book a visit / Request a quotation; deposit remains available with explicit terms.
+- SimMount templates prioritize compatibility before Add to cart.
+- Technical chapters use full-width media, labeled specifications, compatibility, what's included, service, documents, and FAQ.
+- Variant, quantity, selling-plan, pickup, tax, inventory, and dynamic-checkout behaviors continue to use Shopify-native data and events.
 
-### Inputs / Fields
+### Collection and search
 
-- **Style:** Optical White field, Engineering Ink text, `4px` corners, `1px` Fine Rule border, minimum `48px` height.
-- **Focus:** `3px` accessible outline with `3px` offset; focus never depends on color alone.
-- **Error / Disabled:** pair color with explicit text and semantic state; disabled controls keep legible text with visibly reduced affordance.
+- Family header explains the decision and exposes a useful path to guidance.
+- Toolbar keeps result count, sort, filters, and view behavior compact.
+- Grid defaults to 2 columns mobile, 3 tablet, and 4 desktop when image/detail density allows.
+- Empty results explain how to broaden the search and provide direct support.
 
-### Navigation
+### Cart and drawers
 
-- **Style:** Optical White header with a `1px` Fine Rule, Engineering Ink text, `72px` desktop / `64px` mobile height. Precision Blue marks hover and active states. Dropdowns are compact bordered overlays using Overlay Separation — never oversized glass panels.
+- Cart drawer is a fast confirmation surface, not a promotional mini-homepage.
+- Line items keep image, variant, quantity, price, discounts, errors, and remove controls together.
+- Machine deposit items surface their deposit context before checkout.
+- Shipping, taxes, duties, and market-dependent currency messaging remain accurate and non-speculative.
 
-### Featured Product Stage (machines)
+## 7. Storytelling patterns
 
-The signature machine component pairs a large, accurately cropped render with a single explanation column: product name, concise capability statement, transparent price, spec chips, and primary/secondary actions. Desktop may run two columns; mobile collapses to one without reordering. Media stays dominant and never becomes a background behind unreadable text. Scroll choreography may reveal assemblies or sequence technical facts, but content must be fully legible without animation; reduced-motion mode presents final frames immediately.
+### Machine chapters
 
-### SimMount Telemetry Stage
+Sequence: workshop fit → real output → choose 30G/50G → operating flow → mold path → local manufacturing/support → demonstration.
 
-SimMount's signature surface is a dark product stage: Carbon Black field, Asphalt panels, full-bleed product photography of printed parts on rigs, and Telemetry Cyan carrying data-like emphasis — load ratings, print material, compatibility, lap-ready specs presented with HUD-like precision. Density can run higher than machine pages; restraint shows in the two-color discipline (cyan + white on carbon), not in emptiness. Checkout actions are immediate and prominent: this stage sells directly.
+Use bright, accurate product imagery and real factory evidence. Specifications stay near the claim they support. One chapter may use a blue field for emphasis, but most of the journey remains light and inspectable.
 
-## 6. Do's and Don'ts
+### SimMount chapters
 
-### Do:
+Use a contained carbon surface with crisp product photography, compatibility diagrams, and data-like callouts. Density may increase, but the page must remain commerce-first and avoid RGB/gaming theatrics.
 
-- **Do** keep the store shell (home, collections, cart, search) clean, fast, and transactional; reserve keynote theatrics for product-line pages.
-- **Do** lead keynote pages with accurate product imagery and one clear claim.
-- **Do** use Precision Blue (`#006FD6`) for action on light surfaces and Telemetry Cyan (`#18B7FF`) for action on SimMount carbon — never both on one surface.
-- **Do** keep specifications, dimensions, warranty, replacement parts, deposit terms, and Thailand-only machine availability easy to verify.
-- **Do** provide dedicated desktop and mobile image compositions rather than destructive automatic crops.
-- **Do** preserve WCAG 2.2 AA contrast, keyboard access, visible focus, and equivalent reduced-motion states in both Thai and English.
-- **Do** retain Shopify section schemas and merchant-editable content when implementing the system.
+### Editorial and service pages
 
-### Don't:
+Articles use a strong reading column, visible metadata, useful figures, related products/documents, and plain next actions. Service pages explain input → process → deliverable → constraints → quotation. Neither uses generic card grids as the default rhythm.
 
-- **Don't** make the storefront look or behave like a lightly customized Shopify template, especially recognizable Dawn patterns.
-- **Don't** introduce generic industrial-supplier clutter, dense walls of specifications, or visual theatrics that obscure engineering facts, pricing, or contact paths.
-- **Don't** let SimMount collapse into gamer-RGB clutter or aggressive esports styling; motorsport-technical means precision and speed, not neon noise.
-- **Don't** reuse the PIMM-50G launch campaign's dark heat palette (`#070B10`, `#FF7A1A`) on any new surface; it is a one-off.
-- **Don't** use cream, sand, parchment, gradient text, decorative glassmorphism, or CSS grid-pattern backgrounds as shortcuts to a designed appearance.
-- **Don't** repeat tiny uppercase tracked eyebrows or numbered markers as section scaffolding; labels must describe real technical hierarchy or sequence.
-- **Don't** pair a `1px` decorative border with a broad shadow, exceed `16px` card radii, or turn every surface into a floating card.
-- **Don't** gate content visibility on animation or ship motion without a reduced-motion equivalent.
-- **Don't** show customer-owned molds, parts, names, or logos without explicit permission.
+## 8. System pages and states
+
+Account, login, registration, addresses, orders, contact, policies, password, gift card, 404, search-empty, collection-empty, cart-empty, loading, validation, and service-error surfaces share the same tokens and controls.
+
+- Empty states teach the next useful action.
+- Form errors appear beside the field and in a linked summary when appropriate.
+- Loading uses skeletons for content and an inline progress state for buttons.
+- Customer and payment forms retain native semantics, autocomplete, and error associations.
+- Policy and article prose cap at `72ch`.
+
+## 9. Motion and interaction
+
+- Standard transitions: `180ms cubic-bezier(0.22, 1, 0.36, 1)`.
+- Motion communicates state, relationship, or product operation.
+- Product galleries, disclosures, drawers, predictive search, variant state, and cart feedback may animate.
+- No orchestrated page-load sequence, scroll hijacking, continuous parallax, decorative counters, bounce, or elastic easing.
+- Content is visible before enhancement. `prefers-reduced-motion: reduce` removes transforms and delays while preserving clear state changes.
+
+## 10. Elevation and shape
+
+- Flat by default. Canvas/Surface and Carbon/Panel tonal steps create hierarchy.
+- Static cards have no shadow.
+- Floating navigation, predictive search, drawers, and dialogs may use `0 10px 28px rgba(17, 19, 21, 0.12)` without an additional decorative border when the shadow supplies separation.
+- Control feedback may use at most `0 4px 8px` blur.
+- Cards top out at `10px`, feature panels at `14px`, and controls at `4px`. Pills are reserved for factual filter chips and compact status tags.
+
+## 11. Shopify implementation rules
+
+- Build reusable sections, blocks, snippets, and token layers rather than template-specific monoliths.
+- Every merchant-facing section retains a valid schema with useful settings and sensible empty behavior.
+- User-facing interface strings use locale keys; template content remains market-context editable where Shopify supports it.
+- Do not hardcode product prices, availability, translated URLs, customer state, cart state, or store-domain URLs.
+- Preserve Shopify section rendering, Theme Editor selection, app blocks, dynamic checkout, product-model/media, predictive-search, cart, customer, localization, and analytics hooks.
+- `config/settings_data.json` remains merchant-owned and outside production deployment.
+
+## 12. Definition of done
+
+The custom theme system is complete only when:
+
+1. No representative page reads visually or structurally as Dawn.
+2. Every template family uses the MALIEV tokens, typography, components, focus system, responsive grid, and state vocabulary.
+3. Machines retain demonstration-first conversion and explicit Thailand/THB context.
+4. SimMount retains direct international commerce and clear compatibility.
+5. IBM Plex Sans, IBM Plex Sans Thai, and IBM Plex Mono load locally with the intended subsets and weights.
+6. All merchant-facing schemas and Shopify commerce behaviors remain valid.
+7. Theme Check passes, focused contract checks pass, and the relevant theme suite passes.
+8. Desktop and mobile browser checks cover home, each product mode, collections, blog/article, search, cart/drawer, contact/pages/policies, account/auth, password, gift card, and 404.
+9. Keyboard focus, reduced motion, localization, empty/error/loading states, and zero horizontal overflow are directly verified.
+
+## 13. Do and do not
+
+### Do
+
+- Let accurate product imagery and construction evidence carry the page.
+- Put compatibility, specifications, service, and documentation near the decision.
+- Keep navigation and catalog density useful for a growing technical product range.
+- Reuse one component vocabulary across every page.
+- Compose separately for mobile and real Thai copy.
+
+### Do not
+
+- Copy Keychron, Mode, Framework, or Wooting layouts, colors, components, or voice.
+- Preserve Dawn composition under new colors.
+- Mix Signal Blue and Sim Cyan on one surface.
+- Use cream, gradient text, glassmorphism, decorative grids, broad card shadows, oversized radii, or repeated section eyebrows.
+- Hide content behind animation, truncate localized copy, or make product data decorative.
