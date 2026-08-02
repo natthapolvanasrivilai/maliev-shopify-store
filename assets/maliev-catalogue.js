@@ -9,9 +9,6 @@
     const previous = root.querySelector('[data-mcat-previous]');
     const next = root.querySelector('[data-mcat-next]');
     const toggle = root.querySelector('[data-mcat-toggle]');
-    const current = root.querySelector('[data-mcat-current]');
-    const progress = root.querySelector('[data-mcat-progress]');
-
     if (!track || cards.length === 0 || !previous || !next || !toggle) return;
     initialized.add(root);
 
@@ -30,17 +27,30 @@
     };
 
     const updateStatus = (index) => {
-      activeIndex = (index + cards.length) % cards.length;
-      if (current) current.textContent = String(activeIndex + 1).padStart(2, '0');
-      if (progress) progress.style.setProperty('--mcat-progress', String((activeIndex + 1) / cards.length));
+      const positions = getPositions();
+      activeIndex = (index + positions.length) % positions.length;
+    };
+
+    const getPositions = () => {
+      const maxLeft = Math.max(0, track.scrollWidth - track.clientWidth);
+      if (maxLeft === 0 || cards.length < 2) return [0];
+
+      const step = Math.max(1, cards[1].offsetLeft - cards[0].offsetLeft);
+      const positions = [0];
+
+      for (let left = step; left < maxLeft - 1; left += step) {
+        positions.push(left);
+      }
+
+      if (positions[positions.length - 1] !== maxLeft) positions.push(maxLeft);
+      return positions;
     };
 
     const goTo = (index, smooth = true) => {
-      const normalizedIndex = (index + cards.length) % cards.length;
-      const card = cards[normalizedIndex];
-      const left = card.offsetLeft - track.offsetLeft;
+      const positions = getPositions();
+      const normalizedIndex = (index + positions.length) % positions.length;
       track.scrollTo({
-        left,
+        left: positions[normalizedIndex],
         behavior: smooth && !reduceMotion.matches ? 'smooth' : 'auto'
       });
       updateStatus(normalizedIndex);
@@ -53,7 +63,7 @@
 
     const startTimer = () => {
       stopTimer();
-      if (userPaused || interactionPaused || document.hidden || cards.length < 2) return;
+      if (userPaused || interactionPaused || document.hidden || getPositions().length < 2) return;
       timer = window.setInterval(() => goTo(activeIndex + 1), interval);
     };
 
@@ -95,9 +105,9 @@
     track.addEventListener('scroll', () => {
       if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
       scrollFrame = window.requestAnimationFrame(() => {
-        const index = cards.reduce((closest, card, cardIndex) => {
-          const distance = Math.abs((card.offsetLeft - track.offsetLeft) - track.scrollLeft);
-          return distance < closest.distance ? { index: cardIndex, distance } : closest;
+        const index = getPositions().reduce((closest, position, positionIndex) => {
+          const distance = Math.abs(position - track.scrollLeft);
+          return distance < closest.distance ? { index: positionIndex, distance } : closest;
         }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
         updateStatus(index);
       });
