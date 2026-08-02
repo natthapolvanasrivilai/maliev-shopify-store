@@ -1,0 +1,166 @@
+{% comment %}
+  MALIEV product detail system. Owns the storefront product composition while
+  preserving Shopify product-info, form, variant, quantity, media, modal, and
+  app-block update contracts.
+{% endcomment %}
+
+{%- liquid
+  assign product_title = product.title
+  assign product_id_string = product.id | append: ''
+  assign product_price_string = product.price | append: ''
+  assign is_pimm_50g = false
+  if product_id_string == '10311028408599' or product_price_string == '17000000'
+    assign is_pimm_50g = true
+  endif
+  if is_pimm_50g and request.locale.iso_code contains 'th'
+    assign product_title = 'เครื่องฉีดพลาสติกระบบลม 50g'
+  endif
+  assign product_form_id = 'product-form-' | append: section.id
+  assign variant_images = product.images | where: 'attached_to_variant?', true | map: 'src'
+  assign first_3d_model = product.media | where: 'media_type', 'model' | first
+-%}
+
+{{ 'section-main-product.css' | asset_url | stylesheet_tag }}
+{{ 'component-slider.css' | asset_url | stylesheet_tag }}
+{{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+{%- unless product.has_only_default_variant -%}
+  {{ 'component-product-variant-picker.css' | asset_url | stylesheet_tag }}
+  {{ 'component-swatch-input.css' | asset_url | stylesheet_tag }}
+  {{ 'component-swatch.css' | asset_url | stylesheet_tag }}
+{%- endunless -%}
+
+<script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+{%- if product.media.size > 0 -%}
+  <script src="{{ 'product-modal.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'media-gallery.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+{%- if section.settings.image_zoom == 'hover' -%}
+  <script id="EnableZoomOnHover-main" src="{{ 'magnify.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+{%- if request.design_mode -%}<script src="{{ 'theme-editor.js' | asset_url }}" defer="defer"></script>{%- endif -%}
+
+<product-info
+  id="MainProduct-{{ section.id }}"
+  class="mc-product-shell color-{{ section.settings.color_scheme }}"
+  data-section="{{ section.id }}"
+  data-product-id="{{ product.id }}"
+  data-update-url="true"
+  data-url="{{ product.url }}"
+  style="--mc-section-top: {{ section.settings.padding_top }}px; --mc-section-bottom: {{ section.settings.padding_bottom }}px;"
+  {% if section.settings.image_zoom == 'hover' %}data-zoom-on-hover{% endif %}
+>
+  <div class="page-width">
+    <div class="mc-product-layout mc-product-layout--media-{{ section.settings.media_position }} mc-product-layout--{{ section.settings.media_size }}{% if product.media.size == 0 %} mc-product-layout--no-media{% endif %}">
+      {%- if product.media.size > 0 -%}
+        <div class="mc-product-layout__media">{% render 'product-media-gallery', variant_images: variant_images %}</div>
+      {%- endif -%}
+
+      <div class="mc-product-layout__details">
+        <section id="ProductInfo-{{ section.id }}" class="mc-product-info{% if section.settings.enable_sticky_info %} mc-product-info--sticky{% endif %}">
+          {%- for block in section.blocks -%}
+            {%- case block.type -%}
+              {%- when '@app' -%}
+                <div class="mc-product-block mc-product-block--app" {{ block.shopify_attributes }}>{% render block %}</div>
+              {%- when 'text' -%}
+                <div class="mc-product-block mc-product-block--text" {{ block.shopify_attributes }}>
+                  <p class="mc-product-kicker{% if block.settings.text_style == 'uppercase' %} mc-product-kicker--uppercase{% endif %}">{{ block.settings.text }}</p>
+                </div>
+              {%- when 'title' -%}
+                <div class="mc-product-block mc-product-block--title" {{ block.shopify_attributes }}><h1>{{ product_title | escape }}</h1></div>
+              {%- when 'price' -%}
+                <div class="mc-product-block mc-product-block--price" {{ block.shopify_attributes }}>
+                  <div id="price-{{ section.id }}" role="status">{% render 'price', product: product, use_variant: true, show_badges: true, price_class: 'price--large' %}</div>
+                  {%- if product.quantity_price_breaks_configured? -%}<p class="mc-product-note" id="Volume-Note-{{ section.id }}">{{ 'products.product.volume_pricing.note' | t }}</p>{%- endif -%}
+                  {%- if cart.taxes_included or cart.duties_included or shop.shipping_policy.body != blank -%}
+                    <div class="mc-product-note rte">
+                      {%- if cart.duties_included and cart.taxes_included -%}{{ 'products.product.duties_and_taxes_included' | t }}
+                      {%- elsif cart.taxes_included -%}{{ 'products.product.taxes_included' | t }}
+                      {%- elsif cart.duties_included -%}{{ 'products.product.duties_included' | t }}{%- endif -%}
+                      {%- if shop.shipping_policy.body != blank -%}{{ 'products.product.shipping_policy_html' | t: link: shop.shipping_policy.url }}{%- endif -%}
+                    </div>
+                  {%- endif -%}
+                  {%- assign installment_form_id = 'product-form-installment-' | append: section.id -%}
+                  {%- form 'product', product, id: installment_form_id, class: 'mc-product-installments' -%}
+                    <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">{{ form | payment_terms }}
+                  {%- endform -%}
+                </div>
+              {%- when 'inventory' -%}
+                <div class="mc-product-block" {{ block.shopify_attributes }}>
+                  <p class="mc-product-status{% if product.selected_or_first_available_variant.inventory_management != 'shopify' %} visibility-hidden{% endif %}" id="Inventory-{{ section.id }}" role="status">
+                    {%- if product.selected_or_first_available_variant.inventory_management == 'shopify' -%}
+                      {%- if product.selected_or_first_available_variant.inventory_quantity > 0 -%}
+                        {%- if product.selected_or_first_available_variant.inventory_quantity <= block.settings.inventory_threshold -%}
+                          {%- if block.settings.show_inventory_quantity -%}{{ 'products.product.inventory_low_stock_show_count' | t: quantity: product.selected_or_first_available_variant.inventory_quantity }}{%- else -%}{{ 'products.product.inventory_low_stock' | t }}{%- endif -%}
+                        {%- else -%}
+                          {%- if block.settings.show_inventory_quantity -%}{{ 'products.product.inventory_in_stock_show_count' | t: quantity: product.selected_or_first_available_variant.inventory_quantity }}{%- else -%}{{ 'products.product.inventory_in_stock' | t }}{%- endif -%}
+                        {%- endif -%}
+                      {%- elsif product.selected_or_first_available_variant.inventory_policy == 'continue' -%}{{ 'products.product.inventory_out_of_stock_continue_selling' | t }}
+                      {%- else -%}{{ 'products.product.inventory_out_of_stock' | t }}{%- endif -%}
+                    {%- endif -%}
+                  </p>
+                </div>
+              {%- when 'sku' -%}
+                <div class="mc-product-block" {{ block.shopify_attributes }}><p class="mc-product-sku{% if product.selected_or_first_available_variant.sku == blank %} visibility-hidden{% endif %}" id="Sku-{{ section.id }}" role="status"><span>{{ 'products.product.sku' | t }}:</span> {{ product.selected_or_first_available_variant.sku }}</p></div>
+              {%- when 'variant_picker' -%}
+                <div class="mc-product-block mc-product-block--variants" {{ block.shopify_attributes }}>{% render 'product-variant-picker', product: product, block: block, product_form_id: product_form_id %}</div>
+              {%- when 'quantity_selector' -%}
+                {% comment %}theme-check-disable UndefinedFilter{% endcomment %}
+                {%- assign cart_qty = cart | item_count_for_variant: product.selected_or_first_available_variant.id -%}
+                {% comment %}theme-check-enable UndefinedFilter{% endcomment %}
+                <div id="Quantity-Form-{{ section.id }}" class="mc-product-block mc-product-quantity product-form__input product-form__quantity" {{ block.shopify_attributes }}>
+                  <label for="Quantity-{{ section.id }}">{{ 'products.product.quantity.label' | t }}</label>
+                  <quantity-input class="quantity" data-url="{{ product.url }}" data-section="{{ section.id }}">
+                    <button class="quantity__button" name="minus" type="button"><span class="visually-hidden">{{ 'products.product.quantity.decrease' | t: product: product.title | escape }}</span><span class="svg-wrapper">{{ 'icon-minus.svg' | inline_asset_content }}</span></button>
+                    <input class="quantity__input" type="number" name="quantity" id="Quantity-{{ section.id }}" data-cart-quantity="{{ cart_qty }}" data-min="{{ product.selected_or_first_available_variant.quantity_rule.min }}" min="{{ product.selected_or_first_available_variant.quantity_rule.min }}" {% if product.selected_or_first_available_variant.quantity_rule.max != null %}data-max="{{ product.selected_or_first_available_variant.quantity_rule.max }}" max="{{ product.selected_or_first_available_variant.quantity_rule.max }}"{% endif %} step="{{ product.selected_or_first_available_variant.quantity_rule.increment }}" value="{{ product.selected_or_first_available_variant.quantity_rule.min }}" form="{{ product_form_id }}">
+                    <button class="quantity__button" name="plus" type="button"><span class="visually-hidden">{{ 'products.product.quantity.increase' | t: product: product.title | escape }}</span><span class="svg-wrapper">{{ 'icon-plus.svg' | inline_asset_content }}</span></button>
+                  </quantity-input>
+                  <div class="mc-product-quantity__rules" id="Quantity-Rules-{{ section.id }}">
+                    {%- if product.selected_or_first_available_variant.quantity_rule.increment > 1 -%}<span>{{ 'products.product.quantity.multiples_of' | t: quantity: product.selected_or_first_available_variant.quantity_rule.increment }}</span>{%- endif -%}
+                    {%- if product.selected_or_first_available_variant.quantity_rule.min > 1 -%}<span>{{ 'products.product.quantity.minimum_of' | t: quantity: product.selected_or_first_available_variant.quantity_rule.min }}</span>{%- endif -%}
+                    {%- if product.selected_or_first_available_variant.quantity_rule.max != null -%}<span>{{ 'products.product.quantity.maximum_of' | t: quantity: product.selected_or_first_available_variant.quantity_rule.max }}</span>{%- endif -%}
+                  </div>
+                  {%- if product.quantity_price_breaks_configured? -%}
+                    <div id="Price-Per-Item-{{ section.id }}" class="mc-product-volume-price"></div>
+                    <volume-pricing id="Volume-{{ section.id }}" class="mc-product-volume"><p>{{ 'products.product.volume_pricing.title' | t }}</p><ul role="list">{%- for price_break in product.selected_or_first_available_variant.quantity_price_breaks -%}<li><span>{{ price_break.minimum_quantity }}+</span><span>{{ price_break.price | money_with_currency }}</span></li>{%- endfor -%}</ul></volume-pricing>
+                  {%- endif -%}
+                </div>
+              {%- when 'buy_buttons' -%}
+                <div class="mc-product-block mc-product-block--buy">{% render 'buy-buttons', block: block, product: product, product_form_id: product_form_id, section_id: section.id, show_pickup_availability: false %}</div>
+              {%- when 'description' -%}
+                {%- if product.description != blank -%}<div class="mc-product-block mc-product-description rte quick-add-hidden" {{ block.shopify_attributes }}>{{ product.description }}</div>{%- endif -%}
+              {%- when 'share' -%}
+                <div class="mc-product-block" {{ block.shopify_attributes }}>
+                  {% liquid
+                    assign share_url = product.selected_variant.url | default: product.url | prepend: request.origin
+                    render 'share-button', block: block, share_link: share_url
+                  %}
+                </div>
+              {%- when 'custom_liquid' -%}
+                <div class="mc-product-block mc-product-custom" {{ block.shopify_attributes }}>{{ block.settings.custom_liquid }}</div>
+              {%- when 'collapsible_tab' -%}
+                <div class="mc-product-block mc-product-disclosure quick-add-hidden" {{ block.shopify_attributes }}><details id="Details-{{ block.id }}-{{ section.id }}"><summary><span>{{ block.settings.heading | default: block.settings.page.title | escape }}</span><span class="svg-wrapper">{{ 'icon-caret.svg' | inline_asset_content }}</span></summary><div class="mc-product-disclosure__body rte" id="ProductAccordion-{{ block.id }}-{{ section.id }}">{{ block.settings.content }}{{ block.settings.page.content }}</div></details></div>
+              {%- when 'popup' -%}
+                <div class="mc-product-block" {{ block.shopify_attributes }}><modal-opener data-modal="#PopupModal-{{ block.id }}"><button id="ProductPopup-{{ block.id }}" class="mc-product-link" type="button" aria-haspopup="dialog">{{ block.settings.text | default: block.settings.page.title | escape }}</button></modal-opener></div>
+              {%- when 'rating' -%}
+                {%- if product.metafields.reviews.rating.value != blank -%}<div class="mc-product-block mc-product-rating" {{ block.shopify_attributes }}><span aria-hidden="true">★ {{ product.metafields.reviews.rating.value }}</span><span>({{ product.metafields.reviews.rating_count }})</span><span class="visually-hidden">{{ 'accessibility.star_reviews_info' | t: rating_value: product.metafields.reviews.rating.value, rating_max: product.metafields.reviews.rating.value.scale_max }}</span></div>{%- endif -%}
+              {%- when 'complementary' -%}
+                <div class="mc-product-block" {{ block.shopify_attributes }}><product-recommendations class="mc-product-complementary quick-add-hidden" data-url="{{ routes.product_recommendations_url }}?limit={{ block.settings.product_list_limit }}&intent=complementary" data-section-id="{{ section.id }}" data-product-id="{{ product.id }}">{%- if recommendations.performed and recommendations.products_count > 0 -%}<h2>{{ block.settings.block_heading }}</h2><ul role="list">{%- for recommendation in recommendations.products limit: block.settings.product_list_limit -%}<li>{% render 'card-product', card_product: recommendation, media_aspect_ratio: block.settings.image_ratio, show_secondary_image: false, lazy_load: true, quick_add: 'none', section_id: section.id, horizontal_class: true %}</li>{%- endfor -%}</ul>{%- endif -%}</product-recommendations></div>
+              {%- when 'icon-with-text' -%}
+                <div class="mc-product-block" {{ block.shopify_attributes }}>{% render 'icon-with-text', block: block %}</div>
+            {%- endcase -%}
+          {%- endfor -%}
+          <a href="{{ product.url }}" class="mc-product-details-link">{{ 'products.product.view_full_details' | t }} <span aria-hidden="true">→</span></a>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  {% render 'product-media-modal', variant_images: variant_images %}
+  {%- assign popup_blocks = section.blocks | where: 'type', 'popup' -%}
+  {%- for block in popup_blocks -%}
+    <modal-dialog id="PopupModal-{{ block.id }}" class="product-popup-modal" {{ block.shopify_attributes }}><div role="dialog" aria-label="{{ block.settings.text | escape }}" aria-modal="true" class="product-popup-modal__content" tabindex="-1"><button id="ModalClose-{{ block.id }}" type="button" class="product-popup-modal__toggle" aria-label="{{ 'accessibility.close' | t }}">{{ 'icon-close.svg' | inline_asset_content }}</button><div class="product-popup-modal__content-info"><h2>{{ block.settings.page.title | escape }}</h2>{{ block.settings.page.content }}</div></div></modal-dialog>
+  {%- endfor -%}
+  {%- if first_3d_model -%}<script type="application/json" id="ProductJSON-{{ product.id }}">{{ product.media | where: 'media_type', 'model' | json }}</script><script src="{{ 'product-model.js' | asset_url }}" defer></script>{%- endif -%}
+  <script type="application/ld+json">{{ product | structured_data }}</script>
+</product-info>
