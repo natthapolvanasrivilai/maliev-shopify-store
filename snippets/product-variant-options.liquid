@@ -59,6 +59,7 @@
   {%- endcapture -%}
 
   {%- if picker_type == 'swatch' -%}
+    {% comment %}theme-check-disable UnusedAssign{% endcomment %}
     {%- capture help_text -%}
       <span class="visually-hidden">{{ value | escape }}</span>
       {{ label_unavailable }}
@@ -76,6 +77,7 @@
       help_text: help_text,
       additional_props: input_dataset
     %}
+    {% comment %}theme-check-enable UnusedAssign{% endcomment %}
   {%- elsif picker_type == 'button' -%}
     <input
       type="radio"

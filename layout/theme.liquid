@@ -72,6 +72,7 @@
     {{ content_for_header }}
 
     {% style %}
+      {% assign scheme_classes = '' %}
       {% for scheme in settings.color_schemes -%}
         {% assign scheme_classes = scheme_classes | append: ', .color-' | append: scheme.id %}
         {% if forloop.index == 1 -%}
@@ -313,10 +314,12 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-568NMRCL');</script>
     <!-- End Google Tag Manager -->
+    {% comment %}theme-check-disable RemoteAsset{% endcomment %}
     <script id='merchantWidgetScript'
             src="https://www.gstatic.com/shopping/merchant/merchantwidget.js"
             defer>
     </script>
+    {% comment %}theme-check-enable RemoteAsset{% endcomment %}
     <script type="text/javascript">
       merchantWidgetScript.addEventListener('load', function () {
         merchantwidget.start({

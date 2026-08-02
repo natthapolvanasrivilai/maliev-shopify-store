@@ -1,1 +1,8 @@
 extends: theme-check:recommended
+
+# Theme Check 3.5 reports directly rendered core snippets as orphaned on this
+# Windows theme workspace (including meta-tags, price, facets, and card-product).
+# Reachability is audited from active JSON templates, section groups, Liquid
+# render calls, and Shopify's dynamic section endpoints before deleting files.
+OrphanedSnippet:
+  enabled: false
