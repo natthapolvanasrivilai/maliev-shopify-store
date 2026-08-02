@@ -388,27 +388,6 @@
   font-family: var(--maliev-font-hero);
 }
 
-/* Native document scrolling with presentation-like chapter stops. */
-.mk-presentation {
-  scroll-behavior: smooth;
-  scroll-padding-top: 0;
-  scroll-snap-type: y proximity;
-}
-
-.mk-presentation body.template-index #MainContent > .shopify-section,
-.mk-presentation body.template-index .mc-footer-section {
-  scroll-margin-top: 0;
-  scroll-snap-align: start;
-}
-
-.mk-presentation body.template-index #MainContent > .shopify-section > .mkey {
-  min-height: 100svh;
-}
-
-.mk-presentation body.template-index .mc-footer {
-  min-height: 100svh;
-}
-
 @media screen and (min-width: 990px) {
   .template-index .mkey--hero-overlay {
     min-height: 100svh;
@@ -463,138 +442,6 @@
     color: var(--mk-body);
     font-size: 1.2rem;
     letter-spacing: 0.015em;
-  }
-
-  .mk-presentation {
-    scroll-snap-type: y mandatory;
-  }
-
-  .mk-presentation body.template-index #MainContent > .shopify-section,
-  .mk-presentation body.template-index .mc-footer-section {
-    scroll-snap-stop: always;
-  }
-
-  .mk-presentation body.template-index .mkey:not(.mkey--hero) .mkey__frame {
-    padding-top: max(10rem, clamp(6.4rem, 9vw, 12rem));
-  }
-
-  /* The homepage overview stays one decisive slide; deeper operation proof lives on product pages. */
-  .mk-presentation body.template-index #machines {
-    height: 100svh;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__frame {
-    align-content: center;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    height: 100%;
-    padding-bottom: 4rem;
-    padding-top: 10rem;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__intro {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__stage-media {
-    align-self: stretch;
-    grid-column: 2;
-    grid-row: 1 / 4;
-    min-height: 0;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__stage-media > div,
-  .mk-presentation body.template-index #machines .mkey__stage-media img {
-    height: 100%;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__stage-media img {
-    object-fit: cover;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__models {
-    align-self: center;
-    gap: 1.2rem;
-    grid-column: 1;
-    grid-row: 2;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .mk-presentation body.template-index #machines .mkey__model {
-    gap: 0.9rem;
-    padding: 1.6rem;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__model-media {
-    min-height: 15rem;
-    padding-bottom: 0.8rem;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__model-media img {
-    max-height: 16rem;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__model-copy {
-    display: none;
-  }
-
-  .mk-presentation body.template-index #machines .mkey__inaction {
-    display: none;
-  }
-
-  .mk-presentation body.template-index #machines > .mkey__frame > .mkey__actions {
-    grid-column: 1;
-    grid-row: 3;
-  }
-
-  .mk-presentation body.template-index #simmount {
-    height: 100svh;
-  }
-
-  .mk-presentation body.template-index #simmount .mkey__frame {
-    align-content: center;
-    gap: 2.4rem;
-    height: 100%;
-    padding-bottom: 4rem;
-    padding-top: 10rem;
-  }
-
-  .mk-presentation body.template-index #simmount .mkey__rig-media {
-    min-height: clamp(14rem, 19vh, 19rem);
-  }
-
-  .mk-presentation body.template-index .mkey--feature {
-    height: 100svh;
-  }
-
-  .mk-presentation body.template-index .mkey--feature .mkey__frame {
-    align-content: center;
-    height: 100%;
-    padding-bottom: 4rem;
-    padding-top: 10rem;
-  }
-
-  .mk-presentation body.template-index .mkey--guides {
-    height: 100svh;
-  }
-
-  .mk-presentation body.template-index .mkey--guides .mkey__frame {
-    align-content: center;
-    gap: 2.4rem;
-    height: 100%;
-    padding-bottom: 4rem;
-    padding-top: 10rem;
-  }
-
-  .mk-presentation body.template-index .mkey__guides-bento {
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    height: min(62vh, 60rem);
-  }
-
-  .mk-presentation body.template-index .mkey__guides-bento__item,
-  .mk-presentation body.template-index .mkey__guides-bento__item--hero {
-    min-height: 0;
   }
 }
 
@@ -1506,12 +1353,5 @@
 
   .mkey__guides-bento__item:not(.mkey__guides-bento__item--hero) {
     aspect-ratio: 4 / 3;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mk-presentation {
-    scroll-behavior: auto;
-    scroll-snap-type: none;
   }
 }
