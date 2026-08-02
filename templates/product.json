@@ -10,7 +10,7 @@
 {
   "sections": {
     "main": {
-      "type": "main-product",
+      "type": "maliev-product",
       "blocks": {
         "title": {
           "type": "title",
@@ -118,7 +118,7 @@
       }
     },
     "related-products": {
-      "type": "related-products",
+      "type": "maliev-related-products",
       "settings": {
         "heading": "<strong>You may also like</strong>",
         "heading_size": "h1",
@@ -136,7 +136,7 @@
       }
     },
     "multicolumn_RtD7RH": {
-      "type": "multicolumn",
+      "type": "maliev-multicolumn",
       "blocks": {
         "column_bL4aVi": {
           "type": "column",

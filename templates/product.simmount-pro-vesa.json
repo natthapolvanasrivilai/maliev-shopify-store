@@ -10,7 +10,7 @@
 {
   "sections": {
     "slideshow_JjbcJx": {
-      "type": "slideshow",
+      "type": "maliev-slideshow",
       "blocks": {
         "slide_qGBLdM": {
           "type": "slide",
@@ -66,7 +66,7 @@
       }
     },
     "multirow_RjeRRr": {
-      "type": "multirow",
+      "type": "maliev-multirow",
       "blocks": {
         "row_xJ4JWi": {
           "type": "row",
@@ -176,7 +176,7 @@
       }
     },
     "main": {
-      "type": "main-product",
+      "type": "maliev-product",
       "blocks": {
         "vendor": {
           "type": "text",
@@ -254,7 +254,7 @@
       }
     },
     "related-products": {
-      "type": "related-products",
+      "type": "maliev-related-products",
       "custom_css": [],
       "settings": {
         "heading": "<strong>You may also like</strong>",
@@ -279,7 +279,7 @@
       }
     },
     "multicolumn_Ve34LV": {
-      "type": "multicolumn",
+      "type": "maliev-multicolumn",
       "blocks": {
         "column_bekxPG": {
           "type": "column",

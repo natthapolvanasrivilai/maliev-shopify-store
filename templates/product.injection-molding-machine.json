@@ -10,7 +10,7 @@
 {
   "sections": {
     "slideshow_JjbcJx": {
-      "type": "slideshow",
+      "type": "maliev-slideshow",
       "blocks": {
         "slide_8idMkn": {
           "type": "slide",
@@ -125,7 +125,7 @@
       }
     },
     "multirow_RjeRRr": {
-      "type": "multirow",
+      "type": "maliev-multirow",
       "blocks": {
         "row_JeJPTC": {
           "type": "row",
@@ -208,7 +208,7 @@
       }
     },
     "main": {
-      "type": "main-product",
+      "type": "maliev-product",
       "blocks": {
         "vendor": {
           "type": "text",
@@ -291,7 +291,7 @@
       }
     },
     "image_with_text_RXCbYL": {
-      "type": "image-with-text",
+      "type": "maliev-image-with-text",
       "blocks": {
         "heading_NwB8wr": {
           "type": "heading",
@@ -331,7 +331,7 @@
       }
     },
     "image_with_text_DgEND8": {
-      "type": "image-with-text",
+      "type": "maliev-image-with-text",
       "blocks": {
         "heading_afVX96": {
           "type": "heading",
@@ -390,7 +390,7 @@
       }
     },
     "related-products": {
-      "type": "related-products",
+      "type": "maliev-related-products",
       "settings": {
         "heading": "<strong>You may also like</strong>",
         "heading_size": "h1",
@@ -414,7 +414,7 @@
       }
     },
     "multicolumn_CfnjkK": {
-      "type": "multicolumn",
+      "type": "maliev-multicolumn",
       "blocks": {
         "column_CLaRPx": {
           "type": "column",

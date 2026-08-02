@@ -10,7 +10,7 @@
 {
   "sections": {
     "cart-items": {
-      "type": "main-cart-items",
+      "type": "maliev-cart-items",
       "settings": {
         "color_scheme": "scheme-1",
         "padding_top": 36,
@@ -18,7 +18,7 @@
       }
     },
     "cart-footer": {
-      "type": "main-cart-footer",
+      "type": "maliev-cart-summary",
       "blocks": {
         "subtotal": {
           "type": "subtotal",

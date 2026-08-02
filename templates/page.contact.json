@@ -10,14 +10,14 @@
 {
   "sections": {
     "main": {
-      "type": "main-page",
+      "type": "maliev-page",
       "settings": {
         "padding_top": 36,
         "padding_bottom": 24
       }
     },
     "form": {
-      "type": "contact-form",
+      "type": "maliev-contact",
       "settings": {
         "heading": "",
         "heading_size": "h2",
@@ -27,7 +27,7 @@
       }
     },
     "multicolumn_MUqemj": {
-      "type": "multicolumn",
+      "type": "maliev-multicolumn",
       "blocks": {
         "column_TxEB3h": {
           "type": "column",

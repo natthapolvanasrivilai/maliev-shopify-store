@@ -10,7 +10,7 @@
 {
   "sections": {
     "main": {
-      "type": "main-list-collections",
+      "type": "maliev-collections",
       "custom_css": [
         ".grid {--grid-desktop-horizontal-spacing: 16px;}",
         ".icon-wrap {display: none;}",
@@ -26,7 +26,7 @@
       }
     },
     "featured_collection_qJtLB4": {
-      "type": "featured-collection",
+      "type": "maliev-featured-collection",
       "settings": {
         "collection": "featured-collection",
         "products_to_show": 4,

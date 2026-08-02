@@ -10,7 +10,7 @@
 {
   "sections": {
     "banner": {
-      "type": "main-collection-banner",
+      "type": "maliev-collection-hero",
       "custom_css": [
         ".collection-hero__description {font-size: 1em;}",
         ".collection-hero__title {font-weight: 600;}"
@@ -22,7 +22,7 @@
       }
     },
     "product-grid": {
-      "type": "main-collection-product-grid",
+      "type": "maliev-collection-grid",
       "settings": {
         "products_per_page": 36,
         "columns_desktop": 4,
