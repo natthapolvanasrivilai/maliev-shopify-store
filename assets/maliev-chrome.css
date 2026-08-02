@@ -491,6 +491,10 @@
   grid-template-columns: minmax(16rem, auto) auto;
 }
 
+.js .mc-footer__localization-form {
+  grid-template-columns: minmax(16rem, auto);
+}
+
 .mc-footer__localization-form label {
   color: #c9ced3;
   grid-column: 1 / -1;
@@ -506,6 +510,15 @@
 .mc-footer__localization-form button {
   font-size: 1.3rem;
   min-height: 4.4rem;
+}
+
+.js .mc-footer__localization-submit {
+  display: none;
+}
+
+.mc-footer__localization-form[aria-busy='true'] select {
+  cursor: progress;
+  opacity: 0.72;
 }
 
 .mc-footer__legal {

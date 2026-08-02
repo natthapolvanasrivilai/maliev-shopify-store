@@ -1,4 +1,5 @@
 {{ 'maliev-chrome.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-footer.js' | asset_url }}" defer="defer"></script>
 
 {%- assign footer_logo_alt = settings.logo.alt | default: shop.name | escape -%}
 
@@ -75,30 +76,40 @@
   <div class="mc-footer__utility">
     <div class="mc-footer__localization">
       {%- if section.settings.show_country and localization.available_countries.size > 1 -%}
-        {%- form 'localization', id: 'MalievFooterCountry', class: 'mc-footer__localization-form' -%}
+        {%- form 'localization', id: 'MalievFooterCountry', class: 'mc-footer__localization-form', data-footer-localization-form: '' -%}
           <label for="MalievFooterCountrySelect">{{ 'localization.country_label' | t }}</label>
-          <select id="MalievFooterCountrySelect" name="country_code">
+          <select
+            id="MalievFooterCountrySelect"
+            name="country_code"
+            data-footer-localization-select
+            data-initial-value="{{ localization.country.iso_code }}"
+          >
             {%- for country in localization.available_countries -%}
               <option value="{{ country.iso_code }}"{% if country.iso_code == localization.country.iso_code %} selected{% endif %}>
                 {{ country.name }} · {{ country.currency.iso_code }} {{ country.currency.symbol }}
               </option>
             {%- endfor -%}
           </select>
-          <button type="submit">{{ 'localization.update_country' | t }}</button>
+          <button class="mc-footer__localization-submit" type="submit">{{ 'localization.update_country' | t }}</button>
         {%- endform -%}
       {%- endif -%}
 
       {%- if section.settings.show_language and localization.available_languages.size > 1 -%}
-        {%- form 'localization', id: 'MalievFooterLanguage', class: 'mc-footer__localization-form' -%}
+        {%- form 'localization', id: 'MalievFooterLanguage', class: 'mc-footer__localization-form', data-footer-localization-form: '' -%}
           <label for="MalievFooterLanguageSelect">{{ 'localization.language_label' | t }}</label>
-          <select id="MalievFooterLanguageSelect" name="locale_code">
+          <select
+            id="MalievFooterLanguageSelect"
+            name="locale_code"
+            data-footer-localization-select
+            data-initial-value="{{ localization.language.iso_code }}"
+          >
             {%- for language in localization.available_languages -%}
               <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
                 {{ language.endonym_name | capitalize }}
               </option>
             {%- endfor -%}
           </select>
-          <button type="submit">{{ 'localization.update_language' | t }}</button>
+          <button class="mc-footer__localization-submit" type="submit">{{ 'localization.update_language' | t }}</button>
         {%- endform -%}
       {%- endif -%}
     </div>
