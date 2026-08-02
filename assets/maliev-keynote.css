@@ -1098,7 +1098,43 @@
   transition-duration: 900ms;
 }
 
-/* The gallery hero stays still so the machine remains immediately inspectable. */
+/* The product arrives before the copy: one decisive gallery uncover and a
+   shallow perspective settle. It runs once, keeps the machine inspectable,
+   and never turns into ambient motion that would need its own pause control. */
+@keyframes mk-hero-machine-uncover {
+  from {
+    clip-path: inset(0 0 0 24%);
+    opacity: 0.18;
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes mk-hero-machine-settle {
+  from {
+    transform: translate3d(4.8rem, 1.6rem, 0) scale(0.965);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.mk-motion .mkey--hero-overlay .mkey__hero-bg picture {
+  animation: mk-hero-machine-uncover 900ms var(--mk-ease) 60ms both;
+  display: block;
+  inset: 0;
+  position: absolute;
+}
+
+.mk-motion .mkey--hero-overlay .mkey__hero-bg picture img {
+  animation: mk-hero-machine-settle 1050ms var(--mk-ease) 60ms both;
+  transform-origin: 72% 82%;
+}
+
 .mk-motion .mkey--hero-overlay .mkey__copy .mk-in[data-mkr] {
   transition-delay: calc(250ms + var(--mkr-i, 0) * 110ms);
 }
@@ -1207,6 +1243,7 @@
   }
 
   .mk-motion .mkey--hero-overlay .mkey__hero-bg,
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg picture,
   .mk-motion .mkey--hero-overlay .mkey__hero-bg img,
   .mk-motion .mkey__stage-media img {
     animation: none;
