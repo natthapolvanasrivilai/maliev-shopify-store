@@ -100,7 +100,7 @@
 }
 
 .localization-selector option {
-  color: #000000;
+  color: var(--maliev-ink);
 }
 
 .localization-selector + .disclosure__list-wrapper {

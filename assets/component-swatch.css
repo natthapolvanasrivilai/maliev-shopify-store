@@ -16,7 +16,7 @@
 }
 
 .swatch--square {
-  --swatch--border-radius: var(--swatch-input--border-radius, 0.2rem);
+  --swatch--border-radius: var(--swatch-input--border-radius, var(--maliev-radius-control));
 }
 
 .swatch--unavailable {

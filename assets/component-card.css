@@ -292,8 +292,8 @@
 
 .maliev-card-badge {
   border: 0;
-  border-radius: 999px;
-  box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.16);
+  border-radius: var(--maliev-radius-pill);
+  box-shadow: 0 0.8rem 2rem rgba(17, 19, 21, 0.12);
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -302,13 +302,13 @@
 }
 
 .maliev-card-badge--new {
-  background: #ff8a1c;
-  color: #111820;
+  background: var(--maliev-warning);
+  color: var(--maliev-surface);
 }
 
 .maliev-card-badge--best {
-  background: #111820;
-  color: #ffffff;
+  background: var(--maliev-ink);
+  color: var(--maliev-surface);
 }
 
 .card:not(.card--horizontal) > .card__content > .card__badge {

@@ -152,6 +152,7 @@
   --maliev-radius-compact: 0.6rem;
   --maliev-radius-card: 1rem;
   --maliev-radius-panel: 1.4rem;
+  --maliev-radius-pill: 999px;
   --maliev-page: 144rem;
   --maliev-reading: 72rem;
   --maliev-gutter: clamp(2rem, 4vw, 4.8rem);

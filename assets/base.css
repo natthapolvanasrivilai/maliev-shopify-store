@@ -1793,7 +1793,7 @@ details[open] > .share-button__fallback {
 .field__input:-webkit-autofill ~ .field__button,
 .field__input:-webkit-autofill ~ .field__label,
 .customer .field input:-webkit-autofill ~ label {
-  color: rgb(0, 0, 0);
+  color: var(--maliev-ink);
 }
 
 /* Text area */
@@ -2458,7 +2458,7 @@ input[type='checkbox'] {
 .header__heading-logo-wrapper {
   width: 100%;
   display: inline-block;
-  transition: width 0.3s cubic-bezier(0.52, 0, 0.61, 0.99);
+  transition: opacity var(--maliev-transition);
 }
 
 @media screen and (max-width: 989px) {
@@ -3770,13 +3770,13 @@ body main h3:not(.mkey h3) {
 .predictive-search {
   border: 1px solid var(--maliev-line);
   border-radius: var(--maliev-radius-control);
-  box-shadow: 0 1rem 2.8rem rgba(16, 44, 78, 0.1);
+  box-shadow: 0 1rem 2.8rem rgba(17, 19, 21, 0.12);
 }
 
 .announcement-bar-section,
 .utility-bar {
   background: var(--maliev-navy);
-  color: #ffffff;
+  color: var(--maliev-surface);
 }
 
 .announcement-bar,
@@ -3851,7 +3851,7 @@ body .select::after {
 }
 
 body :where(a, button, input, select, textarea, summary):focus-visible {
-  outline: 3px solid #72a9ff;
+  outline: 3px solid var(--maliev-focus);
   outline-offset: 3px;
   box-shadow: none;
 }
@@ -4012,7 +4012,7 @@ html body #MainContent .maliev-home .mh__hero .mh__title {
 }
 
 #MainContent .maliev-home .mh__stat {
-  border-radius: 8px;
+  border-radius: var(--maliev-radius-compact);
 }
 
 body .footer {

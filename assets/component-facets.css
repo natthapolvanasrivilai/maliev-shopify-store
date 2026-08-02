@@ -361,7 +361,7 @@
 .facets-layout-grid--image .facets__label {
   outline-style: solid;
   outline-color: transparent;
-  transition-property: outline-color, outline-width, box-shadow;
+  transition-property: outline-color, box-shadow;
   transition-duration: var(--duration-short);
   transition-timing-function: ease;
 }
@@ -592,7 +592,7 @@ button.facets__button {
 span.active-facets__button-inner {
   color: rgb(var(--color-foreground));
   box-shadow: 0 0 0 0.1rem rgb(var(--color-foreground));
-  border-radius: 2.6rem;
+  border-radius: var(--maliev-radius-pill);
   font-size: 1rem;
   min-height: 0;
   min-width: 0;
