@@ -1,0 +1,143 @@
+{% comment %}
+  Compact MALIEV product story for editorial and homepage placements. Keeps the
+  Shopify product-info, variant, quantity, payment, media, and app-block hooks.
+{% endcomment %}
+
+{%- liquid
+  assign featured_product = product
+  assign product_form_id = 'product-form-' | append: section.id
+  assign variant_images = featured_product.images | where: 'attached_to_variant?', true | map: 'src'
+  assign placeholder = false
+  if featured_product == blank
+    assign placeholder = true
+  endif
+-%}
+
+{{ 'section-main-product.css' | asset_url | stylesheet_tag }}
+{{ 'component-slider.css' | asset_url | stylesheet_tag }}
+{{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+{%- unless featured_product.has_only_default_variant -%}
+  {{ 'component-product-variant-picker.css' | asset_url | stylesheet_tag }}
+  {{ 'component-swatch-input.css' | asset_url | stylesheet_tag }}
+  {{ 'component-swatch.css' | asset_url | stylesheet_tag }}
+{%- endunless -%}
+
+<script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+{%- if featured_product.media.size > 0 -%}
+  <script src="{{ 'product-modal.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'media-gallery.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+
+{%- style -%}
+  #shopify-section-{{ section.id }} .mc-featured-product {
+    padding-block: {{ section.settings.padding_top | times: 0.75 | round }}px {{ section.settings.padding_bottom | times: 0.75 | round }}px;
+  }
+
+  @media screen and (min-width: 750px) {
+    #shopify-section-{{ section.id }} .mc-featured-product {
+      padding-block: {{ section.settings.padding_top }}px {{ section.settings.padding_bottom }}px;
+    }
+  }
+{%- endstyle -%}
+
+<product-info
+  id="FeaturedProduct-{{ section.id }}"
+  class="mc-featured-product color-{{ section.settings.color_scheme }}{% if section.settings.secondary_background %} mc-featured-product--tinted{% endif %}"
+  data-section="{{ section.id }}"
+  data-product-id="{{ featured_product.id }}"
+  data-update-url="false"
+  data-url="{{ featured_product.url }}"
+>
+  <div class="page-width">
+    <div class="mc-featured-product__layout{% if section.settings.media_position == 'right' %} mc-featured-product__layout--media-right{% endif %}">
+      <div class="mc-featured-product__media">
+        {%- if placeholder -%}
+          <div class="mc-featured-product__placeholder" aria-hidden="true">
+            {{ 'product-apparel-1' | placeholder_svg_tag: 'placeholder-svg' }}
+          </div>
+        {%- else -%}
+          {% render 'product-media-gallery', product: featured_product, variant_images: variant_images, limit: 1 %}
+        {%- endif -%}
+      </div>
+
+      <div id="ProductInfo-{{ section.id }}" class="mc-featured-product__content" data-section="{{ section.id }}" data-url="{{ featured_product.url }}">
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+            {%- when '@app' -%}
+              <div class="mc-featured-product__app" {{ block.shopify_attributes }}>{% render block %}</div>
+            {%- when 'text' -%}
+              <p class="mc-featured-product__eyebrow" {{ block.shopify_attributes }}>{{ block.settings.text }}</p>
+            {%- when 'title' -%}
+              <h2 class="mc-featured-product__title" {{ block.shopify_attributes }}>
+                {%- if placeholder -%}{{ 'onboarding.product_title' | t }}{%- else -%}{{ featured_product.title | escape }}{%- endif -%}
+              </h2>
+            {%- when 'price' -%}
+              <div id="price-{{ section.id }}" class="mc-featured-product__price" role="status" {{ block.shopify_attributes }}>
+                {% render 'price', product: featured_product, placeholder: placeholder, use_variant: true, show_badges: true, price_class: 'price--large' %}
+              </div>
+              {%- unless placeholder -%}
+                {%- form 'product', featured_product -%}
+                  <input type="hidden" name="id" value="{{ featured_product.selected_or_first_available_variant.id }}">
+                  {{ form | payment_terms }}
+                {%- endform -%}
+              {%- endunless -%}
+            {%- when 'sku' -%}
+              <p id="Sku-{{ section.id }}" class="mc-featured-product__sku{% if featured_product.selected_or_first_available_variant.sku == blank %} visibility-hidden{% endif %}" role="status" {{ block.shopify_attributes }}>
+                <span>{{ 'products.product.sku' | t }}:</span> {{ featured_product.selected_or_first_available_variant.sku }}
+              </p>
+            {%- when 'variant_picker' -%}
+              {%- unless placeholder -%}
+                <div class="mc-featured-product__variants" {{ block.shopify_attributes }}>
+                  {% render 'product-variant-picker', product: featured_product, block: block, product_form_id: product_form_id %}
+                </div>
+              {%- endunless -%}
+            {%- when 'quantity_selector' -%}
+              {%- unless placeholder -%}
+                <div id="Quantity-Form-{{ section.id }}" class="mc-featured-product__quantity" {{ block.shopify_attributes }}>
+                  <label class="form__label" for="Quantity-{{ section.id }}">{{ 'products.product.quantity.label' | t }}</label>
+                  <quantity-input class="quantity">
+                    <button class="quantity__button" name="minus" type="button"><span class="visually-hidden">{{ 'products.product.quantity.decrease' | t: product: featured_product.title | escape }}</span>{{ 'icon-minus.svg' | inline_asset_content }}</button>
+                    <input class="quantity__input" type="number" name="quantity" id="Quantity-{{ section.id }}" min="{{ featured_product.selected_or_first_available_variant.quantity_rule.min }}" step="{{ featured_product.selected_or_first_available_variant.quantity_rule.increment }}" value="{{ featured_product.selected_or_first_available_variant.quantity_rule.min }}" form="{{ product_form_id }}">
+                    <button class="quantity__button" name="plus" type="button"><span class="visually-hidden">{{ 'products.product.quantity.increase' | t: product: featured_product.title | escape }}</span>{{ 'icon-plus.svg' | inline_asset_content }}</button>
+                  </quantity-input>
+                </div>
+              {%- endunless -%}
+            {%- when 'buy_buttons' -%}
+              {%- unless placeholder -%}
+                <div class="mc-featured-product__actions" {{ block.shopify_attributes }}>
+                  {% render 'buy-buttons', block: block, product: featured_product, product_form_id: product_form_id, section_id: section.id %}
+                </div>
+              {%- endunless -%}
+            {%- when 'share' -%}
+              {%- unless placeholder -%}
+                {% liquid
+                  assign share_url = featured_product.selected_variant.url | default: featured_product.url | prepend: request.origin
+                  render 'share-button', block: block, share_link: share_url
+                %}
+              {%- endunless -%}
+            {%- when 'custom_liquid' -%}
+              <div class="mc-featured-product__custom" {{ block.shopify_attributes }}>{{ block.settings.custom_liquid }}</div>
+            {%- when 'rating' -%}
+              {%- if featured_product.metafields.reviews.rating.value != blank -%}
+                <p class="mc-featured-product__rating" {{ block.shopify_attributes }}>{{ featured_product.metafields.reviews.rating.value }} / {{ featured_product.metafields.reviews.rating.value.scale_max }} · {{ featured_product.metafields.reviews.rating_count }} {{ 'accessibility.total_reviews' | t }}</p>
+              {%- endif -%}
+            {%- when 'icon-with-text' -%}
+              <div class="mc-featured-product__icons" {{ block.shopify_attributes }}>{% render 'icon-with-text', block: block %}</div>
+          {%- endcase -%}
+        {%- endfor -%}
+
+        <a class="mc-featured-product__details" {% if placeholder %}role="link" aria-disabled="true"{% else %}href="{{ featured_product.url }}"{% endif %}>
+          {{ 'products.product.view_full_details' | t }}
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {%- unless placeholder -%}
+    {% render 'product-media-modal', product: featured_product, variant_images: variant_images %}
+  {%- endunless -%}
+</product-info>
+
+<script type="application/ld+json">{{ featured_product | structured_data }}</script>
