@@ -4,27 +4,27 @@
    Content is fully visible without JS: reveal states only exist under .mk-motion. */
 
 .mkey {
-  --mk-ink: #101214;
-  --mk-body: #3d4650;
-  --mk-muted: #5b6470;
-  --mk-white: #ffffff;
-  --mk-canvas: #f4f6f7;
-  --mk-line: rgba(16, 18, 20, 0.1);
-  --mk-blue: #006fd6;
-  --mk-blue-pressed: #064fc4;
-  --mk-green: #00a36c;
-  --mk-focus: #ffd21c;
-  --mk-carbon: #0c1114;
-  --mk-asphalt: #161c22;
-  --mk-cyan: #18b7ff;
+  --mk-ink: var(--maliev-ink, #111315);
+  --mk-body: var(--maliev-ink-soft, #353a40);
+  --mk-muted: var(--maliev-graphite, #626a73);
+  --mk-white: var(--maliev-surface, #ffffff);
+  --mk-canvas: var(--maliev-canvas, #f3f5f6);
+  --mk-line: var(--maliev-rule, #d9dde1);
+  --mk-blue: var(--maliev-blue, #006fd6);
+  --mk-blue-pressed: var(--maliev-blue-hover, #005bb5);
+  --mk-green: var(--maliev-success, #087a55);
+  --mk-focus: var(--maliev-focus, #ffd21c);
+  --mk-carbon: var(--maliev-carbon, #0b0e11);
+  --mk-asphalt: var(--maliev-panel, #171b20);
+  --mk-cyan: var(--maliev-cyan, #18b7ff);
   --mk-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --mk-width: 125rem;
   --mk-gutter: clamp(2rem, 4vw, 4.8rem);
-  --mk-display-font: 'Archivo', 'Inter', 'Noto Sans Thai', system-ui, sans-serif;
+  --mk-display-font: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
 
   background: var(--mk-white);
   color: var(--mk-ink);
-  font-family: var(--font-body-family, 'Inter', 'Noto Sans Thai', system-ui, sans-serif);
+  font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
 }
 
 .mkey *,
@@ -48,7 +48,7 @@
 .mkey :focus-visible {
   outline: 0.3rem solid var(--mk-focus);
   outline-offset: 0.3rem;
-  border-radius: 0.2rem;
+  border-radius: var(--maliev-radius-control);
   box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
 }
 
@@ -61,36 +61,34 @@
 
 /* ---------- Type ---------- */
 
-/* Display voice: Archivo, expanded — industrial signage over the Inter body. */
+/* One coordinated IBM Plex voice across product storytelling and commerce UI. */
 .mkey__display,
 .mkey__headline,
 .mkey__title {
   font-family: var(--mk-display-font);
   color: var(--mk-ink);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
   margin: 0;
   text-wrap: balance;
 }
 
 .mkey__display {
-  font-size: clamp(4.2rem, 5.4vw, 7.8rem);
-  font-stretch: 118%;
-  line-height: 0.96;
-}
-
-.mkey__headline {
-  font-size: clamp(3.2rem, 4.4vw, 5.8rem);
-  font-stretch: 114%;
+  font-size: clamp(3.6rem, 5.8vw, 7.2rem);
+  letter-spacing: -0.035em;
   line-height: 0.98;
 }
 
+.mkey__headline {
+  font-size: clamp(2.8rem, 4vw, 5.2rem);
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+}
+
 .mkey__title {
-  font-size: clamp(1.9rem, 1.9vw, 2.4rem);
-  font-stretch: 108%;
+  font-size: clamp(2rem, 2.2vw, 2.8rem);
   font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.005em;
+  line-height: 1.16;
+  letter-spacing: -0.012em;
 }
 
 .mkey__lead {
@@ -262,7 +260,7 @@
 .mkey--hero-overlay .mkey__hero-bg {
   background:
     radial-gradient(92rem 58rem at 76% 78%, rgba(255, 255, 255, 0.85), transparent 64%),
-    linear-gradient(180deg, #f7f9fa 0%, #eaeef1 58%, #e2e7ea 100%);
+    linear-gradient(180deg, var(--mk-white) 0%, var(--mk-canvas) 58%, var(--mk-line) 100%);
   inset: 0;
   overflow: hidden;
   position: absolute;
@@ -313,7 +311,7 @@
 /* ---------- Machines chapter ---------- */
 
 .mkey__stage-media {
-  border-radius: 1.2rem;
+  border-radius: var(--maliev-radius-card);
   overflow: hidden;
 }
 
@@ -333,7 +331,7 @@
 .mkey__model {
   background: var(--mk-white);
   border: 0.1rem solid var(--mk-line);
-  border-radius: 1.2rem;
+  border-radius: var(--maliev-radius-card);
   display: grid;
   gap: 1.4rem;
   padding: clamp(2rem, 2.6vw, 3.2rem);
@@ -390,7 +388,7 @@
 .mkey__model-name a:focus-visible::after {
   outline: 0.3rem solid var(--mk-focus);
   outline-offset: 0.3rem;
-  border-radius: 1.2rem;
+  border-radius: var(--maliev-radius-card);
 }
 
 .mkey__model-copy {
@@ -459,7 +457,7 @@
   align-items: center;
   aspect-ratio: 4 / 5;
   background: var(--mk-canvas);
-  border-radius: 0.8rem;
+  border-radius: var(--maliev-radius-compact);
   display: flex;
   justify-content: center;
   overflow: hidden;
@@ -488,7 +486,7 @@
 .mkey__inaction-video {
   aspect-ratio: 4 / 3;
   background: var(--mk-canvas);
-  border-radius: 1.2rem;
+  border-radius: var(--maliev-radius-card);
   max-width: 72rem;
   overflow: hidden;
   position: relative;
@@ -539,8 +537,8 @@
 }
 
 .mkey--carbon .mkey__btn:hover {
-  background: #4cc7ff;
-  border-color: #4cc7ff;
+  background: var(--mk-cyan);
+  border-color: var(--mk-cyan);
   box-shadow: 0 0.4rem 0.8rem rgba(24, 183, 255, 0.25);
 }
 
@@ -562,7 +560,7 @@
 }
 
 .mkey--carbon .mkey__textlink:hover {
-  color: #4cc7ff;
+  color: var(--mk-cyan);
 }
 
 .mkey__rigs {
@@ -576,7 +574,7 @@
 
 .mkey__rig {
   background: var(--mk-asphalt);
-  border-radius: 1.6rem;
+  border-radius: var(--maliev-radius-panel);
   display: grid;
   gap: 1.2rem;
   padding: clamp(2rem, 2.4vw, 2.8rem);
@@ -590,8 +588,8 @@
 
 .mkey__rig-media {
   align-items: center;
-  background: #10161b;
-  border-radius: 0.8rem;
+  background: var(--mk-asphalt);
+  border-radius: var(--maliev-radius-compact);
   display: flex;
   justify-content: center;
   min-height: 20rem;
@@ -631,7 +629,7 @@
 .mkey__rig-name a:focus-visible::after {
   outline: 0.3rem solid var(--mk-focus);
   outline-offset: 0.3rem;
-  border-radius: 1.6rem;
+  border-radius: var(--maliev-radius-panel);
   box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
 }
 
@@ -663,7 +661,7 @@
 }
 
 .mkey--feature .mkey__media {
-  border-radius: 1.2rem;
+  border-radius: var(--maliev-radius-card);
   overflow: hidden;
   position: relative;
 }
@@ -717,7 +715,7 @@
 .mkey__panel {
   background: var(--mk-white);
   border: 0.1rem solid var(--mk-line);
-  border-radius: 0.8rem;
+  border-radius: var(--maliev-radius-compact);
   transition: border-color 180ms var(--mk-ease);
 }
 
@@ -780,7 +778,7 @@
 
 .mkey__guides-bento__item {
   background: var(--mk-canvas);
-  border-radius: 0.8rem;
+  border-radius: var(--maliev-radius-compact);
   grid-column: span 3;
   overflow: hidden;
 }
@@ -1012,7 +1010,7 @@
 
 .mkey--carbon .mkey__headline::after {
   background: var(--mk-cyan);
-  border-radius: 0.2rem;
+  border-radius: 0;
   bottom: 0;
   content: '';
   height: 0.4rem;
@@ -1184,4 +1182,3 @@
     aspect-ratio: 4 / 3;
   }
 }
-
