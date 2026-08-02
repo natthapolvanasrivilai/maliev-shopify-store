@@ -2498,6 +2498,152 @@ main .customer table th {
   }
 }
 
+/* Password storefront */
+
+.mc-password-header {
+  border-bottom: 1px solid var(--maliev-rule);
+  background: var(--maliev-surface);
+}
+
+.mc-password-header .password-header {
+  max-width: var(--maliev-page);
+  min-height: 8rem;
+  margin-inline: auto;
+  padding-inline: var(--maliev-gutter);
+}
+
+.mc-password-header .password-link {
+  color: var(--maliev-ink);
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mc-password-hero {
+  position: relative;
+  display: grid;
+  min-height: clamp(52rem, 72vh, 80rem);
+  overflow: hidden;
+  background: var(--maliev-canvas);
+}
+
+.mc-password-hero__media {
+  position: absolute;
+  inset: 0;
+}
+
+.mc-password-hero__media::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(11, 14, 17, 0.78), rgba(11, 14, 17, 0.16));
+  content: '';
+}
+
+.mc-password-hero__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mc-password-hero__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(var(--maliev-page), 100%);
+  margin-inline: auto;
+  padding: clamp(4rem, 8vw, 10rem) var(--maliev-gutter);
+  align-items: center;
+}
+
+.mc-password-hero__panel {
+  width: min(56rem, 100%);
+  padding: clamp(2.8rem, 5vw, 5.6rem);
+  border-radius: var(--maliev-radius-panel);
+  background: var(--maliev-surface);
+}
+
+.mc-password-hero--image .mc-password-hero__panel {
+  background: var(--maliev-surface);
+}
+
+.mc-password-hero__eyebrow {
+  margin: 0 0 1.4rem;
+  color: var(--maliev-blue);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.mc-password-hero__title {
+  margin: 0;
+  color: var(--maliev-ink);
+  font-size: clamp(4rem, 6vw, 6.4rem) !important;
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.mc-password-hero__copy {
+  margin-top: 2rem;
+  color: var(--maliev-graphite);
+  font-size: 1.6rem;
+}
+
+.mc-password-hero__form {
+  margin-top: 2.8rem;
+}
+
+.mc-password-hero__field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid var(--maliev-rule);
+  border-radius: var(--maliev-radius-control);
+  overflow: hidden;
+}
+
+.mc-password-hero__field input {
+  min-width: 0;
+  min-height: 5.2rem;
+  padding: 1.2rem 1.4rem;
+  border: 0;
+  color: var(--maliev-ink);
+  font: inherit;
+}
+
+.mc-password-hero__field button {
+  padding-inline: 1.8rem;
+  border: 0;
+  background: var(--maliev-ink);
+  color: var(--maliev-surface);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mc-password-footer {
+  padding: 3.2rem var(--maliev-gutter);
+  border-top: 1px solid var(--maliev-rule);
+  background: var(--maliev-surface);
+}
+
+@media screen and (max-width: 749px) {
+  .mc-password-hero__content {
+    align-items: end;
+    padding-inline: 2rem;
+  }
+
+  .mc-password-hero__panel {
+    padding: 2.4rem;
+  }
+
+  .mc-password-hero__field {
+    grid-template-columns: 1fr;
+  }
+
+  .mc-password-hero__field button {
+    min-height: 4.8rem;
+  }
+}
+
 @media screen and (max-width: 989px) {
   .mc-product-layout,
   .mc-product-layout--small,
