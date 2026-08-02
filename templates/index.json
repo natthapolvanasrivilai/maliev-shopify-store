@@ -118,6 +118,7 @@
     },
     "keynote_machines": {
       "type": "maliev-keynote-machines",
+      "disabled": true,
       "settings": {
         "aria_label": "Injection molding machines",
         "heading": "Real production. Workshop footprint.",
@@ -165,42 +166,37 @@
       "type": "maliev-keynote-simmount",
       "settings": {
         "aria_label": "SimMount sim racing hardware",
-        "heading": "SimMount. Built for the racing line.",
-        "lead": "Precision sim racing hardware, designed and manufactured in-house at MALIEV. Monitor mounts, bass-shaker hardware, and cockpit upgrades engineered to hold their line lap after lap.",
-        "chips": "Engineered 3D-printed structures | Fits 8020 aluminium rigs | Ships worldwide",
+        "brand_label": "SimMount",
+        "heading": "Hold your line.",
+        "lead": "Precision monitor and bass-shaker mounts for 8020 sim-racing rigs, engineered and made by MALIEV.",
+        "asset_name": "maliev-simmount-campaign-wide.webp",
+        "mobile_asset_name": "maliev-simmount-campaign-mobile.webp",
+        "image_alt": "Black 8020 sim-racing cockpit fitted with SimMount monitor and bass-shaker hardware",
         "primary_label": "Shop SimMount",
         "primary_link": "/collections/sim-racing-solutions",
-        "note": "International shipping available on all SimMount products."
+        "product_nav_label": "Featured SimMount products",
+        "note": "Designed in Thailand. Ships worldwide."
       },
       "blocks": {
         "rig_pivot": {
           "type": "rig_product",
           "settings": {
             "product": "simmount-pro-pivot-precision-triple-monitor-adapter-for-sim-racing",
-            "name": "SimMount Pro Pivot",
-            "spec": "Precision triple-monitor pivots",
-            "asset_name": "maliev-simmount-pivot-carbon.webp",
-            "image_alt": "SimMount Pro Pivot clamped on an 8020 aluminium rig rail, dark studio"
+            "name": "SimMount Pro Pivot"
           }
         },
         "rig_vesa": {
           "type": "rig_product",
           "settings": {
             "product": "simmount-pro-vesa-kit-adjustable-monitor-mount-for-sim-racing-rigs",
-            "name": "SimMount Pro VESA",
-            "spec": "Adjustable VESA monitor mount",
-            "asset_name": "maliev-simmount-vesa-carbon.webp",
-            "image_alt": "SimMount Pro VESA kit with plate, brackets, and hardware laid out in a dark studio"
+            "name": "SimMount Pro VESA"
           }
         },
         "rig_shake": {
           "type": "rig_product",
           "settings": {
             "product": "simmount-shakeholder",
-            "name": "SimMount ShakeHolder",
-            "spec": "Rigid bass-shaker mounting",
-            "asset_name": "maliev-simmount-shake-carbon.webp",
-            "image_alt": "SimMount ShakeHolder bass-shaker mount with gold terminals, dark studio"
+            "name": "SimMount ShakeHolder"
           }
         }
       },
@@ -208,6 +204,7 @@
     },
     "keynote_mesh": {
       "type": "maliev-keynote-feature",
+      "disabled": true,
       "settings": {
         "aria_label": "Mesh Splitter browser tool",
         "heading": "Split oversized STL files in your browser.",
@@ -227,6 +224,7 @@
     },
     "keynote_services": {
       "type": "maliev-keynote-feature",
+      "disabled": true,
       "settings": {
         "aria_label": "Molds, parts, and custom manufacturing",
         "heading": "Molds, parts, and custom manufacturing.",
@@ -268,6 +266,7 @@
     },
     "keynote_guides": {
       "type": "maliev-keynote-guides",
+      "disabled": true,
       "settings": {
         "aria_label": "Guides and workshop notes",
         "heading": "Guides and workshop notes.",
@@ -277,6 +276,7 @@
     },
     "keynote_cta": {
       "type": "maliev-keynote-cta",
+      "disabled": true,
       "settings": {
         "aria_label": "Contact MALIEV",
         "heading": "Still deciding? Let's talk.",
@@ -296,8 +296,8 @@
   "order": [
     "keynote_hero",
     "catalogue",
-    "keynote_machines",
     "keynote_simmount",
+    "keynote_machines",
     "keynote_mesh",
     "keynote_services",
     "keynote_guides",

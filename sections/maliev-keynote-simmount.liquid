@@ -1,81 +1,91 @@
-{{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
+{{ 'maliev-simmount-campaign.css' | asset_url | stylesheet_tag }}
 
-<section id="simmount" class="mkey mkey--chapter mkey--carbon" aria-label="{{ section.settings.aria_label | escape }}">
-  <div class="mkey__frame">
-    <div class="mkey__intro" data-mkr-group>
-      <h2 class="mkey__headline" data-mkr>{{ section.settings.heading }}</h2>
-      {%- if section.settings.lead != blank -%}
-        <p class="mkey__lead" data-mkr>{{ section.settings.lead }}</p>
+<section id="simmount" class="msim" aria-label="{{ section.settings.aria_label | escape }}">
+  <div class="msim__media">
+    <picture>
+      {%- if section.settings.mobile_image != blank -%}
+        <source media="(max-width: 749px)" srcset="{{ section.settings.mobile_image | image_url: width: 1200 }}">
+      {%- elsif section.settings.mobile_asset_name != blank -%}
+        <source media="(max-width: 749px)" srcset="{{ section.settings.mobile_asset_name | asset_url }}">
       {%- endif -%}
-      {%- if section.settings.chips != blank -%}
-        <ul class="mkey__chips" data-mkr role="list">
-          {%- assign chip_items = section.settings.chips | split: '|' -%}
-          {%- for chip in chip_items -%}
-            <li class="mkey__chip">{{ chip | strip }}</li>
-          {%- endfor -%}
-        </ul>
-      {%- endif -%}
-    </div>
 
-    {%- if section.blocks.size > 0 -%}
-      <ul class="mkey__rigs" data-mkr-group role="list">
-        {%- for block in section.blocks -%}
-          {%- assign rig_product = block.settings.product -%}
-          <li class="mkey__rig" data-mkr="race" {{ block.shopify_attributes }}>
-            <div class="mkey__rig-media">
-              {%- if block.settings.image != blank -%}
-                {{
-                  block.settings.image
-                  | image_url: width: 900
-                  | image_tag: widths: '450, 700, 900', sizes: '(max-width: 749px) 92vw, 30vw', loading: 'lazy', alt: block.settings.image_alt
-                }}
-              {%- elsif block.settings.asset_name != blank -%}
-                <img src="{{ block.settings.asset_name | asset_url }}" alt="{{ block.settings.image_alt | escape }}" loading="lazy" width="1400" height="1400">
-              {%- elsif block.settings.image_url != blank -%}
-                <img src="{{ block.settings.image_url }}" alt="{{ block.settings.image_alt | escape }}" loading="lazy" width="750" height="750">
-              {%- elsif rig_product.featured_image -%}
-                {{
-                  rig_product.featured_image
-                  | image_url: width: 900
-                  | image_tag: widths: '450, 700, 900', sizes: '(max-width: 749px) 92vw, 30vw', loading: 'lazy'
-                }}
-              {%- endif -%}
-            </div>
-            <h3 class="mkey__rig-name">
-              {%- if rig_product != blank -%}
-                <a href="{{ rig_product.url }}">{{ block.settings.name | default: rig_product.title }}</a>
-              {%- elsif block.settings.link != blank -%}
-                <a href="{{ block.settings.link }}">{{ block.settings.name }}</a>
-              {%- else -%}
-                {{ block.settings.name }}
-              {%- endif -%}
-            </h3>
-            {%- if block.settings.spec != blank -%}
-              <p class="mkey__rig-spec">{{ block.settings.spec }}</p>
-            {%- endif -%}
-            {%- if rig_product != blank -%}
-              <p class="mkey__rig-price">{{ rig_product.price | money }}</p>
-            {%- endif -%}
-          </li>
-        {%- endfor -%}
-      </ul>
+      {%- if section.settings.image != blank -%}
+        {{
+          section.settings.image
+          | image_url: width: 2400
+          | image_tag:
+            widths: '960, 1440, 1920, 2400',
+            sizes: '100vw',
+            loading: 'lazy',
+            alt: section.settings.image_alt
+        }}
+      {%- elsif section.settings.asset_name != blank -%}
+        <img
+          src="{{ section.settings.asset_name | asset_url }}"
+          alt="{{ section.settings.image_alt | escape }}"
+          width="1920"
+          height="1080"
+          loading="lazy"
+        >
+      {%- endif -%}
+    </picture>
+  </div>
+
+  <div class="msim__content">
+    <p class="msim__brand">{{ section.settings.brand_label | escape }}</p>
+    <h2 class="msim__headline">{{ section.settings.heading | escape }}</h2>
+    {%- if section.settings.lead != blank -%}
+      <p class="msim__lead">{{ section.settings.lead | escape }}</p>
     {%- endif -%}
 
-    <div class="mkey__actions" data-mkr-group>
-      {%- if section.settings.primary_label != blank -%}
-        <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/collections/sim-racing-solutions' }}" data-mkr>{{ section.settings.primary_label }}</a>
-      {%- endif -%}
-      {%- if section.settings.note != blank -%}
-        <p class="mkey__note" data-mkr>{{ section.settings.note }}</p>
-      {%- endif -%}
-    </div>
+    {%- if section.settings.primary_label != blank -%}
+      <a class="msim__button" href="{{ section.settings.primary_link | default: '/collections/sim-racing-solutions' }}">
+        {{ section.settings.primary_label | escape }}
+      </a>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <nav class="msim__products" aria-label="{{ section.settings.product_nav_label | escape }}">
+        <ul role="list">
+          {%- for block in section.blocks -%}
+            {%- liquid
+              assign rig_product = block.settings.product
+              assign product_name = block.settings.name
+              assign product_link = block.settings.link
+
+              if rig_product != blank
+                if product_name == blank
+                  assign product_name = rig_product.title
+                endif
+                assign product_link = rig_product.url
+              endif
+
+              if product_link == blank
+                assign product_link = section.settings.primary_link | default: '/collections/sim-racing-solutions'
+              endif
+            -%}
+            {%- if product_name != blank -%}
+              <li {{ block.shopify_attributes }}>
+                <a href="{{ product_link }}">
+                  <span>{{ product_name | escape }}</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </nav>
+    {%- endif -%}
+
+    {%- if section.settings.note != blank -%}
+      <p class="msim__note">{{ section.settings.note | escape }}</p>
+    {%- endif -%}
   </div>
 </section>
 
 {% schema %}
 {
-  "name": "Keynote SimMount",
+  "name": "SimMount campaign",
   "tag": "div",
   "settings": [
     {
@@ -86,21 +96,47 @@
     },
     {
       "type": "text",
+      "id": "brand_label",
+      "label": "Brand label",
+      "default": "SimMount"
+    },
+    {
+      "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "SimMount. Built for the racing line."
+      "default": "Hold your line."
     },
     {
       "type": "textarea",
       "id": "lead",
       "label": "Lead text",
-      "default": "Precision sim racing hardware, designed and manufactured in-house at MALIEV. Monitor mounts, bass-shaker hardware, and cockpit upgrades engineered to hold their line lap after lap."
+      "default": "Precision monitor and bass-shaker mounts for 8020 sim-racing rigs, engineered and made by MALIEV."
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Desktop campaign image"
     },
     {
       "type": "text",
-      "id": "chips",
-      "label": "Spec chips (separate with |)",
-      "default": "Engineered 3D-printed structures | Fits 8020 aluminium rigs | Ships worldwide"
+      "id": "asset_name",
+      "label": "Desktop theme asset filename"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "Mobile campaign image"
+    },
+    {
+      "type": "text",
+      "id": "mobile_asset_name",
+      "label": "Mobile theme asset filename"
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Image alternative text",
+      "default": "Black 8020 sim-racing cockpit fitted with SimMount monitor and bass-shaker hardware"
     },
     {
       "type": "text",
@@ -115,33 +151,33 @@
     },
     {
       "type": "text",
+      "id": "product_nav_label",
+      "label": "Featured products accessibility label",
+      "default": "Featured SimMount products"
+    },
+    {
+      "type": "text",
       "id": "note",
       "label": "Supporting note",
-      "default": "International shipping available on all SimMount products."
+      "default": "Designed in Thailand. Ships worldwide."
     }
   ],
   "blocks": [
     {
       "type": "rig_product",
-      "name": "SimMount product",
+      "name": "Featured SimMount product",
       "settings": [
         { "type": "product", "id": "product", "label": "Product" },
         { "type": "text", "id": "name", "label": "Display name" },
-        { "type": "text", "id": "spec", "label": "Spec line", "info": "For example: Triple-monitor precision pivots" },
-        { "type": "image_picker", "id": "image", "label": "Image override" },
-        { "type": "text", "id": "asset_name", "label": "Theme asset filename" },
-        { "type": "text", "id": "image_url", "label": "Fallback image URL" },
-        { "type": "text", "id": "image_alt", "label": "Image alt text" },
         { "type": "url", "id": "link", "label": "Link override" }
       ]
     }
   ],
   "presets": [
     {
-      "name": "Keynote SimMount",
+      "name": "SimMount campaign",
       "blocks": [{ "type": "rig_product" }, { "type": "rig_product" }, { "type": "rig_product" }]
     }
   ]
 }
 {% endschema %}
-
