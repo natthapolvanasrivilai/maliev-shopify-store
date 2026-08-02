@@ -1,0 +1,205 @@
+{{ 'maliev-catalogue.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-catalogue.js' | asset_url }}" defer="defer"></script>
+
+{%- if section.blocks.size > 0 -%}
+  <section
+    class="mcat"
+    aria-labelledby="mcat-title-{{ section.id }}"
+    data-maliev-catalogue
+    data-autoplay="{{ section.settings.autoplay }}"
+    data-interval="3000"
+  >
+    <div class="mcat__frame">
+      <div class="mcat__header">
+        <div>
+          {%- if section.settings.eyebrow != blank -%}
+            <p class="mcat__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+          {%- endif -%}
+          <h2 class="mcat__title" id="mcat-title-{{ section.id }}">{{ section.settings.heading | escape }}</h2>
+        </div>
+
+        <div class="mcat__controls" aria-label="Catalogue controls">
+          <button class="mcat__control" type="button" data-mcat-previous aria-label="Previous catalogue">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button
+            class="mcat__control mcat__control--pause"
+            type="button"
+            data-mcat-toggle
+            aria-label="Pause catalogue rotation"
+            aria-pressed="false"
+          >
+            <svg class="mcat__pause-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
+            <svg class="mcat__play-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></svg>
+          </button>
+          <button class="mcat__control" type="button" data-mcat-next aria-label="Next catalogue">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="mcat__viewport">
+        <ul class="mcat__track" data-mcat-track aria-label="{{ section.settings.aria_label | escape }}">
+          {%- for block in section.blocks -%}
+            <li class="mcat__item" data-mcat-card data-index="{{ forloop.index0 }}" {{ block.shopify_attributes }}>
+              <a class="mcat__card mcat__card--{{ block.settings.theme }}" href="{{ block.settings.link | default: routes.root_url }}">
+                <div class="mcat__copy">
+                  {%- if block.settings.badge != blank -%}
+                    <p class="mcat__badge">{{ block.settings.badge | escape }}</p>
+                  {%- endif -%}
+                  <h3 class="mcat__card-title">{{ block.settings.title | escape }}</h3>
+                  {%- if block.settings.description != blank -%}
+                    <p class="mcat__description">{{ block.settings.description | escape }}</p>
+                  {%- endif -%}
+                  {%- if block.settings.link_label != blank -%}
+                    <span class="mcat__link-label">
+                      {{ block.settings.link_label | escape }}
+                      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h13M13 7l5 5-5 5"/></svg>
+                    </span>
+                  {%- endif -%}
+                </div>
+
+                <div class="mcat__media">
+                  {%- if block.settings.image != blank -%}
+                    {{
+                      block.settings.image
+                      | image_url: width: 1200
+                      | image_tag:
+                        widths: '480, 720, 960, 1200',
+                        sizes: '(max-width: 749px) 84vw, (max-width: 1199px) 44vw, 30vw',
+                        loading: 'lazy',
+                        alt: block.settings.image_alt
+                    }}
+                  {%- elsif block.settings.asset_name != blank -%}
+                    <img
+                      src="{{ block.settings.asset_name | asset_url }}"
+                      alt="{{ block.settings.image_alt | escape }}"
+                      width="1086"
+                      height="1448"
+                      loading="lazy"
+                    >
+                  {%- endif -%}
+                </div>
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+
+      <div class="mcat__status" aria-hidden="true">
+        <span class="mcat__count"><span data-mcat-current>01</span> / {{ section.blocks.size | prepend: '0' | slice: -2, 2 }}</span>
+        <div class="mcat__progress" data-mcat-progress></div>
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "MALIEV catalogue",
+  "tag": "div",
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Carousel accessibility label",
+      "default": "MALIEV product catalogues"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Designed and built by MALIEV"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Explore the catalogue."
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Advance every 3 seconds",
+      "default": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "catalogue",
+      "name": "Catalogue card",
+      "settings": [
+        {
+          "type": "text",
+          "id": "badge",
+          "label": "Badge",
+          "default": "Catalogue"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Catalogue title"
+        },
+        {
+          "type": "textarea",
+          "id": "description",
+          "label": "Description",
+          "default": "A short description of this product family."
+        },
+        {
+          "type": "text",
+          "id": "link_label",
+          "label": "Link label",
+          "default": "Explore"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Card image"
+        },
+        {
+          "type": "text",
+          "id": "asset_name",
+          "label": "Theme asset fallback",
+          "info": "Used only when no card image is selected."
+        },
+        {
+          "type": "text",
+          "id": "image_alt",
+          "label": "Image alt text",
+          "default": "MALIEV product catalogue"
+        },
+        {
+          "type": "select",
+          "id": "theme",
+          "label": "Text treatment",
+          "default": "dark",
+          "options": [
+            { "value": "dark", "label": "Dark card" },
+            { "value": "light", "label": "Light card" },
+            { "value": "blue", "label": "Blue card" }
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV catalogue",
+      "blocks": [
+        { "type": "catalogue" },
+        { "type": "catalogue" },
+        { "type": "catalogue" },
+        { "type": "catalogue" }
+      ]
+    }
+  ]
+}
+{% endschema %}

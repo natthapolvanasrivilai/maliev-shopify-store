@@ -1,0 +1,301 @@
+.mcat {
+  --mcat-gutter: clamp(2rem, 4.2vw, 6.4rem);
+  background: #f6f7f8;
+  color: var(--maliev-ink, #101419);
+  overflow: hidden;
+  padding: clamp(7.2rem, 10vw, 13rem) 0;
+}
+
+.mcat__frame {
+  margin: 0 auto;
+  max-width: 144rem;
+}
+
+.mcat__header,
+.mcat__status {
+  margin-inline: var(--mcat-gutter);
+}
+
+.mcat__header {
+  align-items: flex-end;
+  display: flex;
+  gap: 3rem;
+  justify-content: space-between;
+  margin-bottom: clamp(3rem, 4.5vw, 5.6rem);
+}
+
+.mcat__eyebrow,
+.mcat__badge,
+.mcat__count {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  line-height: 1.4;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.mcat__eyebrow {
+  color: #65707b;
+  margin-bottom: 1.2rem;
+}
+
+.mcat__title {
+  font-family: var(--font-heading-family, "IBM Plex Sans", sans-serif);
+  font-size: clamp(3.2rem, 4.8vw, 6.4rem);
+  font-weight: 500;
+  letter-spacing: -.045em;
+  line-height: .98;
+  margin: 0;
+}
+
+.mcat__controls {
+  display: flex;
+  gap: .6rem;
+}
+
+.mcat__control {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 1px solid #b9c0c6;
+  border-radius: .4rem;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  height: 4.4rem;
+  justify-content: center;
+  padding: 0;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  width: 4.4rem;
+}
+
+.mcat__control:hover {
+  background: #101419;
+  border-color: #101419;
+  color: #fff;
+}
+
+.mcat__control:focus-visible,
+.mcat__card:focus-visible {
+  outline: 3px solid var(--maliev-blue, #146ef5);
+  outline-offset: 3px;
+}
+
+.mcat__control svg,
+.mcat__link-label svg {
+  fill: none;
+  height: 1.9rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 1.9rem;
+}
+
+.mcat__play-icon {
+  display: none;
+}
+
+.mcat__control--pause[aria-pressed="true"] .mcat__pause-icon {
+  display: none;
+}
+
+.mcat__control--pause[aria-pressed="true"] .mcat__play-icon {
+  display: block;
+}
+
+.mcat__viewport {
+  position: relative;
+}
+
+.mcat__track {
+  display: flex;
+  gap: clamp(1.4rem, 1.8vw, 2.4rem);
+  list-style: none;
+  margin: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0 var(--mcat-gutter) 1.2rem;
+  scroll-padding-inline: var(--mcat-gutter);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.mcat__track::-webkit-scrollbar {
+  display: none;
+}
+
+.mcat__item {
+  flex: 0 0 clamp(29rem, 30vw, 39rem);
+  scroll-snap-align: start;
+}
+
+.mcat__card {
+  background: #101419;
+  border-radius: 1rem;
+  color: #fff;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: clamp(52rem, 58vw, 66rem);
+  overflow: hidden;
+  position: relative;
+  text-decoration: none;
+}
+
+.mcat__card--light {
+  background: #e7e9eb;
+  color: #101419;
+}
+
+.mcat__card--blue {
+  background: #c9e3f7;
+  color: #0b2438;
+}
+
+.mcat__copy {
+  padding: clamp(2.4rem, 3vw, 3.6rem);
+  position: relative;
+  z-index: 1;
+}
+
+.mcat__badge {
+  color: #72c8ff;
+  margin-bottom: 1.6rem;
+}
+
+.mcat__card--light .mcat__badge,
+.mcat__card--blue .mcat__badge {
+  color: #075fa8;
+}
+
+.mcat .mcat__card-title {
+  color: inherit;
+  font-family: var(--font-heading-family, "IBM Plex Sans", sans-serif);
+  font-size: clamp(2.8rem, 3vw, 4.2rem);
+  font-weight: 500;
+  letter-spacing: -.04em;
+  line-height: 1.02;
+  margin: 0;
+}
+
+.mcat__description {
+  font-size: clamp(1.4rem, 1.25vw, 1.7rem);
+  line-height: 1.45;
+  margin: 1.2rem 0 0;
+  max-width: 32ch;
+  opacity: .78;
+}
+
+.mcat__link-label {
+  align-items: center;
+  display: inline-flex;
+  font-size: 1.3rem;
+  font-weight: 600;
+  gap: .7rem;
+  margin-top: 2rem;
+}
+
+.mcat__link-label svg {
+  transition: transform 180ms ease;
+}
+
+.mcat__card:hover .mcat__link-label svg {
+  transform: translateX(.4rem);
+}
+
+.mcat__media {
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.mcat__media::after {
+  background: linear-gradient(to bottom, rgba(16, 20, 25, .12), transparent 28%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.mcat__card--light .mcat__media::after,
+.mcat__card--blue .mcat__media::after {
+  background: linear-gradient(to bottom, rgba(231, 233, 235, .2), transparent 28%);
+}
+
+.mcat__media img {
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  transition: transform 600ms cubic-bezier(.2, .7, .2, 1);
+  width: 100%;
+}
+
+.mcat__card:hover .mcat__media img {
+  transform: scale(1.025);
+}
+
+.mcat__status {
+  align-items: center;
+  display: flex;
+  gap: 1.8rem;
+  margin-top: 2.4rem;
+}
+
+.mcat__count {
+  color: #4f5963;
+  min-width: 6rem;
+}
+
+.mcat__progress {
+  background: #cbd0d4;
+  flex: 1;
+  height: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mcat__progress::before {
+  background: #101419;
+  content: "";
+  inset: 0 auto 0 0;
+  position: absolute;
+  transform: scaleX(var(--mcat-progress, .25));
+  transform-origin: left;
+  transition: transform 360ms ease;
+  width: 100%;
+}
+
+@media (max-width: 749px) {
+  .mcat {
+    --mcat-gutter: 2rem;
+    padding-block: 7.2rem;
+  }
+
+  .mcat__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2.4rem;
+  }
+
+  .mcat__item {
+    flex-basis: 84vw;
+  }
+
+  .mcat__card {
+    min-height: 58rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcat__track {
+    scroll-behavior: auto;
+  }
+
+  .mcat__card,
+  .mcat__media img,
+  .mcat__link-label svg,
+  .mcat__progress::before {
+    transition: none;
+  }
+}

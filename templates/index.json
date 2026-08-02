@@ -1,4 +1,5 @@
 {
+
   "sections": {
     "keynote_hero": {
       "type": "maliev-keynote-hero",
@@ -19,6 +20,70 @@
         "note": "Built in-house. Supported in Thailand. One-year warranty.",
         "show_social": true
       }
+    },
+    "catalogue": {
+      "type": "maliev-catalogue",
+      "settings": {
+        "aria_label": "MALIEV product catalogues",
+        "eyebrow": "Designed and built by MALIEV",
+        "heading": "Explore the catalogue.",
+        "autoplay": true
+      },
+      "blocks": {
+        "machines": {
+          "type": "catalogue",
+          "settings": {
+            "badge": "Made in Thailand",
+            "title": "Injection molding machines",
+            "description": "Compare the compact 30G and 50G, then book a factory visit.",
+            "link_label": "Explore the machines",
+            "link": "/collections/เครื่องฉีดพลาสติก",
+            "asset_name": "maliev-catalogue-machines.webp",
+            "image_alt": "MALIEV PIMM 30G and 50G compact injection molding machines in a cool gray studio",
+            "theme": "light"
+          }
+        },
+        "simmount": {
+          "type": "catalogue",
+          "settings": {
+            "badge": "Ships worldwide",
+            "title": "SimMount hardware",
+            "description": "Precision monitor and bass-shaker mounts built for 8020 sim rigs.",
+            "link_label": "Shop SimMount",
+            "link": "/collections/sim-racing-solutions",
+            "asset_name": "maliev-catalogue-simmount.webp",
+            "image_alt": "SimMount monitor and bass-shaker mounting hardware arranged in a dark carbon studio",
+            "theme": "dark"
+          }
+        },
+        "molds_parts": {
+          "type": "catalogue",
+          "settings": {
+            "badge": "Factory support",
+            "title": "Molds & machine parts",
+            "description": "Production tooling, genuine spares, and engineering support from our workshop.",
+            "link_label": "See molds and parts",
+            "link": "/collections/molds",
+            "asset_name": "maliev-catalogue-molds-parts.webp",
+            "image_alt": "Machined injection molds and precision parts on a working factory bench",
+            "theme": "dark"
+          }
+        },
+        "mesh_splitter": {
+          "type": "catalogue",
+          "settings": {
+            "badge": "Browser tool",
+            "title": "Mesh Splitter",
+            "description": "Cut oversized STL models into printable, keyed parts without uploading files.",
+            "link_label": "Open Mesh Splitter",
+            "link": "/tools/mesh-splitter",
+            "asset_name": "maliev-catalogue-mesh-splitter.webp",
+            "image_alt": "Technical 3D model separated into four clean keyed sections",
+            "theme": "blue"
+          }
+        }
+      },
+      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter"]
     },
     "keynote_machines": {
       "type": "maliev-keynote-machines",
@@ -199,6 +264,7 @@
   },
   "order": [
     "keynote_hero",
+    "catalogue",
     "keynote_machines",
     "keynote_simmount",
     "keynote_mesh",
