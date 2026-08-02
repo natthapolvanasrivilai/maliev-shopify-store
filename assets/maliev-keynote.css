@@ -256,7 +256,7 @@
 
 /* Overlay layout: the render is the full-bleed stage, copy sits in its left clear zone. */
 
-/* CSS studio stage + alpha machine cutout: no baked background, no seams. */
+/* Full-bleed studio stage; homepage assets provide their own lighting and floor. */
 .mkey--hero-overlay .mkey__hero-bg {
   background:
     radial-gradient(92rem 58rem at 76% 78%, rgba(255, 255, 255, 0.85), transparent 64%),
@@ -276,15 +276,171 @@
   width: auto;
 }
 
+.mkey--hero-overlay .mkey__hero-bg--gallery {
+  background:
+    radial-gradient(70rem 58rem at 73% 48%, rgba(255, 255, 255, 0.98), rgba(243, 245, 246, 0.35) 58%, transparent 76%),
+    linear-gradient(105deg, var(--mk-white) 0%, var(--mk-white) 44%, var(--mk-canvas) 100%);
+}
+
+.mkey--hero-overlay .mkey__hero-bg--gallery::after {
+  background: var(--mk-ink);
+  bottom: clamp(2.2rem, 5vh, 5.4rem);
+  content: '';
+  height: 0.1rem;
+  opacity: 0.14;
+  position: absolute;
+  right: clamp(3rem, 6vw, 9rem);
+  width: min(35vw, 52rem);
+}
+
+.mkey--hero-overlay .mkey__hero-bg--gallery img {
+  bottom: clamp(2.5rem, 5vh, 5.8rem);
+  filter: saturate(0.88) contrast(1.03);
+  height: min(84%, 88rem);
+  right: clamp(3rem, 8vw, 14rem);
+}
+
 /* Fill the viewport below the shell header. */
 .mkey--hero-overlay .mkey__frame {
   grid-template-columns: minmax(0, 1fr);
   min-height: calc(100svh - var(--maliev-header-h, 7.3rem) - 0.1rem);
   position: relative;
+  z-index: 1;
 }
 
 .mkey--hero-overlay .mkey__copy {
   max-width: 68rem;
+}
+
+.mkey--hero-overlay .mkey__btn {
+  background: var(--mk-ink);
+  border-color: var(--mk-ink);
+}
+
+.mkey--hero-overlay .mkey__btn:hover {
+  background: var(--mk-body);
+  border-color: var(--mk-body);
+  box-shadow: 0 0.4rem 0.8rem rgba(17, 19, 21, 0.18);
+}
+
+.mkey--hero-overlay .mkey__btn--secondary {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--mk-ink);
+  color: var(--mk-ink);
+}
+
+.mkey--hero-overlay .mkey__btn--secondary:hover {
+  background: var(--mk-canvas);
+  border-color: var(--mk-ink);
+  color: var(--mk-ink);
+}
+
+.mkey--hero-overlay .mkey__textlink,
+.mkey--hero-overlay .mkey__textlink:hover {
+  color: var(--mk-ink);
+}
+
+.mkey__hero-social {
+  bottom: clamp(1.8rem, 3vw, 4rem);
+  position: absolute;
+  right: clamp(2rem, 4vw, 6.4rem);
+  z-index: 3;
+}
+
+.mkey__hero-social .list-social {
+  align-items: center;
+  display: flex;
+  gap: 0.2rem;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__hero-social .list-social__link {
+  align-items: center;
+  color: var(--mk-ink);
+  display: inline-flex;
+  height: 4.4rem;
+  justify-content: center;
+  padding: 1.2rem;
+  width: 4.4rem;
+}
+
+.mkey__hero-social .icon {
+  height: 1.7rem;
+  width: 1.7rem;
+}
+
+/* Homepage pilot: restrained body type plus engineered display faces. */
+.template-index .mkey {
+  --mk-display-font: var(--maliev-font-future);
+  font-family: var(--maliev-font-sans);
+  font-synthesis: none;
+}
+
+.template-index .mkey__display,
+.template-index .mkey__headline,
+.template-index .mkey__title {
+  font-weight: 400;
+}
+
+.template-index .mkey--hero-overlay .mkey__display {
+  font-family: var(--maliev-font-hero);
+}
+
+@media screen and (min-width: 990px) {
+  .template-index .mkey--hero-overlay {
+    min-height: 100svh;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__frame {
+    max-width: none;
+    min-height: 100svh;
+    padding: clamp(12rem, 15vh, 17rem) clamp(18rem, 17vw, 30rem) clamp(9rem, 11vh, 13rem) clamp(3.2rem, 8vw, 13rem);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__copy {
+    gap: clamp(1.6rem, 2.2vh, 2.6rem);
+    max-width: clamp(42rem, 37vw, 58rem);
+    transform: translateY(3vh);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__display {
+    font-size: clamp(4.8rem, 5.9vw, 9rem);
+    letter-spacing: -0.025em;
+    line-height: 0.96;
+    max-width: 10ch;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__lead {
+    font-size: clamp(1.45rem, 1.25vw, 1.8rem);
+    line-height: 1.55;
+    max-width: 48rem;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery {
+    background: var(--mk-white);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery::after {
+    display: none;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery img {
+    bottom: 0;
+    filter: none;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    right: 0;
+    width: 100%;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__note {
+    color: var(--mk-body);
+    font-size: 1.2rem;
+    letter-spacing: 0.015em;
+  }
 }
 
 /* ---------- Chapter shell ---------- */
@@ -934,41 +1090,13 @@
   transition-duration: 900ms;
 }
 
-/* --- Hero signature entrance: the machine lands first, copy follows. --- */
-
-@keyframes mk-hero-machine {
-  from {
-    opacity: 0;
-    transform: translateY(2.8rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.mk-motion .mkey--hero-overlay .mkey__hero-bg img {
-  animation: mk-hero-machine 900ms var(--mk-ease) both;
-}
-
+/* The gallery hero stays still so the machine remains immediately inspectable. */
 .mk-motion .mkey--hero-overlay .mkey__copy .mk-in[data-mkr] {
   transition-delay: calc(250ms + var(--mkr-i, 0) * 110ms);
 }
 
 /* Depth on scroll where the browser supports scroll-driven animations. */
 @supports (animation-timeline: view()) {
-  @keyframes mk-hero-parallax {
-    to {
-      transform: translateY(7rem);
-    }
-  }
-
-  .mk-motion .mkey--hero-overlay .mkey__hero-bg {
-    animation: mk-hero-parallax linear both;
-    animation-range: exit 0% exit 100%;
-    animation-timeline: view();
-  }
-
   /* The lineup stage settles from a slight zoom as it enters. */
   @keyframes mk-stage-zoom {
     from {
@@ -1114,6 +1242,43 @@
     max-height: 56vh;
     position: static;
     width: auto;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg--gallery {
+    min-height: 44rem;
+    position: relative;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg--gallery::after {
+    bottom: 2.4rem;
+    left: 12%;
+    right: 12%;
+    width: auto;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg--gallery img {
+    max-height: 48.72vh;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery {
+    background: var(--mk-white);
+    min-height: clamp(38rem, 58vh, 52rem);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery::after {
+    display: none;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery img {
+    bottom: 0;
+    filter: none;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    object-position: 72% center;
+    position: absolute;
+    right: 0;
+    width: 100%;
   }
 
   .mkey--hero-overlay .mkey__frame {

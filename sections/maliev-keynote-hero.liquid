@@ -7,7 +7,7 @@
   aria-label="{{ section.settings.aria_label | escape }}"
 >
   {%- if section.settings.layout == 'overlay' -%}
-    <div class="mkey__hero-bg" aria-hidden="true">
+    <div class="mkey__hero-bg mkey__hero-bg--gallery" aria-hidden="true">
       <picture>
         {%- if section.settings.mobile_asset_name != blank -%}
           <source media="(max-width: 989px)" srcset="{{ section.settings.mobile_asset_name | asset_url }}">
@@ -15,7 +15,7 @@
         {%- if section.settings.image != blank -%}
           <img src="{{ section.settings.image | image_url: width: 2600 }}" alt="" width="2600" height="1463" fetchpriority="high">
         {%- elsif section.settings.asset_name != blank -%}
-          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1032" height="2143" fetchpriority="high">
+          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1920" height="1080" fetchpriority="high">
         {%- elsif section.settings.image_url != blank -%}
           <img src="{{ section.settings.image_url }}" alt="" width="2592" height="1458" fetchpriority="high">
         {%- endif -%}
@@ -68,6 +68,11 @@
     </div>
     {%- endif -%}
   </div>
+  {%- if section.settings.show_social -%}
+    <div class="mkey__hero-social">
+      {% render 'social-icons', class: 'mkey__hero-social-list' %}
+    </div>
+  {%- endif -%}
 </section>
 
 {% schema %}
@@ -169,6 +174,12 @@
       "id": "note",
       "label": "Supporting note",
       "default": "Built in-house. Supported in Thailand. One-year warranty."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "label": "Show social links",
+      "default": true
     }
   ],
   "presets": [{ "name": "Keynote hero" }]

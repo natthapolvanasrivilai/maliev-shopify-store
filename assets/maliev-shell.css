@@ -5,6 +5,42 @@
 
 @font-face {
   font-display: swap;
+  font-family: 'Aldrich';
+  font-style: normal;
+  font-weight: 400;
+  src: url('./Aldrich-Regular.ttf') format('truetype');
+  unicode-range: U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'Audiowide';
+  font-style: normal;
+  font-weight: 400;
+  src: url('./Audiowide-Regular.ttf') format('truetype');
+  unicode-range: U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 400;
+  src: url('./ChakraPetch-Regular.ttf') format('truetype');
+  unicode-range: U+0E01-0E3A, U+0E40-0E5B;
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 600;
+  src: url('./ChakraPetch-SemiBold.ttf') format('truetype');
+  unicode-range: U+0E01-0E3A, U+0E40-0E5B;
+}
+
+@font-face {
+  font-display: swap;
   font-family: 'IBM Plex Sans';
   font-style: normal;
   font-weight: 400;
@@ -122,6 +158,8 @@
 
 :root {
   --maliev-font-sans: 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif;
+  --maliev-font-future: 'Aldrich', 'Chakra Petch', 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif;
+  --maliev-font-hero: 'Audiowide', 'Chakra Petch', 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif;
   --maliev-font-mono: 'IBM Plex Mono', ui-monospace, 'IBM Plex Sans', monospace;
   --font-body-family: var(--maliev-font-sans);
   --font-heading-family: var(--maliev-font-sans);

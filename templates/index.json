@@ -4,8 +4,8 @@
       "type": "maliev-keynote-hero",
       "settings": {
         "aria_label": "MALIEV introduction",
-        "heading": "Injection molding, sized for your workshop.",
-        "lead": "MALIEV designs and builds compact pneumatic injection molding machines in Thailand — serious small-batch production without the industrial footprint.",
+        "heading": "Mold the future. In your workshop.",
+        "lead": "Compact injection molding machines, designed and built in Thailand for real small-batch production.",
         "primary_label": "Book a factory visit",
         "primary_link": "/pages/contact",
         "secondary_label": "Explore the machines",
@@ -13,10 +13,11 @@
         "tertiary_label": "Sim racing? See SimMount",
         "tertiary_link": "#simmount",
         "layout": "overlay",
-        "asset_name": "maliev-pimm-hero-alpha.webp",
+        "asset_name": "maliev-pimm-30g-landing-hero-light.png",
         "mobile_asset_name": "",
         "image_alt": "MALIEV compact pneumatic injection molding machine, three-quarter studio view",
-        "note": "Built in-house. Supported in Thailand. One-year warranty."
+        "note": "Built in-house. Supported in Thailand. One-year warranty.",
+        "show_social": true
       }
     },
     "keynote_machines": {
@@ -206,6 +207,3 @@
     "keynote_cta"
   ]
 }
-
-
-

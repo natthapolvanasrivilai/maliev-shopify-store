@@ -19,6 +19,12 @@ colors:
   sim-line: "#30363D"
   sim-cyan: "#18B7FF"
 typography:
+  home-display:
+    fontFamily: "Audiowide, Chakra Petch, Aldrich, IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
+    fontSize: "clamp(4.8rem, 5.9vw, 9rem)"
+    fontWeight: 400
+    lineHeight: 0.96
+    letterSpacing: "-0.025em"
   display:
     fontFamily: "IBM Plex Sans, IBM Plex Sans Thai, sans-serif"
     fontSize: "clamp(3.6rem, 5.8vw, 7.2rem)"
@@ -141,7 +147,12 @@ A Thai workshop owner reviews the store on a laptop beside a bright production b
 
 ## 2. Typography
 
-The entire MALIEV web estate uses one coordinated IBM Plex superfamily.
+The core commerce system uses one coordinated IBM Plex superfamily. The homepage is the controlled pilot for a more engineered display voice: Audiowide for the Latin hero headline, Aldrich for other Latin display headings, and Chakra Petch for Thai display text. Other templates remain on IBM Plex until they are deliberately redesigned rather than inheriting the homepage treatment accidentally.
+
+- **Audiowide:** homepage Latin hero headline at weight 400 only.
+- **Aldrich:** other homepage Latin display headings at weight 400 only.
+- **Chakra Petch:** Thai glyphs for homepage display headings, using its geometric loop construction to fit both Latin display faces.
+- **IBM Plex Sans / IBM Plex Sans Thai:** homepage navigation, body copy, actions, and dense interface text remain in the more readable commerce family.
 
 - **IBM Plex Sans:** Latin interface, editorial copy, headings, navigation, buttons, and prices.
 - **IBM Plex Sans Thai:** Thai glyphs in the same line and at the same hierarchy as Latin.
@@ -151,7 +162,9 @@ Self-host the same subsets used by `R:\maliev-web\Maliev.Web`: Sans 400/500/600 
 
 Named rules:
 
-- **One superfamily:** no Archivo, Inter, Noto Sans Thai, theme-selected body font, or decorative display face remains in the custom system.
+- **Controlled homepage exception:** Audiowide, Aldrich, and Chakra Petch apply only to `.template-index` and `.mc-header--home` until each remaining template is redesigned and validated.
+- **No synthetic display weights:** Audiowide and Aldrich ship at 400 here; hierarchy comes from scale, spacing, and composition rather than browser-generated bold.
+- **Commerce continuity:** no Archivo, Inter, Noto Sans Thai, or theme-selected body font remains in the custom system; IBM Plex continues to own dense commerce and long-form reading.
 - **Three working weights:** 400 for reading, 500 for UI emphasis, 600 for headings and decisive emphasis. Never synthesize bold.
 - **Mono means data:** never use monospace for mood, labels, navigation, or entire specification paragraphs.
 - **Thai parity:** Thai headings do not shrink merely to imitate Latin line lengths. Test real localized strings at every breakpoint.
@@ -328,7 +341,7 @@ The custom theme system is complete only when:
 2. Every template family uses the MALIEV tokens, typography, components, focus system, responsive grid, and state vocabulary.
 3. Machines retain demonstration-first conversion and explicit Thailand/THB context.
 4. SimMount retains direct international commerce and clear compatibility.
-5. IBM Plex Sans, IBM Plex Sans Thai, and IBM Plex Mono load locally with the intended subsets and weights.
+5. IBM Plex Sans, IBM Plex Sans Thai, IBM Plex Mono, Audiowide, Aldrich, and Chakra Petch load locally with their intended scope and weights.
 6. All merchant-facing schemas and Shopify commerce behaviors remain valid.
 7. Theme Check passes, focused contract checks pass, and the relevant theme suite passes.
 8. Desktop and mobile browser checks cover home, each product mode, collections, blog/article, search, cart/drawer, contact/pages/policies, account/auth, password, gift card, and 404.
