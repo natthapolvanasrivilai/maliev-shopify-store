@@ -275,6 +275,7 @@
 
     {{ 'base.css' | asset_url | stylesheet_tag }}
     {{ 'maliev-shell.css' | asset_url | stylesheet_tag }}
+    {{ 'maliev-commerce.css' | asset_url | stylesheet_tag }}
     <link rel="stylesheet" href="{{ 'component-cart-items.css' | asset_url }}" media="print" onload="this.media='all'">
 
     {%- if settings.cart_type == 'drawer' -%}
@@ -761,7 +762,11 @@
     {%- endif -%}
 </head>
 
-  <body class="gradient{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}">
+  <body
+    class="gradient template-{{ template.name | handle }}{% if template.suffix %} template-{{ template.name | handle }}--{{ template.suffix | handle }}{% endif %}{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}"
+    data-template="{{ template.name | escape }}"
+    {% if template.suffix %}data-template-suffix="{{ template.suffix | escape }}"{% endif %}
+  >
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-568NMRCL"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
