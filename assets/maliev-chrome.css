@@ -819,10 +819,15 @@
   }
 
   .mc-footer__localization-form label,
-  .mc-footer__localization-form select,
-  .mc-footer__localization-form button {
+  .mc-footer__localization-form select {
     grid-column: 1;
     width: 100%;
+  }
+
+  .mc-footer__localization-submit {
+    grid-column: 1;
+    justify-self: start;
+    width: auto;
   }
 
   .mc-footer__payments {
