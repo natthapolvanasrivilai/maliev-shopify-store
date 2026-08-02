@@ -25,7 +25,7 @@
       "type": "maliev-catalogue",
       "settings": {
         "aria_label": "MALIEV product catalogues",
-        "heading": "Machines, mounts, molds, and tools",
+        "heading": "Everything MALIEV makes",
         "autoplay": true
       },
       "blocks": {
@@ -76,9 +76,45 @@
             "image_alt": "Technical 3D model separated into four clean keyed sections",
             "theme": "blue"
           }
+        },
+        "printed_items": {
+          "type": "catalogue",
+          "settings": {
+            "title": "3D printed items",
+            "description": "Functional parts and workshop accessories printed in-house.",
+            "link_label": "Browse printed items",
+            "link": "/collections/3d-printed-products",
+            "asset_name": "maliev-catalogue-3d-printed.webp",
+            "image_alt": "Functional 3D printed enclosures, jigs, brackets, cable guide, and gear on a workshop bench",
+            "theme": "light"
+          }
+        },
+        "digital_files": {
+          "type": "catalogue",
+          "settings": {
+            "title": "Digital files",
+            "description": "Downloadable models and workshop-ready design files.",
+            "link_label": "Browse digital files",
+            "link": "/search?q=digital+files&type=product",
+            "asset_name": "maliev-catalogue-digital-files.webp",
+            "image_alt": "Mechanical components progressing from CAD wireframes to finished digital models",
+            "theme": "dark"
+          }
+        },
+        "molding_materials": {
+          "type": "catalogue",
+          "settings": {
+            "title": "Molding materials",
+            "description": "Pellets and color options selected for compact production.",
+            "link_label": "Browse materials",
+            "link": "/search?q=molding+materials&type=product",
+            "asset_name": "maliev-catalogue-molding-materials.webp",
+            "image_alt": "Natural white, black, and blue molding pellets with molded material samples",
+            "theme": "light"
+          }
         }
       },
-      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter"]
+      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter", "printed_items", "digital_files", "molding_materials"]
     },
     "keynote_machines": {
       "type": "maliev-keynote-machines",

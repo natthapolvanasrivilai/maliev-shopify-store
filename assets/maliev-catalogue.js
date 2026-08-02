@@ -8,23 +8,16 @@
     const cards = Array.from(root.querySelectorAll('[data-mcat-card]'));
     const previous = root.querySelector('[data-mcat-previous]');
     const next = root.querySelector('[data-mcat-next]');
-    const toggle = root.querySelector('[data-mcat-toggle]');
-    if (!track || cards.length === 0 || !previous || !next || !toggle) return;
+    if (!track || cards.length === 0 || !previous || !next) return;
     initialized.add(root);
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const autoplayEnabled = root.dataset.autoplay === 'true';
-    const interval = Number(root.dataset.interval) || 3000;
+    const interval = Number(root.dataset.interval) || 5000;
     let activeIndex = 0;
     let timer = null;
-    let userPaused = !autoplayEnabled || reduceMotion.matches;
-    let interactionPaused = false;
+    const pauseReasons = new Set();
     let scrollFrame = null;
-
-    const setToggleState = () => {
-      toggle.setAttribute('aria-pressed', String(userPaused));
-      toggle.setAttribute('aria-label', userPaused ? 'Play catalogue rotation' : 'Pause catalogue rotation');
-    };
 
     const updateStatus = (index) => {
       const positions = getPositions();
@@ -63,17 +56,17 @@
 
     const startTimer = () => {
       stopTimer();
-      if (userPaused || interactionPaused || document.hidden || getPositions().length < 2) return;
+      if (!autoplayEnabled || reduceMotion.matches || pauseReasons.size > 0 || document.hidden || getPositions().length < 2) return;
       timer = window.setInterval(() => goTo(activeIndex + 1), interval);
     };
 
-    const pauseForInteraction = () => {
-      interactionPaused = true;
+    const pauseForInteraction = (reason) => {
+      pauseReasons.add(reason);
       stopTimer();
     };
 
-    const resumeAfterInteraction = () => {
-      interactionPaused = false;
+    const resumeAfterInteraction = (reason) => {
+      pauseReasons.delete(reason);
       startTimer();
     };
 
@@ -87,19 +80,19 @@
       startTimer();
     });
 
-    toggle.addEventListener('click', () => {
-      userPaused = !userPaused;
-      setToggleState();
-      startTimer();
+    root.addEventListener('pointerenter', (event) => {
+      if (event.pointerType !== 'touch') pauseForInteraction('hover');
     });
-
-    track.addEventListener('pointerenter', pauseForInteraction);
-    track.addEventListener('pointerleave', resumeAfterInteraction);
-    track.addEventListener('touchstart', pauseForInteraction, { passive: true });
-    track.addEventListener('touchend', resumeAfterInteraction, { passive: true });
-    root.addEventListener('focusin', pauseForInteraction);
+    root.addEventListener('pointerleave', () => resumeAfterInteraction('hover'));
+    track.addEventListener('pointerdown', () => pauseForInteraction('pointer'));
+    track.addEventListener('pointerup', () => resumeAfterInteraction('pointer'));
+    track.addEventListener('pointercancel', () => resumeAfterInteraction('pointer'));
+    track.addEventListener('touchstart', () => pauseForInteraction('touch'), { passive: true });
+    track.addEventListener('touchend', () => resumeAfterInteraction('touch'), { passive: true });
+    track.addEventListener('touchcancel', () => resumeAfterInteraction('touch'), { passive: true });
+    root.addEventListener('focusin', () => pauseForInteraction('focus'));
     root.addEventListener('focusout', (event) => {
-      if (!root.contains(event.relatedTarget)) resumeAfterInteraction();
+      if (!root.contains(event.relatedTarget)) resumeAfterInteraction('focus');
     });
 
     track.addEventListener('scroll', () => {
@@ -114,13 +107,8 @@
     }, { passive: true });
 
     document.addEventListener('visibilitychange', startTimer);
-    reduceMotion.addEventListener('change', (event) => {
-      userPaused = event.matches || !autoplayEnabled;
-      setToggleState();
-      startTimer();
-    });
+    reduceMotion.addEventListener('change', startTimer);
 
-    setToggleState();
     updateStatus(0);
     startTimer();
   };

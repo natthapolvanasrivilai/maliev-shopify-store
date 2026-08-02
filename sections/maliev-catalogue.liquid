@@ -7,22 +7,11 @@
     aria-labelledby="mcat-title-{{ section.id }}"
     data-maliev-catalogue
     data-autoplay="{{ section.settings.autoplay }}"
-    data-interval="3000"
+    data-interval="5000"
   >
     <div class="mcat__frame">
       <div class="mcat__header">
         <h2 class="mcat__title" id="mcat-title-{{ section.id }}">{{ section.settings.heading | escape }}</h2>
-
-        <button
-          class="mcat__control mcat__control--pause"
-          type="button"
-          data-mcat-toggle
-          aria-label="Pause catalogue rotation"
-          aria-pressed="false"
-        >
-          <svg class="mcat__pause-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
-          <svg class="mcat__play-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></svg>
-        </button>
       </div>
 
       <div class="mcat__viewport">
@@ -91,12 +80,12 @@
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "Machines, mounts, molds, and tools"
+      "default": "Everything MALIEV makes"
     },
     {
       "type": "checkbox",
       "id": "autoplay",
-      "label": "Advance every 3 seconds",
+      "label": "Advance every 5 seconds",
       "default": true
     }
   ],
