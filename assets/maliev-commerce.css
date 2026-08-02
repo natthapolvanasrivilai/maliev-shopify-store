@@ -2372,6 +2372,132 @@ main .customer table th {
   justify-self: start;
 }
 
+/* Customer accounts */
+
+.mc-account-surface {
+  width: min(112rem, calc(100% - (var(--maliev-gutter) * 2)));
+  max-width: none !important;
+  margin-inline: auto;
+  color: var(--maliev-ink);
+}
+
+.mc-account-surface--login,
+.mc-account-surface--register,
+.mc-account-surface--activate,
+.mc-account-surface--reset {
+  width: min(52rem, calc(100% - (var(--maliev-gutter) * 2)));
+}
+
+.mc-account-surface > h1,
+.mc-account-surface .customer__title,
+.mc-account-surface > div:first-child > h1 {
+  margin: 0 0 1.6rem;
+  font-size: clamp(4rem, 6vw, 6.4rem) !important;
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+  text-align: left;
+}
+
+.mc-account-surface > p {
+  max-width: 48rem;
+  color: var(--maliev-graphite);
+  font-size: 1.6rem;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.mc-account-surface form {
+  display: grid;
+  gap: 1.6rem;
+  margin-top: 3.2rem;
+}
+
+.mc-account-surface form .field {
+  margin: 0;
+}
+
+.mc-account-surface form .button,
+.mc-account-surface form button {
+  margin-top: 0.8rem;
+}
+
+.mc-account-surface :where(a:not(.button)) {
+  color: var(--maliev-blue);
+  text-underline-offset: 0.2em;
+}
+
+.mc-account-surface--account > div:first-child,
+.mc-account-surface--order > div:first-child {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 4rem;
+  padding-bottom: 2.4rem;
+  border-bottom: 1px solid var(--maliev-rule);
+}
+
+.mc-account-surface--account > div:nth-child(2) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(24rem, 32rem);
+  gap: clamp(3.2rem, 7vw, 8rem);
+}
+
+.mc-account-surface :where(table) {
+  width: 100%;
+  border: 1px solid var(--maliev-rule);
+  border-radius: var(--maliev-radius-card);
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+.mc-account-surface :where(th, td) {
+  padding: 1.4rem 1.6rem;
+  border: 0;
+  border-bottom: 1px solid var(--maliev-rule);
+  font-size: 1.3rem;
+  text-align: left;
+}
+
+.mc-account-surface th {
+  background: var(--maliev-canvas);
+  color: var(--maliev-graphite);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mc-account-surface tr:last-child td {
+  border-bottom: 0;
+}
+
+.mc-account-surface--addresses [data-address] {
+  margin-top: 3.2rem;
+}
+
+.mc-account-surface--addresses li {
+  padding-block: 2.4rem;
+  border-bottom: 1px solid var(--maliev-rule);
+}
+
+@media screen and (max-width: 749px) {
+  .mc-account-surface--account > div:first-child,
+  .mc-account-surface--order > div:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mc-account-surface--account > div:nth-child(2) {
+    grid-template-columns: 1fr;
+  }
+
+  .mc-account-surface :where(table) {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
 @media screen and (max-width: 989px) {
   .mc-product-layout,
   .mc-product-layout--small,
