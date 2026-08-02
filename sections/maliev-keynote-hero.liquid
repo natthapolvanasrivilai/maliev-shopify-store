@@ -23,7 +23,7 @@
     </div>
   {%- endif -%}
   <div class="mkey__frame" data-mkr-group>
-    <div class="mkey__copy">
+    <div class="mkey__copy mkey__copy--machine-paths">
       <h1 class="mkey__display" data-mkr>{{ section.settings.heading }}</h1>
       {%- if section.settings.lead != blank -%}
         <p class="mkey__lead" data-mkr>{{ section.settings.lead }}</p>
@@ -33,18 +33,12 @@
           <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}">{{ section.settings.primary_label }}</a>
         {%- endif -%}
         {%- if section.settings.secondary_label != blank -%}
-          <a class="mkey__btn mkey__btn--secondary" href="{{ section.settings.secondary_link | default: '/collections/all' }}">{{ section.settings.secondary_label }}</a>
-        {%- endif -%}
-        {%- if section.settings.tertiary_label != blank -%}
-          <a class="mkey__textlink" href="{{ section.settings.tertiary_link }}">
-            {{ section.settings.tertiary_label }}
+          <a class="mkey__textlink" href="{{ section.settings.secondary_link | default: '/collections/all' }}">
+            {{ section.settings.secondary_label }}
             <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
           </a>
         {%- endif -%}
       </div>
-      {%- if section.settings.note != blank -%}
-        <p class="mkey__note" data-mkr>{{ section.settings.note }}</p>
-      {%- endif -%}
     </div>
     {%- if section.settings.layout == 'overlay' -%}
       {%- comment -%} Media is the full-bleed background; the machine image alt lives on the section aria-label. {%- endcomment -%}

@@ -3677,8 +3677,25 @@ details-disclosure > details {
 
 html {
   overflow-x: clip;
-  scrollbar-color: rgba(72, 91, 116, 0.48) transparent;
+  scrollbar-color: rgba(17, 19, 21, 0.28) transparent;
   scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar {
+  width: 0.6rem;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: rgba(17, 19, 21, 0.28);
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 19, 21, 0.44);
 }
 
 body.gradient {

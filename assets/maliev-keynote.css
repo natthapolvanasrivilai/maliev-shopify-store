@@ -312,6 +312,12 @@
   max-width: 68rem;
 }
 
+/* Accepted distilled hero: two machine-focused paths with an airy, bounded copy column. */
+.template-index .mkey--hero-overlay .mkey__copy.mkey__copy--machine-paths {
+  gap: 2.4rem;
+  max-width: 50rem;
+}
+
 .mkey--hero-overlay .mkey__btn {
   background: var(--mk-ink);
   border-color: var(--mk-ink);
