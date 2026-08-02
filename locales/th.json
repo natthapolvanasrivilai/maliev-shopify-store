@@ -322,7 +322,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "ระบบจะคำนวณภาษี ส่วนลด และค่าจัดส่งในขั้นตอนการชำระเงิน"
     },
     "footer": {
-      "payment": "วิธีการชำระเงิน"
+      "payment": "วิธีการชำระเงิน",
+      "support_heading": "บริการช่วยเหลือและเยี่ยมชม",
+      "policies_heading": "นโยบาย",
+      "contact": "ติดต่อ MALIEV",
+      "factory_visit": "นัดหมายเยี่ยมชมโรงงาน",
+      "workshop_guides": "คู่มือสำหรับเวิร์กช็อป",
+      "manufacturing_services": "บริการผลิตชิ้นงาน"
     },
     "featured_blog": {
       "view_all": "ดูทั้งหมด",

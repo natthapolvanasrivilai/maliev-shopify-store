@@ -332,7 +332,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Impuestos, descuentos y envío calculados en la pantalla de pago."
     },
     "footer": {
-      "payment": "Formas de pago"
+      "payment": "Formas de pago",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Ver todo",

@@ -342,7 +342,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Obliczenie podatków, rabatów i wysyłki przy realizacji zakupu."
     },
     "footer": {
-      "payment": "Metody płatności"
+      "payment": "Metody płatności",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Wyświetl wszystkie",

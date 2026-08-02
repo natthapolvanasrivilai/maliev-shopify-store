@@ -21,6 +21,15 @@
             "menu": "main-menu"
           }
         },
+        "support": {
+          "type": "support",
+          "settings": {
+            "contact_url": "/pages/contact",
+            "visit_url": "/products/appointment",
+            "guides_url": "/blogs/news",
+            "services_url": "https://www.maliev.com/"
+          }
+        },
         "newsletter": {
           "type": "newsletter",
           "settings": {
@@ -31,6 +40,7 @@
       },
       "block_order": [
         "shop_menu",
+        "support",
         "newsletter"
       ],
       "settings": {

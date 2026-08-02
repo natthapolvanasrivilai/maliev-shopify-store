@@ -322,7 +322,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Данъците, отстъпките и доставката се изчисляват при плащане."
     },
     "footer": {
-      "payment": "Начини на плащане"
+      "payment": "Начини на плащане",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Покажи всички",

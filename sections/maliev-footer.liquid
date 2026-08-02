@@ -2,6 +2,8 @@
 <script src="{{ 'maliev-footer.js' | asset_url }}" defer="defer"></script>
 
 {%- assign footer_logo_alt = settings.logo.alt | default: shop.name | escape -%}
+{%- assign footer_loading_label = 'accessibility.loading' | t -%}
+{%- assign footer_error_label = 'accessibility.error' | t -%}
 
 <footer class="mc-footer">
   <div class="mc-footer__main">
@@ -26,14 +28,56 @@
         {%- when 'menu' -%}
           {%- if block.settings.menu != blank -%}
             <nav class="mc-footer__menu" aria-labelledby="FooterMenu-{{ block.id }}" {{ block.shopify_attributes }}>
-              <h2 id="FooterMenu-{{ block.id }}">{{ block.settings.heading | default: block.settings.menu.title | escape }}</h2>
-              <ul role="list">
-                {%- for link in block.settings.menu.links -%}
-                  <li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>
-                {%- endfor -%}
-              </ul>
+              <details class="mc-footer__disclosure" open data-footer-disclosure>
+                <summary>
+                  <h2 id="FooterMenu-{{ block.id }}">{{ block.settings.heading | default: block.settings.menu.title | escape }}</h2>
+                  <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+                </summary>
+                <ul role="list">
+                  {%- for link in block.settings.menu.links -%}
+                    {%- unless link.url == '#' -%}
+                      <li>
+                        <a href="{{ link.url }}"{% if link.url contains 'http' %} target="_blank" rel="noopener noreferrer"{% endif %}>
+                          {{ link.title | escape }}
+                          {%- if link.url contains 'http' -%}
+                            <span class="visually-hidden">({{ 'accessibility.link_messages.external' | t }} {{ 'accessibility.link_messages.new_window' | t }})</span>
+                          {%- endif -%}
+                        </a>
+                      </li>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </ul>
+              </details>
             </nav>
           {%- endif -%}
+        {%- when 'support' -%}
+          <nav class="mc-footer__menu" aria-labelledby="FooterSupport-{{ block.id }}" {{ block.shopify_attributes }}>
+            <details class="mc-footer__disclosure" open data-footer-disclosure>
+              <summary>
+                <h2 id="FooterSupport-{{ block.id }}">{{ 'sections.footer.support_heading' | t }}</h2>
+                <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+              </summary>
+              <ul role="list">
+                {%- if block.settings.contact_url != blank -%}
+                  <li><a href="{{ block.settings.contact_url }}">{{ 'sections.footer.contact' | t }}</a></li>
+                {%- endif -%}
+                {%- if block.settings.visit_url != blank -%}
+                  <li><a href="{{ block.settings.visit_url }}">{{ 'sections.footer.factory_visit' | t }}</a></li>
+                {%- endif -%}
+                {%- if block.settings.guides_url != blank -%}
+                  <li><a href="{{ block.settings.guides_url }}">{{ 'sections.footer.workshop_guides' | t }}</a></li>
+                {%- endif -%}
+                {%- if block.settings.services_url != blank -%}
+                  <li>
+                    <a href="{{ block.settings.services_url }}" target="_blank" rel="noopener noreferrer">
+                      {{ 'sections.footer.manufacturing_services' | t }}
+                      <span class="visually-hidden">({{ 'accessibility.link_messages.external' | t }} {{ 'accessibility.link_messages.new_window' | t }})</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+              </ul>
+            </details>
+          </nav>
         {%- when 'newsletter' -%}
           <div class="mc-footer__newsletter" {{ block.shopify_attributes }}>
             <h2>{{ block.settings.heading | escape }}</h2>
@@ -76,7 +120,7 @@
   <div class="mc-footer__utility">
     <div class="mc-footer__localization">
       {%- if section.settings.show_country and localization.available_countries.size > 1 -%}
-        {%- form 'localization', id: 'MalievFooterCountry', class: 'mc-footer__localization-form', data-footer-localization-form: '' -%}
+        {%- form 'localization', id: 'MalievFooterCountry', class: 'mc-footer__localization-form', data-footer-localization-form: '', data-loading-label: footer_loading_label, data-error-label: footer_error_label -%}
           <label for="MalievFooterCountrySelect">{{ 'localization.country_label' | t }}</label>
           <select
             id="MalievFooterCountrySelect"
@@ -91,11 +135,12 @@
             {%- endfor -%}
           </select>
           <button class="mc-footer__localization-submit" type="submit">{{ 'localization.update_country' | t }}</button>
+          <p class="mc-footer__localization-status" role="status" aria-live="polite" data-footer-localization-status hidden></p>
         {%- endform -%}
       {%- endif -%}
 
       {%- if section.settings.show_language and localization.available_languages.size > 1 -%}
-        {%- form 'localization', id: 'MalievFooterLanguage', class: 'mc-footer__localization-form', data-footer-localization-form: '' -%}
+        {%- form 'localization', id: 'MalievFooterLanguage', class: 'mc-footer__localization-form', data-footer-localization-form: '', data-loading-label: footer_loading_label, data-error-label: footer_error_label -%}
           <label for="MalievFooterLanguageSelect">{{ 'localization.language_label' | t }}</label>
           <select
             id="MalievFooterLanguageSelect"
@@ -110,6 +155,7 @@
             {%- endfor -%}
           </select>
           <button class="mc-footer__localization-submit" type="submit">{{ 'localization.update_language' | t }}</button>
+          <p class="mc-footer__localization-status" role="status" aria-live="polite" data-footer-localization-status hidden></p>
         {%- endform -%}
       {%- endif -%}
     </div>
@@ -117,11 +163,17 @@
     <div class="mc-footer__legal">
       <p>&copy; {{ 'now' | date: '%Y' }} {{ shop.name | link_to: routes.root_url }}</p>
       {%- if section.settings.show_policies -%}
-        <ul role="list">
-          {%- for policy in shop.policies -%}
-            {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
-          {%- endfor -%}
-        </ul>
+        <details class="mc-footer__disclosure mc-footer__legal-disclosure" open data-footer-disclosure>
+          <summary>
+            <span>{{ 'sections.footer.policies_heading' | t }}</span>
+            <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+          </summary>
+          <ul role="list">
+            {%- for policy in shop.policies -%}
+              {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </details>
       {%- endif -%}
     </div>
 
@@ -196,6 +248,33 @@
       ]
     },
     {
+      "type": "support",
+      "name": "Support links",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "url",
+          "id": "contact_url",
+          "label": "Contact page"
+        },
+        {
+          "type": "url",
+          "id": "visit_url",
+          "label": "Factory visit page"
+        },
+        {
+          "type": "url",
+          "id": "guides_url",
+          "label": "Workshop guides"
+        },
+        {
+          "type": "url",
+          "id": "services_url",
+          "label": "Manufacturing services"
+        }
+      ]
+    },
+    {
       "type": "newsletter",
       "name": "Newsletter",
       "limit": 1,
@@ -220,7 +299,7 @@
       "name": "MALIEV footer",
       "blocks": [
         { "type": "menu" },
-        { "type": "menu" },
+        { "type": "support" },
         { "type": "newsletter" }
       ]
     }

@@ -322,7 +322,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Vergiler, indirimler ve kargo, ödeme sayfasında hesaplanır."
     },
     "footer": {
-      "payment": "Ödeme yöntemleri"
+      "payment": "Ödeme yöntemleri",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Tümünü görüntüle",

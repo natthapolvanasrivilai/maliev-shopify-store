@@ -342,7 +342,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Налоги, скидки и стоимость доставки рассчитываются при оформлении заказа."
     },
     "footer": {
-      "payment": "Способы оплаты"
+      "payment": "Способы оплаты",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Посмотреть все",

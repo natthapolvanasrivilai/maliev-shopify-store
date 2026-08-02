@@ -332,7 +332,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Taxele, reducerile și transportul sunt calculate la finalizarea comenzii."
     },
     "footer": {
-      "payment": "Metode de plată"
+      "payment": "Metode de plată",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Afișați tot",

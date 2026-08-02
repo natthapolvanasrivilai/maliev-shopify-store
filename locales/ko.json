@@ -322,7 +322,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "결제 시 세금, 할인 및 배송료가 계산됩니다."
     },
     "footer": {
-      "payment": "결제 방법"
+      "payment": "결제 방법",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "모두 보기",

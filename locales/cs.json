@@ -342,7 +342,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Daně, slevy a poštovné se vypočítají na pokladně."
     },
     "footer": {
-      "payment": "Platební metody"
+      "payment": "Platební metody",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Zobrazit vše",
