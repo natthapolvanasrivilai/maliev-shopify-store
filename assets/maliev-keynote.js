@@ -10,6 +10,30 @@
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+  function initHomeHeader() {
+    var header = document.querySelector('.mc-header--home');
+    var hero = document.querySelector('.mkey--hero');
+    if (!header || !hero) return;
+
+    var frameRequested = false;
+
+    function syncHeader() {
+      frameRequested = false;
+      var heroBottom = hero.getBoundingClientRect().bottom;
+      header.classList.toggle('is-solid', heroBottom <= header.offsetHeight + 1);
+    }
+
+    function requestSync() {
+      if (frameRequested) return;
+      frameRequested = true;
+      window.requestAnimationFrame(syncHeader);
+    }
+
+    syncHeader();
+    window.addEventListener('scroll', requestSync, { passive: true });
+    window.addEventListener('resize', requestSync);
+  }
+
   function revealAll() {
     document.querySelectorAll('.mkey [data-mkr]').forEach(function (el) {
       el.classList.add('mk-in');
@@ -100,10 +124,12 @@
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
+      initHomeHeader();
       init();
       syncVideos();
     });
   } else {
+    initHomeHeader();
     init();
     syncVideos();
   }
