@@ -40,6 +40,35 @@
     });
   }
 
+  /* Shopify's theme editor and local HMR can replace a section after this
+     script has initialized. Newly inserted reveal targets must never inherit
+     the hidden pre-reveal state without also being registered. Dynamic
+     replacements are revealed immediately; initial page content keeps the
+     normal IntersectionObserver choreography below. */
+  function observeDynamicKeynoteContent() {
+    if (!('MutationObserver' in window) || !document.body) return;
+
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) {
+          if (node.nodeType !== 1) return;
+
+          if (node.matches && node.matches('.mkey [data-mkr]')) {
+            node.classList.add('mk-in');
+          }
+
+          if (node.querySelectorAll) {
+            node.querySelectorAll('.mkey [data-mkr]').forEach(function (el) {
+              el.classList.add('mk-in');
+            });
+          }
+        });
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   function init() {
     if (reduceMotion.matches || !('IntersectionObserver' in window)) {
       document.documentElement.classList.remove('mk-motion');
@@ -126,11 +155,13 @@
     document.addEventListener('DOMContentLoaded', function () {
       initHomeHeader();
       init();
+      observeDynamicKeynoteContent();
       syncVideos();
     });
   } else {
     initHomeHeader();
     init();
+    observeDynamicKeynoteContent();
     syncVideos();
   }
 })();
