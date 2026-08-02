@@ -12,31 +12,34 @@
   "type": "footer",
   "sections": {
     "footer": {
-      "type": "footer",
+      "type": "maliev-footer",
       "blocks": {
-        "brand_information_RfTniC": {
-          "type": "brand_information",
+        "shop_menu": {
+          "type": "menu",
           "settings": {
-            "show_social": true
+            "heading": "Shop",
+            "menu": "main-menu"
+          }
+        },
+        "newsletter": {
+          "type": "newsletter",
+          "settings": {
+            "heading": "Workshop updates",
+            "text": "New products, practical guides, and manufacturing notes. No noise."
           }
         }
       },
       "block_order": [
-        "brand_information_RfTniC"
+        "shop_menu",
+        "newsletter"
       ],
       "settings": {
-        "color_scheme": "scheme-3",
-        "newsletter_enable": true,
-        "newsletter_heading": "Sign up to our newsletter",
-        "enable_follow_on_shop": true,
-        "show_social": false,
-        "enable_country_selector": true,
-        "enable_language_selector": true,
-        "payment_enable": true,
-        "show_policy": true,
-        "margin_top": 0,
-        "padding_top": 36,
-        "padding_bottom": 36
+        "description": "<p>Engineered products, manufacturing support, and direct service from our team in Thailand.</p>",
+        "show_social": true,
+        "show_country": true,
+        "show_language": true,
+        "show_policies": true,
+        "show_payment_icons": true
       }
     }
   },

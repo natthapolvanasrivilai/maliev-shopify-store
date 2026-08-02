@@ -1,0 +1,229 @@
+{{ 'maliev-chrome.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign logo_alt = settings.logo.alt | default: shop.name | escape
+  assign account_url = routes.account_url
+  assign logo_render_width = section.settings.logo_width | times: 2
+  if customer == blank
+    assign account_url = routes.account_login_url
+  endif
+-%}
+
+<header class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}" data-maliev-header>
+  <div class="mc-header__inner">
+    <details class="mc-mobile-menu">
+      <summary class="mc-icon-button" aria-label="{{ 'sections.header.menu' | t }}">
+        <span class="mc-mobile-menu__open" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </span>
+        <span class="mc-mobile-menu__close" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </span>
+      </summary>
+      <div class="mc-mobile-menu__panel">
+        <nav aria-label="{{ 'sections.header.menu' | t }}">
+          <ul class="mc-mobile-nav" role="list">
+            {%- for link in section.settings.menu.links -%}
+              <li>
+                {%- if link.links != blank -%}
+                  <details class="mc-mobile-nav__group">
+                    <summary>{{ link.title | escape }}</summary>
+                    <ul role="list">
+                      {%- for childlink in link.links -%}
+                        <li>
+                          <a href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
+                            {{ childlink.title | escape }}
+                          </a>
+                          {%- if childlink.links != blank -%}
+                            <ul role="list">
+                              {%- for grandchildlink in childlink.links -%}
+                                <li>
+                                  <a href="{{ grandchildlink.url }}"{% if grandchildlink.current %} aria-current="page"{% endif %}>
+                                    {{ grandchildlink.title | escape }}
+                                  </a>
+                                </li>
+                              {%- endfor -%}
+                            </ul>
+                          {%- endif -%}
+                        </li>
+                      {%- endfor -%}
+                    </ul>
+                  </details>
+                {%- else -%}
+                  <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a>
+                {%- endif -%}
+              </li>
+            {%- endfor -%}
+          </ul>
+        </nav>
+
+        <div class="mc-mobile-menu__utility">
+          {%- if shop.customer_accounts_enabled -%}
+            <a href="{{ account_url }}">{{ 'customer.account.title' | t }}</a>
+          {%- endif -%}
+          <a href="{{ routes.search_url }}">{{ 'general.search.search' | t }}</a>
+        </div>
+      </div>
+    </details>
+
+    <a class="mc-brand" href="{{ routes.root_url }}" aria-label="{{ shop.name | escape }}">
+      {%- if settings.logo != blank -%}
+        {{
+          settings.logo
+          | image_url: width: logo_render_width
+          | image_tag:
+            class: 'mc-brand__logo',
+            widths: '96, 128, 160, 224, 256, 320',
+            width: section.settings.logo_width,
+            alt: logo_alt,
+            loading: 'eager'
+        }}
+      {%- else -%}
+        <span class="mc-brand__wordmark">{{ shop.name | escape }}</span>
+      {%- endif -%}
+    </a>
+
+    <nav class="mc-nav" aria-label="{{ 'sections.header.menu' | t }}">
+      <ul role="list">
+        {%- for link in section.settings.menu.links -%}
+          <li>
+            {%- if link.links != blank -%}
+              <details class="mc-nav__group">
+                <summary{% if link.child_active %} class="is-active"{% endif %}>
+                  {{ link.title | escape }}
+                  <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
+                </summary>
+                <div class="mc-nav__panel">
+                  <p class="mc-nav__panel-title">{{ link.title | escape }}</p>
+                  <ul role="list">
+                    {%- for childlink in link.links -%}
+                      <li>
+                        <a href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
+                          <span>{{ childlink.title | escape }}</span>
+                          {%- if childlink.links != blank -%}
+                            <small>{{ childlink.links.size }} options</small>
+                          {%- endif -%}
+                        </a>
+                        {%- if childlink.links != blank -%}
+                          <ul role="list">
+                            {%- for grandchildlink in childlink.links -%}
+                              <li>
+                                <a href="{{ grandchildlink.url }}"{% if grandchildlink.current %} aria-current="page"{% endif %}>
+                                  {{ grandchildlink.title | escape }}
+                                </a>
+                              </li>
+                            {%- endfor -%}
+                          </ul>
+                        {%- endif -%}
+                      </li>
+                    {%- endfor -%}
+                  </ul>
+                </div>
+              </details>
+            {%- else -%}
+              <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </nav>
+
+    <div class="mc-actions">
+      {%- if section.settings.show_localization and localization.available_languages.size > 1 -%}
+        <details class="mc-localization">
+          <summary class="mc-localization__summary">
+            {{ localization.language.endonym_name | capitalize }}
+            <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
+          </summary>
+          <div class="mc-localization__panel">
+            {%- form 'localization', id: 'MalievHeaderLanguage', class: 'mc-localization__form' -%}
+              <label for="MalievHeaderLocale">{{ 'localization.language_label' | t }}</label>
+              <select id="MalievHeaderLocale" name="locale_code">
+                {%- for language in localization.available_languages -%}
+                  <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
+                    {{ language.endonym_name | capitalize }}
+                  </option>
+                {%- endfor -%}
+              </select>
+              <button type="submit">{{ 'localization.update_language' | t }}</button>
+            {%- endform -%}
+          </div>
+        </details>
+      {%- endif -%}
+
+      {%- if section.settings.show_search -%}
+        <div class="mc-actions__search">
+          {% render 'header-search', input_id: 'MalievHeaderSearch' %}
+        </div>
+      {%- endif -%}
+
+      {%- if shop.customer_accounts_enabled and section.settings.show_account -%}
+        <a class="mc-icon-button mc-account-link" href="{{ account_url }}" aria-label="{{ 'customer.account.title' | t }}">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.5-4.1 3.1-6.2 7-6.2s6.5 2.1 7 6.2"/></svg>
+        </a>
+      {%- endif -%}
+
+      <a class="mc-icon-button mc-cart-link" href="{{ routes.cart_url }}" aria-label="{{ 'templates.cart.cart' | t }}">
+        <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><path d="M6.5 8h11l1 12h-13l1-12Z"/><path d="M9 9V6.5a3 3 0 0 1 6 0V9"/></svg>
+        {%- if cart.item_count > 0 -%}
+          <span class="mc-cart-count" aria-hidden="true">{{ cart.item_count }}</span>
+          <span class="visually-hidden">{{ 'sections.header.cart_count' | t: count: cart.item_count }}</span>
+        {%- endif -%}
+      </a>
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "MALIEV header",
+  "class": "mc-header-section",
+  "settings": [
+    {
+      "type": "link_list",
+      "id": "menu",
+      "default": "main-menu",
+      "label": "Navigation menu"
+    },
+    {
+      "type": "range",
+      "id": "logo_width",
+      "min": 80,
+      "max": 180,
+      "step": 4,
+      "unit": "px",
+      "default": 112,
+      "label": "Logo width"
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky",
+      "default": false,
+      "label": "Keep header visible while scrolling"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_search",
+      "default": true,
+      "label": "Show search"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_account",
+      "default": true,
+      "label": "Show customer account"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_localization",
+      "default": true,
+      "label": "Show language selector"
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV header"
+    }
+  ]
+}
+{% endschema %}
