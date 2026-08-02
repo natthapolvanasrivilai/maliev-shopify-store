@@ -14,10 +14,14 @@
 }
 
 .mc-header {
+  --mc-nav-display-font: var(--maliev-font-future);
+  --mc-nav-reading-font: var(--maliev-font-sans);
   background: var(--maliev-surface);
   border-bottom: 0.1rem solid var(--maliev-rule);
   color: var(--maliev-ink);
+  font-kerning: normal;
   position: relative;
+  text-rendering: optimizeLegibility;
   z-index: 30;
 }
 
@@ -52,9 +56,12 @@
 }
 
 .mc-brand__wordmark {
-  font-size: 2.2rem;
-  font-weight: 600;
-  letter-spacing: -0.035em;
+  font-family: var(--mc-nav-display-font);
+  font-size: 2rem;
+  font-synthesis: none;
+  font-weight: 400;
+  letter-spacing: 0.035em;
+  line-height: 1;
 }
 
 .mc-nav {
@@ -81,9 +88,13 @@
   color: var(--maliev-ink);
   cursor: pointer;
   display: inline-flex;
-  font-size: 1.45rem;
-  font-weight: 500;
+  font-family: var(--mc-nav-display-font);
+  font-size: 1.25rem;
+  font-synthesis: none;
+  font-weight: 400;
   gap: 0.6rem;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
   min-height: 4.4rem;
   padding: 0;
   text-decoration: none;
@@ -146,8 +157,12 @@
 
 .mc-nav__panel-title {
   color: var(--maliev-graphite);
-  font-size: 1.2rem;
-  font-weight: 500;
+  font-family: var(--mc-nav-display-font);
+  font-size: 1.15rem;
+  font-synthesis: none;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
   margin: 0 0 1.2rem;
 }
 
@@ -168,9 +183,11 @@
   color: var(--maliev-ink);
   display: flex;
   flex-direction: column;
-  font-size: 1.45rem;
-  font-weight: 500;
+  font-family: var(--mc-nav-reading-font);
+  font-size: 1.5rem;
+  font-weight: 600;
   gap: 0.2rem;
+  line-height: 1.25;
   padding: 0.8rem;
   text-decoration: none;
 }
@@ -185,6 +202,7 @@
   color: var(--maliev-graphite);
   font-size: 1.2rem;
   font-weight: 400;
+  line-height: 1.4;
 }
 
 .mc-nav__panel li > ul {
@@ -194,6 +212,7 @@
 .mc-nav__panel li > ul a {
   font-size: 1.35rem;
   font-weight: 400;
+  line-height: 1.35;
   padding-block: 0.5rem;
 }
 
@@ -284,9 +303,12 @@
   color: var(--maliev-ink);
   cursor: pointer;
   display: flex;
-  font-size: 1.35rem;
+  font-family: var(--mc-nav-reading-font);
+  font-size: 1.25rem;
   font-weight: 500;
   gap: 0.6rem;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
   min-height: 4.4rem;
   padding-inline: 1rem;
   white-space: nowrap;
@@ -565,12 +587,11 @@
   }
 
   .mc-header--home .mc-brand__wordmark {
-    font-family: var(--maliev-font-future);
-    font-synthesis: none;
+    font-family: var(--mc-nav-display-font);
   }
 
   .mc-header--home .mc-nav {
-    font-family: var(--maliev-font-sans);
+    font-family: var(--mc-nav-display-font);
   }
 
   .mc-header--home .mc-nav > ul {
@@ -580,9 +601,6 @@
 
   .mc-header--home .mc-nav > ul > li > a,
   .mc-header--home .mc-nav__group > summary {
-    font-size: 1.35rem;
-    font-weight: 500;
-    letter-spacing: 0;
     min-height: 4.4rem;
   }
 
@@ -596,7 +614,7 @@
   }
 
   .mc-header--home .mc-nav__panel {
-    font-family: var(--maliev-font-sans);
+    font-family: var(--mc-nav-reading-font);
     left: auto;
     right: 0;
     top: calc(100% + 0.6rem);
@@ -688,9 +706,12 @@
   .mc-mobile-nav__group > summary {
     color: var(--maliev-ink);
     display: block;
-    font-size: 2rem;
-    font-weight: 500;
-    line-height: 1.25;
+    font-family: var(--mc-nav-display-font);
+    font-size: 1.8rem;
+    font-synthesis: none;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
     padding-block: 1.6rem;
     text-decoration: none;
   }
@@ -713,7 +734,10 @@
   .mc-mobile-nav__group li a {
     color: var(--maliev-ink-soft);
     display: block;
+    font-family: var(--mc-nav-reading-font);
     font-size: 1.55rem;
+    font-weight: 500;
+    line-height: 1.45;
     padding: 0.8rem 1.2rem;
     text-decoration: none;
   }
@@ -731,8 +755,10 @@
 
   .mc-mobile-menu__utility a {
     color: var(--maliev-blue);
-    font-size: 1.4rem;
+    font-family: var(--mc-nav-reading-font);
+    font-size: 1.3rem;
     font-weight: 500;
+    letter-spacing: 0.01em;
   }
 
   .mc-nav,
