@@ -1209,6 +1209,140 @@ main .pagination__item--current {
 
 /* Content, journal, and utility */
 
+.mc-content-page,
+.mc-contact,
+.mc-journal {
+  padding-block: var(--mc-section-top, 3.6rem) var(--mc-section-bottom, 3.6rem);
+}
+
+.mc-content-page__header {
+  max-width: var(--maliev-reading);
+  margin-bottom: clamp(3.2rem, 5vw, 5.6rem);
+}
+
+.mc-content-page__header h1 {
+  margin: 0;
+}
+
+.mc-content-page__body {
+  max-width: var(--maliev-reading);
+  color: var(--maliev-ink-soft);
+  font-size: clamp(1.6rem, 1.55vw, 1.8rem);
+  line-height: 1.7;
+}
+
+.mc-not-found {
+  padding-block: clamp(8rem, 14vw, 16rem);
+  text-align: center;
+}
+
+.mc-not-found h1 {
+  max-width: 14ch;
+  margin: 0 auto 3.2rem;
+}
+
+.mc-contact__layout {
+  display: grid;
+  grid-template-columns: minmax(24rem, 0.75fr) minmax(0, 1.25fr);
+  gap: clamp(4rem, 8vw, 12rem);
+  align-items: start;
+}
+
+.mc-contact__header {
+  position: sticky;
+  top: calc(var(--maliev-header-height, 7rem) + 2rem);
+}
+
+.mc-contact__header h1 {
+  max-width: 12ch;
+  margin: 0;
+}
+
+.mc-contact__form form {
+  display: grid;
+  gap: 2rem;
+}
+
+.mc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.6rem;
+}
+
+.mc-field {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.mc-field label {
+  color: var(--maliev-ink-soft);
+  font-size: 1.3rem;
+  font-weight: 550;
+}
+
+.mc-field input,
+.mc-field textarea {
+  width: 100%;
+  padding: 1.3rem 1.5rem;
+  border: 1px solid var(--maliev-rule-strong);
+  border-radius: var(--maliev-radius-control);
+  background: var(--maliev-paper);
+  color: var(--maliev-ink);
+  font: inherit;
+  font-size: 1.5rem;
+}
+
+.mc-field textarea {
+  min-height: 18rem;
+  resize: vertical;
+}
+
+.mc-field :where(input, textarea):focus-visible {
+  border-color: var(--maliev-blue);
+  outline: 2px solid color-mix(in srgb, var(--maliev-blue) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.mc-field__error,
+.mc-form-status--error {
+  color: var(--maliev-danger);
+}
+
+.mc-form-status {
+  padding: 1.4rem 1.6rem;
+  border: 1px solid currentColor;
+  border-radius: var(--maliev-radius-control);
+  font-size: 1.4rem;
+}
+
+.mc-form-status p {
+  margin: 0;
+}
+
+.mc-contact__form .button {
+  justify-self: start;
+  min-width: 16rem;
+}
+
+.mc-journal__header {
+  max-width: 80rem;
+  margin-bottom: clamp(4rem, 7vw, 8rem);
+}
+
+.mc-journal__header h1 {
+  margin: 0;
+}
+
+.mc-journal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(2.4rem, 4vw, 4.8rem);
+}
+
+.mc-journal__grid--editorial .mc-article-card:first-child {
+  grid-column: span 2;
+}
+
 .template-page .main-page-title,
 .template-blog .title--primary,
 .template-list-collections .title--primary,
@@ -1361,6 +1495,29 @@ main .customer table th {
 }
 
 @media screen and (max-width: 749px) {
+  .mc-content-page,
+  .mc-contact,
+  .mc-journal {
+    padding-block: calc(var(--mc-section-top, 3.6rem) * 0.75) calc(var(--mc-section-bottom, 3.6rem) * 0.75);
+  }
+
+  .mc-contact__layout,
+  .mc-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mc-contact__header {
+    position: static;
+  }
+
+  .mc-journal__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mc-journal__grid--editorial .mc-article-card:first-child {
+    grid-column: auto;
+  }
+
   .mc-search {
     padding-block: calc(var(--mc-section-top, 3.6rem) * 0.75) calc(var(--mc-section-bottom, 3.6rem) * 0.75);
   }

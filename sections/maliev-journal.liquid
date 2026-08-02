@@ -1,59 +1,32 @@
-{{ 'component-article-card.css' | asset_url | stylesheet_tag }}
-{{ 'component-card.css' | asset_url | stylesheet_tag }}
-{{ 'section-main-blog.css' | asset_url | stylesheet_tag }}
-
-{%- style -%}
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
-
-  @media screen and (min-width: 750px) {
-    .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-    }
-  }
-{%- endstyle -%}
-
 {%- paginate blog.articles by 6 -%}
-  <div class="main-blog page-width section-{{ section.id }}-padding">
-    <header class="main-blog__header{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--fade-in{% endif %}">
-      <p class="main-blog__eyebrow">MALIEV Journal</p>
-      <h1 class="title--primary">
-        {{ blog.title | escape }}
-      </h1>
-      <p class="main-blog__lead">
-        Product guides, shop updates, and practical notes for compact manufacturing, machine work, and MALIEV hardware.
-      </p>
-    </header>
+  <section class="mc-journal" style="--mc-section-top: {{ section.settings.padding_top }}px; --mc-section-bottom: {{ section.settings.padding_bottom }}px;">
+    <div class="page-width">
+      <header class="mc-journal__header">
+        <p class="maliev-eyebrow">{{ blog.title | escape }}</p>
+        <h1>{{ blog.title | escape }}</h1>
+      </header>
 
-    <div class="blog-articles {% if section.settings.layout == 'collage' %}blog-articles--collage{% endif %}">
-      {%- for article in blog.articles -%}
-        <div
-          class="blog-articles__article article{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--slide-in{% endif %}"
-          {% if settings.animations_reveal_on_scroll %}
-            data-cascade
-            style="--animation-order: {{ forloop.index }};"
-          {% endif %}
-        >
-          {%- render 'article-card',
+      <div class="mc-journal__grid{% if section.settings.layout == 'collage' %} mc-journal__grid--editorial{% endif %}">
+        {%- for article in blog.articles -%}
+          {% render 'article-card',
+            blog: blog,
             article: article,
             media_height: section.settings.image_height,
             media_aspect_ratio: article.image.aspect_ratio,
             show_image: section.settings.show_image,
             show_date: section.settings.show_date,
             show_author: section.settings.show_author,
-            show_excerpt: true
-          -%}
-        </div>
-      {%- endfor -%}
-    </div>
+            show_excerpt: true,
+            lazy_load: forloop.index > 2
+          %}
+        {%- endfor -%}
+      </div>
 
-    {%- if paginate.pages > 1 -%}
-      {%- render 'pagination', paginate: paginate -%}
-    {%- endif -%}
-  </div>
+      {%- if paginate.pages > 1 -%}
+        {% render 'pagination', paginate: paginate %}
+      {%- endif -%}
+    </div>
+  </section>
 {%- endpaginate -%}
 
 {% schema %}
