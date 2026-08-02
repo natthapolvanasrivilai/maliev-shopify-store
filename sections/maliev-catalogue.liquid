@@ -55,9 +55,6 @@
                   {%- endif -%}
                 </div>
                 <div class="mcat__copy">
-                  {%- if block.settings.badge != blank -%}
-                    <p class="mcat__badge">{{ block.settings.badge | escape }}</p>
-                  {%- endif -%}
                   <h3 class="mcat__card-title">{{ block.settings.title | escape }}</h3>
                   {%- if block.settings.description != blank -%}
                     <p class="mcat__description">{{ block.settings.description | escape }}</p>
@@ -108,12 +105,6 @@
       "type": "catalogue",
       "name": "Catalogue card",
       "settings": [
-        {
-          "type": "text",
-          "id": "badge",
-          "label": "Badge",
-          "default": "Catalogue"
-        },
         {
           "type": "text",
           "id": "title",

@@ -32,7 +32,6 @@
         "machines": {
           "type": "catalogue",
           "settings": {
-            "badge": "Made in Thailand",
             "title": "PIMM 30G & 50G",
             "description": "Compact molding machines, built in Thailand.",
             "link_label": "Compare machines",
@@ -45,7 +44,6 @@
         "simmount": {
           "type": "catalogue",
           "settings": {
-            "badge": "Ships worldwide",
             "title": "SimMount",
             "description": "Monitor and bass-shaker hardware for 8020 racing rigs.",
             "link_label": "Shop the range",
@@ -58,7 +56,6 @@
         "molds_parts": {
           "type": "catalogue",
           "settings": {
-            "badge": "Factory service",
             "title": "Molds & parts",
             "description": "Tooling, genuine spares, and workshop support.",
             "link_label": "Browse services",
@@ -71,7 +68,6 @@
         "mesh_splitter": {
           "type": "catalogue",
           "settings": {
-            "badge": "Browser tool",
             "title": "Mesh Splitter",
             "description": "Split large STL files into keyed parts in your browser.",
             "link_label": "Open the tool",

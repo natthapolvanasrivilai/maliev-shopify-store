@@ -121,19 +121,6 @@ body main .mcat .mcat__title {
   z-index: 2;
 }
 
-.mcat__badge {
-  color: var(--maliev-cyan, #18b7ff);
-  font-size: 1.3rem;
-  font-weight: 600;
-  line-height: 1.3;
-  margin: 0 0 1.2rem;
-}
-
-.mcat__card--light .mcat__badge,
-.mcat__card--blue .mcat__badge {
-  color: var(--maliev-blue, #006fd6);
-}
-
 .mcat .mcat__card-title {
   color: inherit;
   font-family: var(--maliev-font-sans, "IBM Plex Sans", sans-serif);
