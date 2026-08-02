@@ -413,6 +413,100 @@ main .card-wrapper .quick-add__submit {
 
 /* Collection and search */
 
+.mc-catalog {
+  position: relative;
+  padding-block: var(--mc-section-top, 3.6rem) var(--mc-section-bottom, 3.6rem);
+}
+
+.mc-catalog__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid var(--maliev-rule);
+}
+
+.mc-catalog__count {
+  margin: 0;
+  color: var(--maliev-graphite);
+  font-size: 1.35rem;
+}
+
+.mc-catalog__sort form {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.mc-catalog__sort label {
+  color: var(--maliev-graphite);
+  font-size: 1.3rem;
+  white-space: nowrap;
+}
+
+.mc-catalog__sort .select {
+  min-width: 17rem;
+}
+
+.mc-catalog__sort select {
+  width: 100%;
+  min-height: 4rem;
+  padding: 0 3.8rem 0 1.2rem;
+  border: 1px solid var(--maliev-rule-strong);
+  border-radius: var(--maliev-radius-control);
+  background: var(--maliev-paper);
+  color: var(--maliev-ink);
+  font: inherit;
+  font-size: 1.35rem;
+}
+
+.mc-catalog__filters {
+  margin-block: 1.6rem 2.4rem;
+}
+
+.mc-catalog__results {
+  position: relative;
+  min-height: 24rem;
+}
+
+.mc-catalog__collection > .loading-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: color-mix(in srgb, var(--maliev-paper) 82%, transparent);
+}
+
+.mc-catalog__collection.loading > .loading-overlay {
+  display: grid;
+}
+
+.mc-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--mc-catalog-columns, 4), minmax(0, 1fr));
+  gap: clamp(3.2rem, 4vw, 5.2rem) clamp(1.6rem, 2.2vw, 2.8rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mc-catalog-grid__item {
+  min-width: 0;
+}
+
+.mc-catalog__empty {
+  max-width: 60rem;
+  margin-inline: auto;
+  padding-block: clamp(6.4rem, 12vw, 14rem);
+  text-align: center;
+}
+
+.mc-catalog__empty h2 {
+  margin: 0 0 1.2rem;
+}
+
 .collection-hero {
   background: var(--maliev-canvas);
   color: var(--maliev-ink);
@@ -1101,6 +1195,29 @@ main .customer table th {
 }
 
 @media screen and (max-width: 749px) {
+  .mc-catalog {
+    padding-block: calc(var(--mc-section-top, 3.6rem) * 0.75) calc(var(--mc-section-bottom, 3.6rem) * 0.75);
+  }
+
+  .mc-catalog__controls {
+    align-items: flex-start;
+  }
+
+  .mc-catalog__sort form {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .mc-catalog__sort .select {
+    min-width: 15rem;
+  }
+
+  .mc-catalog-grid {
+    grid-template-columns: repeat(var(--mc-catalog-columns-mobile, 2), minmax(0, 1fr));
+    gap: 3.2rem 1.2rem;
+  }
+
   .collection-hero__inner {
     min-height: auto;
     padding-block: 4.8rem;
