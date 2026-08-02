@@ -9,12 +9,22 @@
   assign account_url = routes.account_url
   assign logo_render_width = section.settings.logo_width | times: 2
   assign header_is_home = false
+  assign standalone_link_count = 0
+  assign standalone_link_active = false
   if request.page_type == 'index'
     assign header_is_home = true
   endif
   if customer == blank
     assign account_url = routes.account_login_url
   endif
+  for menu_link in section.settings.menu.links
+    if menu_link.links == blank
+      assign standalone_link_count = standalone_link_count | plus: 1
+      if menu_link.current
+        assign standalone_link_active = true
+      endif
+    endif
+  endfor
 -%}
 
 <header class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}{% if header_is_home %} mc-header--home{% endif %}" data-maliev-header>
@@ -69,7 +79,6 @@
           {%- if shop.customer_accounts_enabled -%}
             <a href="{{ account_url }}">{{ 'customer.account.title' | t }}</a>
           {%- endif -%}
-          <a href="{{ routes.search_url }}">{{ 'general.search.search' | t }}</a>
         </div>
       </div>
     </details>
@@ -94,23 +103,19 @@
     <nav class="mc-nav" aria-label="{{ 'sections.header.menu' | t }}">
       <ul role="list">
         {%- for link in section.settings.menu.links -%}
-          <li>
-            {%- if link.links != blank -%}
+          {%- if link.links != blank -%}
+            <li>
               <details class="mc-nav__group">
                 <summary{% if link.child_active %} class="is-active"{% endif %}>
                   {{ link.title | escape }}
                   <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
                 </summary>
                 <div class="mc-nav__panel">
-                  <p class="mc-nav__panel-title">{{ link.title | escape }}</p>
                   <ul role="list">
                     {%- for childlink in link.links -%}
                       <li>
                         <a href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
                           <span>{{ childlink.title | escape }}</span>
-                          {%- if childlink.links != blank -%}
-                            <small>{{ childlink.links.size }} options</small>
-                          {%- endif -%}
                         </a>
                         {%- if childlink.links != blank -%}
                           <ul role="list">
@@ -128,19 +133,43 @@
                   </ul>
                 </div>
               </details>
-            {%- else -%}
-              <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a>
-            {%- endif -%}
-          </li>
+            </li>
+          {%- endif -%}
         {%- endfor -%}
+        {%- if standalone_link_count > 0 -%}
+          <li>
+            <details class="mc-nav__group mc-nav__group--menu">
+              <summary{% if standalone_link_active %} class="is-active"{% endif %}>
+                {{ 'sections.header.menu' | t }}
+                <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
+              </summary>
+              <div class="mc-nav__panel mc-nav__panel--compact">
+                <ul role="list">
+                  {%- for link in section.settings.menu.links -%}
+                    {%- if link.links == blank -%}
+                      <li>
+                        <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
+                          <span>{{ link.title | escape }}</span>
+                        </a>
+                      </li>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </ul>
+              </div>
+            </details>
+          </li>
+        {%- endif -%}
       </ul>
     </nav>
 
     <div class="mc-actions">
       {%- if section.settings.show_localization and localization.available_languages.size > 1 -%}
         <details class="mc-localization">
-          <summary class="mc-localization__summary">
-            {{ localization.language.endonym_name | capitalize }}
+          <summary
+            class="mc-localization__summary"
+            aria-label="{{ 'localization.language_label' | t }}: {{ localization.language.endonym_name | capitalize }}"
+          >
+            {{ localization.language.iso_code | upcase }}
             <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
           </summary>
           <div class="mc-localization__panel">
