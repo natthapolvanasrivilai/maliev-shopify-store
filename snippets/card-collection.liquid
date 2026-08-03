@@ -17,7 +17,7 @@
   endif
 -%}
 
-<article class="mc-collection-card{% if extend_height %} mc-collection-card--stretch{% endif %}{% if wrapper_class and wrapper_class != 'none' %} {{ wrapper_class }}{% endif %}">
+<article class="mc-collection-card{% if featured %} mc-collection-card--featured{% endif %}{% if extend_height %} mc-collection-card--stretch{% endif %}{% if wrapper_class and wrapper_class != 'none' %} {{ wrapper_class }}{% endif %}">
   {%- if card_collection != blank -%}
     <a class="mc-collection-card__link" href="{{ card_collection.url }}">
       <span class="mc-collection-card__media" style="--mc-collection-ratio: {{ 1 | divided_by: ratio | times: 100 }}%;">
@@ -42,6 +42,9 @@
         {%- if card_collection.description != blank -%}
           <span class="mc-collection-card__description">{{ card_collection.description | strip_html | truncatewords: 16 }}</span>
         {%- endif -%}
+        <span class="mc-collection-card__count">
+          {{ 'products.facets.product_count_simple' | t: count: card_collection.all_products_count }}
+        </span>
         <span class="mc-collection-card__arrow" aria-hidden="true">→</span>
       </span>
     </a>

@@ -20,36 +20,7 @@
 >
   {%- paginate collection.products by section.settings.products_per_page -%}
     <div class="page-width">
-      {%- if section.settings.enable_filtering or section.settings.enable_sorting -%}
-        <div class="mc-catalog__controls">
-          <p class="mc-catalog__count" id="ProductCountDesktop" role="status">
-            {%- if collection.products_count == collection.all_products_count -%}
-              {{ 'products.facets.product_count_simple' | t: count: collection.products_count }}
-            {%- else -%}
-              {{ 'products.facets.product_count' | t: product_count: collection.products_count, count: collection.all_products_count }}
-            {%- endif -%}
-          </p>
-
-          {%- if section.settings.enable_sorting -%}
-            {%- assign sort_by = collection.sort_by | default: collection.default_sort_by -%}
-            <facet-filters-form class="mc-catalog__sort">
-              <form id="FacetSortForm">
-                <label for="SortBy">{{ 'products.facets.sort_by_label' | t }}</label>
-                <div class="select">
-                  <select name="sort_by" id="SortBy" aria-describedby="a11y-refresh-page-message">
-                    {%- for option in collection.sort_options -%}
-                      <option value="{{ option.value | escape }}"{% if option.value == sort_by %} selected{% endif %}>
-                        {{- option.name | escape -}}
-                      </option>
-                    {%- endfor -%}
-                  </select>
-                  <span class="svg-wrapper">{{ 'icon-caret.svg' | inline_asset_content }}</span>
-                </div>
-              </form>
-            </facet-filters-form>
-          {%- endif -%}
-        </div>
-
+      <div class="mc-catalog__layout mc-catalog__layout--{{ section.settings.filter_type }}{% unless section.settings.enable_filtering %} mc-catalog__layout--no-filters{% endunless %}">
         {%- if section.settings.enable_filtering -%}
           <aside
             class="mc-catalog__filters"
@@ -66,9 +37,40 @@
             %}
           </aside>
         {%- endif -%}
-      {%- endif -%}
 
-      <div id="ProductGridContainer" class="mc-catalog__results">
+        <div class="mc-catalog__main">
+          {%- if section.settings.enable_filtering or section.settings.enable_sorting -%}
+            <div class="mc-catalog__controls">
+              <p class="mc-catalog__count" id="ProductCountDesktop" role="status">
+            {%- if collection.products_count == collection.all_products_count -%}
+              {{ 'products.facets.product_count_simple' | t: count: collection.products_count }}
+            {%- else -%}
+              {{ 'products.facets.product_count' | t: product_count: collection.products_count, count: collection.all_products_count }}
+            {%- endif -%}
+              </p>
+
+              {%- if section.settings.enable_sorting -%}
+                {%- assign sort_by = collection.sort_by | default: collection.default_sort_by -%}
+                <facet-filters-form class="mc-catalog__sort">
+                  <form id="FacetSortForm">
+                    <label for="SortBy">{{ 'products.facets.sort_by_label' | t }}</label>
+                    <div class="select">
+                      <select name="sort_by" id="SortBy" aria-describedby="a11y-refresh-page-message">
+                        {%- for option in collection.sort_options -%}
+                          <option value="{{ option.value | escape }}"{% if option.value == sort_by %} selected{% endif %}>
+                            {{- option.name | escape -}}
+                          </option>
+                        {%- endfor -%}
+                      </select>
+                      <span class="svg-wrapper">{{ 'icon-caret.svg' | inline_asset_content }}</span>
+                    </div>
+                  </form>
+                </facet-filters-form>
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+
+          <div id="ProductGridContainer" class="mc-catalog__results">
         <div class="mc-catalog__collection collection">
           <div class="loading-overlay" aria-hidden="true">{% render 'loading-spinner' %}</div>
           {%- if collection.products.size == 0 -%}
@@ -99,6 +101,8 @@
               {% render 'pagination', paginate: paginate, anchor: '' %}
             {%- endif -%}
           {%- endif -%}
+        </div>
+          </div>
         </div>
       </div>
     </div>

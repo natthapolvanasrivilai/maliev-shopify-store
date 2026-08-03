@@ -49,6 +49,10 @@
 
   assign card_sizes = '(min-width: 1440px) 320px, (min-width: 990px) calc((100vw - 160px) / 4), (min-width: 750px) calc((100vw - 104px) / 3), calc((100vw - 52px) / 2)'
   assign card_form_id = 'maliev-card-form-' | append: section_id | append: '-' | append: product_card.id
+  assign card_summary = product_card.metafields.descriptors.subtitle
+  if card_summary == blank
+    assign card_summary = product_card.description | strip_html | strip
+  endif
 -%}
 
 {%- if product_card and product_card != empty -%}
@@ -102,6 +106,19 @@
     </a>
 
     <div class="mc-product-card__body">
+      <div class="mc-product-card__meta">
+        {%- if product_card.type != blank -%}
+          <span class="mc-product-card__category">{{ product_card.type | escape }}</span>
+        {%- endif -%}
+        <span class="mc-product-card__availability{% unless product_card.available %} mc-product-card__availability--unavailable{% endunless %}">
+          {%- if product_card.available -%}
+            {{ 'products.product.inventory_in_stock' | t }}
+          {%- else -%}
+            {{ 'products.product.inventory_out_of_stock' | t }}
+          {%- endif -%}
+        </span>
+      </div>
+
       {%- if show_vendor -%}
         <p class="mc-product-card__vendor">{{ product_card.vendor | escape }}</p>
       {%- endif -%}
@@ -110,8 +127,8 @@
         <a href="{{ product_card.url }}">{{ card_title | escape }}</a>
       </h3>
 
-      {%- if product_card.metafields.descriptors.subtitle != blank -%}
-        <p class="mc-product-card__subtitle">{{ product_card.metafields.descriptors.subtitle | escape }}</p>
+      {%- if card_summary != blank -%}
+        <p class="mc-product-card__subtitle">{{ card_summary | truncatewords: 18 | escape }}</p>
       {%- endif -%}
 
       <div class="mc-product-card__price">

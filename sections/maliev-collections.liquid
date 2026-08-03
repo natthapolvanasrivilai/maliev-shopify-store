@@ -1,10 +1,21 @@
 {{ 'component-card.css' | asset_url | stylesheet_tag }}
 {{ 'section-collection-list.css' | asset_url | stylesheet_tag }}
 
-<div class="page-width">
-  <h1 class="title title--primary inline-richtext{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--fade-in{% endif %}">
-    {{ section.settings.title }}
-  </h1>
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    --mc-directory-columns: {{ section.settings.columns_desktop }};
+    --mc-directory-columns-mobile: {{ section.settings.columns_mobile }};
+  }
+{%- endstyle -%}
+
+<section class="mc-collection-directory">
+  <div class="page-width">
+    <header class="mc-collection-directory__header{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--fade-in{% endif %}">
+      <h1 class="mc-collection-directory__title inline-richtext">{{ section.settings.title }}</h1>
+      {%- if section.settings.intro != blank -%}
+        <div class="mc-collection-directory__intro rte">{{ section.settings.intro }}</div>
+      {%- endif -%}
+    </header>
   {%- liquid
     case section.settings.sort
       when 'products_high', 'products_low'
@@ -24,13 +35,28 @@
     endif
   -%}
   {%- paginate collections by paginate_by -%}
+    {%- assign featured_collection = section.settings.featured_collection -%}
     <ul
-      class="collection-list grid grid--{{ section.settings.columns_desktop }}-col-desktop grid--{{ section.settings.columns_mobile }}-col-tablet-down"
+      class="mc-collection-directory__grid"
       role="list"
     >
+      {%- if paginate.current_page == 1 and featured_collection != blank -%}
+        <li class="mc-collection-directory__item mc-collection-directory__item--featured">
+          {% render 'card-collection',
+            card_collection: featured_collection,
+            media_aspect_ratio: 'adapt',
+            columns: section.settings.columns_desktop,
+            featured: true
+          %}
+        </li>
+      {%- endif -%}
+
       {%- for collection in collections -%}
+        {%- if featured_collection != blank and collection.id == featured_collection.id -%}
+          {%- continue -%}
+        {%- endif -%}
         <li
-          class="collection-list__item grid__item{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--slide-in{% endif %}"
+          class="mc-collection-directory__item{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--slide-in{% endif %}"
           {% if settings.animations_reveal_on_scroll %}
             data-cascade
             style="--animation-order: {{ forloop.index }};"
@@ -46,7 +72,8 @@
     </ul>
     {% render 'pagination', paginate: paginate %}
   {%- endpaginate -%}
-</div>
+  </div>
+</section>
 {% schema %}
 {
   "name": "t:sections.main-list-collections.name",
@@ -57,6 +84,13 @@
       "id": "title",
       "label": "t:sections.main-list-collections.settings.title.label",
       "default": "t:sections.main-list-collections.settings.title.default"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Introduction",
+      "info": "A short merchant-localizable explanation shown beside the page title.",
+      "default": "<p>Everything we make, organized by product family so you can move directly to the right machines, tooling, materials, or finished products.</p>"
     },
     {
       "type": "select",
@@ -89,6 +123,12 @@
       ],
       "default": "alphabetical",
       "label": "t:sections.main-list-collections.settings.sort.label"
+    },
+    {
+      "type": "collection",
+      "id": "featured_collection",
+      "label": "Featured collection",
+      "info": "Shown as the larger lead collection on the first page."
     },
     {
       "type": "select",

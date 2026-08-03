@@ -11,51 +11,18 @@
   "sections": {
     "main": {
       "type": "maliev-collections",
-      "custom_css": [
-        ".grid {--grid-desktop-horizontal-spacing: 16px;}",
-        ".icon-wrap {display: none;}",
-        ".card__heading {font-size: 1em;}",
-        ".collection-list {margin-bottom: 16px;}"
-      ],
       "settings": {
-        "title": "<strong>Collections</strong>",
+        "title": "Collections",
+        "intro": "<p>Everything we make, organized by product family so you can move directly to the right machines, tooling, materials, or finished products.</p>",
         "sort": "alphabetical",
-        "image_ratio": "portrait",
-        "columns_desktop": 4,
-        "columns_mobile": "1"
-      }
-    },
-    "featured_collection_qJtLB4": {
-      "type": "maliev-featured-collection",
-      "settings": {
-        "collection": "featured-collection",
-        "products_to_show": 4,
-        "title": "<strong>Featured Products</strong>",
-        "heading_size": "h1",
-        "description": "",
-        "show_description": false,
-        "description_style": "body",
-        "columns_desktop": 4,
-        "enable_desktop_slider": false,
-        "full_width": false,
-        "show_view_all": true,
-        "view_all_style": "solid",
-        "color_scheme": "",
+        "featured_collection": "เครื่องฉีดพลาสติก",
         "image_ratio": "adapt",
-        "image_shape": "default",
-        "show_secondary_image": false,
-        "show_vendor": false,
-        "show_rating": false,
-        "quick_add": "none",
-        "columns_mobile": "2",
-        "swipe_on_mobile": false,
-        "padding_top": 36,
-        "padding_bottom": 36
+        "columns_desktop": 3,
+        "columns_mobile": "1"
       }
     }
   },
   "order": [
-    "main",
-    "featured_collection_qJtLB4"
+    "main"
   ]
 }

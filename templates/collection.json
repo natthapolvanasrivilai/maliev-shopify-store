@@ -25,7 +25,7 @@
       "type": "maliev-collection-grid",
       "settings": {
         "products_per_page": 36,
-        "columns_desktop": 4,
+        "columns_desktop": 3,
         "columns_mobile": "2",
         "color_scheme": "scheme-1",
         "image_ratio": "square",
