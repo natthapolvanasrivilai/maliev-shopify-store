@@ -21,11 +21,19 @@
     assign directory_title = section.settings.title_th | default: directory_title
     assign directory_intro = section.settings.intro_th | default: directory_intro
   endif
+  assign help_title = section.settings.help_title
+  assign help_text = section.settings.help_text
+  assign help_label = section.settings.help_label
+  if is_th
+    assign help_title = section.settings.help_title_th | default: help_title
+    assign help_text = section.settings.help_text_th | default: help_text
+    assign help_label = section.settings.help_label_th | default: help_label
+  endif
 -%}
 
-<section class="mc-collection-directory">
+<maliev-collection-directory class="mc-collection-directory">
   <div class="page-width">
-    <header class="mc-collection-directory__header{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--fade-in{% endif %}">
+    <header class="mc-collection-directory__header">
       <h1 class="mc-collection-directory__title inline-richtext">{{ directory_title }}</h1>
       {%- if directory_intro != blank -%}
         <div class="mc-collection-directory__intro rte">{{ directory_intro }}</div>
@@ -41,7 +49,7 @@
     -%}
 
     {%- if configured_family_count > 0 -%}
-      <nav class="mc-collection-directory__nav" aria-label="{{ directory_title | escape }}">
+      <nav class="mc-collection-directory__nav" aria-label="{{ directory_title | escape }}" data-family-navigation>
         <ul role="list">
           {%- for block in section.blocks -%}
             {%- if block.type != 'family' or block.settings.primary_collection == blank -%}
@@ -56,7 +64,11 @@
                 assign family_title = block.settings.primary_collection.title
               endif
             -%}
-            <li><a href="#Family-{{ block.id }}">{{ family_title }}</a></li>
+            <li>
+              <a href="#Family-{{ block.id }}" aria-controls="Family-{{ block.id }}" data-family-link>
+                {{ family_title }}
+              </a>
+            </li>
           {%- endfor -%}
         </ul>
       </nav>
@@ -85,10 +97,27 @@
           {% render 'card-collection-family',
             block: block,
             family_title: family_title,
-            family_description: family_description
+            family_description: family_description,
+            is_th: is_th
           %}
         {%- endfor -%}
       </div>
+      {%- if help_title != blank -%}
+        <aside class="mc-collection-directory__help">
+          <div>
+            <h2>{{ help_title }}</h2>
+            {%- if help_text != blank -%}
+              <div class="rte">{{ help_text }}</div>
+            {%- endif -%}
+          </div>
+          {%- if section.settings.help_link != blank and help_label != blank -%}
+            <a href="{{ section.settings.help_link }}">
+              <span>{{ help_label }}</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          {%- endif -%}
+        </aside>
+      {%- endif -%}
     {%- else -%}
       {%- liquid
         case section.settings.sort
@@ -139,7 +168,95 @@
       {%- endpaginate -%}
     {%- endif -%}
   </div>
-</section>
+</maliev-collection-directory>
+
+{% javascript %}
+  if (!customElements.get('maliev-collection-directory')) {
+    customElements.define(
+      'maliev-collection-directory',
+      class MalievCollectionDirectory extends HTMLElement {
+        connectedCallback() {
+          this.links = Array.from(this.querySelectorAll('[data-family-link]'));
+          this.panels = Array.from(this.querySelectorAll('[data-family-panel]'));
+
+          if (!this.links.length || !this.panels.length) return;
+
+          this.abortController = new AbortController();
+          this.classList.add('is-enhanced');
+
+          this.links.forEach((link) => {
+            link.addEventListener(
+              'click',
+              () => this.setCurrent(link.getAttribute('href').slice(1)),
+              { signal: this.abortController.signal }
+            );
+          });
+
+          const initialPanel = window.location.hash ? document.getElementById(window.location.hash.slice(1)) : null;
+          if (initialPanel && this.contains(initialPanel) && initialPanel.matches('[data-family-panel]')) {
+            this.setCurrent(initialPanel.id);
+          }
+
+          this.setupViewportTracking();
+        }
+
+        disconnectedCallback() {
+          this.abortController?.abort();
+          if (this.frame) window.cancelAnimationFrame(this.frame);
+        }
+
+        setupViewportTracking() {
+          const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          const update = () => {
+            this.frame = null;
+            const revealLine = window.innerHeight * 0.88;
+            const currentLine = Math.max(120, Math.min(window.innerHeight * 0.28, 240));
+
+            this.panels.forEach((panel) => {
+              if (reduceMotion || panel.getBoundingClientRect().top < revealLine) {
+                panel.classList.add('is-visible');
+              }
+            });
+
+            const current =
+              this.panels.find((panel) => {
+                const bounds = panel.getBoundingClientRect();
+                return bounds.top <= currentLine && bounds.bottom > currentLine;
+              }) ||
+              this.panels.slice().sort(
+                (first, second) =>
+                  Math.abs(first.getBoundingClientRect().top - currentLine) -
+                  Math.abs(second.getBoundingClientRect().top - currentLine)
+              )[0];
+
+            if (current) this.setCurrent(current.id);
+          };
+
+          const queueUpdate = () => {
+            if (this.frame) return;
+            this.frame = window.requestAnimationFrame(update);
+          };
+
+          window.addEventListener('scroll', queueUpdate, { passive: true, signal: this.abortController.signal });
+          window.addEventListener('resize', queueUpdate, { passive: true, signal: this.abortController.signal });
+          queueUpdate();
+        }
+
+        setCurrent(panelId) {
+          this.links.forEach((link) => {
+            const isCurrent = link.getAttribute('href') === `#${panelId}`;
+            link.classList.toggle('is-current', isCurrent);
+            if (isCurrent) {
+              link.setAttribute('aria-current', 'location');
+            } else {
+              link.removeAttribute('aria-current');
+            }
+          });
+        }
+      }
+    );
+  }
+{% endjavascript %}
 {% schema %}
 {
   "name": "t:sections.main-list-collections.name",
@@ -252,6 +369,45 @@
       ],
       "default": "2",
       "label": "t:sections.main-list-collections.settings.columns_mobile.label"
+    },
+    {
+      "type": "header",
+      "content": "Decision support"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "help_title",
+      "label": "Help heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "help_title_th",
+      "label": "Thai help heading"
+    },
+    {
+      "type": "richtext",
+      "id": "help_text",
+      "label": "Help text"
+    },
+    {
+      "type": "richtext",
+      "id": "help_text_th",
+      "label": "Thai help text"
+    },
+    {
+      "type": "url",
+      "id": "help_link",
+      "label": "Help link"
+    },
+    {
+      "type": "text",
+      "id": "help_label",
+      "label": "Help link label"
+    },
+    {
+      "type": "text",
+      "id": "help_label_th",
+      "label": "Thai help link label"
     }
   ],
   "blocks": [
@@ -297,6 +453,47 @@
           "info": "Leave blank to use the primary collection description."
         },
         {
+          "type": "text",
+          "id": "primary_label",
+          "label": "Primary link label",
+          "info": "Leave blank to use the primary collection title."
+        },
+        {
+          "type": "text",
+          "id": "primary_label_th",
+          "label": "Thai primary link label"
+        },
+        {
+          "type": "text",
+          "id": "image_alt",
+          "label": "Image description",
+          "info": "Describe the product shown when the collection image has no useful alternative text."
+        },
+        {
+          "type": "text",
+          "id": "image_alt_th",
+          "label": "Thai image description"
+        },
+        {
+          "type": "richtext",
+          "id": "decision_details",
+          "label": "Decision details"
+        },
+        {
+          "type": "richtext",
+          "id": "decision_details_th",
+          "label": "Thai decision details"
+        },
+        {
+          "type": "range",
+          "id": "product_preview_count",
+          "min": 0,
+          "max": 3,
+          "step": 1,
+          "default": 0,
+          "label": "Product previews"
+        },
+        {
           "type": "collection",
           "id": "primary_collection",
           "label": "Primary collection"
@@ -322,6 +519,8 @@
           "label": "Layout",
           "options": [
             { "value": "lead", "label": "Lead family" },
+            { "value": "feature", "label": "Feature family" },
+            { "value": "compact", "label": "Compact family" },
             { "value": "standard", "label": "Standard family" }
           ],
           "default": "standard"

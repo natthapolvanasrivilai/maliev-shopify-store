@@ -4,6 +4,7 @@ Renders a curated collection family with one primary collection and up to three 
 @param {block} block - Family block containing collection settings.
 @param {string} family_title - Localized family heading.
 @param {string} family_description - Localized family description.
+@param {boolean} is_th - Whether the current storefront language is Thai.
 {% enddoc %}
 
 {%- liquid
@@ -16,12 +17,27 @@ Renders a curated collection family with one primary collection and up to three 
   if block.settings.layout == 'lead'
     assign family_image_loading = 'eager'
   endif
-  assign family_image_alt = family_image.alt | default: primary_collection.title
+  assign family_image_sizes = '(min-width: 990px) 58vw, 100vw'
+  if block.settings.layout == 'compact'
+    assign family_image_sizes = '(min-width: 990px) 22vw, (min-width: 750px) 34vw, 36vw'
+  endif
+  assign family_image_alt = block.settings.image_alt
+  assign family_primary_label = block.settings.primary_label
+  assign family_details = block.settings.decision_details
+  if is_th
+    assign family_image_alt = block.settings.image_alt_th | default: family_image_alt
+    assign family_primary_label = block.settings.primary_label_th | default: family_primary_label
+    assign family_details = block.settings.decision_details_th | default: family_details
+  endif
+  assign family_image_alt = family_image_alt | default: family_image.alt | default: family_title
+  assign family_primary_label = family_primary_label | default: primary_collection.title
+  assign product_preview_count = block.settings.product_preview_count | default: 0
 -%}
 
 <article
   id="Family-{{ block.id }}"
-  class="mc-collection-family mc-collection-family--{{ block.settings.layout }} mc-collection-family--{{ block.settings.tone }}"
+  class="mc-collection-family mc-collection-family--{{ block.settings.layout }} mc-collection-family--{{ block.settings.tone }} mc-collection-family--{{ block.settings.family_type }}"
+  data-family-panel
   {{ block.shopify_attributes }}
 >
   <div class="mc-collection-family__media">
@@ -32,7 +48,7 @@ Renders a curated collection family with one primary collection and up to three 
         | image_tag:
           class: 'mc-collection-family__image',
           widths: '480, 720, 960, 1200, 1500, 1800',
-          sizes: '(min-width: 990px) 58vw, 100vw',
+          sizes: family_image_sizes,
           loading: family_image_loading,
           alt: family_image_alt
       }}
@@ -46,9 +62,45 @@ Renders a curated collection family with one primary collection and up to three 
   <div class="mc-collection-family__content">
     <h2 class="mc-collection-family__title">{{ family_title }}</h2>
     <div class="mc-collection-family__description rte">{{ family_description }}</div>
+
+    {%- if family_details != blank -%}
+      <div class="mc-collection-family__details rte">{{ family_details }}</div>
+    {%- endif -%}
+
+    {%- if product_preview_count > 0 and primary_collection.products_count > 0 -%}
+      <ul class="mc-collection-family__products" aria-label="{{ family_title | escape }}" role="list">
+        {%- for preview_product in primary_collection.products limit: product_preview_count -%}
+          <li>
+            <a href="{{ preview_product.url }}">
+              <span class="mc-collection-family__product-media">
+                {%- if preview_product.featured_image != blank -%}
+                  {{
+                    preview_product.featured_image
+                    | image_url: width: 240
+                    | image_tag:
+                      widths: '96, 144, 192, 240',
+                      sizes: '64px',
+                      loading: 'lazy',
+                      alt: preview_product.featured_image.alt | default: preview_product.title
+                  }}
+                {%- endif -%}
+              </span>
+              <span class="mc-collection-family__product-copy">
+                <span>{{ preview_product.title | escape }}</span>
+                <span class="mc-collection-family__product-price">
+                  {% render 'price', product: preview_product, show_compare_at_price: false %}
+                </span>
+              </span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+
     <a class="mc-collection-family__primary-link" href="{{ primary_collection.url }}">
-      <span>{{ primary_collection.title | escape }}</span>
-      <span aria-hidden="true">→</span>
+      <span>{{ family_primary_label | escape }}</span>
+      <span class="mc-collection-family__arrow" aria-hidden="true">→</span>
     </a>
 
     {%- if block.settings.related_collection_1 != blank or block.settings.related_collection_2 != blank or block.settings.related_collection_3 != blank -%}
@@ -66,7 +118,7 @@ Renders a curated collection family with one primary collection and up to three 
                 <span class="mc-collection-family__related-count">
                   {{ 'products.facets.product_count_simple' | t: count: related_collection.all_products_count }}
                 </span>
-                <span aria-hidden="true">→</span>
+                <span class="mc-collection-family__arrow" aria-hidden="true">→</span>
               </a>
             </li>
           {%- endfor -%}
