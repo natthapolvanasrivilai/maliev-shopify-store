@@ -77,6 +77,7 @@
     function closeGroup(group) {
       if (!group.open) return;
       group.open = false;
+      group.classList.remove('mc-nav__group--switched');
       setExpanded(group, false);
     }
 
@@ -87,6 +88,25 @@
       syncHeaderState();
     }
 
+    function toggleDesktopGroup(group) {
+      if (!desktopQuery.matches) return;
+
+      if (group.open) {
+        closeGroup(group);
+        syncHeaderState();
+        return;
+      }
+
+      var isSwitch = groups.some(function (candidate) {
+        return candidate !== group && candidate.open;
+      });
+
+      group.classList.toggle('mc-nav__group--switched', isSwitch);
+      group.open = true;
+      setExpanded(group, true);
+      closeAll(group);
+    }
+
     groups.forEach(function (group) {
       var summary = group.querySelector(':scope > summary');
       setExpanded(group, group.open);
@@ -94,7 +114,13 @@
       summary.addEventListener('keydown', function (event) {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        group.open = !group.open;
+        toggleDesktopGroup(group);
+      }, listenerOptions);
+
+      summary.addEventListener('click', function (event) {
+        if (!desktopQuery.matches) return;
+        event.preventDefault();
+        toggleDesktopGroup(group);
       }, listenerOptions);
 
       group.addEventListener('toggle', function () {
@@ -181,6 +207,10 @@
         return group.open;
       });
       if (!openGroup || openGroup.contains(event.target)) return;
+
+      var targetGroup = event.target.closest('[data-mc-mega-menu]');
+      if (targetGroup && groups.indexOf(targetGroup) !== -1) return;
+
       closeAll();
     }, listenerOptions);
 

@@ -161,6 +161,10 @@
   animation: mc-mega-enter 180ms var(--maliev-ease) both;
 }
 
+.mc-nav__group--switched[open] .mc-nav__panel {
+  animation: none;
+}
+
 .mc-nav__panel-inner {
   align-items: start;
   display: grid;
