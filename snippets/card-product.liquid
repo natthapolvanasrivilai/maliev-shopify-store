@@ -128,7 +128,7 @@
       </h3>
 
       {%- if card_summary != blank -%}
-        <p class="mc-product-card__subtitle">{{ card_summary | truncatewords: 18 | escape }}</p>
+        <p class="mc-product-card__subtitle">{{ card_summary | truncatewords: 18 | escape_once }}</p>
       {%- endif -%}
 
       <div class="mc-product-card__price">
