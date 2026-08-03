@@ -46,13 +46,14 @@
               <li>
                 {%- if link.links != blank -%}
                   <details class="mc-mobile-nav__group">
-                    <summary>{{ link.title | escape }}</summary>
+                    <summary>
+                      <span>{{ link.title | escape }}</span>
+                      <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
+                    </summary>
                     <ul role="list">
                       {%- for childlink in link.links -%}
                         <li>
-                          <a href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
-                            {{ childlink.title | escape }}
-                          </a>
+                          {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'mobile', show_arrow: false %}
                           {%- if childlink.links != blank -%}
                             <ul role="list">
                               {%- for grandchildlink in childlink.links -%}
@@ -69,7 +70,7 @@
                     </ul>
                   </details>
                 {%- else -%}
-                  <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a>
+                  {% render 'maliev-menu-link', menu_link: link, section: section, variant: 'mobile', show_arrow: true %}
                 {%- endif -%}
               </li>
             {%- endfor -%}
@@ -123,24 +124,23 @@
                 >
                   <div class="mc-nav__panel-inner">
                     <div class="mc-nav__panel-heading">
-                      {%- if link.url != blank and link.url != '#' -%}
+                      {%- unless link.url == blank or link.url contains '#' -%}
                         <a class="mc-nav__overview" href="{{ link.url }}">
                           <span id="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}">{{ link.title | escape }}</span>
                           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
                         </a>
                       {%- else -%}
                         <h2 id="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}">{{ link.title | escape }}</h2>
-                      {%- endif -%}
+                      {%- endunless -%}
                     </div>
                     <ul class="mc-nav__columns" role="list">
                     {%- for childlink in link.links -%}
                       <li class="mc-nav__column{% if childlink.links == blank %} mc-nav__column--single{% endif %}">
-                        <a class="mc-nav__primary-link" href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
-                          <span>{{ childlink.title | escape }}</span>
-                          {%- if childlink.links == blank -%}
-                            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
-                          {%- endif -%}
-                        </a>
+                        {%- if childlink.links == blank -%}
+                          {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'desktop', show_arrow: true %}
+                        {%- else -%}
+                          {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'desktop', show_arrow: false %}
+                        {%- endif -%}
                         {%- if childlink.links != blank -%}
                           <ul role="list">
                             {%- for grandchildlink in childlink.links -%}
@@ -186,10 +186,7 @@
                   {%- for link in section.settings.menu.links -%}
                     {%- if link.links == blank -%}
                       <li class="mc-nav__column mc-nav__column--single">
-                        <a class="mc-nav__primary-link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
-                          <span>{{ link.title | escape }}</span>
-                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
-                        </a>
+                        {% render 'maliev-menu-link', menu_link: link, section: section, variant: 'desktop', show_arrow: true %}
                       </li>
                     {%- endif -%}
                   {%- endfor -%}
@@ -311,6 +308,54 @@
       "id": "show_localization",
       "default": true,
       "label": "Show language selector"
+    }
+  ],
+  "max_blocks": 16,
+  "blocks": [
+    {
+      "type": "menu_detail",
+      "name": "Menu link detail",
+      "settings": [
+        {
+          "type": "text",
+          "id": "link_title",
+          "label": "Navigation link title",
+          "info": "Must match the navigation link title exactly."
+        },
+        {
+          "type": "textarea",
+          "id": "description",
+          "label": "Short description",
+          "info": "Keep this to one concise sentence."
+        },
+        {
+          "type": "textarea",
+          "id": "description_th",
+          "label": "Thai description",
+          "info": "Shown when the storefront language is Thai."
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Custom thumbnail"
+        },
+        {
+          "type": "select",
+          "id": "image_preset",
+          "label": "MALIEV asset fallback",
+          "default": "none",
+          "options": [
+            { "value": "none", "label": "No fallback image" },
+            { "value": "machines", "label": "Injection molding machines" },
+            { "value": "simmount", "label": "SimMount hardware" },
+            { "value": "printed", "label": "3D printed products" },
+            { "value": "molds", "label": "Molds and machined parts" },
+            { "value": "mesh", "label": "Mesh Splitter" },
+            { "value": "materials", "label": "Molding materials" },
+            { "value": "digital", "label": "Digital files" }
+          ]
+        }
+      ]
     }
   ],
   "presets": [

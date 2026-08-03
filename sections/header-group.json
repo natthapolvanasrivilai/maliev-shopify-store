@@ -29,6 +29,130 @@
     },
     "header": {
       "type": "maliev-header",
+      "blocks": {
+        "menu-products": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "Products",
+            "description": "Browse every machine, component, material, and MALIEV-made item.",
+            "description_th": "เลือกดูเครื่องจักร ชิ้นส่วน วัสดุ และสินค้าที่ผลิตโดย MALIEV",
+            "image_preset": "machines"
+          }
+        },
+        "menu-collections": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "Collections",
+            "description": "Explore the catalogue by product family and workshop use.",
+            "description_th": "เลือกดูแคตตาล็อกตามประเภทสินค้าและการใช้งานในเวิร์กช็อป",
+            "image_preset": "materials"
+          }
+        },
+        "menu-simmount": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "SimMount",
+            "description": "Monitor and bass-shaker hardware for 40 mm-series aluminium profiles.",
+            "description_th": "อุปกรณ์ยึดจอและเบสเชคเกอร์สำหรับโปรไฟล์อะลูมิเนียมซีรีส์ 40 มม.",
+            "image_preset": "simmount"
+          }
+        },
+        "menu-printed": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "3D Printed Items",
+            "description": "Functional accessories designed and printed by MALIEV.",
+            "description_th": "อุปกรณ์ใช้งานจริงที่ออกแบบและพิมพ์โดย MALIEV",
+            "image_preset": "printed"
+          }
+        },
+        "menu-printing-service": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "3D Printing Services",
+            "description": "Rapid prototypes and production parts in practical engineering materials.",
+            "description_th": "ผลิตต้นแบบและชิ้นส่วนใช้งานจริงด้วยวัสดุวิศวกรรมที่เหมาะกับงาน",
+            "image_preset": "printed"
+          }
+        },
+        "menu-cnc-service": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "CNC Machining Services",
+            "description": "Precision metal and plastic parts made from your CAD model or drawing.",
+            "description_th": "ผลิตชิ้นส่วนโลหะและพลาสติกความแม่นยำสูงจากไฟล์ CAD หรือแบบงาน",
+            "image_preset": "molds"
+          }
+        },
+        "menu-scanning-service": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "3D Scanning Services",
+            "description": "High-resolution capture for reverse engineering, inspection, and fit checks.",
+            "description_th": "สแกนความละเอียดสูงสำหรับวิศวกรรมย้อนกลับ การตรวจสอบ และเช็กระยะประกอบ",
+            "image_preset": "none"
+          }
+        },
+        "menu-documents": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "Product Documents",
+            "description": "Manuals, specifications, setup guides, and technical references.",
+            "description_th": "คู่มือ ข้อมูลจำเพาะ วิธีติดตั้ง และเอกสารอ้างอิงทางเทคนิค",
+            "image_preset": "none"
+          }
+        },
+        "menu-spares": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "Spare Parts",
+            "description": "Genuine replacement parts and workshop-ready machine components.",
+            "description_th": "อะไหล่แท้และชิ้นส่วนพร้อมใช้งานสำหรับเวิร์กช็อป",
+            "image_preset": "molds"
+          }
+        },
+        "menu-contact": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "Contact Us",
+            "description": "Talk with our team or request a machine demonstration in Pak Kret.",
+            "description_th": "พูดคุยกับทีมงานหรือนัดชมเครื่องที่สำนักงานใหญ่ปากเกร็ด",
+            "image_preset": "none"
+          }
+        },
+        "menu-mesh": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "Mesh Splitter",
+            "description": "Split large STL files into keyed, printable sections in your browser.",
+            "description_th": "แบ่งไฟล์ STL ขนาดใหญ่เป็นชิ้นส่วนพร้อมเดือยประกอบผ่านเบราว์เซอร์",
+            "image_preset": "mesh"
+          }
+        },
+        "menu-news": {
+          "type": "menu_detail",
+          "settings": {
+            "link_title": "News",
+            "description": "Product releases, practical workshop guides, and MALIEV updates.",
+            "description_th": "ข่าวสินค้า คู่มือเวิร์กช็อป และอัปเดตจาก MALIEV",
+            "image_preset": "none"
+          }
+        }
+      },
+      "block_order": [
+        "menu-products",
+        "menu-collections",
+        "menu-simmount",
+        "menu-printed",
+        "menu-printing-service",
+        "menu-cnc-service",
+        "menu-scanning-service",
+        "menu-documents",
+        "menu-spares",
+        "menu-contact",
+        "menu-mesh",
+        "menu-news"
+      ],
       "custom_css": [],
       "settings": {
         "menu": "main-menu",
