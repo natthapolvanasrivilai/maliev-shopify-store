@@ -13,6 +13,8 @@
   assign standalone_link_count = 0
   assign standalone_link_active = false
   assign utility_panel_block = nil
+  assign localization_loading_label = 'accessibility.loading' | t
+  assign localization_error_label = 'accessibility.error' | t
   if request.page_type == 'index'
     assign header_is_home = true
   endif
@@ -164,18 +166,19 @@
 
         <div class="mc-mobile-menu__utility">
           {%- if section.settings.show_localization and localization.available_languages.size > 1 -%}
-            {%- form 'localization', id: 'MalievMobileLanguage', class: 'mc-mobile-localization' -%}
+            {%- form 'localization', id: 'MalievMobileLanguage', class: 'mc-mobile-localization', data-header-localization-form: '', data-loading-label: localization_loading_label, data-error-label: localization_error_label -%}
               <label for="MalievMobileLocale">{{ 'localization.language_label' | t }}</label>
               <div class="mc-mobile-localization__control">
-                <select id="MalievMobileLocale" name="locale_code">
+                <select id="MalievMobileLocale" name="language_code" data-header-localization-select data-initial-value="{{ localization.language.iso_code }}">
                   {%- for language in localization.available_languages -%}
                     <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
                       {{ language.endonym_name | capitalize }}
                     </option>
                   {%- endfor -%}
                 </select>
-                <button type="submit">{{ 'localization.update_language' | t }}</button>
+                <button class="mc-localization__submit" type="submit">{{ 'localization.update_language' | t }}</button>
               </div>
+              <p class="mc-localization__status" role="status" aria-live="polite" data-header-localization-status hidden></p>
             {%- endform -%}
           {%- endif -%}
           {%- if shop.customer_accounts_enabled -%}
@@ -312,16 +315,17 @@
             <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
           </summary>
           <div class="mc-localization__panel">
-            {%- form 'localization', id: 'MalievHeaderLanguage', class: 'mc-localization__form' -%}
+            {%- form 'localization', id: 'MalievHeaderLanguage', class: 'mc-localization__form', data-header-localization-form: '', data-loading-label: localization_loading_label, data-error-label: localization_error_label -%}
               <label for="MalievHeaderLocale">{{ 'localization.language_label' | t }}</label>
-              <select id="MalievHeaderLocale" name="locale_code">
+              <select id="MalievHeaderLocale" name="language_code" data-header-localization-select data-initial-value="{{ localization.language.iso_code }}">
                 {%- for language in localization.available_languages -%}
                   <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
                     {{ language.endonym_name | capitalize }}
                   </option>
                 {%- endfor -%}
               </select>
-              <button type="submit">{{ 'localization.update_language' | t }}</button>
+              <button class="mc-localization__submit" type="submit">{{ 'localization.update_language' | t }}</button>
+              <p class="mc-localization__status" role="status" aria-live="polite" data-header-localization-status hidden></p>
             {%- endform -%}
           </div>
         </details>

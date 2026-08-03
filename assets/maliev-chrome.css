@@ -544,6 +544,28 @@
   width: 100%;
 }
 
+.js .mc-localization__submit {
+  display: none;
+}
+
+.mc-localization__form[aria-busy='true'] select,
+.mc-mobile-localization[aria-busy='true'] select {
+  cursor: progress;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.mc-localization__status {
+  color: var(--maliev-ink-soft);
+  font-size: 1.2rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.js .mc-localization__form--failed .mc-localization__submit {
+  display: block;
+}
+
 .mc-mobile-menu {
   display: none;
 }
@@ -1264,6 +1286,14 @@
     display: grid;
     gap: 0.8rem;
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .js .mc-mobile-localization__control {
+    display: block;
+  }
+
+  .js .mc-mobile-localization.mc-localization__form--failed .mc-mobile-localization__control {
+    display: grid;
   }
 
   .mc-mobile-localization select,
