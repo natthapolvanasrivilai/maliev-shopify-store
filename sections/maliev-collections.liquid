@@ -34,10 +34,30 @@
 <maliev-collection-directory class="mc-collection-directory">
   <div class="page-width">
     <header class="mc-collection-directory__header">
-      <h1 class="mc-collection-directory__title inline-richtext">{{ directory_title }}</h1>
-      {%- if directory_intro != blank -%}
-        <div class="mc-collection-directory__intro rte">{{ directory_intro }}</div>
-      {%- endif -%}
+      <div>
+        <h1 class="mc-collection-directory__title inline-richtext">{{ directory_title }}</h1>
+      </div>
+      <div class="mc-collection-directory__guidance">
+        {%- if directory_intro != blank -%}
+          <div class="mc-collection-directory__intro rte">{{ directory_intro }}</div>
+        {%- endif -%}
+        {%- if help_title != blank -%}
+          <aside class="mc-collection-directory__help">
+            <div>
+              <h2>{{ help_title }}</h2>
+              {%- if help_text != blank -%}
+                <div class="rte">{{ help_text }}</div>
+              {%- endif -%}
+            </div>
+            {%- if section.settings.help_link != blank and help_label != blank -%}
+              <a href="{{ section.settings.help_link }}">
+                <span>{{ help_label }}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            {%- endif -%}
+          </aside>
+        {%- endif -%}
+      </div>
     </header>
     {%- liquid
       assign configured_family_count = 0
@@ -102,22 +122,6 @@
           %}
         {%- endfor -%}
       </div>
-      {%- if help_title != blank -%}
-        <aside class="mc-collection-directory__help">
-          <div>
-            <h2>{{ help_title }}</h2>
-            {%- if help_text != blank -%}
-              <div class="rte">{{ help_text }}</div>
-            {%- endif -%}
-          </div>
-          {%- if section.settings.help_link != blank and help_label != blank -%}
-            <a href="{{ section.settings.help_link }}">
-              <span>{{ help_label }}</span>
-              <span aria-hidden="true">→</span>
-            </a>
-          {%- endif -%}
-        </aside>
-      {%- endif -%}
     {%- else -%}
       {%- liquid
         case section.settings.sort
@@ -491,7 +495,13 @@
           "max": 3,
           "step": 1,
           "default": 0,
-          "label": "Product previews"
+          "label": "Product images in media"
+        },
+        {
+          "type": "product",
+          "id": "featured_product",
+          "label": "Featured product image",
+          "info": "Overrides the collection image when no product mosaic is selected."
         },
         {
           "type": "collection",
