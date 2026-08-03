@@ -44,14 +44,19 @@
   if link_image != blank or preset_asset != blank
     assign has_link_image = true
   endif
+
+  assign show_link_image = false
+  if has_link_image and variant != 'compact'
+    assign show_link_image = true
+  endif
 -%}
 
 <a
-  class="mc-menu-link mc-menu-link--{{ variant }}{% if has_link_image %} mc-menu-link--with-media{% endif %}"
+  class="mc-menu-link mc-menu-link--{{ variant }}{% if show_link_image %} mc-menu-link--with-media{% endif %}"
   href="{{ menu_link.url }}"
   {% if menu_link.current %}aria-current="page"{% endif %}
 >
-  {%- if has_link_image -%}
+  {%- if show_link_image -%}
     <span class="mc-menu-link__media" aria-hidden="true">
       {%- if link_image != blank -%}
         {{
@@ -59,7 +64,7 @@
           | image_url: width: 360
           | image_tag:
             widths: '120, 180, 240, 360',
-            sizes: '(max-width: 749px) 64px, 96px',
+            sizes: '(max-width: 1099px) 56px, 320px',
             loading: 'lazy',
             alt: ''
         }}

@@ -12,6 +12,7 @@
   assign header_is_home = false
   assign standalone_link_count = 0
   assign standalone_link_active = false
+  assign utility_panel_block = nil
   if request.page_type == 'index'
     assign header_is_home = true
   endif
@@ -26,12 +27,46 @@
       endif
     endif
   endfor
+  for block in section.blocks
+    if block.type == 'menu_panel' and block.settings.menu_title == 'Menu'
+      assign utility_panel_block = block
+      break
+    endif
+  endfor
+  assign utility_nav_label = utility_panel_block.settings.nav_label
+  assign utility_eyebrow = utility_panel_block.settings.eyebrow
+  assign utility_intro = utility_panel_block.settings.intro
+  assign utility_cta_label = utility_panel_block.settings.cta_label
+  assign utility_featured_label = utility_panel_block.settings.featured_label | default: 'Featured'
+  if utility_nav_label == blank
+    assign utility_nav_label = 'sections.header.menu' | t
+  endif
+  if request.locale.iso_code == 'th'
+    assign utility_nav_label = utility_panel_block.settings.nav_label_th | default: utility_nav_label
+    assign utility_eyebrow = utility_panel_block.settings.eyebrow_th | default: utility_eyebrow
+    assign utility_intro = utility_panel_block.settings.intro_th | default: utility_intro
+    assign utility_cta_label = utility_panel_block.settings.cta_label_th | default: utility_cta_label
+    assign utility_featured_label = utility_panel_block.settings.featured_label_th | default: utility_featured_label
+  endif
+  assign utility_featured_link = nil
+  assign utility_featured_key = utility_panel_block.settings.featured_link_title | handleize
+  for menu_link in section.settings.menu.links
+    if menu_link.links == blank
+      assign utility_link_key = menu_link.title | handleize
+      if utility_featured_link == nil or utility_link_key == utility_featured_key
+        assign utility_featured_link = menu_link
+      endif
+      if utility_link_key == utility_featured_key
+        break
+      endif
+    endif
+  endfor
 -%}
 
 <header class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}{% if header_is_home %} mc-header--home{% endif %}" data-maliev-header>
   <div class="mc-header__inner">
     <details class="mc-mobile-menu">
-      <summary class="mc-icon-button" aria-label="{{ 'sections.header.menu' | t }}">
+      <summary class="mc-icon-button" aria-label="{{ 'sections.header.menu' | t }}" aria-expanded="false">
         <span class="mc-mobile-menu__open" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </span>
@@ -43,13 +78,39 @@
         <nav aria-label="{{ 'sections.header.menu' | t }}">
           <ul class="mc-mobile-nav" role="list">
             {%- for link in section.settings.menu.links -%}
-              <li>
-                {%- if link.links != blank -%}
+              {%- if link.links != blank -%}
+                <li>
+                  {%- liquid
+                    assign mobile_panel_block = nil
+                    assign mobile_panel_key = link.title | handleize
+                    for block in section.blocks
+                      assign mobile_block_key = block.settings.menu_title | handleize
+                      if block.type == 'menu_panel' and mobile_block_key == mobile_panel_key
+                        assign mobile_panel_block = block
+                        break
+                      endif
+                    endfor
+                    assign mobile_nav_label = mobile_panel_block.settings.nav_label | default: link.title
+                    assign mobile_intro = mobile_panel_block.settings.intro
+                    assign mobile_cta_label = mobile_panel_block.settings.cta_label
+                    if request.locale.iso_code == 'th'
+                      assign mobile_nav_label = mobile_panel_block.settings.nav_label_th | default: mobile_nav_label
+                      assign mobile_intro = mobile_panel_block.settings.intro_th | default: mobile_intro
+                      assign mobile_cta_label = mobile_panel_block.settings.cta_label_th | default: mobile_cta_label
+                    endif
+                  -%}
                   <details class="mc-mobile-nav__group">
-                    <summary>
-                      <span>{{ link.title | escape }}</span>
+                    <summary aria-expanded="false" aria-controls="MobileMenu-{{ section.id }}-{{ forloop.index }}">
+                      <span>{{ mobile_nav_label | escape }}</span>
                       <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
                     </summary>
+                    <div id="MobileMenu-{{ section.id }}-{{ forloop.index }}" class="mc-mobile-nav__content">
+                      {%- if mobile_intro != blank -%}
+                        <p class="mc-mobile-nav__intro">{{ mobile_intro | escape }}</p>
+                      {%- endif -%}
+                      {%- if mobile_cta_label != blank and mobile_panel_block.settings.cta_url != blank -%}
+                        <a class="mc-mobile-nav__cta" href="{{ mobile_panel_block.settings.cta_url }}">{{ mobile_cta_label | escape }}</a>
+                      {%- endif -%}
                     <ul role="list">
                       {%- for childlink in link.links -%}
                         <li>
@@ -68,16 +129,55 @@
                         </li>
                       {%- endfor -%}
                     </ul>
+                    </div>
                   </details>
-                {%- else -%}
-                  {% render 'maliev-menu-link', menu_link: link, section: section, variant: 'mobile', show_arrow: true %}
-                {%- endif -%}
-              </li>
+                </li>
+              {%- endif -%}
             {%- endfor -%}
+            {%- if standalone_link_count > 0 -%}
+              <li>
+                <details class="mc-mobile-nav__group">
+                  <summary aria-expanded="false" aria-controls="MobileMenu-{{ section.id }}-more">
+                    <span>{{ utility_nav_label | escape }}</span>
+                    <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
+                  </summary>
+                  <div id="MobileMenu-{{ section.id }}-more" class="mc-mobile-nav__content">
+                    {%- if utility_intro != blank -%}
+                      <p class="mc-mobile-nav__intro">{{ utility_intro | escape }}</p>
+                    {%- endif -%}
+                    {%- if utility_cta_label != blank and utility_panel_block.settings.cta_url != blank -%}
+                      <a class="mc-mobile-nav__cta" href="{{ utility_panel_block.settings.cta_url }}">{{ utility_cta_label | escape }}</a>
+                    {%- endif -%}
+                    <ul role="list">
+                      {%- for link in section.settings.menu.links -%}
+                        {%- if link.links == blank -%}
+                          <li>{% render 'maliev-menu-link', menu_link: link, section: section, variant: 'mobile', show_arrow: false %}</li>
+                        {%- endif -%}
+                      {%- endfor -%}
+                    </ul>
+                  </div>
+                </details>
+              </li>
+            {%- endif -%}
           </ul>
         </nav>
 
         <div class="mc-mobile-menu__utility">
+          {%- if section.settings.show_localization and localization.available_languages.size > 1 -%}
+            {%- form 'localization', id: 'MalievMobileLanguage', class: 'mc-mobile-localization' -%}
+              <label for="MalievMobileLocale">{{ 'localization.language_label' | t }}</label>
+              <div class="mc-mobile-localization__control">
+                <select id="MalievMobileLocale" name="locale_code">
+                  {%- for language in localization.available_languages -%}
+                    <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
+                      {{ language.endonym_name | capitalize }}
+                    </option>
+                  {%- endfor -%}
+                </select>
+                <button type="submit">{{ 'localization.update_language' | t }}</button>
+              </div>
+            {%- endform -%}
+          {%- endif -%}
           {%- if shop.customer_accounts_enabled -%}
             <a href="{{ account_url }}">{{ 'customer.account.title' | t }}</a>
           {%- endif -%}
@@ -106,6 +206,22 @@
       <ul role="list">
         {%- for link in section.settings.menu.links -%}
           {%- if link.links != blank -%}
+            {%- liquid
+              assign desktop_panel_block = nil
+              assign desktop_panel_key = link.title | handleize
+              for block in section.blocks
+                assign desktop_block_key = block.settings.menu_title | handleize
+                if block.type == 'menu_panel' and desktop_block_key == desktop_panel_key
+                  assign desktop_panel_block = block
+                  break
+                endif
+              endfor
+              assign desktop_nav_label = desktop_panel_block.settings.nav_label | default: link.title
+              if request.locale.iso_code == 'th'
+                assign desktop_nav_label = desktop_panel_block.settings.nav_label_th | default: desktop_nav_label
+              endif
+              assign desktop_label_id = 'MegaMenuLabel-' | append: section.id | append: '-' | append: forloop.index
+            -%}
             <li>
               <details class="mc-nav__group" data-mc-mega-menu>
                 <summary
@@ -114,7 +230,7 @@
                   role="button"
                   {% if link.child_active %}class="is-active"{% endif %}
                 >
-                  {{ link.title | escape }}
+                  {{ desktop_nav_label | escape }}
                   <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
                 </summary>
                 <div
@@ -122,40 +238,7 @@
                   class="mc-nav__panel"
                   aria-labelledby="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}"
                 >
-                  <div class="mc-nav__panel-inner">
-                    <div class="mc-nav__panel-heading">
-                      {%- unless link.url == blank or link.url contains '#' -%}
-                        <a class="mc-nav__overview" href="{{ link.url }}">
-                          <span id="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}">{{ link.title | escape }}</span>
-                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
-                        </a>
-                      {%- else -%}
-                        <h2 id="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}">{{ link.title | escape }}</h2>
-                      {%- endunless -%}
-                    </div>
-                    <ul class="mc-nav__columns" role="list">
-                    {%- for childlink in link.links -%}
-                      <li class="mc-nav__column{% if childlink.links == blank %} mc-nav__column--single{% endif %}">
-                        {%- if childlink.links == blank -%}
-                          {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'desktop', show_arrow: true %}
-                        {%- else -%}
-                          {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'desktop', show_arrow: false %}
-                        {%- endif -%}
-                        {%- if childlink.links != blank -%}
-                          <ul role="list">
-                            {%- for grandchildlink in childlink.links -%}
-                              <li>
-                                <a href="{{ grandchildlink.url }}"{% if grandchildlink.current %} aria-current="page"{% endif %}>
-                                  {{ grandchildlink.title | escape }}
-                                </a>
-                              </li>
-                            {%- endfor -%}
-                          </ul>
-                        {%- endif -%}
-                      </li>
-                    {%- endfor -%}
-                    </ul>
-                  </div>
+                  {% render 'maliev-mega-panel', panel_title: link.title, panel_url: link.url, menu_links: link.links, section: section, label_id: desktop_label_id %}
                 </div>
               </details>
             </li>
@@ -170,7 +253,7 @@
                 role="button"
                 {% if standalone_link_active %}class="is-active"{% endif %}
               >
-                {{ 'sections.header.menu' | t }}
+                {{ utility_nav_label | escape }}
                 <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
               </summary>
               <div
@@ -179,18 +262,37 @@
                 aria-labelledby="MegaMenuLabel-{{ section.id }}-more"
               >
                 <div class="mc-nav__panel-inner">
-                  <div class="mc-nav__panel-heading">
-                    <h2 id="MegaMenuLabel-{{ section.id }}-more">{{ 'sections.header.menu' | t }}</h2>
-                  </div>
-                  <ul class="mc-nav__columns" role="list">
-                  {%- for link in section.settings.menu.links -%}
-                    {%- if link.links == blank -%}
-                      <li class="mc-nav__column mc-nav__column--single">
-                        {% render 'maliev-menu-link', menu_link: link, section: section, variant: 'desktop', show_arrow: true %}
-                      </li>
+                  <div class="mc-nav__intent">
+                    {%- if utility_eyebrow != blank -%}<p class="mc-nav__eyebrow">{{ utility_eyebrow | escape }}</p>{%- endif -%}
+                    <h2 id="MegaMenuLabel-{{ section.id }}-more">{{ utility_nav_label | escape }}</h2>
+                    {%- if utility_intro != blank -%}<p class="mc-nav__intro">{{ utility_intro | escape }}</p>{%- endif -%}
+                    {%- if utility_cta_label != blank and utility_panel_block.settings.cta_url != blank -%}
+                      <a class="mc-nav__cta" href="{{ utility_panel_block.settings.cta_url }}">
+                        {{ utility_cta_label | escape }}
+                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+                      </a>
                     {%- endif -%}
-                  {%- endfor -%}
-                  </ul>
+                  </div>
+                  <div class="mc-nav__link-group">
+                    <p class="mc-nav__group-label">{{ 'sections.header.menu' | t }}</p>
+                    <ul class="mc-nav__columns" role="list">
+                    {%- for link in section.settings.menu.links -%}
+                      {%- if link.links == blank -%}
+                        {%- unless utility_featured_link != nil and link.url == utility_featured_link.url and link.title == utility_featured_link.title -%}
+                          <li class="mc-nav__column mc-nav__column--single">
+                            {% render 'maliev-menu-link', menu_link: link, section: section, variant: 'compact', show_arrow: true %}
+                          </li>
+                        {%- endunless -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    </ul>
+                  </div>
+                  {%- if utility_featured_link != nil -%}
+                    <aside class="mc-nav__feature" aria-label="{{ utility_featured_link.title | escape }}">
+                      <p class="mc-nav__group-label">{{ utility_featured_label | escape }}</p>
+                      {% render 'maliev-menu-link', menu_link: utility_featured_link, section: section, variant: 'featured', show_arrow: true %}
+                    </aside>
+                  {%- endif -%}
                 </div>
               </div>
             </details>
@@ -354,6 +456,80 @@
             { "value": "materials", "label": "Molding materials" },
             { "value": "digital", "label": "Digital files" }
           ]
+        }
+      ]
+    },
+    {
+      "type": "menu_panel",
+      "name": "Mega-menu panel",
+      "settings": [
+        {
+          "type": "text",
+          "id": "menu_title",
+          "label": "Top-level menu title",
+          "info": "Must match a top-level navigation title exactly. Use Menu for standalone links."
+        },
+        {
+          "type": "text",
+          "id": "nav_label",
+          "label": "Short navigation label"
+        },
+        {
+          "type": "text",
+          "id": "nav_label_th",
+          "label": "Thai navigation label"
+        },
+        {
+          "type": "text",
+          "id": "eyebrow",
+          "label": "Context label"
+        },
+        {
+          "type": "text",
+          "id": "eyebrow_th",
+          "label": "Thai context label"
+        },
+        {
+          "type": "textarea",
+          "id": "intro",
+          "label": "Panel introduction"
+        },
+        {
+          "type": "textarea",
+          "id": "intro_th",
+          "label": "Thai panel introduction"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "Primary link label"
+        },
+        {
+          "type": "text",
+          "id": "cta_label_th",
+          "label": "Thai primary link label"
+        },
+        {
+          "type": "url",
+          "id": "cta_url",
+          "label": "Primary link"
+        },
+        {
+          "type": "text",
+          "id": "featured_link_title",
+          "label": "Featured navigation link",
+          "info": "Must match one link inside this panel exactly."
+        },
+        {
+          "type": "text",
+          "id": "featured_label",
+          "label": "Featured label",
+          "default": "Featured"
+        },
+        {
+          "type": "text",
+          "id": "featured_label_th",
+          "label": "Thai featured label"
         }
       ]
     }

@@ -1,0 +1,99 @@
+{%- liquid
+  assign panel_block = nil
+  assign panel_key = panel_title | handleize
+  for block in section.blocks
+    assign block_key = block.settings.menu_title | handleize
+    if block.type == 'menu_panel' and block_key == panel_key
+      assign panel_block = block
+      break
+    endif
+  endfor
+
+  assign eyebrow = panel_block.settings.eyebrow
+  assign intro = panel_block.settings.intro
+  assign cta_label = panel_block.settings.cta_label
+  assign featured_label = panel_block.settings.featured_label | default: 'Featured'
+  if request.locale.iso_code == 'th'
+    if panel_block.settings.eyebrow_th != blank
+      assign eyebrow = panel_block.settings.eyebrow_th
+    endif
+    if panel_block.settings.intro_th != blank
+      assign intro = panel_block.settings.intro_th
+    endif
+    if panel_block.settings.cta_label_th != blank
+      assign cta_label = panel_block.settings.cta_label_th
+    endif
+    if panel_block.settings.featured_label_th != blank
+      assign featured_label = panel_block.settings.featured_label_th
+    endif
+  endif
+
+  assign cta_url = panel_block.settings.cta_url
+  if cta_url == blank
+    unless panel_url == blank or panel_url contains '#'
+      assign cta_url = panel_url
+    endunless
+  endif
+
+  assign featured_link = nil
+  assign featured_key = panel_block.settings.featured_link_title | handleize
+  if featured_key != blank
+    for item in menu_links
+      assign item_key = item.title | handleize
+      if item_key == featured_key
+        assign featured_link = item
+        break
+      endif
+    endfor
+  endif
+  if featured_link == nil
+    assign featured_link = menu_links.first
+  endif
+-%}
+
+<div class="mc-nav__panel-inner{% if featured_link == nil %} mc-nav__panel-inner--without-feature{% endif %}">
+  <div class="mc-nav__intent">
+    {%- if eyebrow != blank -%}
+      <p class="mc-nav__eyebrow">{{ eyebrow | escape }}</p>
+    {%- endif -%}
+    <h2 id="{{ label_id }}">{{ panel_title | escape }}</h2>
+    {%- if intro != blank -%}
+      <p class="mc-nav__intro">{{ intro | escape }}</p>
+    {%- endif -%}
+    {%- if cta_label != blank and cta_url != blank -%}
+      <a class="mc-nav__cta" href="{{ cta_url }}">
+        {{ cta_label | escape }}
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+      </a>
+    {%- endif -%}
+  </div>
+
+  <div class="mc-nav__link-group">
+    <p class="mc-nav__group-label">{{ 'sections.header.menu' | t }}</p>
+    <ul class="mc-nav__columns" role="list">
+      {%- for item in menu_links -%}
+        {%- unless featured_link != nil and item.url == featured_link.url and item.title == featured_link.title -%}
+          <li class="mc-nav__column{% if item.links == blank %} mc-nav__column--single{% endif %}">
+            {% render 'maliev-menu-link', menu_link: item, section: section, variant: 'compact', show_arrow: true %}
+            {%- if item.links != blank -%}
+              <ul role="list">
+                {%- for child in item.links -%}
+                  <li>
+                    <a href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title | escape }}</a>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+          </li>
+        {%- endunless -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+
+  {%- if featured_link != nil -%}
+    <aside class="mc-nav__feature" aria-label="{{ featured_link.title | escape }}">
+      <p class="mc-nav__group-label">{{ featured_label | escape }}</p>
+      {% render 'maliev-menu-link', menu_link: featured_link, section: section, variant: 'featured', show_arrow: true %}
+    </aside>
+  {%- endif -%}
+</div>

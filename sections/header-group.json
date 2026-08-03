@@ -137,6 +137,78 @@
             "description_th": "ข่าวสินค้า คู่มือเวิร์กช็อป และอัปเดตจาก MALIEV",
             "image_preset": "none"
           }
+        },
+        "panel-products": {
+          "type": "menu_panel",
+          "settings": {
+            "menu_title": "Products",
+            "nav_label": "Products",
+            "nav_label_th": "สินค้า",
+            "eyebrow": "Shop MALIEV",
+            "eyebrow_th": "เลือกซื้อจาก MALIEV",
+            "intro": "Machines, workshop hardware, and MALIEV-made products designed for practical work.",
+            "intro_th": "เครื่องจักร อุปกรณ์เวิร์กช็อป และสินค้าที่ MALIEV ออกแบบเพื่อการใช้งานจริง",
+            "cta_label": "Shop all products",
+            "cta_label_th": "ดูสินค้าทั้งหมด",
+            "cta_url": "/collections/all",
+            "featured_link_title": "SimMount",
+            "featured_label": "Featured system",
+            "featured_label_th": "ระบบแนะนำ"
+          }
+        },
+        "panel-manufacturing": {
+          "type": "menu_panel",
+          "settings": {
+            "menu_title": "Our Manufacturing Services",
+            "nav_label": "Manufacturing",
+            "nav_label_th": "บริการผลิต",
+            "eyebrow": "Build with us",
+            "eyebrow_th": "ผลิตชิ้นงานกับเรา",
+            "intro": "From prototype to production, work directly with MALIEV engineers in Thailand.",
+            "intro_th": "ตั้งแต่ต้นแบบถึงการผลิตจริง ทำงานโดยตรงกับวิศวกร MALIEV ในประเทศไทย",
+            "cta_label": "Explore manufacturing",
+            "cta_label_th": "ดูบริการผลิต",
+            "cta_url": "https://www.maliev.com/",
+            "featured_link_title": "CNC Machining Services",
+            "featured_label": "Precision service",
+            "featured_label_th": "บริการงานแม่นยำ"
+          }
+        },
+        "panel-support": {
+          "type": "menu_panel",
+          "settings": {
+            "menu_title": "Support",
+            "nav_label": "Support",
+            "nav_label_th": "ช่วยเหลือ",
+            "eyebrow": "Keep working",
+            "eyebrow_th": "พร้อมใช้งานต่อเนื่อง",
+            "intro": "Find documentation and replacement parts, or talk with our team in Pak Kret.",
+            "intro_th": "ค้นหาเอกสารและอะไหล่ หรือพูดคุยกับทีมงานที่ปากเกร็ด",
+            "cta_label": "Contact MALIEV",
+            "cta_label_th": "ติดต่อ MALIEV",
+            "cta_url": "/pages/contact",
+            "featured_link_title": "Spare Parts",
+            "featured_label": "Workshop support",
+            "featured_label_th": "การสนับสนุนเวิร์กช็อป"
+          }
+        },
+        "panel-tools": {
+          "type": "menu_panel",
+          "settings": {
+            "menu_title": "Menu",
+            "nav_label": "Tools & Learn",
+            "nav_label_th": "เครื่องมือและความรู้",
+            "eyebrow": "Practical resources",
+            "eyebrow_th": "แหล่งข้อมูลใช้งานจริง",
+            "intro": "Use MALIEV tools and follow product releases, workshop guides, and company updates.",
+            "intro_th": "ใช้เครื่องมือจาก MALIEV และติดตามสินค้าใหม่ คู่มือเวิร์กช็อป และข่าวสารบริษัท",
+            "cta_label": "Read the latest",
+            "cta_label_th": "อ่านข่าวล่าสุด",
+            "cta_url": "/blogs/news",
+            "featured_link_title": "Mesh Splitter",
+            "featured_label": "Browser tool",
+            "featured_label_th": "เครื่องมือบนเบราว์เซอร์"
+          }
         }
       },
       "block_order": [
@@ -151,7 +223,11 @@
         "menu-spares",
         "menu-contact",
         "menu-mesh",
-        "menu-news"
+        "menu-news",
+        "panel-products",
+        "panel-manufacturing",
+        "panel-support",
+        "panel-tools"
       ],
       "custom_css": [],
       "settings": {
