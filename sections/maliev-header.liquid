@@ -1,4 +1,5 @@
 {{ 'maliev-chrome.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-header.js' | asset_url }}" defer="defer"></script>
 {%- if settings.cart_type == 'notification' -%}
   {{ 'component-cart-notification.css' | asset_url | stylesheet_tag }}
   <script src="{{ 'cart-notification.js' | asset_url }}" defer="defer"></script>
@@ -105,17 +106,40 @@
         {%- for link in section.settings.menu.links -%}
           {%- if link.links != blank -%}
             <li>
-              <details class="mc-nav__group">
-                <summary{% if link.child_active %} class="is-active"{% endif %}>
+              <details class="mc-nav__group" data-mc-mega-menu>
+                <summary
+                  aria-controls="MegaMenu-{{ section.id }}-{{ forloop.index }}"
+                  aria-expanded="false"
+                  role="button"
+                  {% if link.child_active %}class="is-active"{% endif %}
+                >
                   {{ link.title | escape }}
                   <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
                 </summary>
-                <div class="mc-nav__panel">
-                  <ul role="list">
+                <div
+                  id="MegaMenu-{{ section.id }}-{{ forloop.index }}"
+                  class="mc-nav__panel"
+                  aria-labelledby="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}"
+                >
+                  <div class="mc-nav__panel-inner">
+                    <div class="mc-nav__panel-heading">
+                      {%- if link.url != blank and link.url != '#' -%}
+                        <a class="mc-nav__overview" href="{{ link.url }}">
+                          <span id="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}">{{ link.title | escape }}</span>
+                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+                        </a>
+                      {%- else -%}
+                        <h2 id="MegaMenuLabel-{{ section.id }}-{{ forloop.index }}">{{ link.title | escape }}</h2>
+                      {%- endif -%}
+                    </div>
+                    <ul class="mc-nav__columns" role="list">
                     {%- for childlink in link.links -%}
-                      <li>
-                        <a href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
+                      <li class="mc-nav__column{% if childlink.links == blank %} mc-nav__column--single{% endif %}">
+                        <a class="mc-nav__primary-link" href="{{ childlink.url }}"{% if childlink.current %} aria-current="page"{% endif %}>
                           <span>{{ childlink.title | escape }}</span>
+                          {%- if childlink.links == blank -%}
+                            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+                          {%- endif -%}
                         </a>
                         {%- if childlink.links != blank -%}
                           <ul role="list">
@@ -130,7 +154,8 @@
                         {%- endif -%}
                       </li>
                     {%- endfor -%}
-                  </ul>
+                    </ul>
+                  </div>
                 </div>
               </details>
             </li>
@@ -138,23 +163,38 @@
         {%- endfor -%}
         {%- if standalone_link_count > 0 -%}
           <li>
-            <details class="mc-nav__group mc-nav__group--menu">
-              <summary{% if standalone_link_active %} class="is-active"{% endif %}>
+            <details class="mc-nav__group mc-nav__group--menu" data-mc-mega-menu>
+              <summary
+                aria-controls="MegaMenu-{{ section.id }}-more"
+                aria-expanded="false"
+                role="button"
+                {% if standalone_link_active %}class="is-active"{% endif %}
+              >
                 {{ 'sections.header.menu' | t }}
                 <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
               </summary>
-              <div class="mc-nav__panel mc-nav__panel--compact">
-                <ul role="list">
+              <div
+                id="MegaMenu-{{ section.id }}-more"
+                class="mc-nav__panel mc-nav__panel--compact"
+                aria-labelledby="MegaMenuLabel-{{ section.id }}-more"
+              >
+                <div class="mc-nav__panel-inner">
+                  <div class="mc-nav__panel-heading">
+                    <h2 id="MegaMenuLabel-{{ section.id }}-more">{{ 'sections.header.menu' | t }}</h2>
+                  </div>
+                  <ul class="mc-nav__columns" role="list">
                   {%- for link in section.settings.menu.links -%}
                     {%- if link.links == blank -%}
-                      <li>
-                        <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
+                      <li class="mc-nav__column mc-nav__column--single">
+                        <a class="mc-nav__primary-link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
                           <span>{{ link.title | escape }}</span>
+                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
                         </a>
                       </li>
                     {%- endif -%}
                   {%- endfor -%}
-                </ul>
+                  </ul>
+                </div>
               </div>
             </details>
           </li>
@@ -214,6 +254,13 @@
       </a>
     </div>
   </div>
+  <button
+    class="mc-nav__backdrop"
+    type="button"
+    aria-label="{{ 'accessibility.close' | t }}"
+    data-mc-mega-backdrop
+    hidden
+  ></button>
 </header>
 
 {%- if settings.cart_type == 'notification' -%}
