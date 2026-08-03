@@ -650,12 +650,17 @@ main .card-wrapper .quick-add__submit {
 
 .mc-collection-directory__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(32rem, 48rem);
+  grid-template-columns: minmax(0, 1fr) minmax(38rem, 48rem);
   gap: 3.2rem clamp(4rem, 7vw, 9.6rem);
-  align-items: start;
+  align-items: end;
   margin-bottom: 3.2rem;
   padding-bottom: 3.2rem;
   border-bottom: 1px solid var(--maliev-rule);
+}
+
+.mc-collection-directory__headline {
+  display: grid;
+  gap: 2.4rem;
 }
 
 .mc-collection-directory__title {
@@ -669,7 +674,7 @@ main .card-wrapper .quick-add__submit {
 }
 
 .mc-collection-directory__intro {
-  max-width: 48rem;
+  max-width: 62ch;
   margin: 0;
   color: var(--maliev-ink-soft);
   font-size: 1.6rem;
@@ -688,8 +693,9 @@ main .card-wrapper .quick-add__submit {
 }
 
 .mc-collection-directory__guidance {
-  display: grid;
-  gap: 2.4rem;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
 }
 
 .mc-collection-directory__grid {
@@ -722,6 +728,10 @@ main .card-wrapper .quick-add__submit {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.mc-collection-directory__nav li {
+  scroll-snap-align: center;
 }
 
 .mc-collection-directory__nav a {
@@ -776,7 +786,7 @@ main .card-wrapper .quick-add__submit {
 
 .mc-collection-family {
   display: grid;
-  grid-template-rows: minmax(28rem, 34rem) 1fr;
+  grid-template-rows: clamp(26rem, 24vw, 32rem) 1fr;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--maliev-rule);
@@ -792,11 +802,11 @@ main .card-wrapper .quick-add__submit {
 
 .mc-collection-family--lead,
 .mc-collection-family--feature {
-  grid-template-rows: minmax(31rem, 38rem) 1fr;
+  grid-template-rows: clamp(28rem, 26vw, 34rem) 1fr;
 }
 
 .mc-collection-family--compact {
-  grid-template-rows: minmax(26rem, 30rem) 1fr;
+  grid-template-rows: clamp(24rem, 22vw, 28rem) 1fr;
 }
 
 .mc-collection-family__media {
@@ -808,6 +818,8 @@ main .card-wrapper .quick-add__submit {
 }
 
 .mc-collection-family__image {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -815,11 +827,6 @@ main .card-wrapper .quick-add__submit {
   transition:
     filter 420ms var(--maliev-ease),
     transform 520ms var(--maliev-ease);
-}
-
-.mc-collection-family__image {
-  position: absolute;
-  inset: 0;
 }
 
 .mc-collection-family--machines .mc-collection-family__image,
@@ -876,18 +883,18 @@ main .card-wrapper .quick-add__submit {
   padding: clamp(2.4rem, 3vw, 3.6rem);
 }
 
-.mc-collection-family__title {
+.mc-collection-directory .mc-collection-family .mc-collection-family__title {
   max-width: 18ch;
   margin: 0;
-  font-size: clamp(2.6rem, 3vw, 4rem);
+  font-size: clamp(2.6rem, 3vw, 4rem) !important;
   font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1;
+  letter-spacing: -0.025em !important;
+  line-height: 1.05 !important;
   text-wrap: balance;
 }
 
-.mc-collection-family--compact .mc-collection-family__title {
-  font-size: clamp(2.4rem, 2.6vw, 3.4rem);
+.mc-collection-directory .mc-collection-family--compact .mc-collection-family__title {
+  font-size: clamp(2.4rem, 2.6vw, 3.4rem) !important;
 }
 
 .mc-collection-family__description {
@@ -912,7 +919,7 @@ main .card-wrapper .quick-add__submit {
   padding-top: 1.6rem;
   border-top: 1px solid var(--maliev-rule);
   color: var(--maliev-graphite);
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -992,24 +999,27 @@ main .card-wrapper .quick-add__submit {
 
 .mc-collection-directory__help {
   display: grid;
-  gap: 1.2rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.2rem 1.6rem;
+  align-items: end;
+  width: 100%;
   padding-top: 2rem;
   border-top: 1px solid var(--maliev-rule);
 }
 
-.mc-collection-directory__help h2 {
+.mc-collection-directory .mc-collection-directory__help h2 {
   max-width: 28ch;
   margin: 0;
   color: var(--maliev-ink);
-  font-size: 1.7rem;
+  font-size: 1.7rem !important;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
+  letter-spacing: -0.01em !important;
+  line-height: 1.25 !important;
   text-wrap: balance;
 }
 
 .mc-collection-directory__help .rte {
-  max-width: 48rem;
+  max-width: 34ch;
   margin-top: 0.8rem;
   color: var(--maliev-ink-soft);
   font-size: 1.5rem;
@@ -1021,7 +1031,7 @@ main .card-wrapper .quick-add__submit {
   align-items: center;
   justify-content: space-between;
   width: fit-content;
-  min-width: 18rem;
+  min-width: 16rem;
   min-height: 4.8rem;
   padding: 1.2rem 1.6rem;
   border: 1px solid var(--maliev-ink);
@@ -1066,7 +1076,6 @@ main .card-wrapper .quick-add__submit {
     opacity: 0.72;
     transform: translateY(2.4rem);
   }
-
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3798,12 +3807,21 @@ main .customer table th {
     padding-bottom: 2.4rem;
   }
 
+  .mc-collection-directory__headline {
+    gap: 1.6rem;
+  }
+
+  .mc-collection-directory__guidance {
+    align-items: start;
+  }
+
   .mc-collection-directory__nav {
     margin-inline: -2rem;
     margin-bottom: 1.6rem;
     padding-inline: 2rem;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
     scrollbar-width: none;
   }
 
@@ -3839,22 +3857,27 @@ main .customer table th {
     padding: 2.4rem;
   }
 
-  .mc-collection-family__title,
-  .mc-collection-family--standard .mc-collection-family__title,
-  .mc-collection-family--feature .mc-collection-family__title {
-    font-size: clamp(2.6rem, 8vw, 3.4rem);
+  .mc-collection-directory .mc-collection-family .mc-collection-family__title {
+    font-size: clamp(2.6rem, 8vw, 3.4rem) !important;
   }
 
-  .mc-collection-family--compact .mc-collection-family__title {
-    font-size: clamp(2.4rem, 7vw, 3.2rem);
+  .mc-collection-directory .mc-collection-family--compact .mc-collection-family__title {
+    font-size: clamp(2.4rem, 7vw, 3.2rem) !important;
   }
 
   .mc-collection-directory__help {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     padding-top: 1.6rem;
+  }
+
+  .mc-collection-directory__help .rte {
+    display: none;
   }
 
   .mc-collection-directory__help a {
     width: fit-content;
+    min-width: 0;
   }
 
   .mc-collection-directory__title {

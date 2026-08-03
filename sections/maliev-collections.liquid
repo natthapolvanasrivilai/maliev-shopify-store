@@ -34,13 +34,13 @@
 <maliev-collection-directory class="mc-collection-directory">
   <div class="page-width">
     <header class="mc-collection-directory__header">
-      <div>
+      <div class="mc-collection-directory__headline">
         <h1 class="mc-collection-directory__title inline-richtext">{{ directory_title }}</h1>
-      </div>
-      <div class="mc-collection-directory__guidance">
         {%- if directory_intro != blank -%}
           <div class="mc-collection-directory__intro rte">{{ directory_intro }}</div>
         {%- endif -%}
+      </div>
+      <div class="mc-collection-directory__guidance">
         {%- if help_title != blank -%}
           <aside class="mc-collection-directory__help">
             <div>
@@ -186,6 +186,7 @@
           if (!this.links.length || !this.panels.length) return;
 
           this.abortController = new AbortController();
+          this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           this.classList.add('is-enhanced');
 
           this.links.forEach((link) => {
@@ -210,14 +211,13 @@
         }
 
         setupViewportTracking() {
-          const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           const update = () => {
             this.frame = null;
             const revealLine = window.innerHeight * 0.88;
             const currentLine = Math.max(120, Math.min(window.innerHeight * 0.28, 240));
 
             this.panels.forEach((panel) => {
-              if (reduceMotion || panel.getBoundingClientRect().top < revealLine) {
+              if (this.reduceMotion || panel.getBoundingClientRect().top < revealLine) {
                 panel.classList.add('is-visible');
               }
             });
@@ -252,10 +252,27 @@
             link.classList.toggle('is-current', isCurrent);
             if (isCurrent) {
               link.setAttribute('aria-current', 'location');
+              this.keepLinkVisible(link);
             } else {
               link.removeAttribute('aria-current');
             }
           });
+        }
+
+        keepLinkVisible(link) {
+          const navigation = link.closest('[data-family-navigation]');
+          if (!navigation || navigation.scrollWidth <= navigation.clientWidth) return;
+
+          const navigationBounds = navigation.getBoundingClientRect();
+          const linkBounds = link.getBoundingClientRect();
+          const inset = 20;
+          const isClipped = linkBounds.left < navigationBounds.left + inset || linkBounds.right > navigationBounds.right - inset;
+
+          if (!isClipped) return;
+
+          const targetLeft =
+            navigation.scrollLeft + linkBounds.left - navigationBounds.left - (navigation.clientWidth - linkBounds.width) / 2;
+          navigation.scrollTo({ left: targetLeft, behavior: this.reduceMotion ? 'auto' : 'smooth' });
         }
       }
     );
