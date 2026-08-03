@@ -26,7 +26,7 @@
 
 <article class="mc-collection-card{% if featured %} mc-collection-card--featured{% endif %}{% if extend_height %} mc-collection-card--stretch{% endif %}{% if wrapper_class and wrapper_class != 'none' %} {{ wrapper_class }}{% endif %}">
   {%- if card_collection != blank -%}
-    <a class="mc-collection-card__link" href="{{ card_collection.url }}">
+    <a class="mc-collection-card__link" href="{{ card_collection.url }}" aria-label="{{ card_collection.title | escape }}">
       <span class="mc-collection-card__media" style="--mc-collection-ratio: {{ 1 | divided_by: ratio | times: 100 }}%;">
         {%- if card_collection.featured_image -%}
           {{
@@ -37,7 +37,7 @@
               widths: '320, 480, 640, 800, 1000, 1200, 1600',
               sizes: collection_image_sizes,
               loading: collection_image_loading,
-              alt: card_collection.featured_image.alt
+              alt: ''
           }}
         {%- else -%}
           {{ placeholder_image | default: 'collection-1' | placeholder_svg_tag: 'mc-collection-card__placeholder' }}

@@ -13,13 +13,80 @@
       "type": "maliev-collections",
       "settings": {
         "title": "Collections",
-        "intro": "<p>Everything we make, organized by product family so you can move directly to the right machines, tooling, materials, or finished products.</p>",
+        "title_th": "คอลเลกชันทั้งหมด",
+        "intro": "<p>Start with what you want to make, mount, maintain, or download. Each family leads to products built and supported by MALIEV.</p>",
+        "intro_th": "<p>เริ่มจากสิ่งที่คุณต้องการผลิต ติดตั้ง บำรุงรักษา หรือดาวน์โหลด แต่ละกลุ่มจะนำไปยังผลิตภัณฑ์ที่ MALIEV ผลิตและให้การสนับสนุน</p>",
         "sort": "alphabetical",
         "featured_collection": "เครื่องฉีดพลาสติก",
         "image_ratio": "adapt",
         "columns_desktop": 3,
         "columns_mobile": "1"
-      }
+      },
+      "blocks": {
+        "machines": {
+          "type": "family",
+          "settings": {
+            "family_type": "machines",
+            "heading": "Machines & molding",
+            "heading_th": "เครื่องจักรและงานฉีดพลาสติก",
+            "description": "<p>Choose a compact injection molding machine, then find the molds, materials, and supported replacement parts needed to put it to work.</p>",
+            "description_th": "<p>เลือกเครื่องฉีดพลาสติกขนาดกะทัดรัด พร้อมแม่พิมพ์ วัสดุ และอะไหล่ที่รองรับการใช้งานจริง</p>",
+            "primary_collection": "เครื่องฉีดพลาสติก",
+            "related_collection_1": "molds",
+            "related_collection_2": "เม็ดพลาสติก",
+            "related_collection_3": "spare-parts",
+            "layout": "lead",
+            "tone": "light"
+          }
+        },
+        "simmount": {
+          "type": "family",
+          "settings": {
+            "family_type": "simmount",
+            "heading": "SimMount",
+            "heading_th": "SimMount",
+            "description": "<p>Precision mounting hardware for compatible 40 mm-series aluminium profiles. Complete sim-racing cockpits are not sold by MALIEV.</p>",
+            "description_th": "<p>อุปกรณ์ยึดติดตั้งที่แม่นยำสำหรับโปรไฟล์อะลูมิเนียมซีรีส์ 40 มม. ที่รองรับ โดย MALIEV ไม่ได้จำหน่ายชุดซิมเรซซิ่งค็อกพิทแบบเต็มชุด</p>",
+            "primary_collection": "sim-racing-solutions",
+            "layout": "standard",
+            "tone": "carbon"
+          }
+        },
+        "made": {
+          "type": "family",
+          "settings": {
+            "family_type": "made",
+            "heading": "MALIEV-made products",
+            "heading_th": "ผลิตภัณฑ์ที่ MALIEV ผลิต",
+            "description": "<p>Finished 3D-printed and injection-molded products designed and produced by our team in Thailand.</p>",
+            "description_th": "<p>ผลิตภัณฑ์พิมพ์ 3 มิติและฉีดพลาสติกที่ทีมงานของเราออกแบบและผลิตในประเทศไทย</p>",
+            "primary_collection": "3d-printed-products",
+            "related_collection_1": "injection-molding-products",
+            "related_collection_2": "littlelegends",
+            "layout": "standard",
+            "tone": "light"
+          }
+        },
+        "digital": {
+          "type": "family",
+          "settings": {
+            "family_type": "digital",
+            "heading": "Digital models",
+            "heading_th": "โมเดลดิจิทัล",
+            "description": "<p>Downloadable 3D model files prepared for printing, prototyping, and practical workshop use.</p>",
+            "description_th": "<p>ไฟล์โมเดล 3 มิติสำหรับดาวน์โหลด เพื่อการพิมพ์ การทำต้นแบบ และงานเวิร์กช็อป</p>",
+            "primary_collection": "cute-christmas-figure-3d-model-minimal-holiday-decoration-40mm",
+            "layout": "standard",
+            "tone": "light"
+          }
+        }
+      },
+      "block_order": [
+        "machines",
+        "simmount",
+        "made",
+        "digital"
+      ]
     }
   },
   "order": [

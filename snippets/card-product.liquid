@@ -1,9 +1,18 @@
-{% comment %}
-  MALIEV product card.
+{% doc %}
+Renders a MALIEV product card while preserving Shopify price, availability, rating, and product-form contracts.
 
-  Keeps Shopify product, price, availability, rating, and product-form
-  contracts while owning the card markup and visual states.
-{% endcomment %}
+@param {product} card_product - Product to render.
+@param {string} [media_aspect_ratio] - Product media ratio.
+@param {boolean} [show_secondary_image] - Whether to show a secondary image on hover.
+@param {boolean} [show_vendor] - Whether to show the product vendor.
+@param {boolean} [show_rating] - Whether to show the product rating.
+@param {boolean} [lazy_load] - Whether to lazy-load the primary image.
+@param {string} [quick_add] - Quick-add behavior.
+@param {string} [section_id] - Owning section identifier.
+@param {boolean} [catalog_layout] - Whether the card is rendered in a collection catalog.
+@param {string} [horizontal_class] - Optional horizontal card class trigger.
+@param {string} [placeholder_image] - Optional Shopify placeholder image name.
+{% enddoc %}
 
 {%- liquid
   assign product_card = card_product
@@ -47,20 +56,24 @@
     assign card_loading = 'eager'
   endif
 
-  assign card_sizes = '(min-width: 1440px) 320px, (min-width: 990px) calc((100vw - 160px) / 4), (min-width: 750px) calc((100vw - 104px) / 3), calc((100vw - 52px) / 2)'
+  assign card_sizes = '(min-width: 1440px) 320px, (min-width: 990px) calc((100vw - 160px) / 4), (min-width: 750px) calc((100vw - 104px) / 3), calc(100vw - 40px)'
+  if catalog_layout
+    assign card_sizes = '(max-width: 749px) 120px, (min-width: 1440px) 320px, (min-width: 990px) calc((100vw - 360px) / 3), (min-width: 750px) calc((100vw - 72px) / 2)'
+  endif
   assign card_form_id = 'maliev-card-form-' | append: section_id | append: '-' | append: product_card.id
   assign card_summary = product_card.metafields.descriptors.subtitle
   if card_summary == blank
     assign card_summary = product_card.description | strip_html | strip
   endif
+  assign card_details = product_card.metafields.custom.card_details.value
 -%}
 
 {%- if product_card and product_card != empty -%}
   <article
-    class="mc-product-card{% if horizontal_class %} mc-product-card--horizontal{% endif %}"
+    class="mc-product-card{% if horizontal_class %} mc-product-card--horizontal{% endif %}{% if catalog_layout %} mc-product-card--catalog{% endif %}"
     data-product-card
   >
-    <a class="mc-product-card__media" href="{{ product_card.url }}" aria-label="{{ card_title | escape }}">
+    <div class="mc-product-card__media">
       <span class="mc-product-card__media-frame" style="--mc-card-ratio: {{ 1 | divided_by: image_ratio | times: 100 }}%;">
         {%- if product_card.featured_media -%}
           {{
@@ -83,7 +96,7 @@
                 widths: '240, 360, 480, 640, 800, 960, 1200',
                 sizes: card_sizes,
                 loading: 'lazy',
-                alt: product_card.media[1].alt
+                alt: ''
             }}
           {%- endif -%}
         {%- else -%}
@@ -103,7 +116,7 @@
           {%- endif -%}
         </span>
       {%- endif -%}
-    </a>
+    </div>
 
     <div class="mc-product-card__body">
       <div class="mc-product-card__meta">
@@ -129,6 +142,14 @@
 
       {%- if card_summary != blank -%}
         <p class="mc-product-card__subtitle">{{ card_summary | truncatewords: 18 | escape_once }}</p>
+      {%- endif -%}
+
+      {%- if catalog_layout and card_details != blank -%}
+        <ul class="mc-product-card__details" role="list">
+          {%- for card_detail in card_details limit: 2 -%}
+            <li>{{ card_detail | escape }}</li>
+          {%- endfor -%}
+        </ul>
       {%- endif -%}
 
       <div class="mc-product-card__price">

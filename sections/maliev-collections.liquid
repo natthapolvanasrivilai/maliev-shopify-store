@@ -8,70 +8,136 @@
   }
 {%- endstyle -%}
 
+{%- liquid
+  assign directory_title = section.settings.title
+  assign directory_intro = section.settings.intro
+  assign language_code = localization.language.iso_code | downcase
+  assign locale_code = request.locale.iso_code | downcase
+  assign is_th = false
+  if language_code contains 'th' or locale_code contains 'th' or request.path contains '/th/'
+    assign is_th = true
+  endif
+  if is_th
+    assign directory_title = section.settings.title_th | default: directory_title
+    assign directory_intro = section.settings.intro_th | default: directory_intro
+  endif
+-%}
+
 <section class="mc-collection-directory">
   <div class="page-width">
     <header class="mc-collection-directory__header{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--fade-in{% endif %}">
-      <h1 class="mc-collection-directory__title inline-richtext">{{ section.settings.title }}</h1>
-      {%- if section.settings.intro != blank -%}
-        <div class="mc-collection-directory__intro rte">{{ section.settings.intro }}</div>
+      <h1 class="mc-collection-directory__title inline-richtext">{{ directory_title }}</h1>
+      {%- if directory_intro != blank -%}
+        <div class="mc-collection-directory__intro rte">{{ directory_intro }}</div>
       {%- endif -%}
     </header>
-  {%- liquid
-    case section.settings.sort
-      when 'products_high', 'products_low'
-        assign collections = collections | sort: 'all_products_count'
-      when 'date', 'date_reversed'
-        assign collections = collections | sort: 'published_at'
-    endcase
+    {%- liquid
+      assign configured_family_count = 0
+      for block in section.blocks
+        if block.type == 'family' and block.settings.primary_collection != blank
+          assign configured_family_count = configured_family_count | plus: 1
+        endif
+      endfor
+    -%}
 
-    if section.settings.sort == 'products_high' or section.settings.sort == 'date_reversed' or section.settings.sort == 'alphabetical_reversed'
-      assign collections = collections | reverse
-    endif
+    {%- if configured_family_count > 0 -%}
+      <nav class="mc-collection-directory__nav" aria-label="{{ directory_title | escape }}">
+        <ul role="list">
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'family' or block.settings.primary_collection == blank -%}
+              {%- continue -%}
+            {%- endif -%}
+            {%- liquid
+              assign family_title = block.settings.heading
+              if is_th and block.settings.heading_th != blank
+                assign family_title = block.settings.heading_th
+              endif
+              if family_title == blank
+                assign family_title = block.settings.primary_collection.title
+              endif
+            -%}
+            <li><a href="#Family-{{ block.id }}">{{ family_title }}</a></li>
+          {%- endfor -%}
+        </ul>
+      </nav>
 
-    assign modulo_result = 28 | modulo: section.settings.columns_desktop
-    assign paginate_by = 30
-    if modulo_result == 0
-      assign paginate_by = 28
-    endif
-  -%}
-  {%- paginate collections by paginate_by -%}
-    {%- assign featured_collection = section.settings.featured_collection -%}
-    <ul
-      class="mc-collection-directory__grid"
-      role="list"
-    >
-      {%- if paginate.current_page == 1 and featured_collection != blank -%}
-        <li class="mc-collection-directory__item mc-collection-directory__item--featured">
-          {% render 'card-collection',
-            card_collection: featured_collection,
-            media_aspect_ratio: 'adapt',
-            columns: section.settings.columns_desktop,
-            featured: true
+      <div class="mc-collection-family-map">
+        {%- for block in section.blocks -%}
+          {%- if block.type != 'family' or block.settings.primary_collection == blank -%}
+            {%- continue -%}
+          {%- endif -%}
+          {%- liquid
+            assign family_title = block.settings.heading
+            if is_th and block.settings.heading_th != blank
+              assign family_title = block.settings.heading_th
+            endif
+            if family_title == blank
+              assign family_title = block.settings.primary_collection.title
+            endif
+            assign family_description = block.settings.description
+            if is_th and block.settings.description_th != blank
+              assign family_description = block.settings.description_th
+            endif
+            if family_description == blank
+              assign family_description = block.settings.primary_collection.description
+            endif
+          -%}
+          {% render 'card-collection-family',
+            block: block,
+            family_title: family_title,
+            family_description: family_description
           %}
-        </li>
-      {%- endif -%}
+        {%- endfor -%}
+      </div>
+    {%- else -%}
+      {%- liquid
+        case section.settings.sort
+          when 'products_high', 'products_low'
+            assign collections = collections | sort: 'all_products_count'
+          when 'date', 'date_reversed'
+            assign collections = collections | sort: 'published_at'
+        endcase
 
-      {%- for collection in collections -%}
-        {%- if featured_collection != blank and collection.id == featured_collection.id -%}
-          {%- continue -%}
-        {%- endif -%}
-        <li
-          class="mc-collection-directory__item{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--slide-in{% endif %}"
-          {% if settings.animations_reveal_on_scroll %}
-            data-cascade
-            style="--animation-order: {{ forloop.index }};"
-          {% endif %}
-        >
-          {% render 'card-collection',
-            card_collection: collection,
-            media_aspect_ratio: section.settings.image_ratio,
-            columns: 3
-          %}
-        </li>
-      {%- endfor -%}
-    </ul>
-    {% render 'pagination', paginate: paginate %}
-  {%- endpaginate -%}
+        if section.settings.sort == 'products_high' or section.settings.sort == 'date_reversed' or section.settings.sort == 'alphabetical_reversed'
+          assign collections = collections | reverse
+        endif
+
+        assign modulo_result = 28 | modulo: section.settings.columns_desktop
+        assign paginate_by = 30
+        if modulo_result == 0
+          assign paginate_by = 28
+        endif
+      -%}
+      {%- paginate collections by paginate_by -%}
+        {%- assign featured_collection = section.settings.featured_collection -%}
+        <ul class="mc-collection-directory__grid" role="list">
+          {%- if paginate.current_page == 1 and featured_collection != blank -%}
+            <li class="mc-collection-directory__item mc-collection-directory__item--featured">
+              {% render 'card-collection',
+                card_collection: featured_collection,
+                media_aspect_ratio: 'adapt',
+                columns: section.settings.columns_desktop,
+                featured: true
+              %}
+            </li>
+          {%- endif -%}
+
+          {%- for collection in collections -%}
+            {%- if featured_collection != blank and collection.id == featured_collection.id -%}
+              {%- continue -%}
+            {%- endif -%}
+            <li class="mc-collection-directory__item">
+              {% render 'card-collection',
+                card_collection: collection,
+                media_aspect_ratio: section.settings.image_ratio,
+                columns: 3
+              %}
+            </li>
+          {%- endfor -%}
+        </ul>
+        {% render 'pagination', paginate: paginate %}
+      {%- endpaginate -%}
+    {%- endif -%}
   </div>
 </section>
 {% schema %}
@@ -86,11 +152,23 @@
       "default": "t:sections.main-list-collections.settings.title.default"
     },
     {
+      "type": "inline_richtext",
+      "id": "title_th",
+      "label": "Thai heading",
+      "default": "คอลเลกชัน"
+    },
+    {
       "type": "richtext",
       "id": "intro",
       "label": "Introduction",
-      "info": "A short merchant-localizable explanation shown beside the page title.",
+      "info": "Explain how customers should choose between the product families.",
       "default": "<p>Everything we make, organized by product family so you can move directly to the right machines, tooling, materials, or finished products.</p>"
+    },
+    {
+      "type": "richtext",
+      "id": "intro_th",
+      "label": "Thai introduction",
+      "default": "<p>เริ่มจากสิ่งที่คุณต้องการผลิต ติดตั้ง บำรุงรักษา หรือดาวน์โหลด แต่ละกลุ่มจะนำไปยังผลิตภัณฑ์ที่ MALIEV ผลิตและให้การสนับสนุน</p>"
     },
     {
       "type": "select",
@@ -128,7 +206,7 @@
       "type": "collection",
       "id": "featured_collection",
       "label": "Featured collection",
-      "info": "Shown as the larger lead collection on the first page."
+      "info": "Used only when no product-family blocks are configured."
     },
     {
       "type": "select",
@@ -175,6 +253,92 @@
       "default": "2",
       "label": "t:sections.main-list-collections.settings.columns_mobile.label"
     }
-  ]
+  ],
+  "blocks": [
+    {
+      "type": "family",
+      "name": "Product family",
+      "settings": [
+        {
+          "type": "select",
+          "id": "family_type",
+          "label": "Family type",
+          "options": [
+            { "value": "machines", "label": "Machines and molding" },
+            { "value": "simmount", "label": "SimMount" },
+            { "value": "made", "label": "MALIEV-made products" },
+            { "value": "digital", "label": "Digital models" },
+            { "value": "other", "label": "Other" }
+          ],
+          "default": "other"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Custom heading",
+          "info": "Leave blank to use the primary collection title."
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading_th",
+          "label": "Thai heading",
+          "info": "Leave blank to use the primary collection title."
+        },
+        {
+          "type": "richtext",
+          "id": "description",
+          "label": "Custom description",
+          "info": "Leave blank to use the primary collection description."
+        },
+        {
+          "type": "richtext",
+          "id": "description_th",
+          "label": "Thai description",
+          "info": "Leave blank to use the primary collection description."
+        },
+        {
+          "type": "collection",
+          "id": "primary_collection",
+          "label": "Primary collection"
+        },
+        {
+          "type": "collection",
+          "id": "related_collection_1",
+          "label": "Related collection 1"
+        },
+        {
+          "type": "collection",
+          "id": "related_collection_2",
+          "label": "Related collection 2"
+        },
+        {
+          "type": "collection",
+          "id": "related_collection_3",
+          "label": "Related collection 3"
+        },
+        {
+          "type": "select",
+          "id": "layout",
+          "label": "Layout",
+          "options": [
+            { "value": "lead", "label": "Lead family" },
+            { "value": "standard", "label": "Standard family" }
+          ],
+          "default": "standard"
+        },
+        {
+          "type": "select",
+          "id": "tone",
+          "label": "Surface tone",
+          "options": [
+            { "value": "light", "label": "Light" },
+            { "value": "carbon", "label": "SimMount carbon" }
+          ],
+          "default": "light"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8
 }
 {% endschema %}
