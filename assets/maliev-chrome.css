@@ -786,14 +786,20 @@
 }
 
 .mc-footer__localization-form {
+  --mc-footer-selector-width: 24rem;
   align-items: end;
   display: grid;
   gap: 0.6rem 0.8rem;
-  grid-template-columns: minmax(16rem, auto) auto;
+  grid-template-columns: var(--mc-footer-selector-width) auto;
+  max-width: 100%;
 }
 
 .js .mc-footer__localization-form {
-  grid-template-columns: minmax(16rem, auto);
+  grid-template-columns: var(--mc-footer-selector-width);
+}
+
+#MalievFooterLanguage {
+  --mc-footer-selector-width: 17rem;
 }
 
 .mc-footer__localization-form label {
@@ -806,6 +812,8 @@
   border: 0.1rem solid var(--maliev-sim-line);
   color: var(--maliev-surface);
   min-height: 4.4rem;
+  padding: 0.9rem 3.6rem 0.9rem 1.4rem;
+  width: 100%;
 }
 
 .mc-footer__localization-form button {
@@ -1193,10 +1201,18 @@
 
   .mc-footer__localization,
   .mc-footer__localization-form {
-    align-items: stretch;
+    align-items: start;
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .mc-footer__localization {
+    justify-items: start;
     width: 100%;
+  }
+
+  .mc-footer__localization-form {
+    width: min(100%, var(--mc-footer-selector-width));
   }
 
   .mc-footer__localization-form label,
