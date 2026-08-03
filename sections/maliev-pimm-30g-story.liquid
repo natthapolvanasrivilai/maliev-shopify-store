@@ -1,10 +1,16 @@
 {{ 'maliev-pimm-30g.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'maliev-pimm-30g.js' | asset_url }}" defer="defer"></script>
 
 {%- liquid
   assign next_product = section.settings.next_product
   assign next_variant = next_product.selected_or_first_available_variant
-  assign first_chapter_id = blank
+  assign selected_variant = product.selected_or_first_available_variant
+  assign product_form_id = 'pimm30-product-form-' | append: section.id
+  assign is_thai = false
+  if request.locale.iso_code contains 'th'
+    assign is_thai = true
+  endif
 -%}
 
 <section
@@ -16,27 +22,18 @@
   data-pimm30-resume-label="{{ 'products.pimm30_story.resume' | t | escape }}"
   aria-label="{{ 'products.pimm30_story.aria_label' | t | escape }}"
 >
-  <noscript>
-    <style>
-      #Pimm30Story-{{ section.id }} .pimm30-stage,
-      #Pimm30Story-{{ section.id }} .pimm30-progress { display: none !important; }
-      #Pimm30Story-{{ section.id }} .pimm30-story__chapters { margin-top: 0; }
-      #Pimm30Story-{{ section.id }} .pimm30-chapter { min-height: auto; pointer-events: auto; }
-    </style>
-  </noscript>
   <div class="pimm30-stage" data-pimm30-stage aria-label="{{ 'products.pimm30_story.media_stage' | t | escape }}">
-    <p class="pimm30-stage__wordmark" aria-hidden="true">PIMM 30G</p>
-
     {%- for block in section.blocks -%}
       {%- liquid
-        assign chapter_role = block.settings.role
-        assign chapter_id = 'pimm30-' | append: chapter_role
-        assign alt_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.media_alt'
-        assign translated_media_alt = alt_key | t
+        assign chapter_id = 'pimm30-' | append: block.settings.role
+        assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
+        assign translated_media_alt = media_alt_key | t
+        if block.settings.role == 'configuration'
+          assign translated_media_alt = product.title | append: ' configuration and purchase view'
+        endif
         assign is_hero = false
-        if chapter_role == 'overview'
+        if block.settings.role == 'overview'
           assign is_hero = true
-          assign first_chapter_id = chapter_id
         endif
       -%}
       {% render 'maliev-pimm-30g-chapter',
@@ -50,9 +47,11 @@
 
     <div class="pimm30-stage__controls" data-pimm30-controls hidden>
       <button class="pimm30-stage__control" type="button" data-pimm30-pause aria-pressed="false">
+        <span class="svg-wrapper" aria-hidden="true">{{ 'icon-pause.svg' | inline_asset_content }}</span>
         <span data-pimm30-pause-label>{{ 'products.pimm30_story.pause' | t }}</span>
       </button>
       <button class="pimm30-stage__control" type="button" data-pimm30-replay>
+        <span aria-hidden="true">↻</span>
         {{ 'products.pimm30_story.replay' | t }}
       </button>
     </div>
@@ -61,14 +60,12 @@
   <nav class="pimm30-progress" aria-label="{{ 'products.pimm30_story.chapter_navigation' | t | escape }}">
     <ol role="list">
       {%- for block in section.blocks -%}
-        {%- liquid
-          assign chapter_role = block.settings.role
-          assign chapter_id = 'pimm30-' | append: chapter_role
-          assign nav_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.nav'
-        -%}
+        {%- assign chapter_id = 'pimm30-' | append: block.settings.role -%}
+        {%- assign nav_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.nav' -%}
         <li>
-          <a href="#{{ chapter_id }}" data-pimm30-nav="{{ chapter_id }}"{% if chapter_id == first_chapter_id %} aria-current="true"{% endif %}>
-            <span class="visually-hidden">{{ nav_key | t }}</span>
+          <a href="#{{ chapter_id }}" data-pimm30-nav="{{ chapter_id }}"{% if forloop.first %} aria-current="true"{% endif %}>
+            <span class="pimm30-progress__index" aria-hidden="true">{{ forloop.index | prepend: '0' | slice: -2, 2 }}</span>
+            <span class="pimm30-progress__label">{% if block.settings.role == 'configuration' %}{% if is_thai %}รุ่นและราคา{% else %}Configuration{% endif %}{% else %}{{ nav_key | t }}{% endif %}</span>
           </a>
         </li>
       {%- endfor -%}
@@ -78,27 +75,25 @@
   <div class="pimm30-story__chapters" data-pimm30-chapters>
     {%- for block in section.blocks -%}
       {%- liquid
-        assign chapter_role = block.settings.role
-        assign chapter_id = 'pimm30-' | append: chapter_role
-        assign eyebrow_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.eyebrow'
-        assign heading_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.heading'
-        assign body_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.body'
-        assign metric_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.metric'
-        assign metric_label_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.metric_label'
-        assign alt_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.media_alt'
-        assign translated_media_alt = alt_key | t
-        assign is_hero = false
-        if chapter_role == 'overview'
-          assign is_hero = true
+        assign role = block.settings.role
+        assign chapter_id = 'pimm30-' | append: role
+        assign eyebrow_key = 'products.pimm30_story.chapters.' | append: role | append: '.eyebrow'
+        assign heading_key = 'products.pimm30_story.chapters.' | append: role | append: '.heading'
+        assign body_key = 'products.pimm30_story.chapters.' | append: role | append: '.body'
+        assign metric_key = 'products.pimm30_story.chapters.' | append: role | append: '.metric'
+        assign metric_label_key = 'products.pimm30_story.chapters.' | append: role | append: '.metric_label'
+        assign media_alt_key = 'products.pimm30_story.chapters.' | append: role | append: '.media_alt'
+        assign translated_media_alt = media_alt_key | t
+        if role == 'configuration'
+          assign translated_media_alt = product.title | append: ' configuration and purchase view'
         endif
       -%}
-
       <article
-        class="pimm30-chapter pimm30-chapter--{{ chapter_role }}{% if is_hero %} pimm30-chapter--hero{% endif %}"
+        class="pimm30-chapter pimm30-chapter--{{ role }}{% if role == 'overview' %} pimm30-chapter--hero{% endif %}"
         id="{{ chapter_id }}"
         data-pimm30-chapter="{{ chapter_id }}"
-        data-chapter-role="{{ chapter_role }}"
-        {% if is_hero %}data-header-overlay-sentinel data-header-overlay-tone="dark"{% endif %}
+        data-chapter-role="{{ role }}"
+        {% if role == 'overview' %}data-header-overlay-sentinel data-header-overlay-tone="dark"{% endif %}
         {{ block.shopify_attributes }}
       >
         <noscript>
@@ -107,67 +102,95 @@
             chapter_id: chapter_id,
             media_alt: translated_media_alt,
             mode: 'static',
-            eager: is_hero
+            eager: forloop.first
           %}
         </noscript>
 
         <div class="pimm30-chapter__content">
-          {%- if chapter_role == 'overview' -%}
-            <p class="pimm30-chapter__identity">{{ 'products.pimm30_story.identity' | t }}</p>
-            <h1>{{ heading_key | t }}</h1>
-            <p class="pimm30-chapter__lead">{{ body_key | t }}</p>
-
-            <dl class="pimm30-spec-rail">
-              <div><dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.capacity_value' | t }}</dd></div>
-              <div><dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.temperature_value' | t }}</dd></div>
-              <div><dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.force_value' | t }}</dd></div>
-              <div><dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.pressure_value' | t }}</dd></div>
-            </dl>
-
-            <a class="pimm30-action" href="{{ section.settings.visit_link | default: routes.root_url }}">
-              <span>{{ 'products.pimm30_story.book_visit' | t }}</span>
-              <span aria-hidden="true">→</span>
-            </a>
-          {%- elsif chapter_role == 'next_model' -%}
-            <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
-            <h2>{{ heading_key | t }}</h2>
-            <p>{{ body_key | t }}</p>
-            {%- if next_product != blank and next_variant != blank -%}
-              <div class="pimm30-next-model" aria-label="{{ next_product.title | escape }}">
-                <div>
-                  <span>{{ next_product.title | escape }}</span>
-                  <strong>{{ next_variant.price | money_with_currency }}</strong>
-                </div>
-                <p class="pimm30-next-model__availability{% unless next_variant.available %} is-unavailable{% endunless %}">
-                  {%- if next_variant.available -%}
-                    {{ 'products.product.inventory_in_stock' | t }}
-                  {%- else -%}
-                    {{ 'products.product.inventory_out_of_stock' | t }}
-                  {%- endif -%}
-                </p>
-              </div>
-              <a class="pimm30-action" href="{{ next_product.url }}">
-                <span>{{ 'products.pimm30_story.view_50g' | t }}</span>
-                <span aria-hidden="true">→</span>
+          {%- case role -%}
+            {%- when 'overview' -%}
+              <p class="pimm30-chapter__identity">{{ 'products.pimm30_story.identity' | t }}</p>
+              <h1>{{ heading_key | t }}</h1>
+              <p class="pimm30-chapter__lead">{{ body_key | t }}</p>
+              <dl class="pimm30-spec-rail">
+                <div><dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.capacity_value' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.temperature_value' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.force_value' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.pressure_value' | t }}</dd></div>
+              </dl>
+              <a class="pimm30-action pimm30-action--primary" href="{{ section.settings.visit_link | default: '/pages/contact' }}">
+                <span>{{ 'products.pimm30_story.book_visit' | t }}</span><span aria-hidden="true">→</span>
               </a>
+              <a class="pimm30-scroll-cue" href="#pimm30-capacity">
+                <span>{% if is_thai %}เลื่อนเพื่อดูรายละเอียด{% else %}Scroll to explore{% endif %}</span>
+                <span aria-hidden="true">↓</span>
+              </a>
+
+            {%- when 'configuration' -%}
+              <p class="pimm30-chapter__label">{% if is_thai %}เลือกรุ่นและอุปกรณ์{% else %}Configuration and purchase{% endif %}</p>
+              <h2>{% if is_thai %}เลือกชุดเครื่องที่เหมาะกับงาน{% else %}Choose the machine setup that fits your workshop.{% endif %}</h2>
+              <p>{% if is_thai %}ราคา ตัวเลือก และสถานะสินค้าด้านล่างดึงจาก Shopify โดยตรง การนัดชมเครื่องที่สำนักงานใหญ่ปากเกร็ดยังคงเป็นวิธีที่ดีที่สุดในการยืนยันแม่พิมพ์ วัสดุ และระบบลมก่อนสั่งซื้อ{% else %}Price, configuration and availability below come directly from Shopify. A demonstration at our Pak Kret headquarters is still the best way to confirm your mold, material and air-supply requirements before ordering.{% endif %}</p>
+              <div class="pimm30-commerce" data-pimm30-commerce>
+                <div class="pimm30-commerce__summary">
+                  <strong data-pimm30-variant-title>{{ selected_variant.title | escape }}</strong>
+                  <span class="pimm30-commerce__price" data-pimm30-price>{{ selected_variant.price | money_with_currency }}</span>
+                  <span class="pimm30-commerce__availability{% unless selected_variant.available %} is-unavailable{% endunless %}" data-pimm30-availability>
+                    {%- if selected_variant.available -%}{{ 'products.product.inventory_in_stock' | t }}{%- else -%}{{ 'products.product.inventory_out_of_stock' | t }}{%- endif -%}
+                  </span>
+                  {%- if product.metafields.custom.lead_time != blank -%}
+                    <span>{% if is_thai %}ระยะเวลาผลิต {{ product.metafields.custom.lead_time }} วัน{% else %}{{ product.metafields.custom.lead_time }}-day production lead time{% endif %}</span>
+                  {%- endif -%}
+                </div>
+                {%- unless product.has_only_default_variant -%}
+                  <label for="Pimm30Variant-{{ section.id }}">{{ 'products.product.choose_options' | t }}</label>
+                  <select id="Pimm30Variant-{{ section.id }}" data-pimm30-variant>
+                    {%- for variant in product.variants -%}
+                      {%- assign variant_price_text = variant.price | money_with_currency | strip_html | strip -%}
+                      <option value="{{ variant.id }}" data-price="{{ variant_price_text | escape }}" data-available="{{ variant.available }}"{% if variant.id == selected_variant.id %} selected{% endif %}>{{ variant.title | escape }}</option>
+                    {%- endfor -%}
+                  </select>
+                {%- endunless -%}
+                <div class="pimm30-commerce__actions">
+                  <a class="pimm30-action pimm30-action--primary" href="{{ section.settings.visit_link | default: '/pages/contact' }}"><span>{{ 'products.pimm30_story.book_visit' | t }}</span><span aria-hidden="true">→</span></a>
+                  <product-form class="pimm30-product-form" data-section-id="{{ section.id }}">
+                    {%- form 'product', product, id: product_form_id, novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+                      <input type="hidden" name="id" value="{{ selected_variant.id }}" class="product-variant-id" data-pimm30-variant-id>
+                      <button class="pimm30-action pimm30-action--secondary" type="submit" name="add" data-pimm30-add{% unless selected_variant.available %} disabled{% endunless %}>
+                        <span data-pimm30-add-label>{% if selected_variant.available %}{{ 'products.product.add_to_cart' | t }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}</span>
+                        {%- render 'loading-spinner' -%}
+                      </button>
+                    {%- endform -%}
+                    <div class="product-form__error-message-wrapper" role="alert" hidden><span class="product-form__error-message"></span></div>
+                  </product-form>
+                </div>
+              </div>
+
+            {%- when 'next_model' -%}
+              <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
+              <h2>{{ heading_key | t }}</h2>
+              <p>{{ body_key | t }}</p>
+              {%- if next_product != blank and next_variant != blank -%}
+                <div class="pimm30-next-model">
+                  <div><span>{{ next_product.title | escape }}</span><strong>{{ next_variant.price | money_with_currency }}</strong></div>
+                  <p class="pimm30-next-model__availability{% unless next_variant.available %} is-unavailable{% endunless %}">{% if next_variant.available %}{{ 'products.product.inventory_in_stock' | t }}{% else %}{{ 'products.product.inventory_out_of_stock' | t }}{% endif %}</p>
+                </div>
+                <a class="pimm30-action pimm30-action--primary" href="{{ next_product.url }}"><span>{{ 'products.pimm30_story.view_50g' | t }}</span><span aria-hidden="true">→</span></a>
+              {%- else -%}
+                <p>{{ 'products.pimm30_story.next_model_unconfigured' | t }}</p>
+              {%- endif -%}
+
             {%- else -%}
-              <p class="pimm30-next-model__unconfigured">{{ 'products.pimm30_story.next_model_unconfigured' | t }}</p>
-            {%- endif -%}
-          {%- else -%}
-            <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
-            <h2>{{ heading_key | t }}</h2>
-            <p>{{ body_key | t }}</p>
-            <dl class="pimm30-chapter__metric">
-              <dt>{{ metric_label_key | t }}</dt>
-              <dd>{{ metric_key | t }}</dd>
-            </dl>
-          {%- endif -%}
+              <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
+              <h2>{{ heading_key | t }}</h2>
+              <p>{{ body_key | t }}</p>
+              <dl class="pimm30-chapter__metric"><dt>{{ metric_label_key | t }}</dt><dd>{{ metric_key | t }}</dd></dl>
+          {%- endcase -%}
         </div>
       </article>
     {%- endfor -%}
   </div>
-
   <p class="visually-hidden" aria-live="polite" data-pimm30-status></p>
+  <script type="application/ld+json">{{ product | structured_data }}</script>
 </section>
 
 {% schema %}
@@ -176,28 +199,9 @@
   "tag": "section",
   "class": "section section--pimm30-story",
   "settings": [
-    {
-      "type": "url",
-      "id": "visit_link",
-      "label": "Factory visit link"
-    },
-    {
-      "type": "product",
-      "id": "next_product",
-      "label": "Next model product",
-      "info": "Used for the final live price and availability chapter."
-    },
-    {
-      "type": "range",
-      "id": "hero_light_milestone",
-      "min": 0,
-      "max": 9750,
-      "step": 250,
-      "unit": "ms",
-      "label": "Hero bright-studio milestone",
-      "default": 3250,
-      "info": "When the header should switch from light controls to dark controls during the hero video."
-    }
+    { "type": "url", "id": "visit_link", "label": "Factory visit link" },
+    { "type": "product", "id": "next_product", "label": "Next model product", "info": "Used for the final live price and availability chapter." },
+    { "type": "range", "id": "hero_light_milestone", "min": 0, "max": 9750, "step": 250, "unit": "ms", "label": "Hero bright-studio milestone", "default": 3250 }
   ],
   "blocks": [
     {
@@ -205,9 +209,7 @@
       "name": "Machine chapter",
       "settings": [
         {
-          "type": "select",
-          "id": "role",
-          "label": "Chapter content",
+          "type": "select", "id": "role", "label": "Chapter content", "default": "overview",
           "options": [
             { "value": "overview", "label": "Overview" },
             { "value": "capacity", "label": "30g shot capacity" },
@@ -217,70 +219,24 @@
             { "value": "regulator", "label": "Pressure regulator" },
             { "value": "fixture", "label": "M10 fixture grid" },
             { "value": "materials", "label": "Plastic materials" },
+            { "value": "configuration", "label": "Configuration and purchase" },
             { "value": "next_model", "label": "Next model" }
-          ],
-          "default": "overview"
+          ]
         },
-        {
-          "type": "header",
-          "content": "Desktop media"
-        },
-        {
-          "type": "video",
-          "id": "desktop_video",
-          "label": "Desktop video"
-        },
-        {
-          "type": "text",
-          "id": "desktop_video_asset",
-          "label": "Desktop video asset filename",
-          "info": "Optional theme asset fallback, for example pimm30-overview-desktop.mp4"
-        },
-        {
-          "type": "image_picker",
-          "id": "desktop_poster",
-          "label": "Desktop poster"
-        },
-        {
-          "type": "text",
-          "id": "desktop_poster_asset",
-          "label": "Desktop poster asset filename",
-          "info": "Theme asset fallback used when no poster is selected."
-        },
-        {
-          "type": "header",
-          "content": "Mobile media"
-        },
-        {
-          "type": "video",
-          "id": "mobile_video",
-          "label": "Mobile video"
-        },
-        {
-          "type": "text",
-          "id": "mobile_video_asset",
-          "label": "Mobile video asset filename",
-          "info": "Optional portrait theme asset fallback, for example pimm30-overview-mobile.mp4"
-        },
-        {
-          "type": "image_picker",
-          "id": "mobile_poster",
-          "label": "Mobile poster"
-        },
-        {
-          "type": "text",
-          "id": "mobile_poster_asset",
-          "label": "Mobile poster asset filename",
-          "info": "Portrait theme asset fallback used when no mobile poster is selected."
-        }
+        { "type": "header", "content": "Desktop media" },
+        { "type": "video", "id": "desktop_video", "label": "Desktop video" },
+        { "type": "text", "id": "desktop_video_asset", "label": "Desktop video asset filename" },
+        { "type": "image_picker", "id": "desktop_poster", "label": "Desktop poster" },
+        { "type": "text", "id": "desktop_poster_asset", "label": "Desktop poster asset filename" },
+        { "type": "header", "content": "Mobile media" },
+        { "type": "video", "id": "mobile_video", "label": "Mobile video" },
+        { "type": "text", "id": "mobile_video_asset", "label": "Mobile video asset filename" },
+        { "type": "image_picker", "id": "mobile_poster", "label": "Mobile poster" },
+        { "type": "text", "id": "mobile_poster_asset", "label": "Mobile poster asset filename" }
       ]
     }
   ],
-  "max_blocks": 9,
-  "presets": [
-    {
-      "name": "PIMM 30G story"
-    }
-  ]
+  "max_blocks": 10,
+  "presets": [{ "name": "PIMM 30G story" }]
 }
 {% endschema %}

@@ -68,7 +68,7 @@
         data-pimm30-video
         muted
         playsinline
-        preload="metadata"
+        preload="{% if eager %}metadata{% else %}none{% endif %}"
         {% if desktop_poster_url != blank %}poster="{{ desktop_poster_url }}"{% endif %}
       >
         {%- if block.settings.desktop_video != blank -%}
@@ -87,7 +87,7 @@
         data-pimm30-video
         muted
         playsinline
-        preload="metadata"
+        preload="{% if eager %}metadata{% else %}none{% endif %}"
         {% if mobile_poster_url != blank %}poster="{{ mobile_poster_url }}"{% endif %}
       >
         {%- if block.settings.mobile_video != blank -%}

@@ -1,240 +1,239 @@
 (() => {
   const STORY_SELECTOR = '[data-pimm30-story]';
+  const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  const initialiseStory = (story) => {
+  function visibleVideo(layer) {
+    if (!layer) return null;
+    const mobile = window.matchMedia('(max-width: 749px)').matches;
+    return layer.querySelector(
+      mobile
+        ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
+        : '.pimm30-stage__video--desktop, .pimm30-stage__video--all-devices'
+    );
+  }
+
+  function initStory(story) {
     if (story.dataset.pimm30Ready === 'true') return;
     story.dataset.pimm30Ready = 'true';
-    story.classList.add('is-enhanced');
 
-    const chapters = Array.from(story.querySelectorAll('[data-pimm30-chapter]'));
-    const layers = Array.from(story.querySelectorAll('[data-pimm30-layer]'));
-    const navigation = Array.from(story.querySelectorAll('[data-pimm30-nav]'));
+    const chapters = [...story.querySelectorAll('[data-pimm30-chapter]')];
+    const layers = new Map(
+      [...story.querySelectorAll('[data-pimm30-layer]')].map((layer) => [layer.dataset.pimm30Layer, layer])
+    );
+    const navLinks = [...story.querySelectorAll('[data-pimm30-nav]')];
+    const hero = story.querySelector('[data-header-overlay-sentinel]');
     const controls = story.querySelector('[data-pimm30-controls]');
     const pauseButton = story.querySelector('[data-pimm30-pause]');
     const pauseLabel = story.querySelector('[data-pimm30-pause-label]');
     const replayButton = story.querySelector('[data-pimm30-replay]');
-    const liveStatus = story.querySelector('[data-pimm30-status]');
-    const hero = story.querySelector('[data-header-overlay-sentinel]');
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const desktopMedia = window.matchMedia('(min-width: 750px)');
+    const status = story.querySelector('[data-pimm30-status]');
+    const variantSelect = story.querySelector('[data-pimm30-variant]');
+    const variantInput = story.querySelector('[data-pimm30-variant-id]');
+    const variantTitle = story.querySelector('[data-pimm30-variant-title]');
+    const price = story.querySelector('[data-pimm30-price]');
+    const availability = story.querySelector('[data-pimm30-availability]');
+    const addButton = story.querySelector('[data-pimm30-add]');
+    const addLabel = story.querySelector('[data-pimm30-add-label]');
+    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3250) / 1000;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
-    const staticExperience = reducedMotion.matches || saveData;
-    const pauseText = story.dataset.pimm30PauseLabel || 'Pause animation';
-    const resumeText = story.dataset.pimm30ResumeLabel || 'Resume animation';
-    const lightMilestone = Number.parseInt(story.dataset.pimm30LightMilestone || '3250', 10);
-    let activeChapterId = chapters[0]?.dataset.pimm30Chapter || '';
-    let heroLightTimer = 0;
+    const designMode = Boolean(window.Shopify && window.Shopify.designMode);
+    const reduced = REDUCED_MOTION.matches || saveData || designMode;
+    let activeId = chapters[0] ? chapters[0].dataset.pimm30Chapter : '';
+    let activeVideo = null;
     let userPaused = false;
-    let snapFrame = 0;
 
-    if (!chapters.length || !layers.length) return;
+    story.classList.toggle('is-reduced-motion', reduced);
+    story.classList.toggle('is-static', designMode);
 
-    const updateSnapEligibility = () => {
-      window.cancelAnimationFrame(snapFrame);
-      snapFrame = window.requestAnimationFrame(() => {
-        const viewportHeight = window.innerHeight;
-        const chaptersFitViewport = chapters.every((chapter) => chapter.scrollHeight <= viewportHeight + 1);
-        story.classList.toggle('is-snap-ready', !staticExperience && chaptersFitViewport);
-      });
-    };
+    function setHeroTone(bright) {
+      story.classList.toggle('is-hero-bright', bright);
+      story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
+      if (hero) hero.setAttribute('data-header-overlay-tone', bright ? 'bright' : 'dark');
+    }
 
-    const setHeroTone = (tone) => {
-      if (!hero) return;
-      hero.dataset.headerOverlayTone = tone;
-      story.dataset.heroTone = tone;
-    };
+    function resetVideo(video) {
+      if (!video) return;
+      video.pause();
+      video.classList.remove('is-playing', 'is-paused');
+      try {
+        video.currentTime = 0;
+      } catch (_error) {
+        // Some browsers reject seeking before metadata is ready. The poster remains valid.
+      }
+    }
 
-    const clearHeroTimer = () => {
-      if (!heroLightTimer) return;
-      window.clearTimeout(heroLightTimer);
-      heroLightTimer = 0;
-    };
+    function updateControls() {
+      const canControl = Boolean(activeVideo && !reduced && activeId === 'pimm30-overview');
+      if (controls) controls.hidden = !canControl;
+      if (!pauseButton || !pauseLabel) return;
+      pauseButton.setAttribute('aria-pressed', String(userPaused));
+      pauseLabel.textContent = userPaused
+        ? story.dataset.pimm30ResumeLabel
+        : story.dataset.pimm30PauseLabel;
+    }
 
-    const activeLayer = () => layers.find((layer) => layer.dataset.pimm30Layer === activeChapterId);
-
-    const visibleVideo = (layer) => {
-      if (!layer || staticExperience || layer.classList.contains('is-video-failed')) return null;
-      const preferredClass = desktopMedia.matches ? '.pimm30-stage__video--desktop' : '.pimm30-stage__video--mobile';
-      return layer.querySelector(preferredClass) || layer.querySelector('.pimm30-stage__video--all-devices');
-    };
-
-    const updateControls = () => {
-      const video = visibleVideo(activeLayer());
-      if (!controls) return;
-      controls.hidden = !video;
-      if (pauseButton) pauseButton.setAttribute('aria-pressed', String(userPaused));
-      if (pauseLabel) pauseLabel.textContent = userPaused ? resumeText : pauseText;
-    };
-
-    const pauseAllVideos = (exceptVideo = null) => {
-      story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
-        if (video !== exceptVideo) {
-          video.pause();
-          video.classList.remove('is-playing');
-        }
-      });
-    };
-
-    const scheduleHeroLight = () => {
-      clearHeroTimer();
-      if (activeChapterId !== 'pimm30-overview') return;
-      setHeroTone('dark');
-      heroLightTimer = window.setTimeout(() => setHeroTone('bright'), Math.max(0, lightMilestone));
-    };
-
-    const playActiveVideo = () => {
-      const layer = activeLayer();
-      const video = visibleVideo(layer);
-      pauseAllVideos(video);
-      updateControls();
-
-      if (!video || userPaused) {
-        if (activeChapterId === 'pimm30-overview') setHeroTone('bright');
+    function playActiveVideo(restart = true) {
+      const layer = layers.get(activeId);
+      activeVideo = visibleVideo(layer);
+      if (!activeVideo || reduced || userPaused) {
+        updateControls();
         return;
       }
 
-      const playPromise = video.play();
-      if (playPromise && typeof playPromise.then === 'function') {
-        playPromise
-          .then(() => {
-            video.classList.add('is-playing');
-            if (activeChapterId === 'pimm30-overview') scheduleHeroLight();
-          })
-          .catch(() => {
-            layer.classList.add('is-video-failed');
-            if (activeChapterId === 'pimm30-overview') setHeroTone('bright');
-            updateControls();
-          });
-      }
-    };
+      if (restart) resetVideo(activeVideo);
+      activeVideo.classList.add('is-playing');
+      activeVideo.play().catch(() => {
+        layer.classList.add('is-video-failed');
+        activeVideo.classList.remove('is-playing', 'is-paused');
+        if (activeId === 'pimm30-overview') setHeroTone(true);
+      });
+      updateControls();
+    }
 
-    const activateChapter = (chapterId, announce = false) => {
-      if (!chapterId) return;
-      activeChapterId = chapterId;
+    function announce(chapterId) {
+      if (!status) return;
+      const link = navLinks.find((item) => item.dataset.pimm30Nav === chapterId);
+      const label = link && link.querySelector('.pimm30-progress__label');
+      status.textContent = label ? label.textContent.trim() : '';
+    }
+
+    function activate(chapterId, restartVideo = true) {
+      if (!layers.has(chapterId)) return;
+      activeId = chapterId;
       story.dataset.activeChapter = chapterId;
+
+      layers.forEach((layer, id) => {
+        const active = id === chapterId;
+        layer.classList.toggle('is-active', active);
+        layer.setAttribute('aria-hidden', String(!active));
+        if (!active) {
+          const video = visibleVideo(layer);
+          if (video) resetVideo(video);
+        }
+      });
+
+      navLinks.forEach((link) => {
+        if (link.dataset.pimm30Nav === chapterId) link.setAttribute('aria-current', 'true');
+        else link.removeAttribute('aria-current');
+      });
+
       if (hero) {
         if (chapterId === 'pimm30-overview') hero.removeAttribute('data-header-overlay-complete');
         else hero.setAttribute('data-header-overlay-complete', '');
       }
 
-      layers.forEach((layer) => {
-        const active = layer.dataset.pimm30Layer === chapterId;
-        layer.classList.toggle('is-active', active);
-        layer.setAttribute('aria-hidden', String(!active));
+      if (chapterId !== 'pimm30-overview') setHeroTone(true);
+      announce(chapterId);
+      playActiveVideo(restartVideo);
+    }
+
+    story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
+      video.addEventListener('timeupdate', () => {
+        if (video !== activeVideo || activeId !== 'pimm30-overview') return;
+        setHeroTone(video.currentTime >= lightMilestone);
       });
-
-      navigation.forEach((link) => {
-        if (link.dataset.pimm30Nav === chapterId) link.setAttribute('aria-current', 'true');
-        else link.removeAttribute('aria-current');
+      video.addEventListener('ended', () => {
+        video.classList.remove('is-playing', 'is-paused');
+        if (activeId === 'pimm30-overview') setHeroTone(true);
+        userPaused = false;
+        updateControls();
       });
-
-      if (chapterId !== 'pimm30-overview') {
-        clearHeroTimer();
-        setHeroTone('bright');
-      }
-
-      playActiveVideo();
-
-      if (announce && liveStatus) {
-        const currentLink = navigation.find((link) => link.dataset.pimm30Nav === chapterId);
-        liveStatus.textContent = currentLink?.textContent.trim() || '';
-      }
-    };
-
-    layers.forEach((layer) => {
-      layer.querySelectorAll('[data-pimm30-video]').forEach((video) => {
-        video.addEventListener('ended', () => {
-          video.classList.remove('is-playing');
-          if (layer.dataset.pimm30Layer === 'pimm30-overview') setHeroTone('bright');
-          updateControls();
-        });
-        video.addEventListener('error', () => {
-          layer.classList.add('is-video-failed');
-          video.classList.remove('is-playing');
-          if (layer.dataset.pimm30Layer === 'pimm30-overview') setHeroTone('bright');
-          updateControls();
-        });
+      video.addEventListener('error', () => {
+        const layer = video.closest('[data-pimm30-layer]');
+        if (layer) layer.classList.add('is-video-failed');
+        if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') setHeroTone(true);
       });
     });
 
-    if (staticExperience) {
-      story.classList.add('is-static');
-      setHeroTone('bright');
+    if (!designMode) {
+      let chapterFrame = 0;
+      const selectVisibleChapter = () => {
+        chapterFrame = 0;
+        const marker = window.innerHeight * 0.5;
+        const nextChapter = chapters.find((chapter) => {
+          const rect = chapter.getBoundingClientRect();
+          return rect.top <= marker && rect.bottom > marker;
+        });
+        const nextId = nextChapter && nextChapter.dataset.pimm30Chapter;
+        if (nextId && nextId !== activeId) activate(nextId, true);
+      };
+      const queueChapterSelection = () => {
+        if (chapterFrame) return;
+        chapterFrame = window.requestAnimationFrame(selectVisibleChapter);
+      };
+      window.addEventListener('scroll', queueChapterSelection, { passive: true });
+      window.addEventListener('resize', queueChapterSelection, { passive: true });
     }
 
-    if ('IntersectionObserver' in window) {
-      const chapterObserver = new IntersectionObserver(
-        (entries) => {
-          const visible = entries
-            .filter((entry) => entry.isIntersecting)
-            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-          if (visible) activateChapter(visible.target.dataset.pimm30Chapter, false);
-        },
-        { rootMargin: '-30% 0px -45%', threshold: [0, 0.15, 0.35, 0.55] }
-      );
-      chapters.forEach((chapter) => chapterObserver.observe(chapter));
-
-      const storyObserver = new IntersectionObserver(
-        ([entry]) => story.classList.toggle('is-in-view', entry.isIntersecting),
-        { threshold: 0.01 }
-      );
-      storyObserver.observe(story);
-    }
-
-    pauseButton?.addEventListener('click', () => {
-      userPaused = !userPaused;
-      if (userPaused) {
-        clearHeroTimer();
-        pauseAllVideos();
-      } else {
-        playActiveVideo();
-      }
-      updateControls();
-    });
-
-    navigation.forEach((link) => {
+    navLinks.forEach((link) => {
       link.addEventListener('click', () => {
-        const chapterId = link.dataset.pimm30Nav;
-        activateChapter(chapterId, true);
+        const id = link.dataset.pimm30Nav;
+        window.requestAnimationFrame(() => activate(id, true));
       });
     });
 
-    replayButton?.addEventListener('click', () => {
-      const video = visibleVideo(activeLayer());
-      if (!video) return;
-      userPaused = false;
-      video.load();
-      playActiveVideo();
-      updateControls();
-    });
-
-    desktopMedia.addEventListener('change', () => playActiveVideo());
-    reducedMotion.addEventListener('change', () => window.location.reload());
-    window.addEventListener('resize', updateSnapEligibility, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) pauseAllVideos();
-      else playActiveVideo();
-    });
-
-    const hashChapter = chapters.find((chapter) => `#${chapter.id}` === window.location.hash);
-    activateChapter(hashChapter?.dataset.pimm30Chapter || activeChapterId);
-    updateSnapEligibility();
-
-    if ('ResizeObserver' in window) {
-      const chapterSizeObserver = new ResizeObserver(updateSnapEligibility);
-      chapters.forEach((chapter) => chapterSizeObserver.observe(chapter));
+    if (pauseButton) {
+      pauseButton.addEventListener('click', () => {
+        if (!activeVideo) return;
+        userPaused = !userPaused;
+        if (userPaused) {
+          activeVideo.pause();
+          activeVideo.classList.remove('is-playing');
+          activeVideo.classList.add('is-paused');
+        } else {
+          activeVideo.classList.remove('is-paused');
+          activeVideo.classList.add('is-playing');
+          activeVideo.play().catch(() => {});
+        }
+        updateControls();
+      });
     }
-  };
 
-  const initialiseAllStories = (scope = document) => {
-    scope.querySelectorAll(STORY_SELECTOR).forEach(initialiseStory);
-  };
+    if (replayButton) {
+      replayButton.addEventListener('click', () => {
+        userPaused = false;
+        setHeroTone(false);
+        playActiveVideo(true);
+      });
+    }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => initialiseAllStories(), { once: true });
-  } else {
-    initialiseAllStories();
+    if (variantSelect) {
+      variantSelect.addEventListener('change', () => {
+        const option = variantSelect.selectedOptions[0];
+        const availableNow = option.dataset.available === 'true';
+        if (variantInput) variantInput.value = option.value;
+        if (variantTitle) variantTitle.textContent = option.textContent.split(' — ')[0];
+        if (price) price.textContent = option.dataset.price || '';
+        if (availability) {
+          availability.textContent = availableNow
+            ? window.variantStrings?.available || 'In stock'
+            : window.variantStrings?.soldOut || 'Out of stock';
+          availability.classList.toggle('is-unavailable', !availableNow);
+        }
+        if (addButton) addButton.disabled = !availableNow;
+        if (addLabel) {
+          addLabel.textContent = availableNow
+            ? window.variantStrings?.addToCart || 'Add to cart'
+            : window.variantStrings?.soldOut || 'Sold out';
+        }
+      });
+    }
+
+    const activeHeroVideo = visibleVideo(layers.get(activeId));
+    if (reduced || !activeHeroVideo) setHeroTone(true);
+    else setHeroTone(false);
+    activate(activeId, true);
   }
 
-  document.addEventListener('shopify:section:load', (event) => initialiseAllStories(event.target));
+  function initAll(scope = document) {
+    scope.querySelectorAll(STORY_SELECTOR).forEach(initStory);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => initAll());
+  } else {
+    initAll();
+  }
+
+  document.addEventListener('shopify:section:load', (event) => initAll(event.target));
 })();

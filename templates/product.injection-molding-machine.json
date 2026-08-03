@@ -17,9 +17,9 @@
           "settings": {
             "role": "overview",
             "desktop_video_asset": "maliev-pimm-30g-story-desktop.mp4",
-            "desktop_poster_asset": "maliev-pimm-30g-story-desktop.webp",
+            "desktop_poster_asset": "pimm30-v2-hero-desktop.webp",
             "mobile_video_asset": "maliev-pimm-30g-story-mobile.mp4",
-            "mobile_poster_asset": "maliev-pimm-30g-story-mobile.webp"
+            "mobile_poster_asset": "pimm30-v2-hero-mobile.webp"
           }
         },
         "capacity": {
@@ -27,9 +27,9 @@
           "settings": {
             "role": "capacity",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-30g-landing-hero-light.png",
+            "desktop_poster_asset": "pimm30-v2-capacity-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-30g-hero-alpha.png"
+            "mobile_poster_asset": "pimm30-v2-capacity-mobile.webp"
           }
         },
         "temperature": {
@@ -37,9 +37,9 @@
           "settings": {
             "role": "temperature",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-30g-landing-hero-light.png",
+            "desktop_poster_asset": "pimm30-v2-temperature-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-30g-hero-alpha.png"
+            "mobile_poster_asset": "pimm30-v2-temperature-mobile.webp"
           }
         },
         "cylinder": {
@@ -47,9 +47,9 @@
           "settings": {
             "role": "cylinder",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-30g-landing-hero-light.png",
+            "desktop_poster_asset": "pimm30-v2-cylinder-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-30g-hero-alpha.png"
+            "mobile_poster_asset": "pimm30-v2-cylinder-mobile.webp"
           }
         },
         "operation": {
@@ -57,9 +57,9 @@
           "settings": {
             "role": "operation",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-30g-landing-hero-light.png",
+            "desktop_poster_asset": "pimm30-v2-operation-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-30g-hero-alpha.png"
+            "mobile_poster_asset": "pimm30-v2-operation-mobile.webp"
           }
         },
         "regulator": {
@@ -67,9 +67,9 @@
           "settings": {
             "role": "regulator",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-30g-landing-hero-light.png",
+            "desktop_poster_asset": "pimm30-v2-regulator-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-30g-hero-alpha.png"
+            "mobile_poster_asset": "pimm30-v2-regulator-mobile.webp"
           }
         },
         "fixture": {
@@ -77,9 +77,9 @@
           "settings": {
             "role": "fixture",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-nozzle-detail.webp",
+            "desktop_poster_asset": "pimm30-v2-fixture-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-nozzle-detail.webp"
+            "mobile_poster_asset": "pimm30-v2-fixture-mobile.webp"
           }
         },
         "materials": {
@@ -87,9 +87,19 @@
           "settings": {
             "role": "materials",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "maliev-pimm-30g-landing-hero-light.png",
+            "desktop_poster_asset": "pimm30-v2-capacity-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "maliev-pimm-30g-hero-alpha.png"
+            "mobile_poster_asset": "pimm30-v2-capacity-mobile.webp"
+          }
+        },
+        "configuration": {
+          "type": "chapter",
+          "settings": {
+            "role": "configuration",
+            "desktop_video_asset": "",
+            "desktop_poster_asset": "pimm30-v2-commerce-desktop.webp",
+            "mobile_video_asset": "",
+            "mobile_poster_asset": "pimm30-v2-commerce-mobile.webp"
           }
         },
         "next_model": {
@@ -112,6 +122,7 @@
         "regulator",
         "fixture",
         "materials",
+        "configuration",
         "next_model"
       ],
       "settings": {
@@ -119,112 +130,7 @@
         "next_product": "pneumatic-injection-molding-machine-50g",
         "hero_light_milestone": 3250
       }
-    },
-    "main": {
-      "type": "maliev-product",
-      "blocks": {
-        "vendor": {
-          "type": "text",
-          "settings": {
-            "text": "",
-            "text_style": "uppercase"
-          }
-        },
-        "title": {
-          "type": "title",
-          "settings": {}
-        },
-        "price": {
-          "type": "price",
-          "settings": {}
-        },
-        "lead_time": {
-          "type": "custom_liquid",
-          "settings": {
-            "custom_liquid": "{% assign is_th = false %}\n{% if localization.language.iso_code == 'th' or request.locale.iso_code == 'th' %}{% assign is_th = true %}{% endif %}\n{% if product.metafields.custom.lead_time != blank %}\n  {% if is_th %}\n    <p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} วัน</span></p>\n  {% elsif product.metafields.custom.lead_time > 1 %}\n    <p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} days</span></p>\n  {% else %}\n    <p class=\"leadtime\">Lead time: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} day</span></p>\n  {% endif %}\n{% endif %}"
-          }
-        },
-        "variant_picker": {
-          "type": "variant_picker",
-          "settings": {
-            "picker_type": "dropdown",
-            "swatch_shape": "none"
-          }
-        },
-        "quantity_selector": {
-          "type": "quantity_selector",
-          "settings": {}
-        },
-        "buy_buttons": {
-          "type": "buy_buttons",
-          "settings": {
-            "show_dynamic_checkout": true,
-            "show_gift_card_recipient": true
-          }
-        },
-        "description": {
-          "type": "description",
-          "settings": {}
-        },
-        "frequently_bought_together": {
-          "type": "shopify://apps/essential-upsell/blocks/frequently-bought-together-app-block/50627fd9-24fd-4250-8614-accc12826d80",
-          "settings": {}
-        }
-      },
-      "block_order": [
-        "vendor",
-        "title",
-        "price",
-        "lead_time",
-        "variant_picker",
-        "quantity_selector",
-        "buy_buttons",
-        "description",
-        "frequently_bought_together"
-      ],
-      "custom_css": [
-        "iframe {width: 100%; aspect-ratio: 16 / 9; height: auto;}",
-        ".leadtime {font-size: 1em;}",
-        ".leadtime_duration {font-weight: 600;}"
-      ],
-      "settings": {
-        "enable_sticky_info": true,
-        "color_scheme": "scheme-1",
-        "media_size": "small",
-        "constrain_to_viewport": true,
-        "media_fit": "cover",
-        "gallery_layout": "thumbnail_slider",
-        "mobile_thumbnails": "show",
-        "media_position": "right",
-        "image_zoom": "hover",
-        "hide_variants": true,
-        "enable_video_looping": false,
-        "padding_top": 64,
-        "padding_bottom": 32
-      }
-    },
-    "related_products": {
-      "type": "maliev-related-products",
-      "settings": {
-        "heading": "You may also like",
-        "heading_size": "h1",
-        "products_to_show": 3,
-        "columns_desktop": 3,
-        "columns_mobile": "2",
-        "color_scheme": "scheme-2",
-        "image_ratio": "adapt",
-        "image_shape": "default",
-        "show_secondary_image": true,
-        "show_vendor": false,
-        "show_rating": true,
-        "padding_top": 48,
-        "padding_bottom": 48
-      }
     }
   },
-  "order": [
-    "pimm30_story",
-    "main",
-    "related_products"
-  ]
+  "order": ["pimm30_story"]
 }
