@@ -1457,24 +1457,209 @@ body.template-product main .mc-product-block--title h1 {
 
 .mc-contact__layout {
   display: grid;
-  grid-template-columns: minmax(24rem, 0.75fr) minmax(0, 1.25fr);
-  gap: clamp(4rem, 8vw, 12rem);
+  grid-template-columns: minmax(28rem, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(3.2rem, 6vw, 8.8rem);
   align-items: start;
 }
 
-.mc-contact__header {
-  position: sticky;
-  top: calc(var(--maliev-header-height, 7rem) + 2rem);
+.mc-contact__intro {
+  max-width: 86rem;
+  margin-bottom: clamp(4.8rem, 7vw, 8rem);
 }
 
-.mc-contact__header h1 {
-  max-width: 12ch;
+.mc-contact__location {
+  margin: 0 0 1.8rem;
+  color: var(--maliev-blue);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.mc-contact__intro h1 {
+  max-width: 15ch;
   margin: 0;
+}
+
+.mc-contact__lead {
+  max-width: 64ch;
+  margin: 2.4rem 0 0;
+  color: var(--maliev-ink-soft);
+  font-size: clamp(1.7rem, 1.6vw, 2rem);
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.mc-contact__visit {
+  position: sticky;
+  top: calc(var(--maliev-header-height, 7rem) + 3.2rem);
+  display: grid;
+  gap: 3.2rem;
+  padding: clamp(2.4rem, 3.5vw, 4rem);
+  border-radius: var(--maliev-radius-card);
+  background: var(--maliev-carbon);
+  color: #ffffff;
+}
+
+body main h2.mc-contact__visit-heading:not(.mkey h2) {
+  margin: 0 0 1rem;
+  color: #ffffff !important;
+  font-size: clamp(2.4rem, 3vw, 3.4rem) !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.1 !important;
+}
+
+.mc-contact__visit p {
+  margin: 0;
+  color: #d7dce1;
+  line-height: 1.65;
+}
+
+.mc-contact__details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.mc-contact__details > div {
+  display: grid;
+  gap: 0.7rem;
+  padding-block: 1.8rem;
+  border-top: 1px solid var(--maliev-sim-line);
+}
+
+.mc-contact__details dt {
+  color: #d7dce1;
+  font-size: 1.3rem;
+}
+
+.mc-contact__details dd {
+  margin: 0;
+  color: #ffffff;
+  line-height: 1.55;
+}
+
+.mc-contact__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.8rem;
+}
+
+.mc-contact__links a {
+  display: inline-flex;
+  min-height: 4.4rem;
+  color: #ffffff;
+  font-weight: 600;
+  text-underline-offset: 0.4rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mc-contact__links a:hover {
+  color: var(--maliev-focus);
+}
+
+.mc-contact__form {
+  min-width: 0;
+  padding: clamp(2.4rem, 4vw, 4.8rem);
+  border: 1px solid var(--maliev-rule);
+  border-radius: var(--maliev-radius-card);
+  background: var(--maliev-surface);
 }
 
 .mc-contact__form form {
   display: grid;
+  gap: 3.2rem;
+}
+
+.mc-contact-intent,
+.mc-contact__fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mc-contact-intent > legend,
+.mc-contact__fieldset > legend {
+  width: 100%;
+  margin-bottom: 1.6rem;
+  color: var(--maliev-ink);
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.mc-contact-intent__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.mc-contact-intent__option {
+  display: grid;
+  min-height: 9.6rem;
+  padding: 1.6rem;
+  border: 1px solid var(--maliev-rule);
+  border-radius: var(--maliev-radius-control);
+  background: var(--maliev-surface);
+  color: var(--maliev-ink);
+  cursor: pointer;
+  grid-template-columns: auto 1fr;
+  gap: 1.2rem;
+  align-items: start;
+  transition: border-color var(--maliev-transition), background-color var(--maliev-transition);
+}
+
+.mc-contact-intent__option:hover {
+  border-color: var(--maliev-graphite);
+}
+
+.mc-contact-intent__option:has(input:checked) {
+  border-color: var(--maliev-blue);
+  background: color-mix(in srgb, var(--maliev-blue) 6%, var(--maliev-surface));
+}
+
+.mc-contact-intent__option:has(input:focus-visible) {
+  outline: 3px solid var(--maliev-focus);
+  outline-offset: 3px;
+}
+
+.mc-contact-intent__option input {
+  width: 1.8rem;
+  height: 1.8rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--maliev-blue);
+}
+
+.mc-contact-intent__option span {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.mc-contact-intent__option strong {
+  font-size: 1.5rem;
+}
+
+.mc-contact-intent__option small {
+  color: var(--maliev-ink-soft);
+  font-size: 1.3rem;
+  line-height: 1.45;
+}
+
+.mc-contact__fieldset {
+  display: grid;
   gap: 2rem;
+  padding-top: 0.4rem;
+}
+
+.mc-contact__fieldset + .mc-contact__fieldset {
+  padding-top: 3rem;
+  border-top: 1px solid var(--maliev-rule);
+}
+
+.mc-contact__fieldset-intro {
+  max-width: 62ch;
+  margin: -0.8rem 0 0;
+  color: var(--maliev-ink-soft);
+  line-height: 1.6;
 }
 
 .mc-form-grid {
@@ -1486,6 +1671,7 @@ body.template-product main .mc-product-block--title h1 {
 .mc-field {
   display: grid;
   gap: 0.7rem;
+  align-content: start;
 }
 
 .mc-field label {
@@ -1495,26 +1681,47 @@ body.template-product main .mc-product-block--title h1 {
 }
 
 .mc-field input,
-.mc-field textarea {
+.mc-field textarea,
+.mc-field select {
   width: 100%;
-  padding: 1.3rem 1.5rem;
-  border: 1px solid var(--maliev-rule-strong);
+  min-height: 4.8rem;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid var(--maliev-rule);
   border-radius: var(--maliev-radius-control);
-  background: var(--maliev-paper);
+  background: var(--maliev-surface);
   color: var(--maliev-ink);
   font: inherit;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
+  transition: border-color var(--maliev-transition), background-color var(--maliev-transition);
+}
+
+.mc-field select {
+  appearance: auto;
 }
 
 .mc-field textarea {
-  min-height: 18rem;
+  min-height: 12rem;
   resize: vertical;
 }
 
-.mc-field :where(input, textarea):focus-visible {
+.mc-field :where(input, textarea, select):hover {
+  border-color: var(--maliev-graphite);
+}
+
+.mc-field :where(input, textarea, select):focus-visible {
   border-color: var(--maliev-blue);
-  outline: 2px solid color-mix(in srgb, var(--maliev-blue) 28%, transparent);
-  outline-offset: 2px;
+  outline: 3px solid var(--maliev-focus);
+  outline-offset: 3px;
+}
+
+.mc-field :where(input, textarea, select):user-invalid {
+  border-color: var(--maliev-danger);
+}
+
+.mc-field small {
+  color: var(--maliev-graphite);
+  font-size: 1.25rem;
+  line-height: 1.45;
 }
 
 .mc-field__error,
@@ -1529,13 +1736,37 @@ body.template-product main .mc-product-block--title h1 {
   font-size: 1.4rem;
 }
 
+.mc-form-status--success {
+  color: var(--maliev-success);
+}
+
+.mc-form-status ul {
+  margin: 0.8rem 0 0;
+  padding-left: 2rem;
+}
+
 .mc-form-status p {
   margin: 0;
 }
 
-.mc-contact__form .button {
-  justify-self: start;
-  min-width: 16rem;
+.mc-contact__submit {
+  display: flex;
+  gap: 2.4rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mc-contact__submit p {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--maliev-ink-soft);
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.mc-contact__submit .button {
+  min-width: 18rem;
+  flex: 0 0 auto;
 }
 
 .mc-journal__header {
@@ -2822,12 +3053,31 @@ main .customer table th {
   }
 
   .mc-contact__layout,
-  .mc-form-grid {
+  .mc-form-grid,
+  .mc-contact-intent__options {
     grid-template-columns: 1fr;
   }
 
-  .mc-contact__header {
+  .mc-contact__visit {
     position: static;
+  }
+
+  .mc-contact__intro {
+    margin-bottom: 3.6rem;
+  }
+
+  .mc-contact__form,
+  .mc-contact__visit {
+    padding: 2.4rem 2rem;
+  }
+
+  .mc-contact__submit {
+    display: grid;
+    gap: 1.6rem;
+  }
+
+  .mc-contact__submit .button {
+    width: 100%;
   }
 
   .mc-journal__grid {

@@ -1,87 +1,255 @@
+{%- liquid
+  assign map_url = section.settings.map_url | default: 'https://maps.app.goo.gl/AXqLnqUu5dM2'
+  assign line_url = section.settings.line_url | default: 'https://line.me/ti/p/@maliev'
+-%}
+
 <section class="mc-contact color-{{ section.settings.color_scheme }}" style="--mc-section-top: {{ section.settings.padding_top }}px; --mc-section-bottom: {{ section.settings.padding_bottom }}px;">
   <div class="page-width">
-    <div class="mc-contact__layout">
-      <header class="mc-contact__header">
-        <p class="maliev-eyebrow">{{ 'templates.contact.form.title' | t }}</p>
-        {%- if section.settings.heading != blank -%}
-          <h1 class="{{ section.settings.heading_size }}">{{ section.settings.heading }}</h1>
-        {%- else -%}
-          <h1>{{ 'templates.contact.form.title' | t }}</h1>
-        {%- endif -%}
-      </header>
+    <header class="mc-contact__intro">
+      <p class="mc-contact__location">{{ 'templates.contact.form.location' | t }}</p>
+      {%- if section.settings.heading != blank -%}
+        <h1 class="{{ section.settings.heading_size }}">{{ section.settings.heading }}</h1>
+      {%- else -%}
+        <h1>{{ 'templates.contact.form.demo_title' | t }}</h1>
+      {%- endif -%}
+      <p class="mc-contact__lead">{{ 'templates.contact.form.demo_intro' | t }}</p>
+    </header>
 
-      <div class="mc-contact__form">
+    <div class="mc-contact__layout">
+      <aside class="mc-contact__visit" aria-labelledby="ContactVisitTitle">
+        <div>
+          <h2 class="mc-contact__visit-heading" id="ContactVisitTitle">{{ 'templates.contact.form.visit_title' | t }}</h2>
+          <p>{{ 'templates.contact.form.visit_text' | t }}</p>
+        </div>
+
+        <dl class="mc-contact__details">
+          <div>
+            <dt>{{ 'templates.contact.form.address_label' | t }}</dt>
+            <dd>{{ 'templates.contact.form.address' | t }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'templates.contact.form.hours_label' | t }}</dt>
+            <dd>{{ 'templates.contact.form.hours' | t }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'templates.contact.form.confirmation_label' | t }}</dt>
+            <dd>{{ 'templates.contact.form.confirmation_value' | t }}</dd>
+          </div>
+        </dl>
+
+        <div class="mc-contact__links">
+          <a href="{{ map_url }}" target="_blank" rel="noopener noreferrer">
+            {{ 'templates.contact.form.map_link' | t }}
+            <span aria-hidden="true">↗</span>
+            <span class="visually-hidden">{{ 'accessibility.link_messages.new_window' | t }}</span>
+          </a>
+          <a href="{{ line_url }}" target="_blank" rel="noopener noreferrer">
+            {{ 'templates.contact.form.line_link' | t }}
+            <span aria-hidden="true">↗</span>
+            <span class="visually-hidden">{{ 'accessibility.link_messages.new_window' | t }}</span>
+          </a>
+          <a href="mailto:{{ section.settings.contact_email }}">{{ section.settings.contact_email }}</a>
+        </div>
+      </aside>
+
+      <div class="mc-contact__form" data-contact-intent data-demo-submit="{{ 'templates.contact.form.send_demo' | t | escape }}" data-general-submit="{{ 'templates.contact.form.send_general' | t | escape }}">
         {%- form 'contact', id: 'ContactForm' -%}
+          <input type="hidden" name="contact[tags]" value="contact-page,demo-request">
+
           {%- if form.posted_successfully? -%}
-            <div class="mc-form-status mc-form-status--success" tabindex="-1" autofocus>
-              {{ 'templates.contact.form.post_success' | t }}
+            <div class="mc-form-status mc-form-status--success" role="status" tabindex="-1" autofocus>
+              <p>{{ 'templates.contact.form.post_success' | t }}</p>
             </div>
           {%- elsif form.errors -%}
             <div class="mc-form-status mc-form-status--error" role="alert" tabindex="-1" autofocus>
               <p>{{ 'templates.contact.form.error_heading' | t }}</p>
-              <a href="#ContactForm-email">
-                {{ form.errors.translated_fields.email | capitalize }} {{ form.errors.messages.email }}
-              </a>
+              {{ form.errors | default_errors }}
             </div>
           {%- endif -%}
 
-          <div class="mc-form-grid">
-            <div class="mc-field">
-              <label for="ContactForm-name">{{ 'templates.contact.form.name' | t }}</label>
-              <input
-                autocomplete="name"
-                type="text"
-                id="ContactForm-name"
-                name="contact[{{ 'templates.contact.form.name' | t }}]"
-                value="{% if form.name %}{{ form.name }}{% elsif customer %}{{ customer.name }}{% endif %}"
-              >
+          <fieldset class="mc-contact-intent">
+            <legend>{{ 'templates.contact.form.intent_legend' | t }}</legend>
+            <div class="mc-contact-intent__options">
+              <label class="mc-contact-intent__option">
+                <input type="radio" name="contact[Request type]" value="Machine demo at MALIEV headquarters" checked data-contact-choice="demo">
+                <span>
+                  <strong>{{ 'templates.contact.form.intent_demo' | t }}</strong>
+                  <small>{{ 'templates.contact.form.intent_demo_hint' | t }}</small>
+                </span>
+              </label>
+              <label class="mc-contact-intent__option">
+                <input type="radio" name="contact[Request type]" value="General enquiry" data-contact-choice="general">
+                <span>
+                  <strong>{{ 'templates.contact.form.intent_general' | t }}</strong>
+                  <small>{{ 'templates.contact.form.intent_general_hint' | t }}</small>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="mc-contact__fieldset">
+            <legend>{{ 'templates.contact.form.contact_details' | t }}</legend>
+            <div class="mc-form-grid">
+              <div class="mc-field">
+                <label for="ContactForm-name">{{ 'templates.contact.form.name' | t }} <span aria-hidden="true">*</span></label>
+                <input
+                  autocomplete="name"
+                  type="text"
+                  id="ContactForm-name"
+                  name="contact[name]"
+                  value="{% if form.name %}{{ form.name }}{% elsif customer %}{{ customer.name }}{% endif %}"
+                  required
+                >
+              </div>
+
+              <div class="mc-field">
+                <label for="ContactForm-email">{{ 'templates.contact.form.email' | t }} <span aria-hidden="true">*</span></label>
+                <input
+                  autocomplete="email"
+                  type="email"
+                  id="ContactForm-email"
+                  name="contact[email]"
+                  spellcheck="false"
+                  autocapitalize="off"
+                  value="{% if form.email %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}"
+                  aria-required="true"
+                  required
+                  {% if form.errors contains 'email' %}aria-invalid="true" aria-describedby="ContactForm-email-error"{% endif %}
+                >
+                {%- if form.errors contains 'email' -%}
+                  <small class="mc-field__error" id="ContactForm-email-error">
+                    {{ form.errors.translated_fields.email | capitalize }} {{ form.errors.messages.email }}
+                  </small>
+                {%- endif -%}
+              </div>
+            </div>
+
+            <div class="mc-form-grid">
+              <div class="mc-field">
+                <label for="ContactForm-phone">{{ 'templates.contact.form.phone' | t }}</label>
+                <input
+                  type="tel"
+                  id="ContactForm-phone"
+                  autocomplete="tel"
+                  inputmode="tel"
+                  name="contact[phone]"
+                  value="{% if form.phone %}{{ form.phone }}{% elsif customer %}{{ customer.phone }}{% endif %}"
+                >
+              </div>
+
+              <div class="mc-field">
+                <label for="ContactForm-company">{{ 'templates.contact.form.company' | t }}</label>
+                <input type="text" id="ContactForm-company" autocomplete="organization" name="contact[Company]">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="mc-contact__fieldset" data-demo-fields>
+            <legend>{{ 'templates.contact.form.demo_details' | t }}</legend>
+            <p class="mc-contact__fieldset-intro">{{ 'templates.contact.form.demo_details_hint' | t }}</p>
+
+            <div class="mc-form-grid mc-form-grid--compact">
+              <div class="mc-field">
+                <label for="ContactForm-attendees">{{ 'templates.contact.form.attendees' | t }} <span aria-hidden="true">*</span></label>
+                <input type="number" id="ContactForm-attendees" name="contact[Number of attendees]" min="1" step="1" value="1" data-demo-required>
+              </div>
+
+              <div class="mc-field">
+                <label for="ContactForm-date">{{ 'templates.contact.form.preferred_date' | t }} <span aria-hidden="true">*</span></label>
+                <input type="date" id="ContactForm-date" name="contact[Preferred visit date]" data-demo-required aria-describedby="ContactForm-date-hint">
+                <small id="ContactForm-date-hint">{{ 'templates.contact.form.date_hint' | t }}</small>
+              </div>
             </div>
 
             <div class="mc-field">
-              <label for="ContactForm-email">{{ 'templates.contact.form.email' | t }} <span aria-hidden="true">*</span></label>
-              <input
-                autocomplete="email"
-                type="email"
-                id="ContactForm-email"
-                name="contact[email]"
-                spellcheck="false"
-                autocapitalize="off"
-                value="{% if form.email %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}"
-                aria-required="true"
-                required
-                {% if form.errors contains 'email' %}aria-invalid="true" aria-describedby="ContactForm-email-error"{% endif %}
-              >
-              {%- if form.errors contains 'email' -%}
-                <small class="mc-field__error" id="ContactForm-email-error">
-                  {{ form.errors.translated_fields.email | capitalize }} {{ form.errors.messages.email }}
-                </small>
-              {%- endif -%}
+              <label for="ContactForm-part">{{ 'templates.contact.form.planned_part' | t }} <span aria-hidden="true">*</span></label>
+              <textarea rows="4" id="ContactForm-part" name="contact[Planned part]" aria-describedby="ContactForm-part-hint" data-demo-required></textarea>
+              <small id="ContactForm-part-hint">{{ 'templates.contact.form.planned_part_hint' | t }}</small>
             </div>
-          </div>
 
-          <div class="mc-field">
-            <label for="ContactForm-phone">{{ 'templates.contact.form.phone' | t }}</label>
-            <input
-              type="tel"
-              id="ContactForm-phone"
-              autocomplete="tel"
-              name="contact[{{ 'templates.contact.form.phone' | t }}]"
-              pattern="[0-9\-]*"
-              value="{% if form.phone %}{{ form.phone }}{% elsif customer %}{{ customer.phone }}{% endif %}"
-            >
-          </div>
+            <div class="mc-form-grid">
+              <div class="mc-field">
+                <label for="ContactForm-material">{{ 'templates.contact.form.material' | t }} <span aria-hidden="true">*</span></label>
+                <input type="text" id="ContactForm-material" name="contact[Material]" aria-describedby="ContactForm-material-hint" data-demo-required>
+                <small id="ContactForm-material-hint">{{ 'templates.contact.form.material_hint' | t }}</small>
+              </div>
+
+              <div class="mc-field">
+                <label for="ContactForm-mold-support">{{ 'templates.contact.form.mold_support' | t }} <span aria-hidden="true">*</span></label>
+                <select id="ContactForm-mold-support" name="contact[Mold support needed]" data-demo-required>
+                  <option value="">{{ 'templates.contact.form.select_prompt' | t }}</option>
+                  <option value="Yes">{{ 'templates.contact.form.mold_support_yes' | t }}</option>
+                  <option value="No">{{ 'templates.contact.form.mold_support_no' | t }}</option>
+                  <option value="Not sure">{{ 'templates.contact.form.mold_support_unsure' | t }}</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
 
           <div class="mc-field">
             <label for="ContactForm-body">{{ 'templates.contact.form.comment' | t }}</label>
-            <textarea rows="8" id="ContactForm-body" name="contact[{{ 'templates.contact.form.comment' | t }}]">{{ form.body }}</textarea>
+            <textarea rows="5" id="ContactForm-body" name="contact[body]" aria-describedby="ContactForm-body-hint" data-general-required>{{ form.body }}</textarea>
+            <small id="ContactForm-body-hint">{{ 'templates.contact.form.comment_hint' | t }}</small>
           </div>
 
-          <button type="submit" class="button">{{ 'templates.contact.form.send' | t }}</button>
+          <div class="mc-contact__submit">
+            <p>{{ 'templates.contact.form.request_notice' | t }}</p>
+            <button type="submit" class="button" data-contact-submit>{{ 'templates.contact.form.send_demo' | t }}</button>
+          </div>
         {%- endform -%}
       </div>
     </div>
   </div>
 </section>
+
+{% javascript %}
+  const configureMalievContactForm = (root) => {
+    if (!root || root.dataset.contactReady === 'true') return;
+
+    const choices = root.querySelectorAll('[data-contact-choice]');
+    const demoFields = root.querySelector('[data-demo-fields]');
+    const demoRequired = root.querySelectorAll('[data-demo-required]');
+    const generalRequired = root.querySelector('[data-general-required]');
+    const submit = root.querySelector('[data-contact-submit]');
+    const tags = root.querySelector('input[name="contact[tags]"]');
+    const preferredDate = root.querySelector('#ContactForm-date');
+
+    if (!choices.length || !demoFields || !submit) return;
+
+    const updateIntent = () => {
+      const selected = root.querySelector('[data-contact-choice]:checked');
+      const isDemo = selected?.dataset.contactChoice === 'demo';
+
+      demoFields.hidden = !isDemo;
+      demoRequired.forEach((field) => {
+        field.disabled = !isDemo;
+        field.required = isDemo;
+      });
+      generalRequired.required = !isDemo;
+      submit.textContent = isDemo ? root.dataset.demoSubmit : root.dataset.generalSubmit;
+      if (tags) tags.value = isDemo ? 'contact-page,demo-request' : 'contact-page,general-enquiry';
+    };
+
+    if (preferredDate) {
+      const bangkokToday = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(new Date());
+      preferredDate.min = bangkokToday;
+    }
+
+    choices.forEach((choice) => choice.addEventListener('change', updateIntent));
+    root.dataset.contactReady = 'true';
+    updateIntent();
+  };
+
+  document.querySelectorAll('[data-contact-intent]').forEach(configureMalievContactForm);
+  document.addEventListener('shopify:section:load', (event) => {
+    event.target.querySelectorAll('[data-contact-intent]').forEach(configureMalievContactForm);
+  });
+{% endjavascript %}
 
 {% schema %}
 {
@@ -113,18 +281,26 @@
         {
           "value": "h0",
           "label": "t:sections.all.heading_size.options__3.label"
-        },
-        {
-          "value": "hxl",
-          "label": "t:sections.all.heading_size.options__4.label"
-        },
-        {
-          "value": "hxxl",
-          "label": "t:sections.all.heading_size.options__5.label"
         }
       ],
       "default": "h1",
       "label": "t:sections.all.heading_size.label"
+    },
+    {
+      "type": "url",
+      "id": "map_url",
+      "label": "Google Maps URL"
+    },
+    {
+      "type": "url",
+      "id": "line_url",
+      "label": "LINE URL"
+    },
+    {
+      "type": "text",
+      "id": "contact_email",
+      "label": "Contact email",
+      "default": "info@maliev.com"
     },
     {
       "type": "color_scheme",
@@ -144,7 +320,7 @@
       "step": 4,
       "unit": "px",
       "label": "t:sections.all.padding.padding_top",
-      "default": 36
+      "default": 64
     },
     {
       "type": "range",
@@ -154,7 +330,7 @@
       "step": 4,
       "unit": "px",
       "label": "t:sections.all.padding.padding_bottom",
-      "default": 36
+      "default": 80
     }
   ],
   "presets": [

@@ -25,7 +25,7 @@
           "type": "support",
           "settings": {
             "contact_url": "/pages/contact",
-            "visit_url": "/products/appointment",
+            "visit_url": "/pages/contact",
             "guides_url": "/blogs/news",
             "services_url": "https://www.maliev.com/"
           }
