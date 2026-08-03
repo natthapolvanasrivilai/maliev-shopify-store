@@ -250,6 +250,16 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.mc-nav__columns--services .mc-menu-link--compact {
+  min-height: 7.6rem;
+  padding-block: 1.1rem;
+}
+
+.mc-nav__panel-inner--manufacturing {
+  gap: clamp(2.4rem, 3.4vw, 5.2rem);
+  grid-template-columns: minmax(19rem, 0.78fr) minmax(39rem, 1.65fr) minmax(22rem, 0.9fr);
+}
+
 .mc-nav__column {
   min-width: 0;
 }

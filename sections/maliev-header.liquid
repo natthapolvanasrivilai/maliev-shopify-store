@@ -114,22 +114,30 @@
                         <a class="mc-mobile-nav__cta" href="{{ mobile_panel_block.settings.cta_url }}">{{ mobile_cta_label | escape }}</a>
                       {%- endif -%}
                     <ul role="list">
-                      {%- for childlink in link.links -%}
-                        <li>
-                          {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'mobile', show_arrow: false %}
-                          {%- if childlink.links != blank -%}
-                            <ul role="list">
-                              {%- for grandchildlink in childlink.links -%}
-                                <li>
-                                  <a href="{{ grandchildlink.url }}"{% if grandchildlink.current %} aria-current="page"{% endif %}>
-                                    {{ grandchildlink.title | escape }}
-                                  </a>
-                                </li>
-                              {%- endfor -%}
-                            </ul>
+                      {%- if mobile_panel_key == 'our-manufacturing-services' -%}
+                        {%- for block in section.blocks -%}
+                          {%- if block.type == 'manufacturing_service' -%}
+                            <li>{% render 'maliev-service-link', service_block: block, variant: 'mobile', show_arrow: false %}</li>
                           {%- endif -%}
-                        </li>
-                      {%- endfor -%}
+                        {%- endfor -%}
+                      {%- else -%}
+                        {%- for childlink in link.links -%}
+                          <li>
+                            {% render 'maliev-menu-link', menu_link: childlink, section: section, variant: 'mobile', show_arrow: false %}
+                            {%- if childlink.links != blank -%}
+                              <ul role="list">
+                                {%- for grandchildlink in childlink.links -%}
+                                  <li>
+                                    <a href="{{ grandchildlink.url }}"{% if grandchildlink.current %} aria-current="page"{% endif %}>
+                                      {{ grandchildlink.title | escape }}
+                                    </a>
+                                  </li>
+                                {%- endfor -%}
+                              </ul>
+                            {%- endif -%}
+                          </li>
+                        {%- endfor -%}
+                      {%- endif -%}
                     </ul>
                     </div>
                   </details>
@@ -416,7 +424,7 @@
       "label": "Show language selector"
     }
   ],
-  "max_blocks": 16,
+  "max_blocks": 24,
   "blocks": [
     {
       "type": "menu_detail",
@@ -459,6 +467,55 @@
             { "value": "mesh", "label": "Mesh Splitter" },
             { "value": "materials", "label": "Molding materials" },
             { "value": "digital", "label": "Digital files" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "manufacturing_service",
+      "name": "Manufacturing service",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Service title"
+        },
+        {
+          "type": "text",
+          "id": "title_th",
+          "label": "Thai service title"
+        },
+        {
+          "type": "url",
+          "id": "url",
+          "label": "Service page"
+        },
+        {
+          "type": "textarea",
+          "id": "description",
+          "label": "Short description",
+          "info": "Keep this to one concise sentence."
+        },
+        {
+          "type": "textarea",
+          "id": "description_th",
+          "label": "Thai description"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Featured image"
+        },
+        {
+          "type": "select",
+          "id": "image_preset",
+          "label": "MALIEV asset fallback",
+          "default": "none",
+          "options": [
+            { "value": "none", "label": "No fallback image" },
+            { "value": "molds", "label": "Molds and machined parts" },
+            { "value": "printed", "label": "3D printed products" },
+            { "value": "materials", "label": "Molding materials" }
           ]
         }
       ]

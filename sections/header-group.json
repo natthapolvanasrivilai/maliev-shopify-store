@@ -93,6 +93,94 @@
             "image_preset": "none"
           }
         },
+        "service-custom-manufacturing": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "Custom Part Manufacturing",
+            "title_th": "ผลิตชิ้นงานตามแบบ",
+            "url": "https://www.maliev.com/services/custom-manufacturing",
+            "description": "Start with your drawing, sample, material, quantity, and intended use.",
+            "description_th": "เริ่มจากแบบ ตัวอย่าง วัสดุ จำนวน และการใช้งาน เพื่อเลือกกระบวนการที่เหมาะสม",
+            "image_preset": "none"
+          }
+        },
+        "service-cnc-machining": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "CNC Machining Services",
+            "title_th": "บริการ CNC ตามแบบ",
+            "url": "https://www.maliev.com/services/cnc-machining",
+            "description": "Precision metal and engineering-plastic parts from CAD models or drawings.",
+            "description_th": "ผลิตชิ้นส่วนโลหะและพลาสติกวิศวกรรมความแม่นยำสูงจาก CAD หรือแบบงาน",
+            "image_preset": "molds"
+          }
+        },
+        "service-3d-printing": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "3D Printing Services",
+            "title_th": "บริการพิมพ์ 3 มิติ",
+            "url": "https://www.maliev.com/services/3d-printing",
+            "description": "Rapid prototypes and production parts across practical additive processes.",
+            "description_th": "ผลิตต้นแบบและชิ้นส่วนใช้งานจริงอย่างรวดเร็วด้วยกระบวนการพิมพ์ที่เหมาะกับงาน",
+            "image_preset": "printed"
+          }
+        },
+        "service-3d-scanning": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "3D Scanning Services",
+            "title_th": "บริการสแกน 3 มิติ",
+            "url": "https://www.maliev.com/services/3d-scanning",
+            "description": "High-resolution capture for reverse engineering, inspection, and fit checks.",
+            "description_th": "สแกนความละเอียดสูงสำหรับวิศวกรรมย้อนกลับ การตรวจสอบ และเช็กระยะประกอบ",
+            "image_preset": "none"
+          }
+        },
+        "service-3d-design": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "3D Design Services",
+            "title_th": "บริการออกแบบ 3 มิติ",
+            "url": "https://www.maliev.com/services/3d-design",
+            "description": "Turn ideas, sketches, or scan data into manufacturing-ready CAD with DFM guidance.",
+            "description_th": "เปลี่ยนไอเดีย ภาพร่าง หรือข้อมูลสแกนเป็น CAD พร้อมผลิตและคำแนะนำ DFM",
+            "image_preset": "none"
+          }
+        },
+        "service-silicone-casting": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "Silicone Casting",
+            "title_th": "บริการหล่อซิลิโคน",
+            "url": "https://www.maliev.com/services/silicone-casting",
+            "description": "Low-volume silicone parts made with application-appropriate 3D-printed molds.",
+            "description_th": "ผลิตชิ้นงานซิลิโคนจำนวนน้อยด้วยแม่พิมพ์พิมพ์ 3 มิติที่เหมาะกับการใช้งาน",
+            "image_preset": "none"
+          }
+        },
+        "service-injection-molding": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "Low-Volume Injection Molding",
+            "title_th": "ฉีดพลาสติกจำนวนน้อย",
+            "url": "https://www.maliev.com/services/low-volume-injection-molding",
+            "description": "Small-batch plastic molding for validated parts, materials, and tooling requirements.",
+            "description_th": "ฉีดพลาสติกจำนวนน้อยหลังตรวจสอบชิ้นงาน วัสดุ และข้อกำหนดของแม่พิมพ์",
+            "image_preset": "materials"
+          }
+        },
+        "service-finishing-color": {
+          "type": "manufacturing_service",
+          "settings": {
+            "title": "Finishing & Color Standards",
+            "title_th": "การเก็บผิวและมาตรฐานสี",
+            "url": "https://www.maliev.com/services/finishing-and-color",
+            "description": "Surface preparation, controlled color references, and matte, satin, or gloss finishes.",
+            "description_th": "เตรียมผิว เทียบสีตามมาตรฐาน และเลือกผิวด้าน ซาติน หรือเงาอย่างชัดเจน",
+            "image_preset": "none"
+          }
+        },
         "menu-documents": {
           "type": "menu_detail",
           "settings": {
@@ -219,6 +307,14 @@
         "menu-printing-service",
         "menu-cnc-service",
         "menu-scanning-service",
+        "service-custom-manufacturing",
+        "service-cnc-machining",
+        "service-3d-printing",
+        "service-3d-scanning",
+        "service-3d-design",
+        "service-silicone-casting",
+        "service-injection-molding",
+        "service-finishing-color",
         "menu-documents",
         "menu-spares",
         "menu-contact",

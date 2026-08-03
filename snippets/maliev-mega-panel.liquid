@@ -1,6 +1,10 @@
 {%- liquid
   assign panel_block = nil
   assign panel_key = panel_title | handleize
+  assign is_manufacturing_panel = false
+  if panel_key == 'our-manufacturing-services'
+    assign is_manufacturing_panel = true
+  endif
   for block in section.blocks
     assign block_key = block.settings.menu_title | handleize
     if block.type == 'menu_panel' and block_key == panel_key
@@ -49,9 +53,22 @@
   if featured_link == nil
     assign featured_link = menu_links.first
   endif
+
+  assign featured_service = nil
+  if is_manufacturing_panel
+    for block in section.blocks
+      if block.type == 'manufacturing_service'
+        assign service_key = block.settings.title | handleize
+        if service_key == featured_key
+          assign featured_service = block
+          break
+        endif
+      endif
+    endfor
+  endif
 -%}
 
-<div class="mc-nav__panel-inner{% if featured_link == nil %} mc-nav__panel-inner--without-feature{% endif %}">
+<div class="mc-nav__panel-inner{% if is_manufacturing_panel %} mc-nav__panel-inner--manufacturing{% elsif featured_link == nil %} mc-nav__panel-inner--without-feature{% endif %}">
   <div class="mc-nav__intent">
     {%- if eyebrow != blank -%}
       <p class="mc-nav__eyebrow">{{ eyebrow | escape }}</p>
@@ -69,28 +86,50 @@
   </div>
 
   <div class="mc-nav__link-group">
-    <p class="mc-nav__group-label">{{ 'sections.header.menu' | t }}</p>
-    <ul class="mc-nav__columns" role="list">
-      {%- for item in menu_links -%}
-        {%- unless featured_link != nil and item.url == featured_link.url and item.title == featured_link.title -%}
-          <li class="mc-nav__column{% if item.links == blank %} mc-nav__column--single{% endif %}">
-            {% render 'maliev-menu-link', menu_link: item, section: section, variant: 'compact', show_arrow: true %}
-            {%- if item.links != blank -%}
-              <ul role="list">
-                {%- for child in item.links -%}
-                  <li>
-                    <a href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title | escape }}</a>
-                  </li>
-                {%- endfor -%}
-              </ul>
-            {%- endif -%}
-          </li>
-        {%- endunless -%}
-      {%- endfor -%}
-    </ul>
+    <p class="mc-nav__group-label">
+      {%- if is_manufacturing_panel -%}{{ 'sections.footer.manufacturing_services' | t }}{%- else -%}{{ 'sections.header.menu' | t }}{%- endif -%}
+    </p>
+    {%- if is_manufacturing_panel -%}
+      <ul class="mc-nav__columns mc-nav__columns--services" role="list">
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'manufacturing_service' -%}
+            {%- assign block_service_key = block.settings.title | handleize -%}
+            {%- unless featured_service != nil and block_service_key == featured_key -%}
+              <li class="mc-nav__column mc-nav__column--single">
+                {% render 'maliev-service-link', service_block: block, variant: 'compact', show_arrow: true %}
+              </li>
+            {%- endunless -%}
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    {%- else -%}
+      <ul class="mc-nav__columns" role="list">
+        {%- for item in menu_links -%}
+          {%- unless featured_link != nil and item.url == featured_link.url and item.title == featured_link.title -%}
+            <li class="mc-nav__column{% if item.links == blank %} mc-nav__column--single{% endif %}">
+              {% render 'maliev-menu-link', menu_link: item, section: section, variant: 'compact', show_arrow: true %}
+              {%- if item.links != blank -%}
+                <ul role="list">
+                  {%- for child in item.links -%}
+                    <li>
+                      <a href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title | escape }}</a>
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+            </li>
+          {%- endunless -%}
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
   </div>
 
-  {%- if featured_link != nil -%}
+  {%- if featured_service != nil -%}
+    <aside class="mc-nav__feature" aria-label="{{ featured_service.settings.title | escape }}">
+      <p class="mc-nav__group-label">{{ featured_label | escape }}</p>
+      {% render 'maliev-service-link', service_block: featured_service, variant: 'featured', show_arrow: true %}
+    </aside>
+  {%- elsif featured_link != nil -%}
     <aside class="mc-nav__feature" aria-label="{{ featured_link.title | escape }}">
       <p class="mc-nav__group-label">{{ featured_label | escape }}</p>
       {% render 'maliev-menu-link', menu_link: featured_link, section: section, variant: 'featured', show_arrow: true %}
