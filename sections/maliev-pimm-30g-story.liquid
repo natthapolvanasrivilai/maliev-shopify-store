@@ -1,0 +1,286 @@
+{{ 'maliev-pimm-30g.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-pimm-30g.js' | asset_url }}" defer="defer"></script>
+
+{%- liquid
+  assign next_product = section.settings.next_product
+  assign next_variant = next_product.selected_or_first_available_variant
+  assign first_chapter_id = blank
+-%}
+
+<section
+  class="pimm30-story"
+  id="Pimm30Story-{{ section.id }}"
+  data-pimm30-story
+  data-pimm30-light-milestone="{{ section.settings.hero_light_milestone }}"
+  data-pimm30-pause-label="{{ 'products.pimm30_story.pause' | t | escape }}"
+  data-pimm30-resume-label="{{ 'products.pimm30_story.resume' | t | escape }}"
+  aria-label="{{ 'products.pimm30_story.aria_label' | t | escape }}"
+>
+  <noscript>
+    <style>
+      #Pimm30Story-{{ section.id }} .pimm30-stage,
+      #Pimm30Story-{{ section.id }} .pimm30-progress { display: none !important; }
+      #Pimm30Story-{{ section.id }} .pimm30-story__chapters { margin-top: 0; }
+      #Pimm30Story-{{ section.id }} .pimm30-chapter { min-height: auto; pointer-events: auto; }
+    </style>
+  </noscript>
+  <div class="pimm30-stage" data-pimm30-stage aria-label="{{ 'products.pimm30_story.media_stage' | t | escape }}">
+    <p class="pimm30-stage__wordmark" aria-hidden="true">PIMM 30G</p>
+
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign chapter_role = block.settings.role
+        assign chapter_id = 'pimm30-' | append: chapter_role
+        assign alt_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.media_alt'
+        assign translated_media_alt = alt_key | t
+        assign is_hero = false
+        if chapter_role == 'overview'
+          assign is_hero = true
+          assign first_chapter_id = chapter_id
+        endif
+      -%}
+      {% render 'maliev-pimm-30g-chapter',
+        block: block,
+        chapter_id: chapter_id,
+        media_alt: translated_media_alt,
+        mode: 'stage',
+        eager: is_hero
+      %}
+    {%- endfor -%}
+
+    <div class="pimm30-stage__controls" data-pimm30-controls hidden>
+      <button class="pimm30-stage__control" type="button" data-pimm30-pause aria-pressed="false">
+        <span data-pimm30-pause-label>{{ 'products.pimm30_story.pause' | t }}</span>
+      </button>
+      <button class="pimm30-stage__control" type="button" data-pimm30-replay>
+        {{ 'products.pimm30_story.replay' | t }}
+      </button>
+    </div>
+  </div>
+
+  <nav class="pimm30-progress" aria-label="{{ 'products.pimm30_story.chapter_navigation' | t | escape }}">
+    <ol role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign chapter_role = block.settings.role
+          assign chapter_id = 'pimm30-' | append: chapter_role
+          assign nav_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.nav'
+        -%}
+        <li>
+          <a href="#{{ chapter_id }}" data-pimm30-nav="{{ chapter_id }}"{% if chapter_id == first_chapter_id %} aria-current="true"{% endif %}>
+            <span class="visually-hidden">{{ nav_key | t }}</span>
+          </a>
+        </li>
+      {%- endfor -%}
+    </ol>
+  </nav>
+
+  <div class="pimm30-story__chapters" data-pimm30-chapters>
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign chapter_role = block.settings.role
+        assign chapter_id = 'pimm30-' | append: chapter_role
+        assign eyebrow_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.eyebrow'
+        assign heading_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.heading'
+        assign body_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.body'
+        assign metric_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.metric'
+        assign metric_label_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.metric_label'
+        assign alt_key = 'products.pimm30_story.chapters.' | append: chapter_role | append: '.media_alt'
+        assign translated_media_alt = alt_key | t
+        assign is_hero = false
+        if chapter_role == 'overview'
+          assign is_hero = true
+        endif
+      -%}
+
+      <article
+        class="pimm30-chapter pimm30-chapter--{{ chapter_role }}{% if is_hero %} pimm30-chapter--hero{% endif %}"
+        id="{{ chapter_id }}"
+        data-pimm30-chapter="{{ chapter_id }}"
+        data-chapter-role="{{ chapter_role }}"
+        {% if is_hero %}data-header-overlay-sentinel data-header-overlay-tone="dark"{% endif %}
+        {{ block.shopify_attributes }}
+      >
+        <noscript>
+          {% render 'maliev-pimm-30g-chapter',
+            block: block,
+            chapter_id: chapter_id,
+            media_alt: translated_media_alt,
+            mode: 'static',
+            eager: is_hero
+          %}
+        </noscript>
+
+        <div class="pimm30-chapter__content">
+          {%- if chapter_role == 'overview' -%}
+            <p class="pimm30-chapter__identity">{{ 'products.pimm30_story.identity' | t }}</p>
+            <h1>{{ heading_key | t }}</h1>
+            <p class="pimm30-chapter__lead">{{ body_key | t }}</p>
+
+            <dl class="pimm30-spec-rail">
+              <div><dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.capacity_value' | t }}</dd></div>
+              <div><dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.temperature_value' | t }}</dd></div>
+              <div><dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.force_value' | t }}</dd></div>
+              <div><dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.pressure_value' | t }}</dd></div>
+            </dl>
+
+            <a class="pimm30-action" href="{{ section.settings.visit_link | default: routes.root_url }}">
+              <span>{{ 'products.pimm30_story.book_visit' | t }}</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          {%- elsif chapter_role == 'next_model' -%}
+            <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
+            <h2>{{ heading_key | t }}</h2>
+            <p>{{ body_key | t }}</p>
+            {%- if next_product != blank and next_variant != blank -%}
+              <div class="pimm30-next-model" aria-label="{{ next_product.title | escape }}">
+                <div>
+                  <span>{{ next_product.title | escape }}</span>
+                  <strong>{{ next_variant.price | money_with_currency }}</strong>
+                </div>
+                <p class="pimm30-next-model__availability{% unless next_variant.available %} is-unavailable{% endunless %}">
+                  {%- if next_variant.available -%}
+                    {{ 'products.product.inventory_in_stock' | t }}
+                  {%- else -%}
+                    {{ 'products.product.inventory_out_of_stock' | t }}
+                  {%- endif -%}
+                </p>
+              </div>
+              <a class="pimm30-action" href="{{ next_product.url }}">
+                <span>{{ 'products.pimm30_story.view_50g' | t }}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            {%- else -%}
+              <p class="pimm30-next-model__unconfigured">{{ 'products.pimm30_story.next_model_unconfigured' | t }}</p>
+            {%- endif -%}
+          {%- else -%}
+            <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
+            <h2>{{ heading_key | t }}</h2>
+            <p>{{ body_key | t }}</p>
+            <dl class="pimm30-chapter__metric">
+              <dt>{{ metric_label_key | t }}</dt>
+              <dd>{{ metric_key | t }}</dd>
+            </dl>
+          {%- endif -%}
+        </div>
+      </article>
+    {%- endfor -%}
+  </div>
+
+  <p class="visually-hidden" aria-live="polite" data-pimm30-status></p>
+</section>
+
+{% schema %}
+{
+  "name": "PIMM 30G story",
+  "tag": "section",
+  "class": "section section--pimm30-story",
+  "settings": [
+    {
+      "type": "url",
+      "id": "visit_link",
+      "label": "Factory visit link"
+    },
+    {
+      "type": "product",
+      "id": "next_product",
+      "label": "Next model product",
+      "info": "Used for the final live price and availability chapter."
+    },
+    {
+      "type": "range",
+      "id": "hero_light_milestone",
+      "min": 0,
+      "max": 9750,
+      "step": 250,
+      "unit": "ms",
+      "label": "Hero bright-studio milestone",
+      "default": 3250,
+      "info": "When the header should switch from light controls to dark controls during the hero video."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "chapter",
+      "name": "Machine chapter",
+      "settings": [
+        {
+          "type": "select",
+          "id": "role",
+          "label": "Chapter content",
+          "options": [
+            { "value": "overview", "label": "Overview" },
+            { "value": "capacity", "label": "30g shot capacity" },
+            { "value": "temperature", "label": "Temperature control" },
+            { "value": "cylinder", "label": "Pneumatic cylinder" },
+            { "value": "operation", "label": "Pneumatic operation" },
+            { "value": "regulator", "label": "Pressure regulator" },
+            { "value": "fixture", "label": "M10 fixture grid" },
+            { "value": "materials", "label": "Plastic materials" },
+            { "value": "next_model", "label": "Next model" }
+          ],
+          "default": "overview"
+        },
+        {
+          "type": "header",
+          "content": "Desktop media"
+        },
+        {
+          "type": "video",
+          "id": "desktop_video",
+          "label": "Desktop video"
+        },
+        {
+          "type": "text",
+          "id": "desktop_video_asset",
+          "label": "Desktop video asset filename",
+          "info": "Optional theme asset fallback, for example pimm30-overview-desktop.mp4"
+        },
+        {
+          "type": "image_picker",
+          "id": "desktop_poster",
+          "label": "Desktop poster"
+        },
+        {
+          "type": "text",
+          "id": "desktop_poster_asset",
+          "label": "Desktop poster asset filename",
+          "info": "Theme asset fallback used when no poster is selected."
+        },
+        {
+          "type": "header",
+          "content": "Mobile media"
+        },
+        {
+          "type": "video",
+          "id": "mobile_video",
+          "label": "Mobile video"
+        },
+        {
+          "type": "text",
+          "id": "mobile_video_asset",
+          "label": "Mobile video asset filename",
+          "info": "Optional portrait theme asset fallback, for example pimm30-overview-mobile.mp4"
+        },
+        {
+          "type": "image_picker",
+          "id": "mobile_poster",
+          "label": "Mobile poster"
+        },
+        {
+          "type": "text",
+          "id": "mobile_poster_asset",
+          "label": "Mobile poster asset filename",
+          "info": "Portrait theme asset fallback used when no mobile poster is selected."
+        }
+      ]
+    }
+  ],
+  "max_blocks": 9,
+  "presets": [
+    {
+      "name": "PIMM 30G story"
+    }
+  ]
+}
+{% endschema %}
