@@ -10,6 +10,7 @@
   assign account_url = routes.account_url
   assign logo_render_width = section.settings.logo_width | times: 2
   assign header_is_home = false
+  assign header_has_overlay = false
   assign standalone_link_count = 0
   assign standalone_link_active = false
   assign utility_panel_block = nil
@@ -17,6 +18,9 @@
   assign localization_error_label = 'accessibility.error' | t
   if request.page_type == 'index'
     assign header_is_home = true
+  endif
+  if request.page_type == 'product' and template.suffix == 'injection-molding-machine'
+    assign header_has_overlay = true
   endif
   if customer == blank
     assign account_url = routes.account_login_url
@@ -65,7 +69,14 @@
   endfor
 -%}
 
-<header class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}{% if header_is_home %} mc-header--home{% endif %}" data-maliev-header>
+<header
+  class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}{% if header_is_home %} mc-header--home{% endif %}{% if header_has_overlay %} mc-header--overlay{% endif %}"
+  data-maliev-header
+  {% if header_has_overlay %}
+    data-header-overlay
+    data-header-overlay-sentinel-selector="[data-header-overlay-sentinel]"
+  {% endif %}
+>
   <div class="mc-header__inner">
     <details class="mc-mobile-menu">
       <summary class="mc-icon-button" aria-label="{{ 'sections.header.menu' | t }}" aria-expanded="false">

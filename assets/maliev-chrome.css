@@ -995,6 +995,86 @@
   z-index: 35;
 }
 
+/* Product presentation overlay. The server-rendered class prevents a light
+   header flash before JavaScript finds the hero sentinel. Story media changes
+   only the foreground tone; header surfaces and the post-hero state stay solid. */
+.mc-header--overlay {
+  background: transparent;
+  border-bottom-color: transparent;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  transition:
+    background-color 240ms var(--maliev-ease),
+    border-color 240ms var(--maliev-ease),
+    color 240ms var(--maliev-ease);
+  z-index: 35;
+}
+
+.mc-header--overlay.is-solid,
+.mc-header--overlay.is-overlay-surface-open,
+.mc-header--overlay:has(.mc-nav__group[open]),
+.mc-header--overlay:has(.header__search details[open]),
+.mc-header--overlay:has(.mc-localization[open]),
+.mc-header--overlay:has(.mc-mobile-menu[open]) {
+  background: var(--maliev-surface);
+  border-bottom-color: var(--maliev-rule);
+  color: var(--maliev-ink);
+}
+
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright),
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-brand,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav > ul > li > a,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav__group > summary,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-icon-button,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-actions__search .header__icon,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-localization__summary {
+  color: var(--maliev-surface);
+}
+
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-brand__logo {
+  filter: brightness(0) invert(1);
+}
+
+.mc-header--overlay .mc-brand__logo {
+  transition: filter 240ms var(--maliev-ease);
+}
+
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav > ul > li > a:hover,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav > ul > li > a[aria-current='page'],
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav__group > summary:hover,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav__group > summary.is-active,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-nav__group[open] > summary,
+.mc-header--overlay:not(.is-solid):not(.is-overlay-surface-open):not(.is-overlay-bright) .mc-icon-button:hover {
+  color: var(--maliev-surface);
+}
+
+.mc-header--overlay:is(
+  :has(.mc-nav__group[open]),
+  :has(.header__search details[open]),
+  :has(.mc-localization[open]),
+  :has(.mc-mobile-menu[open])
+) :is(
+  .mc-brand,
+  .mc-nav > ul > li > a,
+  .mc-nav__group > summary,
+  .mc-icon-button,
+  .mc-actions__search .header__icon,
+  .mc-localization__summary
+) {
+  color: var(--maliev-ink);
+}
+
+.mc-header--overlay:is(
+  :has(.mc-nav__group[open]),
+  :has(.header__search details[open]),
+  :has(.mc-localization[open]),
+  :has(.mc-mobile-menu[open])
+) .mc-brand__logo {
+  filter: none;
+}
+
 .mc-header--home.is-solid,
 .mc-header--home.is-mega-open,
 .mc-header--home:has(.mc-mobile-menu[open]) {
@@ -1468,6 +1548,8 @@ body.mc-mobile-menu-open {
 
 @media (prefers-reduced-motion: reduce) {
   .mc-header--home,
+  .mc-header--overlay,
+  .mc-header--overlay .mc-brand__logo,
   .mc-nav__group > summary svg,
   .mc-mobile-nav__group > summary svg,
   .mc-localization__summary svg,
