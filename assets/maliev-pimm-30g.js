@@ -22,10 +22,6 @@
     );
     const navLinks = [...story.querySelectorAll('[data-pimm30-nav]')];
     const hero = story.querySelector('[data-header-overlay-sentinel]');
-    const controls = story.querySelector('[data-pimm30-controls]');
-    const pauseButton = story.querySelector('[data-pimm30-pause]');
-    const pauseLabel = story.querySelector('[data-pimm30-pause-label]');
-    const replayButton = story.querySelector('[data-pimm30-replay]');
     const status = story.querySelector('[data-pimm30-status]');
     const variantSelect = story.querySelector('[data-pimm30-variant]');
     const variantInput = story.querySelector('[data-pimm30-variant-id]');
@@ -40,7 +36,6 @@
     const reduced = REDUCED_MOTION.matches || saveData || designMode;
     let activeId = chapters[0] ? chapters[0].dataset.pimm30Chapter : '';
     let activeVideo = null;
-    let userPaused = false;
 
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
@@ -62,23 +57,10 @@
       }
     }
 
-    function updateControls() {
-      const canControl = Boolean(activeVideo && !reduced && activeId === 'pimm30-overview');
-      if (controls) controls.hidden = !canControl;
-      if (!pauseButton || !pauseLabel) return;
-      pauseButton.setAttribute('aria-pressed', String(userPaused));
-      pauseLabel.textContent = userPaused
-        ? story.dataset.pimm30ResumeLabel
-        : story.dataset.pimm30PauseLabel;
-    }
-
     function playActiveVideo(restart = true) {
       const layer = layers.get(activeId);
       activeVideo = visibleVideo(layer);
-      if (!activeVideo || reduced || userPaused) {
-        updateControls();
-        return;
-      }
+      if (!activeVideo || reduced) return;
 
       if (restart) resetVideo(activeVideo);
       activeVideo.classList.add('is-playing');
@@ -87,7 +69,6 @@
         activeVideo.classList.remove('is-playing', 'is-paused');
         if (activeId === 'pimm30-overview') setHeroTone(true);
       });
-      updateControls();
     }
 
     function announce(chapterId) {
@@ -135,8 +116,6 @@
       video.addEventListener('ended', () => {
         video.classList.remove('is-playing', 'is-paused');
         if (activeId === 'pimm30-overview') setHeroTone(true);
-        userPaused = false;
-        updateControls();
       });
       video.addEventListener('error', () => {
         const layer = video.closest('[data-pimm30-layer]');
@@ -163,6 +142,50 @@
       };
       window.addEventListener('scroll', queueChapterSelection, { passive: true });
       window.addEventListener('resize', queueChapterSelection, { passive: true });
+
+      const snapViewport = window.matchMedia('(min-height: 720px)');
+      let gestureLocked = false;
+      let gestureUnlockTimer = 0;
+
+      const activeChapterIndex = () => {
+        const currentIndex = chapters.findIndex((chapter) => chapter.dataset.pimm30Chapter === activeId);
+        if (currentIndex >= 0) return currentIndex;
+        const marker = window.innerHeight * 0.5;
+        return Math.max(
+          0,
+          chapters.findIndex((chapter) => {
+            const rect = chapter.getBoundingClientRect();
+            return rect.top <= marker && rect.bottom > marker;
+          })
+        );
+      };
+
+      story.addEventListener(
+        'wheel',
+        (event) => {
+          if (reduced || !snapViewport.matches || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+          const index = activeChapterIndex();
+          const currentChapter = chapters[index];
+          if (!currentChapter || currentChapter.scrollHeight > window.innerHeight + 2) return;
+
+          const direction = Math.sign(event.deltaY);
+          const nextIndex = index + direction;
+          if (!direction || nextIndex < 0 || nextIndex >= chapters.length) return;
+
+          event.preventDefault();
+          if (gestureLocked) return;
+
+          gestureLocked = true;
+          activate(chapters[nextIndex].dataset.pimm30Chapter, true);
+          chapters[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+          window.clearTimeout(gestureUnlockTimer);
+          gestureUnlockTimer = window.setTimeout(() => {
+            gestureLocked = false;
+          }, 900);
+        },
+        { passive: false }
+      );
     }
 
     navLinks.forEach((link) => {
@@ -171,31 +194,6 @@
         window.requestAnimationFrame(() => activate(id, true));
       });
     });
-
-    if (pauseButton) {
-      pauseButton.addEventListener('click', () => {
-        if (!activeVideo) return;
-        userPaused = !userPaused;
-        if (userPaused) {
-          activeVideo.pause();
-          activeVideo.classList.remove('is-playing');
-          activeVideo.classList.add('is-paused');
-        } else {
-          activeVideo.classList.remove('is-paused');
-          activeVideo.classList.add('is-playing');
-          activeVideo.play().catch(() => {});
-        }
-        updateControls();
-      });
-    }
-
-    if (replayButton) {
-      replayButton.addEventListener('click', () => {
-        userPaused = false;
-        setHeroTone(false);
-        playActiveVideo(true);
-      });
-    }
 
     if (variantSelect) {
       variantSelect.addEventListener('change', () => {

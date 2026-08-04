@@ -34,11 +34,19 @@
 
   assign has_desktop_video = false
   assign has_mobile_video = false
+  assign desktop_asset_mime = 'video/mp4'
+  assign mobile_asset_mime = 'video/mp4'
   if block.settings.desktop_video != blank or block.settings.desktop_video_asset != blank
     assign has_desktop_video = true
   endif
   if block.settings.mobile_video != blank or block.settings.mobile_video_asset != blank
     assign has_mobile_video = true
+  endif
+  if block.settings.desktop_video_asset contains '.webm'
+    assign desktop_asset_mime = 'video/webm'
+  endif
+  if block.settings.mobile_video_asset contains '.webm'
+    assign mobile_asset_mime = 'video/webm'
   endif
 -%}
 
@@ -76,7 +84,7 @@
             <source src="{{ source.url }}" type="{{ source.mime_type }}">
           {%- endfor -%}
         {%- else -%}
-          <source src="{{ block.settings.desktop_video_asset | asset_url }}" type="video/mp4">
+          <source src="{{ block.settings.desktop_video_asset | asset_url }}" type="{{ desktop_asset_mime }}">
         {%- endif -%}
       </video>
     {%- endif -%}
@@ -95,7 +103,7 @@
             <source src="{{ source.url }}" type="{{ source.mime_type }}">
           {%- endfor -%}
         {%- else -%}
-          <source src="{{ block.settings.mobile_video_asset | asset_url }}" type="video/mp4">
+          <source src="{{ block.settings.mobile_video_asset | asset_url }}" type="{{ mobile_asset_mime }}">
         {%- endif -%}
       </video>
     {%- endif -%}

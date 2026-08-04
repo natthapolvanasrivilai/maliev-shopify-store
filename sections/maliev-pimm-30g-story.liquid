@@ -18,11 +18,15 @@
   id="Pimm30Story-{{ section.id }}"
   data-pimm30-story
   data-pimm30-light-milestone="{{ section.settings.hero_light_milestone }}"
-  data-pimm30-pause-label="{{ 'products.pimm30_story.pause' | t | escape }}"
-  data-pimm30-resume-label="{{ 'products.pimm30_story.resume' | t | escape }}"
   aria-label="{{ 'products.pimm30_story.aria_label' | t | escape }}"
 >
   <div class="pimm30-stage" data-pimm30-stage aria-label="{{ 'products.pimm30_story.media_stage' | t | escape }}">
+    <div class="pimm30-stage__backdrop" aria-hidden="true">
+      <span>Injection</span>
+      <span>Molding</span>
+      <span>Machine</span>
+    </div>
+
     {%- for block in section.blocks -%}
       {%- liquid
         assign chapter_id = 'pimm30-' | append: block.settings.role
@@ -45,16 +49,6 @@
       %}
     {%- endfor -%}
 
-    <div class="pimm30-stage__controls" data-pimm30-controls hidden>
-      <button class="pimm30-stage__control" type="button" data-pimm30-pause aria-pressed="false">
-        <span class="svg-wrapper" aria-hidden="true">{{ 'icon-pause.svg' | inline_asset_content }}</span>
-        <span data-pimm30-pause-label>{{ 'products.pimm30_story.pause' | t }}</span>
-      </button>
-      <button class="pimm30-stage__control" type="button" data-pimm30-replay>
-        <span aria-hidden="true">↻</span>
-        {{ 'products.pimm30_story.replay' | t }}
-      </button>
-    </div>
   </div>
 
   <nav class="pimm30-progress" aria-label="{{ 'products.pimm30_story.chapter_navigation' | t | escape }}">
