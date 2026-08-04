@@ -51,21 +51,6 @@
 
   </div>
 
-  <nav class="pimm30-progress" aria-label="{{ 'products.pimm30_story.chapter_navigation' | t | escape }}">
-    <ol role="list">
-      {%- for block in section.blocks -%}
-        {%- assign chapter_id = 'pimm30-' | append: block.settings.role -%}
-        {%- assign nav_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.nav' -%}
-        <li>
-          <a href="#{{ chapter_id }}" data-pimm30-nav="{{ chapter_id }}"{% if forloop.first %} aria-current="true"{% endif %}>
-            <span class="pimm30-progress__index" aria-hidden="true">{{ forloop.index | prepend: '0' | slice: -2, 2 }}</span>
-            <span class="pimm30-progress__label">{% if block.settings.role == 'configuration' %}{% if is_thai %}รุ่นและราคา{% else %}Configuration{% endif %}{% else %}{{ nav_key | t }}{% endif %}</span>
-          </a>
-        </li>
-      {%- endfor -%}
-    </ol>
-  </nav>
-
   <div class="pimm30-story__chapters" data-pimm30-chapters>
     {%- for block in section.blocks -%}
       {%- liquid
@@ -103,7 +88,6 @@
         <div class="pimm30-chapter__content">
           {%- case role -%}
             {%- when 'overview' -%}
-              <p class="pimm30-chapter__identity">{{ 'products.pimm30_story.identity' | t }}</p>
               <h1>{{ heading_key | t }}</h1>
               <p class="pimm30-chapter__lead">{{ body_key | t }}</p>
               <dl class="pimm30-spec-rail">
@@ -183,7 +167,6 @@
       </article>
     {%- endfor -%}
   </div>
-  <p class="visually-hidden" aria-live="polite" data-pimm30-status></p>
   <script type="application/ld+json">{{ product | structured_data }}</script>
 </section>
 

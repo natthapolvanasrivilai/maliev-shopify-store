@@ -20,9 +20,7 @@
     const layers = new Map(
       [...story.querySelectorAll('[data-pimm30-layer]')].map((layer) => [layer.dataset.pimm30Layer, layer])
     );
-    const navLinks = [...story.querySelectorAll('[data-pimm30-nav]')];
     const hero = story.querySelector('[data-header-overlay-sentinel]');
-    const status = story.querySelector('[data-pimm30-status]');
     const variantSelect = story.querySelector('[data-pimm30-variant]');
     const variantInput = story.querySelector('[data-pimm30-variant-id]');
     const variantTitle = story.querySelector('[data-pimm30-variant-title]');
@@ -71,13 +69,6 @@
       });
     }
 
-    function announce(chapterId) {
-      if (!status) return;
-      const link = navLinks.find((item) => item.dataset.pimm30Nav === chapterId);
-      const label = link && link.querySelector('.pimm30-progress__label');
-      status.textContent = label ? label.textContent.trim() : '';
-    }
-
     function activate(chapterId, restartVideo = true) {
       if (!layers.has(chapterId)) return;
       activeId = chapterId;
@@ -93,18 +84,12 @@
         }
       });
 
-      navLinks.forEach((link) => {
-        if (link.dataset.pimm30Nav === chapterId) link.setAttribute('aria-current', 'true');
-        else link.removeAttribute('aria-current');
-      });
-
       if (hero) {
         if (chapterId === 'pimm30-overview') hero.removeAttribute('data-header-overlay-complete');
         else hero.setAttribute('data-header-overlay-complete', '');
       }
 
       if (chapterId !== 'pimm30-overview') setHeroTone(true);
-      announce(chapterId);
       playActiveVideo(restartVideo);
     }
 
@@ -187,13 +172,6 @@
         { passive: false }
       );
     }
-
-    navLinks.forEach((link) => {
-      link.addEventListener('click', () => {
-        const id = link.dataset.pimm30Nav;
-        window.requestAnimationFrame(() => activate(id, true));
-      });
-    });
 
     if (variantSelect) {
       variantSelect.addEventListener('change', () => {
