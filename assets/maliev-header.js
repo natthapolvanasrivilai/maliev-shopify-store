@@ -97,6 +97,7 @@
 
       var isPastHero =
         !overlaySentinel ||
+        document.documentElement.classList.contains('pimm30-footer-active') ||
         overlaySentinel.hasAttribute('data-header-overlay-complete') ||
         overlaySentinel.getBoundingClientRect().bottom <= header.offsetHeight + 1;
       header.classList.toggle('is-solid', isPastHero);
@@ -313,6 +314,7 @@
     if (header.hasAttribute('data-header-overlay')) {
       window.addEventListener('scroll', requestOverlaySync, { passive: true, signal: controller.signal });
       window.addEventListener('resize', requestOverlaySync, listenerOptions);
+      window.addEventListener('maliev:header-overlay-sync', requestOverlaySync, listenerOptions);
       document.addEventListener('shopify:section:load', refreshOverlaySentinel, listenerOptions);
       controller.signal.addEventListener('abort', function () {
         if (overlayToneObserver) overlayToneObserver.disconnect();

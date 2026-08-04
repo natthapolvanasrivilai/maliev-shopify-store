@@ -996,8 +996,8 @@
 }
 
 /* Product presentation overlay. The server-rendered class prevents a light
-   header flash before JavaScript finds the hero sentinel. Story media changes
-   only the foreground tone; header surfaces and the post-hero state stay solid. */
+   header flash before JavaScript finds the story sentinel. Story media changes
+   only the foreground tone; open surfaces and the post-presentation state stay solid. */
 .mc-header--overlay {
   background: transparent;
   border-bottom-color: transparent;

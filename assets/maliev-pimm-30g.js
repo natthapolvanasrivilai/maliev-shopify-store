@@ -20,7 +20,7 @@
     const layers = new Map(
       [...story.querySelectorAll('[data-pimm30-layer]')].map((layer) => [layer.dataset.pimm30Layer, layer])
     );
-    const hero = story.querySelector('[data-header-overlay-sentinel]');
+    const overlaySentinel = story;
     const footerStart = document.querySelector('.shopify-section-group-footer-group');
     const variantSelect = story.querySelector('[data-pimm30-variant]');
     const variantInput = story.querySelector('[data-pimm30-variant-id]');
@@ -57,7 +57,7 @@
     function setHeroTone(bright) {
       story.classList.toggle('is-hero-bright', bright);
       story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
-      if (hero) hero.setAttribute('data-header-overlay-tone', bright ? 'bright' : 'dark');
+      overlaySentinel.setAttribute('data-header-overlay-tone', bright ? 'bright' : 'dark');
       if (bright) revealConsentAfterHero();
     }
 
@@ -102,11 +102,6 @@
         }
       });
 
-      if (hero) {
-        if (chapterId === 'pimm30-overview') hero.removeAttribute('data-header-overlay-complete');
-        else hero.setAttribute('data-header-overlay-complete', '');
-      }
-
       if (chapterId !== 'pimm30-overview') setHeroTone(true);
       playActiveVideo(restartVideo);
     }
@@ -150,10 +145,17 @@
       let gestureLocked = false;
       let gestureUnlockTimer = 0;
 
+      const setFooterActive = (active) => {
+        const wasActive = document.documentElement.classList.contains('pimm30-footer-active');
+        document.documentElement.classList.toggle('pimm30-footer-active', active);
+        const changed = wasActive !== active;
+        if (changed) window.dispatchEvent(new CustomEvent('maliev:header-overlay-sync'));
+      };
+
       if (footerStart && 'IntersectionObserver' in window) {
         const footerObserver = new IntersectionObserver(([entry]) => {
-          document.documentElement.classList.toggle('pimm30-footer-active', entry.isIntersecting);
-        });
+          setFooterActive(entry.intersectionRatio > 0);
+        }, { threshold: [0, 0.001] });
         footerObserver.observe(footerStart);
       }
 
@@ -188,7 +190,7 @@
             if (gestureLocked) return;
 
             gestureLocked = true;
-            document.documentElement.classList.add('pimm30-footer-active');
+            setFooterActive(true);
             footerStart.scrollIntoView({ behavior: 'smooth', block: 'start' });
             window.clearTimeout(gestureUnlockTimer);
             gestureUnlockTimer = window.setTimeout(() => {

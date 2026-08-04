@@ -18,6 +18,8 @@
   id="Pimm30Story-{{ section.id }}"
   data-pimm30-story
   data-pimm30-light-milestone="{{ section.settings.hero_light_milestone }}"
+  data-header-overlay-sentinel
+  data-header-overlay-tone="dark"
   aria-label="{{ 'products.pimm30_story.aria_label' | t | escape }}"
 >
   <div class="pimm30-stage" data-pimm30-stage aria-label="{{ 'products.pimm30_story.media_stage' | t | escape }}">
@@ -72,7 +74,6 @@
         id="{{ chapter_id }}"
         data-pimm30-chapter="{{ chapter_id }}"
         data-chapter-role="{{ role }}"
-        {% if role == 'overview' %}data-header-overlay-sentinel data-header-overlay-tone="dark"{% endif %}
         {{ block.shopify_attributes }}
       >
         <noscript>
