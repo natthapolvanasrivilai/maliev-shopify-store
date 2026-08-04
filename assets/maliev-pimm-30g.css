@@ -238,7 +238,7 @@ html:not(.no-js) .pimm30-story .pimm30-chapter--hero h1 {
 html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
   opacity: 1;
   transform: translateY(0);
-  transition-delay: 120ms;
+  transition-delay: 1.05s;
 }
 
 .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
@@ -579,11 +579,18 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
     width: 100%;
   }
 
-  .pimm30-chapter--hero h1 {
+  .pimm30-chapter--hero .pimm30-chapter__content > h1 {
     font-size: clamp(4.8rem, 13vw, 5.8rem);
-    grid-row: 1;
+    inset-block-start: calc(var(--pimm30-header-space) + 1.4rem);
+    inset-inline-end: max(1.8rem, env(safe-area-inset-right));
     line-height: 0.94;
-    text-align: center;
+    margin: 0;
+    max-width: none;
+    position: absolute;
+    text-align: right;
+    white-space: nowrap;
+    width: auto;
+    z-index: 3;
   }
 
   .pimm30-chapter--hero .pimm30-chapter__lead {
@@ -765,6 +772,11 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
   .pimm30-stage::before,
   .pimm30-action {
     transition: none;
+  }
+
+  html:not(.no-js) .pimm30-story .pimm30-chapter--hero h1 {
+    transition: none;
+    transition-delay: 0s;
   }
 
   .pimm30-scroll-cue span + span {
