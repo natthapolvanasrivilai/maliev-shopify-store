@@ -549,7 +549,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
     align-items: start;
     grid-row: 3;
     justify-items: center;
-    margin: 0;
+    margin: 0 auto;
     text-align: center;
   }
 
