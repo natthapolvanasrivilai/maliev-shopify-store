@@ -93,7 +93,14 @@
               <p class="pimm30-chapter__model">30 G</p>
               <p class="pimm30-chapter__lead">{{ body_key | t }}</p>
               <dl class="pimm30-spec-rail">
-                <div><dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.capacity_value' | t }}</dd></div>
+                <div>
+                  <dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt>
+                  <dd
+                    data-pimm30-capacity-count
+                    data-pimm30-capacity-final="30"
+                    aria-label="{{ 'products.pimm30_story.specs.capacity_value' | t | escape }}"
+                  ><span data-pimm30-capacity-number aria-hidden="true">30</span><span aria-hidden="true">{% if is_thai %} กรัม{% else %} g{% endif %}</span></dd>
+                </div>
                 <div><dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.temperature_value' | t }}</dd></div>
                 <div><dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.force_value' | t }}</dd></div>
                 <div><dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.pressure_value' | t }}</dd></div>

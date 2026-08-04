@@ -26,10 +26,10 @@
           "type": "chapter",
           "settings": {
             "role": "capacity",
-            "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v10-capacity-desktop.webp",
-            "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v10-capacity-mobile.webp"
+            "desktop_video_asset": "pimm30-capacity-scale-desktop.webm",
+            "desktop_poster_asset": "pimm30-capacity-scale-desktop.webp",
+            "mobile_video_asset": "pimm30-capacity-scale-mobile.webm",
+            "mobile_poster_asset": "pimm30-capacity-scale-mobile.webp"
           }
         },
         "temperature": {

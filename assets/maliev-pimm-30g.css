@@ -116,6 +116,17 @@
   opacity: 1;
 }
 
+[data-pimm30-capacity-count] {
+  white-space: nowrap;
+}
+
+[data-pimm30-capacity-number] {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+  text-align: end;
+}
+
 .pimm30-stage__video--desktop {
   display: none;
 }

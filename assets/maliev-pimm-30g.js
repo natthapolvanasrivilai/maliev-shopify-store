@@ -29,6 +29,9 @@
     const availability = story.querySelector('[data-pimm30-availability]');
     const addButton = story.querySelector('[data-pimm30-add]');
     const addLabel = story.querySelector('[data-pimm30-add-label]');
+    const capacityCounter = story.querySelector('[data-pimm30-capacity-count]');
+    const capacityNumber = story.querySelector('[data-pimm30-capacity-number]');
+    const capacityFinal = Number(capacityCounter?.dataset.pimm30CapacityFinal || 30);
     const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3500) / 1000;
     const consentRevealDelay = 900;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
@@ -39,6 +42,8 @@
     let activeVideo = null;
     let consentRevealTimer = 0;
     let heroHasPlayed = reduced || activeId !== 'pimm30-overview';
+    let capacityCountHasPlayed = reduced || activeId !== 'pimm30-overview';
+    let capacityCountFrame = 0;
 
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
@@ -56,11 +61,50 @@
       }, consentRevealDelay);
     }
 
+    function setCapacityCount(value) {
+      if (capacityNumber) capacityNumber.textContent = String(Math.max(0, Math.min(capacityFinal, Math.round(value))));
+    }
+
+    function completeCapacityCount() {
+      if (capacityCountFrame) window.clearTimeout(capacityCountFrame);
+      capacityCountFrame = 0;
+      capacityCountHasPlayed = true;
+      setCapacityCount(capacityFinal);
+    }
+
+    function startCapacityCount() {
+      if (!capacityNumber || capacityCountHasPlayed) return;
+      if (reduced || activeId !== 'pimm30-overview') {
+        completeCapacityCount();
+        return;
+      }
+
+      capacityCountHasPlayed = true;
+      const startedAt = Date.now();
+      const duration = 1200;
+      const tick = () => {
+        const now = Date.now();
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCapacityCount(capacityFinal * eased);
+        if (progress < 1) {
+          capacityCountFrame = window.setTimeout(tick, 16);
+        } else {
+          capacityCountFrame = 0;
+          setCapacityCount(capacityFinal);
+        }
+      };
+      capacityCountFrame = window.setTimeout(tick, 16);
+    }
+
     function setHeroTone(bright) {
       story.classList.toggle('is-hero-bright', bright);
       story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
       overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark');
-      if (bright) revealConsentAfterHero();
+      if (bright) {
+        revealConsentAfterHero();
+        startCapacityCount();
+      }
     }
 
     function resetVideo(video) {
@@ -106,6 +150,7 @@
 
       if (previousId === 'pimm30-overview' && chapterId !== 'pimm30-overview') {
         heroHasPlayed = true;
+        completeCapacityCount();
         setHeroTone(true);
       }
 
@@ -269,8 +314,10 @@
     const initialHeroVideo = visibleVideo(layers.get('pimm30-overview'));
     if (reduced || !initialHeroVideo || activeId !== 'pimm30-overview') {
       heroHasPlayed = true;
+      completeCapacityCount();
       setHeroTone(true);
     } else {
+      setCapacityCount(0);
       setHeroTone(false);
     }
     activate(activeId, true);
