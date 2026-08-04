@@ -28,7 +28,7 @@
     const availability = story.querySelector('[data-pimm30-availability]');
     const addButton = story.querySelector('[data-pimm30-add]');
     const addLabel = story.querySelector('[data-pimm30-add-label]');
-    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3250) / 1000;
+    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3500) / 1000;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
     const reduced = REDUCED_MOTION.matches || saveData || designMode;

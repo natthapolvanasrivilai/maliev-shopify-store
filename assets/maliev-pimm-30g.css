@@ -462,6 +462,24 @@
 }
 
 @media (max-width: 749px) {
+  .pimm30-stage__backdrop {
+    align-items: center;
+    box-sizing: border-box;
+    font-size: clamp(4.8rem, 16.5vw, 7.2rem);
+    inset: 18svh 0 auto;
+    line-height: 0.84;
+    overflow: visible;
+    padding-inline: 1rem;
+    text-align: center;
+    width: 100%;
+  }
+
+  .pimm30-stage__backdrop span {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
   .pimm30-stage__poster img,
   .pimm30-stage__video {
     bottom: auto;
@@ -504,8 +522,18 @@
   }
 
   .pimm30-chapter--hero .pimm30-spec-rail {
+    align-items: start;
     grid-row: 3;
+    justify-items: center;
     margin: 0;
+    text-align: center;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail > div {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
   .pimm30-chapter--hero .pimm30-action {
