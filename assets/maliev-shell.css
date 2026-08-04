@@ -690,6 +690,22 @@ textarea::placeholder {
   top: auto;
 }
 
+body[data-template-suffix='injection-molding-machine'] #shopify-pc__banner.shopify-pc__banner__dialog {
+  transition:
+    opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear;
+}
+
+html.js:not(.pimm30-consent-ready)
+  body[data-template-suffix='injection-molding-machine']
+  #shopify-pc__banner.shopify-pc__banner__dialog {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(1rem);
+  visibility: hidden !important;
+}
+
 #shopify-pc__banner .shopify-pc__banner__wrapper {
   display: block;
   margin: 0;
@@ -759,6 +775,12 @@ textarea::placeholder {
 @media screen and (max-width: 749px) {
   #shopify-pc__banner .shopify-pc__banner__btns button {
     min-height: 4.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-template-suffix='injection-molding-machine'] #shopify-pc__banner.shopify-pc__banner__dialog {
+    transition: none;
   }
 }
 

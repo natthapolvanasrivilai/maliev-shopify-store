@@ -30,19 +30,35 @@
     const addButton = story.querySelector('[data-pimm30-add]');
     const addLabel = story.querySelector('[data-pimm30-add-label]');
     const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3500) / 1000;
+    const consentRevealDelay = 900;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
     const reduced = REDUCED_MOTION.matches || saveData || designMode;
     let activeId = chapters[0] ? chapters[0].dataset.pimm30Chapter : '';
     let activeVideo = null;
+    let consentRevealTimer = 0;
 
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
+
+    function revealConsentAfterHero() {
+      if (document.documentElement.classList.contains('pimm30-consent-ready')) return;
+      if (reduced) {
+        document.documentElement.classList.add('pimm30-consent-ready');
+        return;
+      }
+      if (consentRevealTimer) return;
+      consentRevealTimer = window.setTimeout(() => {
+        consentRevealTimer = 0;
+        document.documentElement.classList.add('pimm30-consent-ready');
+      }, consentRevealDelay);
+    }
 
     function setHeroTone(bright) {
       story.classList.toggle('is-hero-bright', bright);
       story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
       if (hero) hero.setAttribute('data-header-overlay-tone', bright ? 'bright' : 'dark');
+      if (bright) revealConsentAfterHero();
     }
 
     function resetVideo(video) {
