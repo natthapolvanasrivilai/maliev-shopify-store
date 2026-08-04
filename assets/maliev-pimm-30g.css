@@ -550,6 +550,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
     grid-row: 3;
     justify-items: center;
     margin: 0 auto;
+    max-width: 68rem;
     text-align: center;
   }
 
@@ -586,6 +587,14 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
   .pimm30-chapter--hero .pimm30-scroll-cue {
     grid-row: 5;
     margin-top: 0;
+  }
+}
+
+@media (min-width: 750px) and (max-width: 1199px) {
+  .pimm30-chapter--hero .pimm30-spec-rail {
+    margin-inline: auto;
+    max-width: min(calc(100vw - (2 * var(--maliev-gutter))), 76rem);
+    width: 100%;
   }
 }
 
