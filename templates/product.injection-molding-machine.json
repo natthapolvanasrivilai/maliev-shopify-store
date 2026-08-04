@@ -27,9 +27,9 @@
           "settings": {
             "role": "capacity",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-capacity-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-capacity-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-capacity-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-capacity-mobile.webp"
           }
         },
         "temperature": {
@@ -37,9 +37,9 @@
           "settings": {
             "role": "temperature",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-temperature-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-temperature-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-temperature-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-temperature-mobile.webp"
           }
         },
         "cylinder": {
@@ -47,9 +47,9 @@
           "settings": {
             "role": "cylinder",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-cylinder-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-cylinder-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-cylinder-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-cylinder-mobile.webp"
           }
         },
         "operation": {
@@ -57,9 +57,9 @@
           "settings": {
             "role": "operation",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-operation-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-operation-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-operation-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-operation-mobile.webp"
           }
         },
         "regulator": {
@@ -67,9 +67,9 @@
           "settings": {
             "role": "regulator",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-regulator-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-regulator-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-regulator-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-regulator-mobile.webp"
           }
         },
         "fixture": {
@@ -77,9 +77,9 @@
           "settings": {
             "role": "fixture",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-fixture-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-fixture-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-fixture-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-fixture-mobile.webp"
           }
         },
         "materials": {
@@ -87,9 +87,9 @@
           "settings": {
             "role": "materials",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-capacity-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-capacity-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-capacity-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-capacity-mobile.webp"
           }
         },
         "configuration": {
@@ -97,9 +97,9 @@
           "settings": {
             "role": "configuration",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v4-commerce-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-commerce-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v4-commerce-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-commerce-mobile.webp"
           }
         },
         "next_model": {
