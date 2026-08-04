@@ -408,7 +408,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
   overflow-wrap: anywhere;
 }
 
-.pimm30-chapter[data-pimm30-role='configuration'] h2 {
+.pimm30-chapter--configuration h2 {
   font-size: clamp(2.6rem, 7.3vw, 5.4rem);
 }
 
@@ -497,6 +497,29 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
 }
 
 @media (max-width: 749px) {
+  .pimm30-story[data-active-chapter='pimm30-configuration'] .pimm30-stage__backdrop,
+  .pimm30-story[data-active-chapter='pimm30-configuration']
+    .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    opacity: 0;
+  }
+
+  .pimm30-chapter--configuration {
+    align-items: stretch;
+  }
+
+  .pimm30-chapter--configuration .pimm30-chapter__content,
+  .pimm30-chapter--configuration:not(.pimm30-chapter--hero) .pimm30-chapter__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100svh;
+    padding-block: calc(var(--pimm30-header-space) + 2.4rem) max(2.4rem, env(safe-area-inset-bottom));
+  }
+
+  .pimm30-chapter--configuration .pimm30-chapter__content > * {
+    width: 100%;
+  }
+
   .pimm30-stage__backdrop {
     align-items: center;
     box-sizing: border-box;
