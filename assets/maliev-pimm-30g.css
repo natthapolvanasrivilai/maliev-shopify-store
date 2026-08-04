@@ -659,9 +659,17 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
 
 @media (min-width: 750px) {
   .pimm30-stage__backdrop {
-    font-size: clamp(8rem, 12vw, 18rem);
-    inset: 24svh 3vw auto 47vw;
-    line-height: 0.75;
+    align-items: stretch;
+    font-size: clamp(7.6rem, 8.4vw, 13rem);
+    inset: 23svh 2.5vw auto 47vw;
+    line-height: 0.78;
+    overflow: visible;
+    width: auto;
+  }
+
+  .pimm30-stage__backdrop span {
+    max-width: 100%;
+    white-space: nowrap;
   }
 
   .pimm30-commerce__summary {
@@ -701,6 +709,55 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
     max-width: min(38vw, 58rem);
   }
 
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    align-content: start;
+    display: grid;
+    grid-template-columns: minmax(0, 47vw) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    padding-bottom: 8rem;
+    padding-top: max(12rem, 16svh);
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content > h1,
+  .pimm30-chapter--hero .pimm30-chapter__lead,
+  .pimm30-chapter--hero .pimm30-spec-rail,
+  .pimm30-chapter--hero .pimm30-action {
+    grid-column: 1;
+    width: 100%;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content > h1 {
+    font-size: clamp(5.2rem, 5.2vw, 7.8rem);
+    grid-row: 1;
+    max-width: min(46vw, 72rem);
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead {
+    grid-row: 2;
+    max-width: min(46vw, 70rem);
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail {
+    grid-row: 3;
+    margin: 0.8rem 0 2rem;
+    max-width: min(46vw, 72rem);
+  }
+
+  .pimm30-chapter--hero .pimm30-action {
+    grid-row: 4;
+    max-width: 40rem;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(1.6rem, env(safe-area-inset-bottom));
+    left: 50%;
+    margin: 0;
+    max-width: none;
+    position: absolute;
+    transform: translateX(-50%);
+    width: auto;
+  }
+
   .pimm30-chapter h1 {
     font-size: clamp(5.4rem, 6vw, 8.6rem);
   }
@@ -717,7 +774,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
     max-width: 40rem;
   }
 
-  .pimm30-scroll-cue {
+  .pimm30-chapter:not(.pimm30-chapter--hero) .pimm30-scroll-cue {
     justify-content: flex-start;
   }
 
