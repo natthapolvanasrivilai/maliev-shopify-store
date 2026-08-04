@@ -57,14 +57,15 @@
 
     function playActiveVideo(restart = true) {
       const layer = layers.get(activeId);
-      activeVideo = visibleVideo(layer);
-      if (!activeVideo || reduced) return;
+      const video = visibleVideo(layer);
+      activeVideo = video;
+      if (!video || reduced) return;
 
-      if (restart) resetVideo(activeVideo);
-      activeVideo.classList.add('is-playing');
-      activeVideo.play().catch(() => {
+      if (restart) resetVideo(video);
+      video.classList.add('is-playing');
+      video.play().catch(() => {
         layer.classList.add('is-video-failed');
-        activeVideo.classList.remove('is-playing', 'is-paused');
+        video.classList.remove('is-playing', 'is-paused');
         if (activeId === 'pimm30-overview') setHeroTone(true);
       });
     }

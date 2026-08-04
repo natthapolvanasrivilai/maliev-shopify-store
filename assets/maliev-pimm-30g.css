@@ -100,6 +100,11 @@
   object-position: 50% 50%;
 }
 
+.pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__poster img,
+.pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__video {
+  object-fit: contain;
+}
+
 .pimm30-stage__video {
   opacity: 0;
   transition: none;
@@ -512,6 +517,17 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
     top: 5svh;
   }
 
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__poster img,
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__video {
+    height: 50svh;
+    top: calc(var(--pimm30-header-space) + 0.4rem);
+  }
+
+  .pimm30-chapter:not(.pimm30-chapter--hero) .pimm30-chapter__content {
+    min-height: 40svh;
+    padding-top: 3.2rem;
+  }
+
   .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
   .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__video {
     height: 59svh;
@@ -591,6 +607,13 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
 }
 
 @media (min-width: 750px) and (max-width: 1199px) {
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__poster img,
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__video {
+    left: auto;
+    right: 0;
+    width: 82vw;
+  }
+
   .pimm30-chapter--hero .pimm30-spec-rail {
     margin-inline: auto;
     max-width: min(calc(100vw - (2 * var(--maliev-gutter))), 76rem);
@@ -639,7 +662,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
   .pimm30-chapter__content > * {
     margin-left: 0;
     margin-right: 0;
-    max-width: min(46vw, 62rem);
+    max-width: min(38vw, 58rem);
   }
 
   .pimm30-chapter h1 {
@@ -665,6 +688,15 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
   .pimm30-commerce__actions {
     grid-template-columns: 1fr 1fr;
     max-width: 62rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__poster img,
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__video {
+    left: auto;
+    right: -18vw;
+    width: 76vw;
   }
 }
 
@@ -705,8 +737,8 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero h1 {
 
 @media (max-width: 420px) {
   .pimm30-chapter:not(.pimm30-chapter--hero) .pimm30-chapter__content {
-    min-height: 47svh;
-    padding-top: 7rem;
+    min-height: 40svh;
+    padding-top: 3rem;
     padding-left: 1.8rem;
     padding-right: 1.8rem;
   }
