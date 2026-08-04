@@ -38,6 +38,7 @@
     let activeId = (hashChapter || chapters[0]) ? (hashChapter || chapters[0]).dataset.pimm30Chapter : '';
     let activeVideo = null;
     let consentRevealTimer = 0;
+    let heroHasPlayed = reduced || activeId !== 'pimm30-overview';
 
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
@@ -79,19 +80,35 @@
       activeVideo = video;
       if (!video || reduced) return;
 
+      if (activeId === 'pimm30-overview' && heroHasPlayed) {
+        resetVideo(video);
+        setHeroTone(true);
+        return;
+      }
+
       if (restart) resetVideo(video);
       video.classList.add('is-playing');
       video.play().catch(() => {
         layer.classList.add('is-video-failed');
         video.classList.remove('is-playing', 'is-paused');
-        if (activeId === 'pimm30-overview') setHeroTone(true);
+        if (activeId === 'pimm30-overview') {
+          heroHasPlayed = true;
+          setHeroTone(true);
+        }
       });
     }
 
     function activate(chapterId, restartVideo = true) {
       if (!layers.has(chapterId)) return;
+      const previousId = activeId;
       activeId = chapterId;
       story.dataset.activeChapter = chapterId;
+
+      if (previousId === 'pimm30-overview' && chapterId !== 'pimm30-overview') {
+        heroHasPlayed = true;
+        setHeroTone(true);
+      }
+
       overlaySentinel.setAttribute(
         'data-header-overlay-tone',
         chapterId === 'pimm30-next_model' ? 'dark' : story.classList.contains('is-hero-bright') ? 'bright' : 'dark'
@@ -113,17 +130,23 @@
 
     story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
       video.addEventListener('timeupdate', () => {
-        if (video !== activeVideo || activeId !== 'pimm30-overview') return;
+        if (video !== activeVideo || activeId !== 'pimm30-overview' || heroHasPlayed) return;
         setHeroTone(video.currentTime >= lightMilestone);
       });
       video.addEventListener('ended', () => {
         video.classList.remove('is-playing', 'is-paused');
-        if (activeId === 'pimm30-overview') setHeroTone(true);
+        if (activeId === 'pimm30-overview') {
+          heroHasPlayed = true;
+          setHeroTone(true);
+        }
       });
       video.addEventListener('error', () => {
         const layer = video.closest('[data-pimm30-layer]');
         if (layer) layer.classList.add('is-video-failed');
-        if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') setHeroTone(true);
+        if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
+          heroHasPlayed = true;
+          setHeroTone(true);
+        }
       });
     });
 
@@ -243,9 +266,13 @@
       });
     }
 
-    const activeHeroVideo = visibleVideo(layers.get(activeId));
-    if (reduced || !activeHeroVideo) setHeroTone(true);
-    else setHeroTone(false);
+    const initialHeroVideo = visibleVideo(layers.get('pimm30-overview'));
+    if (reduced || !initialHeroVideo || activeId !== 'pimm30-overview') {
+      heroHasPlayed = true;
+      setHeroTone(true);
+    } else {
+      setHeroTone(false);
+    }
     activate(activeId, true);
   }
 
