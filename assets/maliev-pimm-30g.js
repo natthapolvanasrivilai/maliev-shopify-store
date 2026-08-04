@@ -34,7 +34,8 @@
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
     const reduced = REDUCED_MOTION.matches || saveData || designMode;
-    let activeId = chapters[0] ? chapters[0].dataset.pimm30Chapter : '';
+    const hashChapter = chapters.find((chapter) => chapter.id && `#${chapter.id}` === window.location.hash);
+    let activeId = (hashChapter || chapters[0]) ? (hashChapter || chapters[0]).dataset.pimm30Chapter : '';
     let activeVideo = null;
     let consentRevealTimer = 0;
 
@@ -57,7 +58,7 @@
     function setHeroTone(bright) {
       story.classList.toggle('is-hero-bright', bright);
       story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
-      overlaySentinel.setAttribute('data-header-overlay-tone', bright ? 'bright' : 'dark');
+      overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark');
       if (bright) revealConsentAfterHero();
     }
 
@@ -91,6 +92,10 @@
       if (!layers.has(chapterId)) return;
       activeId = chapterId;
       story.dataset.activeChapter = chapterId;
+      overlaySentinel.setAttribute(
+        'data-header-overlay-tone',
+        chapterId === 'pimm30-next_model' ? 'dark' : story.classList.contains('is-hero-bright') ? 'bright' : 'dark'
+      );
 
       layers.forEach((layer, id) => {
         const active = id === chapterId;

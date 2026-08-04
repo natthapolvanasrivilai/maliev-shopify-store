@@ -107,9 +107,9 @@
           "settings": {
             "role": "next_model",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "machine-portrait-50g-front-studio.png",
+            "desktop_poster_asset": "pimm50-keynote-reveal-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "machine-portrait-50g-front-studio.png"
+            "mobile_poster_asset": "pimm50-keynote-reveal-mobile.webp"
           }
         }
       },
