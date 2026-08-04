@@ -551,7 +551,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 
 .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before {
   color: rgba(180, 35, 24, 0.82);
-  content: '50 G';
+  content: '50G';
   font-family: var(--maliev-font-marker);
   font-size: clamp(18rem, 25vw, 42rem);
   line-height: 0.8;
