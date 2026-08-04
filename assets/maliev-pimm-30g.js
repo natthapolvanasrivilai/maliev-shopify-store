@@ -21,6 +21,7 @@
       [...story.querySelectorAll('[data-pimm30-layer]')].map((layer) => [layer.dataset.pimm30Layer, layer])
     );
     const hero = story.querySelector('[data-header-overlay-sentinel]');
+    const footerStart = document.querySelector('.shopify-section-group-footer-group');
     const variantSelect = story.querySelector('[data-pimm30-variant]');
     const variantInput = story.querySelector('[data-pimm30-variant-id]');
     const variantTitle = story.querySelector('[data-pimm30-variant-title]');
@@ -133,6 +134,13 @@
       let gestureLocked = false;
       let gestureUnlockTimer = 0;
 
+      if (footerStart && 'IntersectionObserver' in window) {
+        const footerObserver = new IntersectionObserver(([entry]) => {
+          document.documentElement.classList.toggle('pimm30-footer-active', entry.isIntersecting);
+        });
+        footerObserver.observe(footerStart);
+      }
+
       const activeChapterIndex = () => {
         const currentIndex = chapters.findIndex((chapter) => chapter.dataset.pimm30Chapter === activeId);
         if (currentIndex >= 0) return currentIndex;
@@ -157,7 +165,23 @@
 
           const direction = Math.sign(event.deltaY);
           const nextIndex = index + direction;
-          if (!direction || nextIndex < 0 || nextIndex >= chapters.length) return;
+          if (!direction || nextIndex < 0) return;
+
+          if (direction > 0 && nextIndex >= chapters.length && footerStart) {
+            event.preventDefault();
+            if (gestureLocked) return;
+
+            gestureLocked = true;
+            document.documentElement.classList.add('pimm30-footer-active');
+            footerStart.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.clearTimeout(gestureUnlockTimer);
+            gestureUnlockTimer = window.setTimeout(() => {
+              gestureLocked = false;
+            }, 900);
+            return;
+          }
+
+          if (nextIndex >= chapters.length) return;
 
           event.preventDefault();
           if (gestureLocked) return;
