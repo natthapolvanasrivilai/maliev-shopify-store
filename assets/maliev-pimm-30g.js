@@ -197,12 +197,19 @@
 
     if (!designMode) {
       let chapterFrame = 0;
+      let pendingChapterId = '';
+      let pendingChapterFrame = 0;
+      let pendingChapterToken = 0;
       const selectVisibleChapter = () => {
         chapterFrame = 0;
-        const marker = window.innerHeight * 0.5;
+        if (pendingChapterId) return;
+
+        // Keep the stage on the current chapter until the next chapter has
+        // reached the top of the viewport. Switching at the midpoint leaves
+        // the old chapter copy over the new media during a free scroll.
         const nextChapter = chapters.find((chapter) => {
           const rect = chapter.getBoundingClientRect();
-          return rect.top <= marker && rect.bottom > marker;
+          return rect.top <= 8 && rect.bottom > 8;
         });
         const nextId = nextChapter && nextChapter.dataset.pimm30Chapter;
         if (nextId && nextId !== activeId) activate(nextId, true);
@@ -217,7 +224,6 @@
       const snapViewport = window.matchMedia('(min-height: 720px)');
       let gestureLocked = false;
       let gestureUnlockTimer = 0;
-
       const setFooterActive = (active) => {
         const wasActive = document.documentElement.classList.contains('pimm30-footer-active');
         document.documentElement.classList.toggle('pimm30-footer-active', active);
@@ -242,6 +248,44 @@
             const rect = chapter.getBoundingClientRect();
             return rect.top <= marker && rect.bottom > marker;
           })
+        );
+      };
+
+      const settleChapterTransition = (chapter, chapterId, token, startedAt) => {
+        if (token !== pendingChapterToken || pendingChapterId !== chapterId) return;
+
+        const distanceFromTop = Math.abs(chapter.getBoundingClientRect().top);
+        const timedOut = performance.now() - startedAt >= 1400;
+        if (distanceFromTop <= 8 || timedOut) {
+          pendingChapterFrame = 0;
+          pendingChapterId = '';
+          gestureLocked = false;
+
+          // If the browser interrupted smooth scrolling, let the regular
+          // selector choose the chapter actually under the viewport instead
+          // of switching the stage to a destination that was never reached.
+          if (distanceFromTop <= 8) activate(chapterId, true);
+          queueChapterSelection();
+          return;
+        }
+
+        pendingChapterFrame = window.requestAnimationFrame((now) =>
+          settleChapterTransition(chapter, chapterId, token, startedAt || now)
+        );
+      };
+
+      const navigateToChapter = (chapter) => {
+        const chapterId = chapter?.dataset.pimm30Chapter;
+        if (!chapterId) return;
+
+        pendingChapterToken += 1;
+        const token = pendingChapterToken;
+        const startedAt = performance.now();
+        pendingChapterId = chapterId;
+        chapter.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (pendingChapterFrame) window.cancelAnimationFrame(pendingChapterFrame);
+        pendingChapterFrame = window.requestAnimationFrame((now) =>
+          settleChapterTransition(chapter, chapterId, token, startedAt || now)
         );
       };
 
@@ -275,15 +319,10 @@
           if (nextIndex >= chapters.length) return;
 
           event.preventDefault();
-          if (gestureLocked) return;
+          if (gestureLocked || pendingChapterId) return;
 
           gestureLocked = true;
-          activate(chapters[nextIndex].dataset.pimm30Chapter, true);
-          chapters[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
-          window.clearTimeout(gestureUnlockTimer);
-          gestureUnlockTimer = window.setTimeout(() => {
-            gestureLocked = false;
-          }, 900);
+          navigateToChapter(chapters[nextIndex]);
         },
         { passive: false }
       );
