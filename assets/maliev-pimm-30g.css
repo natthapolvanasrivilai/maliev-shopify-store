@@ -842,11 +842,12 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   }
 
   .pimm30-stage__backdrop {
-    align-items: stretch;
+    align-items: center;
     font-size: clamp(7.6rem, 8.4vw, 13rem);
     inset: 23svh 2.5vw auto 47vw;
     line-height: 0.78;
     overflow: visible;
+    text-align: center;
     width: auto;
   }
 
