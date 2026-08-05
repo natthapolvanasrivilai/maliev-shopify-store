@@ -1148,8 +1148,8 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__video {
-    right: -24vw;
-    transform: scale(2.3);
+    right: -27vw;
+    transform: scale(2.05);
     transform-origin: 64% 49%;
     width: 82vw;
   }
