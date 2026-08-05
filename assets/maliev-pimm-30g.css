@@ -83,6 +83,16 @@
   opacity: 1;
 }
 
+/* The hero reveal owns the first paint. Keep its bright final poster out of
+   the compositing tree until the one-shot video completes. The no-JS static
+   fallback remains visible because the theme retains the `no-js` class. */
+html:not(.no-js) .pimm30-story.is-hero-pending
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .pimm30-stage__poster,
 .pimm30-stage__poster img,
 .pimm30-stage__video {

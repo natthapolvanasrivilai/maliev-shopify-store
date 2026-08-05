@@ -77,7 +77,7 @@
         muted
         playsinline
         preload="{% if eager %}metadata{% else %}none{% endif %}"
-        {% if desktop_poster_url != blank %}poster="{{ desktop_poster_url }}"{% endif %}
+        {% unless eager %}{% if desktop_poster_url != blank %}poster="{{ desktop_poster_url }}"{% endif %}{% endunless %}
       >
         {%- if block.settings.desktop_video != blank -%}
           {%- for source in block.settings.desktop_video.sources -%}
@@ -96,7 +96,7 @@
         muted
         playsinline
         preload="{% if eager %}metadata{% else %}none{% endif %}"
-        {% if mobile_poster_url != blank %}poster="{{ mobile_poster_url }}"{% endif %}
+        {% unless eager %}{% if mobile_poster_url != blank %}poster="{{ mobile_poster_url }}"{% endif %}{% endunless %}
       >
         {%- if block.settings.mobile_video != blank -%}
           {%- for source in block.settings.mobile_video.sources -%}

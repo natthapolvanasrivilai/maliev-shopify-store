@@ -48,6 +48,10 @@
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
 
+    function revealHeroPoster() {
+      story.classList.remove('is-hero-pending');
+    }
+
     function revealConsentAfterHero() {
       if (document.documentElement.classList.contains('pimm30-consent-ready')) return;
       if (reduced) {
@@ -126,6 +130,7 @@
 
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
+        revealHeroPoster();
         setHeroTone(true);
         return;
       }
@@ -137,6 +142,7 @@
         video.classList.remove('is-playing', 'is-paused');
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
+          revealHeroPoster();
           setHeroTone(true);
         }
       });
@@ -150,6 +156,7 @@
 
       if (previousId === 'pimm30-overview' && chapterId !== 'pimm30-overview') {
         heroHasPlayed = true;
+        revealHeroPoster();
         completeCapacityCount();
         setHeroTone(true);
       }
@@ -182,6 +189,7 @@
         video.classList.remove('is-playing', 'is-paused');
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
+          revealHeroPoster();
           setHeroTone(true);
         }
       });
@@ -190,6 +198,7 @@
         if (layer) layer.classList.add('is-video-failed');
         if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
           heroHasPlayed = true;
+          revealHeroPoster();
           setHeroTone(true);
         }
       });
@@ -353,6 +362,7 @@
     const initialHeroVideo = visibleVideo(layers.get('pimm30-overview'));
     if (reduced || !initialHeroVideo || activeId !== 'pimm30-overview') {
       heroHasPlayed = true;
+      revealHeroPoster();
       completeCapacityCount();
       setHeroTone(true);
     } else {
