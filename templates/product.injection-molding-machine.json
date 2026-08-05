@@ -96,8 +96,8 @@
           "type": "chapter",
           "settings": {
             "role": "configuration",
-            "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v10-commerce-desktop.webp",
+            "desktop_video_asset": "pimm30-configuration-turntable-desktop.webm",
+            "desktop_poster_asset": "pimm30-configuration-turntable-desktop.webp",
             "mobile_video_asset": "",
             "mobile_poster_asset": "pimm30-v10-commerce-mobile.webp"
           }

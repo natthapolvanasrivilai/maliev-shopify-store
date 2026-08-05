@@ -1121,6 +1121,13 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     transform-origin: 64% 47%;
     width: 84vw;
   }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] .pimm30-stage__video {
+    left: auto;
+    right: -17vw;
+    width: 94vw;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -1152,6 +1159,12 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     transform: scale(2.05);
     transform-origin: 64% 49%;
     width: 82vw;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] .pimm30-stage__video {
+    right: -18vw;
+    width: 98vw;
   }
 
 
