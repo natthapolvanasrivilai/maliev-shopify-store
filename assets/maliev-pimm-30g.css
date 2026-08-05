@@ -708,6 +708,16 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     top: calc(var(--pimm30-header-space) + 0.4rem);
   }
 
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__video {
+    transform: scale(1.8);
+    transform-origin: 62% 36%;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']:not([data-pimm30-layer='pimm30-overview']) {
+    clip-path: inset(0 0 50svh 0);
+  }
+
   .pimm30-chapter:not(.pimm30-chapter--hero) .pimm30-chapter__content {
     min-height: 40svh;
     padding-top: 3.2rem;
@@ -1016,6 +1026,20 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     ) {
     clip-path: inset(0 0 0 40%);
   }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']:not([data-pimm30-layer='pimm30-overview']) {
+    clip-path: inset(var(--pimm30-header-space) 0 0 0);
+    -webkit-mask-image: linear-gradient(to right, transparent 35%, rgba(0, 0, 0, 0.15) 40%, #000 51%);
+    mask-image: linear-gradient(to right, transparent 35%, rgba(0, 0, 0, 0.15) 40%, #000 51%);
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__video {
+    right: -14vw;
+    transform: scale(1.72);
+    transform-origin: 64% 47%;
+    width: 84vw;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -1034,6 +1058,14 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   .pimm30-stage__layer[data-pimm30-layer='pimm30-capacity'] .pimm30-stage__poster img,
   .pimm30-stage__layer[data-pimm30-layer='pimm30-capacity'] .pimm30-stage__video {
     right: -6vw;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__video {
+    right: -24vw;
+    transform: scale(2.3);
+    transform-origin: 64% 49%;
+    width: 82vw;
   }
 
 
