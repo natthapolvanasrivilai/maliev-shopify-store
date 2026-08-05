@@ -126,14 +126,14 @@ html:not(.no-js) .pimm30-story.is-hero-pending
   opacity: 1;
 }
 
-[data-pimm30-capacity-count] {
+[data-pimm30-spec-count] {
   white-space: nowrap;
 }
 
-[data-pimm30-capacity-number] {
+[data-pimm30-spec-number] {
   display: inline-block;
   font-variant-numeric: tabular-nums;
-  min-width: 2ch;
+  min-width: 3ch;
   text-align: end;
 }
 

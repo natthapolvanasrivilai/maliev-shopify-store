@@ -29,9 +29,11 @@
     const availability = story.querySelector('[data-pimm30-availability]');
     const addButton = story.querySelector('[data-pimm30-add]');
     const addLabel = story.querySelector('[data-pimm30-add-label]');
-    const capacityCounter = story.querySelector('[data-pimm30-capacity-count]');
-    const capacityNumber = story.querySelector('[data-pimm30-capacity-number]');
-    const capacityFinal = Number(capacityCounter?.dataset.pimm30CapacityFinal || 30);
+    const specCounters = [...story.querySelectorAll('[data-pimm30-spec-count]')].map((counter) => ({
+      number: counter.querySelector('[data-pimm30-spec-number]'),
+      final: Number(counter.dataset.pimm30SpecFinal || 0),
+      decimals: Number(counter.dataset.pimm30SpecDecimals || 0),
+    }));
     const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3500) / 1000;
     const consentRevealDelay = 900;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
@@ -42,8 +44,8 @@
     let activeVideo = null;
     let consentRevealTimer = 0;
     let heroHasPlayed = reduced || activeId !== 'pimm30-overview';
-    let capacityCountHasPlayed = reduced || activeId !== 'pimm30-overview';
-    let capacityCountFrame = 0;
+    let specCountHasPlayed = reduced || activeId !== 'pimm30-overview';
+    let specCountFrame = 0;
 
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
@@ -65,40 +67,47 @@
       }, consentRevealDelay);
     }
 
-    function setCapacityCount(value) {
-      if (capacityNumber) capacityNumber.textContent = String(Math.max(0, Math.min(capacityFinal, Math.round(value))));
+    function setSpecCounts(progress) {
+      const boundedProgress = Math.max(0, Math.min(1, progress));
+      specCounters.forEach((counter) => {
+        if (!counter.number) return;
+        const value = counter.final * boundedProgress;
+        counter.number.textContent = counter.decimals > 0
+          ? value.toFixed(counter.decimals)
+          : String(Math.round(value));
+      });
     }
 
-    function completeCapacityCount() {
-      if (capacityCountFrame) window.clearTimeout(capacityCountFrame);
-      capacityCountFrame = 0;
-      capacityCountHasPlayed = true;
-      setCapacityCount(capacityFinal);
+    function completeSpecCounts() {
+      if (specCountFrame) window.clearTimeout(specCountFrame);
+      specCountFrame = 0;
+      specCountHasPlayed = true;
+      setSpecCounts(1);
     }
 
-    function startCapacityCount() {
-      if (!capacityNumber || capacityCountHasPlayed) return;
+    function startSpecCounts() {
+      if (!specCounters.length || specCountHasPlayed) return;
       if (reduced || activeId !== 'pimm30-overview') {
-        completeCapacityCount();
+        completeSpecCounts();
         return;
       }
 
-      capacityCountHasPlayed = true;
+      specCountHasPlayed = true;
       const startedAt = Date.now();
       const duration = 1200;
       const tick = () => {
         const now = Date.now();
         const progress = Math.min(1, (now - startedAt) / duration);
         const eased = 1 - Math.pow(1 - progress, 3);
-        setCapacityCount(capacityFinal * eased);
+        setSpecCounts(eased);
         if (progress < 1) {
-          capacityCountFrame = window.setTimeout(tick, 16);
+          specCountFrame = window.setTimeout(tick, 16);
         } else {
-          capacityCountFrame = 0;
-          setCapacityCount(capacityFinal);
+          specCountFrame = 0;
+          setSpecCounts(1);
         }
       };
-      capacityCountFrame = window.setTimeout(tick, 16);
+      specCountFrame = window.setTimeout(tick, 16);
     }
 
     function setHeroTone(bright) {
@@ -107,7 +116,7 @@
       overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark');
       if (bright) {
         revealConsentAfterHero();
-        startCapacityCount();
+        startSpecCounts();
       }
     }
 
@@ -157,7 +166,7 @@
       if (previousId === 'pimm30-overview' && chapterId !== 'pimm30-overview') {
         heroHasPlayed = true;
         revealHeroPoster();
-        completeCapacityCount();
+        completeSpecCounts();
         setHeroTone(true);
       }
 
@@ -363,10 +372,10 @@
     if (reduced || !initialHeroVideo || activeId !== 'pimm30-overview') {
       heroHasPlayed = true;
       revealHeroPoster();
-      completeCapacityCount();
+      completeSpecCounts();
       setHeroTone(true);
     } else {
-      setCapacityCount(0);
+      setSpecCounts(0);
       setHeroTone(false);
     }
     activate(activeId, true);

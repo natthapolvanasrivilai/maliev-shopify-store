@@ -96,14 +96,36 @@
                 <div>
                   <dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt>
                   <dd
-                    data-pimm30-capacity-count
-                    data-pimm30-capacity-final="30"
+                    data-pimm30-spec-count
+                    data-pimm30-spec-final="30"
                     aria-label="{{ 'products.pimm30_story.specs.capacity_value' | t | escape }}"
-                  ><span data-pimm30-capacity-number aria-hidden="true">30</span><span aria-hidden="true">{% if is_thai %} กรัม{% else %} g{% endif %}</span></dd>
+                  ><span data-pimm30-spec-number aria-hidden="true">30</span><span aria-hidden="true">{% if is_thai %} กรัม{% else %} g{% endif %}</span></dd>
                 </div>
-                <div><dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.temperature_value' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.force_value' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt><dd>{{ 'products.pimm30_story.specs.pressure_value' | t }}</dd></div>
+                <div>
+                  <dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt>
+                  <dd
+                    data-pimm30-spec-count
+                    data-pimm30-spec-final="300"
+                    aria-label="{{ 'products.pimm30_story.specs.temperature_value' | t | escape }}"
+                  ><span data-pimm30-spec-number aria-hidden="true">300</span><span aria-hidden="true">°C</span></dd>
+                </div>
+                <div>
+                  <dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt>
+                  <dd
+                    data-pimm30-spec-count
+                    data-pimm30-spec-final="876"
+                    aria-label="{{ 'products.pimm30_story.specs.force_value' | t | escape }}"
+                  ><span data-pimm30-spec-number aria-hidden="true">876</span><span aria-hidden="true"> kgf</span></dd>
+                </div>
+                <div>
+                  <dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt>
+                  <dd
+                    data-pimm30-spec-count
+                    data-pimm30-spec-final="0.7"
+                    data-pimm30-spec-decimals="1"
+                    aria-label="{{ 'products.pimm30_story.specs.pressure_value' | t | escape }}"
+                  ><span data-pimm30-spec-number aria-hidden="true">0.7</span><span aria-hidden="true"> MPa</span></dd>
+                </div>
               </dl>
               <a class="pimm30-action pimm30-action--primary" href="{{ section.settings.visit_link | default: '/pages/contact' }}">
                 <span>{{ 'products.pimm30_story.book_visit' | t }}</span><span aria-hidden="true">→</span>
