@@ -336,6 +336,82 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   font-size: clamp(2.4rem, 8vw, 5rem);
 }
 
+.pimm30-chapter__metric--pressure dd {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pimm30-pressure__primary {
+  display: grid;
+  min-width: 7.2ch;
+}
+
+.pimm30-pressure__step {
+  grid-area: 1 / 1;
+  opacity: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pimm30-pressure__step--7 {
+  opacity: 1;
+}
+
+.pimm30-pressure__secondary {
+  color: var(--pimm30-muted);
+  font-family: var(--maliev-font-sans);
+  font-size: clamp(1.2rem, 1.15vw, 1.5rem);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step {
+  animation: pimm30-pressure-step 200ms steps(1, end) forwards;
+  animation-delay: calc(var(--pimm30-pressure-index, 0) * 200ms);
+  opacity: 0;
+}
+
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--0 { --pimm30-pressure-index: 0; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--1 { --pimm30-pressure-index: 1; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--2 { --pimm30-pressure-index: 2; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--3 { --pimm30-pressure-index: 3; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--4 { --pimm30-pressure-index: 4; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--5 { --pimm30-pressure-index: 5; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--6 { --pimm30-pressure-index: 6; }
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--7 {
+  --pimm30-pressure-index: 7;
+  animation-name: pimm30-pressure-step-final;
+}
+
+.pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__secondary {
+  animation: pimm30-pressure-secondary 360ms cubic-bezier(0.22, 1, 0.36, 1) 1.65s both;
+}
+
+@keyframes pimm30-pressure-step {
+  0%, 99% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes pimm30-pressure-step-final {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pimm30-pressure-secondary {
+  from {
+    opacity: 0;
+    transform: translateY(0.8rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .pimm30-action {
   align-items: center;
   border: 0;
@@ -833,6 +909,11 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     max-width: min(calc(100vw - (2 * var(--maliev-gutter))), 76rem);
     width: 100%;
   }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-regulator'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-regulator'] .pimm30-stage__video {
+    right: 7vw;
+  }
 }
 
 @media (min-width: 750px) {
@@ -1060,6 +1141,11 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     right: -6vw;
   }
 
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-regulator'] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-regulator'] .pimm30-stage__video {
+    right: -7vw;
+  }
+
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__video {
     right: -24vw;
@@ -1122,6 +1208,21 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 
   .pimm30-scroll-cue span + span {
     animation: none;
+  }
+
+  .pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--7 {
+    opacity: 1;
+  }
+
+  .pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__secondary {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 
