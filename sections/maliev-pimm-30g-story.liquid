@@ -143,8 +143,16 @@
                 <div class="pimm30-commerce__summary">
                   <strong data-pimm30-variant-title>{{ selected_variant.title | escape }}</strong>
                   <span class="pimm30-commerce__price" data-pimm30-price>{{ selected_variant.price | money_with_currency }}</span>
-                  <span class="pimm30-commerce__availability{% unless selected_variant.available %} is-unavailable{% endunless %}" data-pimm30-availability>
-                    {%- if selected_variant.available -%}{{ 'products.product.inventory_in_stock' | t }}{%- else -%}{{ 'products.product.inventory_out_of_stock' | t }}{%- endif -%}
+                  <span
+                    class="pimm30-commerce__availability{% unless selected_variant.available %} is-unavailable{% endunless %}"
+                    data-pimm30-availability
+                    data-made-to-order="{% if is_thai %}ผลิตตามคำสั่งซื้อ{% else %}Made to order{% endif %}"
+                  >
+                    {%- if selected_variant.available -%}
+                      {%- if is_thai -%}ผลิตตามคำสั่งซื้อ{%- else -%}Made to order{%- endif -%}
+                    {%- else -%}
+                      {{- 'products.product.inventory_out_of_stock' | t -}}
+                    {%- endif -%}
                   </span>
                   {%- if product.metafields.custom.lead_time != blank -%}
                     <span>{% if is_thai %}ระยะเวลาผลิต {{ product.metafields.custom.lead_time }} วัน{% else %}{{ product.metafields.custom.lead_time }}-day production lead time{% endif %}</span>

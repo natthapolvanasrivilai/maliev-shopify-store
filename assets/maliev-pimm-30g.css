@@ -515,7 +515,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 }
 
 .pimm30-commerce__availability {
-  color: #087a55;
+  color: #9a5b00;
 }
 
 .pimm30-commerce__availability.is-unavailable,
@@ -782,6 +782,20 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']) .pimm30-stage__video {
     height: 50svh;
     top: calc(var(--pimm30-header-space) + 0.4rem);
+  }
+
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']):not(
+      [data-pimm30-layer='pimm30-temperature']
+    ):not([data-pimm30-layer='pimm30-next_model'])
+    .pimm30-stage__poster img,
+  .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']):not(
+      [data-pimm30-layer='pimm30-temperature']
+    ):not([data-pimm30-layer='pimm30-next_model'])
+    .pimm30-stage__video {
+    left: var(--maliev-gutter);
+    object-position: 50% 50%;
+    right: var(--maliev-gutter);
+    width: auto;
   }
 
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,

@@ -355,7 +355,7 @@
         if (price) price.textContent = option.dataset.price || '';
         if (availability) {
           availability.textContent = availableNow
-            ? window.variantStrings?.available || 'In stock'
+            ? availability.dataset.madeToOrder || 'Made to order'
             : window.variantStrings?.soldOut || 'Out of stock';
           availability.classList.toggle('is-unavailable', !availableNow);
         }
