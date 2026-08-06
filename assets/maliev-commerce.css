@@ -3989,6 +3989,7 @@ main .customer table th {
   .mc-collection-directory__item--featured {
     grid-column: 1 / -1;
   }
+
 }
 
 @media screen and (min-width: 750px) and (max-width: 989px) {
