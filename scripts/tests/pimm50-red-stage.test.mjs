@@ -122,6 +122,13 @@ test('50G mobile slide is bounded to one viewport without a media spacer', () =>
   assert.match(mobileFit, /\.pimm30-next-model__upgrades\s*\{[\s\S]*grid-template-columns:\s*repeat\(3/);
 });
 
+test('50G desktop media fills the vertical stage without changing mobile sizing', () => {
+  assert.match(
+    styles,
+    /@media \(min-width: 990px\) \{[\s\S]*?\.pimm30-stage__layer\[data-pimm30-layer='pimm30-next_model'\] \.pimm30-stage__poster img,[\s\S]*?transform:\s*scale\(2\.05\)/,
+  );
+});
+
 test('50G Blender builder preserves alpha production and hides unsupported controller digits', () => {
   assert.match(blenderBuilder, /PIMM-50g-red-stage-loop-v2\.blend/);
   assert.match(blenderBuilder, /film_transparent\s*=\s*True/);
