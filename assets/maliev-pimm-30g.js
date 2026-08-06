@@ -124,6 +124,8 @@
       if (!video) return;
       video.pause();
       video.classList.remove('is-playing', 'is-paused');
+      const layer = video.closest('[data-pimm30-layer]');
+      if (layer) layer.classList.remove('has-active-video');
       try {
         video.currentTime = 0;
       } catch (_error) {
@@ -146,8 +148,10 @@
 
       if (restart) resetVideo(video);
       video.classList.add('is-playing');
+      layer.classList.add('has-active-video');
       video.play().catch(() => {
         layer.classList.add('is-video-failed');
+        layer.classList.remove('has-active-video');
         video.classList.remove('is-playing', 'is-paused');
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
@@ -179,6 +183,7 @@
         const active = id === chapterId;
         layer.classList.toggle('is-active', active);
         layer.setAttribute('aria-hidden', String(!active));
+        if (layer.matches('[data-pimm30-turntable]')) layer.tabIndex = active ? 0 : -1;
         if (!active) {
           const video = visibleVideo(layer);
           if (video) resetVideo(video);
@@ -195,7 +200,15 @@
         setHeroTone(video.currentTime >= lightMilestone);
       });
       video.addEventListener('ended', () => {
-        video.classList.remove('is-playing', 'is-paused');
+        const layer = video.closest('[data-pimm30-layer]');
+        if (layer && layer.matches('[data-pimm30-turntable]')) {
+          video.classList.remove('is-playing');
+          video.classList.add('is-paused');
+          layer.classList.add('has-active-video', 'is-turntable-ready');
+        } else {
+          video.classList.remove('is-playing', 'is-paused');
+          if (layer) layer.classList.remove('has-active-video');
+        }
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
@@ -204,12 +217,71 @@
       });
       video.addEventListener('error', () => {
         const layer = video.closest('[data-pimm30-layer]');
-        if (layer) layer.classList.add('is-video-failed');
+        if (layer) {
+          layer.classList.add('is-video-failed');
+          layer.classList.remove('has-active-video');
+        }
         if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
           setHeroTone(true);
         }
+      });
+    });
+
+    story.querySelectorAll('[data-pimm30-turntable]').forEach((turntable) => {
+      const video = visibleVideo(turntable);
+      if (!video) return;
+
+      let dragging = false;
+      let lastX = 0;
+      const secondsPerPixel = 1 / 150;
+
+      const showInteractiveFrame = () => {
+        video.pause();
+        video.classList.remove('is-playing');
+        video.classList.add('is-paused');
+        turntable.classList.add('has-active-video', 'is-turntable-ready', 'is-dragging');
+      };
+
+      const scrub = (deltaX) => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+        let nextTime = video.currentTime + deltaX * secondsPerPixel;
+        while (nextTime < 0) nextTime += video.duration;
+        while (nextTime >= video.duration) nextTime -= video.duration;
+        video.currentTime = nextTime;
+      };
+
+      turntable.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        dragging = true;
+        lastX = event.clientX;
+        turntable.setPointerCapture(event.pointerId);
+        showInteractiveFrame();
+      });
+
+      turntable.addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        const deltaX = event.clientX - lastX;
+        lastX = event.clientX;
+        scrub(deltaX);
+      });
+
+      const stopDragging = (event) => {
+        if (!dragging) return;
+        dragging = false;
+        turntable.classList.remove('is-dragging');
+        if (turntable.hasPointerCapture(event.pointerId)) turntable.releasePointerCapture(event.pointerId);
+      };
+      turntable.addEventListener('pointerup', stopDragging);
+      turntable.addEventListener('pointercancel', stopDragging);
+
+      turntable.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        showInteractiveFrame();
+        scrub(event.key === 'ArrowRight' ? 14 : -14);
+        turntable.classList.remove('is-dragging');
       });
     });
 

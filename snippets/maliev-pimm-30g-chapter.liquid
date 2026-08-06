@@ -61,6 +61,12 @@
   <figure
     class="pimm30-stage__layer{% if eager %} is-active{% endif %}"
     data-pimm30-layer="{{ chapter_id }}"
+    {% if block.settings.role == 'configuration' %}
+      data-pimm30-turntable
+      role="group"
+      tabindex="-1"
+      aria-label="{{ media_alt | escape }}. {% if localization.language.iso_code contains 'th' %}ลากไปทางซ้ายหรือขวาเพื่อหมุนดูเครื่อง{% else %}Drag left or right to rotate the machine{% endif %}."
+    {% endif %}
     aria-hidden="{% if eager %}false{% else %}true{% endif %}"
   >
     <picture class="pimm30-stage__poster">
@@ -77,7 +83,6 @@
         muted
         playsinline
         preload="{% if eager %}metadata{% else %}none{% endif %}"
-        {% unless eager %}{% if desktop_poster_url != blank %}poster="{{ desktop_poster_url }}"{% endif %}{% endunless %}
       >
         {%- if block.settings.desktop_video != blank -%}
           {%- for source in block.settings.desktop_video.sources -%}
@@ -96,7 +101,6 @@
         muted
         playsinline
         preload="{% if eager %}metadata{% else %}none{% endif %}"
-        {% unless eager %}{% if mobile_poster_url != blank %}poster="{{ mobile_poster_url }}"{% endif %}{% endunless %}
       >
         {%- if block.settings.mobile_video != blank -%}
           {%- for source in block.settings.mobile_video.sources -%}
@@ -106,6 +110,12 @@
           <source src="{{ block.settings.mobile_video_asset | asset_url }}" type="{{ mobile_asset_mime }}">
         {%- endif -%}
       </video>
+    {%- endif -%}
+
+    {%- if block.settings.role == 'configuration' -%}
+      <span class="pimm30-stage__turntable-hint" aria-hidden="true">
+        {% if localization.language.iso_code contains 'th' %}ลากเพื่อหมุนดูเครื่อง{% else %}Drag to rotate{% endif %}
+      </span>
     {%- endif -%}
   </figure>
 {%- endif -%}
