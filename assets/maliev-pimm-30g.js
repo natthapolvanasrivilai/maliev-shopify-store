@@ -253,10 +253,13 @@
 
       let dragging = false;
       let dragStartX = 0;
-      let dragStartTime = 0;
+      let dragStartProgress = 0.5;
+      let rotationProgress = 0.5;
       let pendingTime = null;
       let scrubFrame = 0;
       let seekableSourcePromise = null;
+      const rotationStartTime = 65 / 24;
+      const rotationEndTime = 101 / 24;
 
       const prepareSeekableVideo = () => {
         if (video.currentSrc.startsWith('blob:')) return Promise.resolve(true);
@@ -297,15 +300,7 @@
 
       video.addEventListener('playing', prepareSeekableVideo, { once: true });
 
-      const secondsPerPixel = () => {
-        if (!Number.isFinite(video.duration) || video.duration <= 0) return 0;
-        return video.duration / Math.max(turntable.clientWidth, 720);
-      };
-
-      const wrapTime = (time) => {
-        if (!Number.isFinite(video.duration) || video.duration <= 0) return 0;
-        return ((time % video.duration) + video.duration) % video.duration;
-      };
+      const progressPerPixel = () => 1 / Math.max(turntable.clientWidth, 720);
 
       const showInteractiveFrame = () => {
         video.pause();
@@ -322,9 +317,10 @@
         if (Math.abs(video.currentTime - nextTime) >= 1 / 48) video.currentTime = nextTime;
       };
 
-      const queueScrub = (nextTime) => {
+      const queueScrub = (nextProgress) => {
         if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-        pendingTime = wrapTime(nextTime);
+        rotationProgress = Math.max(0, Math.min(1, nextProgress));
+        pendingTime = rotationStartTime + rotationProgress * (rotationEndTime - rotationStartTime);
         if (!scrubFrame) scrubFrame = window.requestAnimationFrame(applyScrub);
       };
 
@@ -332,14 +328,14 @@
         if (event.pointerType === 'mouse' && event.button !== 0) return;
         dragging = true;
         dragStartX = event.clientX;
-        dragStartTime = video.currentTime;
+        dragStartProgress = rotationProgress;
         turntable.setPointerCapture(event.pointerId);
         showInteractiveFrame();
       });
 
       turntable.addEventListener('pointermove', (event) => {
         if (!dragging) return;
-        queueScrub(dragStartTime + (event.clientX - dragStartX) * secondsPerPixel());
+        queueScrub(dragStartProgress + (event.clientX - dragStartX) * progressPerPixel());
       });
 
       const stopDragging = (event) => {
@@ -359,7 +355,7 @@
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         event.preventDefault();
         showInteractiveFrame();
-        queueScrub(video.currentTime + (event.key === 'ArrowRight' ? 14 : -14) * secondsPerPixel());
+        queueScrub(rotationProgress + (event.key === 'ArrowRight' ? 0.04 : -0.04));
         if (scrubFrame) {
           window.cancelAnimationFrame(scrubFrame);
           applyScrub();
