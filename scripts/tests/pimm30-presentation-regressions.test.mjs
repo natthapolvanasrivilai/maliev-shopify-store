@@ -36,7 +36,7 @@ test('configuration media supports pointer and keyboard scrubbing', () => {
 });
 
 test('capacity animations retain every native Blender frame', () => {
-  for (const asset of ['pimm30-capacity-scale-desktop.webm', 'pimm30-capacity-scale-mobile.webm']) {
+  for (const asset of ['pimm30-capacity-three-cube-desktop.webm', 'pimm30-capacity-three-cube-mobile.webm']) {
     const output = execFileSync(
       'ffprobe',
       [
@@ -52,4 +52,12 @@ test('capacity animations retain every native Blender frame', () => {
     assert.equal(stream.avg_frame_rate, '24/1');
     assert.equal(stream.tags.ALPHA_MODE, '1');
   }
+});
+
+test('capacity chapter uses the approved three-cube media only', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+
+  assert.match(template, /pimm30-capacity-three-cube-desktop\.webm/);
+  assert.match(template, /pimm30-capacity-three-cube-mobile\.webm/);
+  assert.doesNotMatch(template, /pimm30-capacity-scale-(?:desktop|mobile)\.webm/);
 });
