@@ -129,10 +129,12 @@ test('50G desktop media fills the vertical stage without changing mobile sizing'
   );
 });
 
-test('50G Blender builder preserves alpha production and hides unsupported controller digits', () => {
+test('50G Blender builder preserves alpha production and restores verified 350C controller digits', () => {
   assert.match(blenderBuilder, /PIMM-50g-red-stage-loop-v2\.blend/);
   assert.match(blenderBuilder, /film_transparent\s*=\s*True/);
-  assert.match(blenderBuilder, /neutralize_unverified_controller_readout/);
+  assert.match(blenderBuilder, /enable_verified_controller_readout/);
+  assert.match(blenderBuilder, /CONTROLLER_MAX_TEMPERATURE_C\s*=\s*350/);
+  assert.match(blenderBuilder, /temperature_c[\"']?\s*:\s*CONTROLLER_MAX_TEMPERATURE_C/);
   assert.match(blenderBuilder, /create_smoke_cards/);
-  assert.doesNotMatch(blenderBuilder, /350\s*°?C/i);
+  assert.doesNotMatch(blenderBuilder, /neutralize_unverified_controller_readout/);
 });

@@ -107,6 +107,7 @@ LOOP_BOUNDARY_FRAME = 121
 CYCLES_SAMPLES = 256
 LIGHT_TEMPERATURE_K = 5000
 CAMERA_EXPOSURE_EV = -0.45
+CONTROLLER_MAX_TEMPERATURE_C = 350
 
 # One fixed camera and one exposure per composition; depth of field is off so
 # the complete machine remains sharp from its feet to its top cylinder.
@@ -1007,26 +1008,27 @@ def assert_machine_materials_unchanged(snapshot: dict[str, tuple[str | None, ...
         raise RuntimeError(f"Machine material slots changed unexpectedly: {changed[:20]}")
 
 
-def neutralize_unverified_controller_readout(
+def enable_verified_controller_readout(
     product_collection: bpy.types.Collection,
 ) -> list[str]:
-    """Hide illuminated segment meshes that currently spell an unverified 350.
+    """Restore the authentic 350°C controller readout on the render copy.
 
     The authentic controller housings, black glass and unlit segments remain
-    visible. Geometry and material slots are not edited; only the working
-    render copy suppresses the customer-facing unsupported numeric readout.
+    visible. Geometry and material slots are not edited; this pass only makes
+    those verified display meshes visible in the independent production copy.
     """
 
-    hidden: list[str] = []
+    enabled: list[str] = []
     for obj in collection_mesh_objects(product_collection):
         slot_names = {name for name in material_slots(obj) if name}
         if slot_names.intersection({"MAT_Display_LED_Red", "MAT_Display_LED_Green"}):
-            obj.hide_render = True
-            obj["pimm50_red_stage_unverified_readout_hidden"] = True
-            hidden.append(obj.name)
-    if not hidden:
-        raise RuntimeError("No illuminated controller segments were found to neutralize.")
-    return hidden
+            obj.hide_render = False
+            obj.pop("pimm50_red_stage_unverified_readout_hidden", None)
+            obj["pimm50_red_stage_controller_readout_c"] = CONTROLLER_MAX_TEMPERATURE_C
+            enabled.append(obj.name)
+    if not enabled:
+        raise RuntimeError("No verified illuminated controller segments were found.")
+    return enabled
 
 
 def create_stage(
@@ -1034,7 +1036,7 @@ def create_stage(
     material_snapshot: dict[str, tuple[str | None, ...]],
 ) -> dict[str, object]:
     remove_prefixed_data()
-    hidden_readout_objects = neutralize_unverified_controller_readout(product_collection)
+    controller_readout_objects = enable_verified_controller_readout(product_collection)
 
     root = bpy.data.collections.new(ROOT_COLLECTION)
     root[OWNER_PROPERTY] = True
@@ -1081,7 +1083,7 @@ def create_stage(
         "lighting": lighting,
         "fog": fog,
         "ground": ground,
-        "hidden_readout_objects": hidden_readout_objects,
+        "controller_readout_objects": controller_readout_objects,
         "devices": configure_cycles_gpu(),
     }
 
@@ -1215,8 +1217,12 @@ def scene_summary(build: dict[str, object]) -> dict[str, object]:
             "period_frames": fog_material["period_frames"],
             "simulation_cache": fog_material["simulation_cache"],
         },
+        "controller_readout": {
+            "temperature_c": CONTROLLER_MAX_TEMPERATURE_C,
+            "enabled_segments": len(build["controller_readout_objects"]),
+        },
         "cycles_devices": build["devices"],
-        "hidden_unverified_controller_segments": build["hidden_readout_objects"],
+        "verified_controller_segments": build["controller_readout_objects"],
     }
 
 

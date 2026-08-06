@@ -81,7 +81,7 @@ The following are source-backed claims in the current theme and may be displayed
 - Steel melt zone.
 - Two 350W hot-runner heater bands.
 
-Do not display `350°C` until an authoritative product field or source confirms it. Do not infer a temperature limit from heater wattage.
+The corrected source master also contains the verified `350°C` controller readout. Keep that readout visible in the production media, but do not turn it into a separate marketing claim or infer any other temperature limit from heater wattage.
 
 The chapter must continue to read the selected 50G product and first available variant from Shopify for:
 
