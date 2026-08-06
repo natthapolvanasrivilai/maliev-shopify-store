@@ -113,6 +113,15 @@ test('50G cinematic lockup uses condensed title typography and a brush backdrop'
   );
 });
 
+test('50G mobile slide is bounded to one viewport without a media spacer', () => {
+  const mobileFit = styles.match(/\/\* PIMM 50G mobile viewport fit — begin \*\/([\s\S]*?)\/\* PIMM 50G mobile viewport fit — end \*\//)?.[1];
+  assert.ok(mobileFit, 'mobile 50G viewport-fit block must exist');
+  assert.match(mobileFit, /height:\s*100svh/);
+  assert.match(mobileFit, /overflow:\s*hidden/);
+  assert.match(mobileFit, /\.pimm30-next-model__intro::after\s*\{\s*display:\s*none/);
+  assert.match(mobileFit, /\.pimm30-next-model__upgrades\s*\{[\s\S]*grid-template-columns:\s*repeat\(3/);
+});
+
 test('50G Blender builder preserves alpha production and hides unsupported controller digits', () => {
   assert.match(blenderBuilder, /PIMM-50g-red-stage-loop-v2\.blend/);
   assert.match(blenderBuilder, /film_transparent\s*=\s*True/);

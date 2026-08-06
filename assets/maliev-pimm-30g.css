@@ -2223,3 +2223,136 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     min-height: 62svh;
   }
 }
+
+/* PIMM 50G mobile viewport fit — begin */
+@media (max-width: 989px) {
+  .pimm30-chapter[data-chapter-role='next_model'] {
+    align-items: stretch;
+    height: 100svh;
+    max-height: 100svh;
+    min-height: 100svh;
+    overflow: hidden;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-chapter__content {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: calc(var(--pimm30-header-space) + 0.8rem) var(--maliev-gutter)
+      max(0.8rem, env(safe-area-inset-bottom));
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__intro {
+    flex: 0 0 auto;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__intro::after {
+    display: none;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-chapter__label {
+    font-size: clamp(0.72rem, 2.6vw, 0.88rem);
+    margin-bottom: 0.35rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm50-lockup__title {
+    font-size: clamp(2.35rem, 10vw, 3.8rem) !important;
+    line-height: 0.9;
+    margin: 0 0 0.45rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm50-lockup__summary {
+    font-size: clamp(0.78rem, 2.7vw, 1rem);
+    line-height: 1.22;
+    margin: 0 0 0.65rem;
+    max-width: 32ch;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades {
+    gap: 0.35rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades li,
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades li + li {
+    align-items: center;
+    border: 0.1rem solid rgba(244, 242, 237, 0.2);
+    border-radius: 0.35rem;
+    font-size: clamp(0.7rem, 2.5vw, 0.9rem);
+    justify-content: center;
+    line-height: 1.1;
+    min-height: 0;
+    padding: 0.55rem 0.45rem;
+    text-align: center;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades li::before {
+    display: none;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model {
+    margin: 0.65rem 0 0.55rem;
+    padding-top: 0.55rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model > div {
+    align-items: baseline;
+    display: grid;
+    flex-direction: row;
+    gap: 0.4rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model > div span {
+    font-size: clamp(0.82rem, 2.8vw, 1.05rem);
+    max-width: none;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model strong {
+    font-size: clamp(1.35rem, 5.2vw, 2.2rem);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__availability,
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__lead-time {
+    font-size: clamp(0.72rem, 2.5vw, 0.9rem);
+    margin-top: 0.35rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-action--primary {
+    flex: 0 0 auto;
+    font-size: clamp(0.82rem, 2.8vw, 1rem);
+    min-height: 2.9rem;
+  }
+}
+
+@media (max-width: 420px) and (max-height: 700px) {
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 0.45rem);
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm50-lockup__title {
+    font-size: clamp(2.1rem, 9vw, 3rem) !important;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm50-lockup__summary {
+    font-size: 0.76rem;
+    line-height: 1.16;
+    margin-bottom: 0.45rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades li,
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades li + li {
+    font-size: 0.64rem;
+    padding: 0.4rem 0.25rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model strong {
+    font-size: 1.2rem;
+  }
+}
+/* PIMM 50G mobile viewport fit — end */
