@@ -252,8 +252,60 @@
       if (!video) return;
 
       let dragging = false;
-      let lastX = 0;
-      const secondsPerPixel = 1 / 150;
+      let dragStartX = 0;
+      let dragStartTime = 0;
+      let pendingTime = null;
+      let scrubFrame = 0;
+      let seekableSourcePromise = null;
+
+      const prepareSeekableVideo = () => {
+        if (video.currentSrc.startsWith('blob:')) return Promise.resolve(true);
+        if (seekableSourcePromise) return seekableSourcePromise;
+
+        const sourceUrl = video.currentSrc || video.querySelector('source')?.src;
+        if (!sourceUrl) return Promise.resolve(false);
+
+        seekableSourcePromise = fetch(sourceUrl, { cache: 'force-cache' })
+          .then((response) => {
+            if (!response.ok) throw new Error(`Turntable media request failed: ${response.status}`);
+            return response.blob();
+          })
+          .then((blob) => URL.createObjectURL(blob))
+          .then((objectUrl) => new Promise((resolve) => {
+            const resumeTime = video.currentTime;
+            const resumePlayback = !video.paused && !video.ended;
+            const handleMetadata = () => {
+              const finalFrameTime = Math.max(0, video.duration - 1 / 24);
+              video.currentTime = Math.min(resumeTime, finalFrameTime);
+              turntable.dataset.pimm30Seekable = 'true';
+              if (resumePlayback) video.play().catch(() => {});
+              resolve(true);
+            };
+
+            video.addEventListener('loadedmetadata', handleMetadata, { once: true });
+            video.src = objectUrl;
+            video.load();
+            window.addEventListener('pagehide', () => URL.revokeObjectURL(objectUrl), { once: true });
+          }))
+          .catch(() => {
+            turntable.dataset.pimm30Seekable = 'false';
+            return false;
+          });
+
+        return seekableSourcePromise;
+      };
+
+      video.addEventListener('playing', prepareSeekableVideo, { once: true });
+
+      const secondsPerPixel = () => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0) return 0;
+        return video.duration / Math.max(turntable.clientWidth, 720);
+      };
+
+      const wrapTime = (time) => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0) return 0;
+        return ((time % video.duration) + video.duration) % video.duration;
+      };
 
       const showInteractiveFrame = () => {
         video.pause();
@@ -262,32 +314,41 @@
         turntable.classList.add('has-active-video', 'is-turntable-ready', 'is-dragging');
       };
 
-      const scrub = (deltaX) => {
+      const applyScrub = () => {
+        scrubFrame = 0;
+        if (pendingTime === null) return;
+        const nextTime = pendingTime;
+        pendingTime = null;
+        if (Math.abs(video.currentTime - nextTime) >= 1 / 48) video.currentTime = nextTime;
+      };
+
+      const queueScrub = (nextTime) => {
         if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-        let nextTime = video.currentTime + deltaX * secondsPerPixel;
-        while (nextTime < 0) nextTime += video.duration;
-        while (nextTime >= video.duration) nextTime -= video.duration;
-        video.currentTime = nextTime;
+        pendingTime = wrapTime(nextTime);
+        if (!scrubFrame) scrubFrame = window.requestAnimationFrame(applyScrub);
       };
 
       turntable.addEventListener('pointerdown', (event) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return;
         dragging = true;
-        lastX = event.clientX;
+        dragStartX = event.clientX;
+        dragStartTime = video.currentTime;
         turntable.setPointerCapture(event.pointerId);
         showInteractiveFrame();
       });
 
       turntable.addEventListener('pointermove', (event) => {
         if (!dragging) return;
-        const deltaX = event.clientX - lastX;
-        lastX = event.clientX;
-        scrub(deltaX);
+        queueScrub(dragStartTime + (event.clientX - dragStartX) * secondsPerPixel());
       });
 
       const stopDragging = (event) => {
         if (!dragging) return;
         dragging = false;
+        if (scrubFrame) {
+          window.cancelAnimationFrame(scrubFrame);
+          applyScrub();
+        }
         turntable.classList.remove('is-dragging');
         if (turntable.hasPointerCapture(event.pointerId)) turntable.releasePointerCapture(event.pointerId);
       };
@@ -298,7 +359,11 @@
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         event.preventDefault();
         showInteractiveFrame();
-        scrub(event.key === 'ArrowRight' ? 14 : -14);
+        queueScrub(video.currentTime + (event.key === 'ArrowRight' ? 14 : -14) * secondsPerPixel());
+        if (scrubFrame) {
+          window.cancelAnimationFrame(scrubFrame);
+          applyScrub();
+        }
         turntable.classList.remove('is-dragging');
       });
     });

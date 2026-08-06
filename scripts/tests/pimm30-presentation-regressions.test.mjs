@@ -35,6 +35,34 @@ test('configuration media supports pointer and keyboard scrubbing', () => {
   assert.match(script, /video\.currentTime = nextTime/);
 });
 
+test('configuration dragging coalesces absolute pointer positions into animation-frame seeks', () => {
+  const script = read('assets/maliev-pimm-30g.js');
+
+  assert.match(script, /dragStartTime \+ \(event\.clientX - dragStartX\) \* secondsPerPixel\(\)/);
+  assert.match(script, /scrubFrame = window\.requestAnimationFrame\(applyScrub\)/);
+  assert.match(script, /URL\.createObjectURL\(blob\)/);
+  assert.match(script, /fetch\(sourceUrl, \{ cache: 'force-cache' \}\)/);
+  assert.doesNotMatch(script, /const deltaX = event\.clientX - lastX/);
+});
+
+test('configuration turntable makes every rendered angle directly seekable', () => {
+  const output = execFileSync(
+    'ffprobe',
+    [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'frame=key_frame',
+      '-of', 'csv=p=0',
+      join(root, 'assets', 'pimm30-configuration-turntable-desktop.webm'),
+    ],
+    { encoding: 'utf8' }
+  );
+  const keyframeFlags = output.trim().split(/\s+/);
+
+  assert.equal(keyframeFlags.length, 168);
+  assert.ok(keyframeFlags.every((flag) => flag === '1'));
+});
+
 test('capacity animations retain every native Blender frame', () => {
   for (const asset of ['pimm30-capacity-three-cube-desktop.webm', 'pimm30-capacity-three-cube-mobile.webm']) {
     const output = execFileSync(
