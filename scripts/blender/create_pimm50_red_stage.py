@@ -22,8 +22,16 @@ import warnings
 from pathlib import Path
 from typing import Iterable
 
-import bpy
-from mathutils import Vector
+# The frame-containment pass is deliberately runnable with the normal system
+# Python so it can use Pillow without requiring a Blender render. All scene
+# construction continues to run only inside Blender.
+STANDALONE_CONTAINMENT_MODE = "--contain-rendered-frames" in sys.argv
+if not STANDALONE_CONTAINMENT_MODE:
+    import bpy
+    from mathutils import Vector
+else:
+    bpy = None
+    Vector = None
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -87,6 +95,7 @@ MOBILE_OUTPUT = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders"
     r"\renders\product-story\50g-red-stage\mobile"
 )
+CONTAINED_OUTPUT = DESKTOP_OUTPUT.parent / "contained"
 PROOF_FRAMES = (1, 20, 84, 101, 121)
 
 FPS = 24
@@ -130,6 +139,16 @@ RED_LIGHT_KEYFRAMES = (
     (121, 180.0),
 )
 
+# Faint shadow-catcher alpha extends to the raw render bounds even though the
+# actual machine and red fog are safely inset. These fixed, composition-aware
+# gutters smoothly contain only that outer veil. The complete machine remains
+# outside every fade gutter at all frames.
+EDGE_FADE_GUTTERS = {
+    "desktop": {"left": 160, "right": 160, "top": 40, "bottom": 40},
+    "mobile": {"left": 128, "right": 128, "top": 48, "bottom": 48},
+}
+EDGE_ZERO_BAND = 64
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -138,8 +157,161 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Render frames 1, 20, 84, 101 and 121 for both cameras.",
     )
-    argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
+    parser.add_argument(
+        "--contain-rendered-frames",
+        action="store_true",
+        help=(
+            "Post-process the accepted desktop/mobile RGBA sequences into a "
+            "separate edge-contained sequence using system Python and Pillow."
+        ),
+    )
+    parser.add_argument(
+        "--contained-output",
+        type=Path,
+        default=CONTAINED_OUTPUT,
+        help="Destination root for the contained desktop/mobile PNG sequences.",
+    )
+    argv = (
+        sys.argv[sys.argv.index("--") + 1 :]
+        if "--" in sys.argv
+        else sys.argv[1:]
+    )
     return parser.parse_args(argv)
+
+
+def cosine_edge_values(length: int, leading: int, trailing: int) -> list[int]:
+    """Return an 8-bit mask that is exactly zero at both canvas borders."""
+    leading_zero = min(EDGE_ZERO_BAND, leading // 2)
+    trailing_zero = min(EDGE_ZERO_BAND, trailing // 2)
+    if (
+        leading <= leading_zero + 1
+        or trailing <= trailing_zero + 1
+        or leading + trailing > length
+    ):
+        raise ValueError(
+            f"Invalid edge gutters for length {length}: {leading}, {trailing}"
+        )
+    values = [255] * length
+    for index in range(leading):
+        if index < leading_zero:
+            values[index] = 0
+            continue
+        progress = (index - leading_zero) / (leading - leading_zero - 1)
+        values[index] = round(255 * 0.5 * (1 - math.cos(math.pi * progress)))
+    for offset in range(trailing):
+        if offset < trailing_zero:
+            values[length - 1 - offset] = 0
+            continue
+        progress = (offset - trailing_zero) / (trailing - trailing_zero - 1)
+        values[length - 1 - offset] = round(
+            255 * 0.5 * (1 - math.cos(math.pi * progress))
+        )
+    values[0] = 0
+    values[-1] = 0
+    return values
+
+
+def contain_rgba_frame(source: Path, destination: Path, gutters: dict[str, int]) -> None:
+    """Contain outer alpha without altering visible RGB or interior pixels."""
+    from PIL import Image, ImageChops
+
+    with Image.open(source) as opened:
+        rgba = opened.convert("RGBA")
+    width, height = rgba.size
+    horizontal = Image.new("L", (width, 1))
+    horizontal.putdata(
+        cosine_edge_values(width, gutters["left"], gutters["right"])
+    )
+    vertical = Image.new("L", (1, height))
+    vertical.putdata(
+        cosine_edge_values(height, gutters["top"], gutters["bottom"])
+    )
+    mask = ImageChops.multiply(
+        horizontal.resize((width, height)),
+        vertical.resize((width, height)),
+    )
+    red, green, blue, alpha = rgba.split()
+    contained_alpha = ImageChops.multiply(alpha, mask)
+
+    # PNG stores straight alpha. Preserve RGB wherever alpha remains visible,
+    # and clear hidden RGB only when alpha becomes exactly zero so downstream
+    # VP9 encoding cannot introduce a matte fringe at the canvas boundary.
+    visible = contained_alpha.point(lambda value: 255 if value else 0)
+    contained = Image.merge(
+        "RGBA",
+        (
+            ImageChops.multiply(red, visible),
+            ImageChops.multiply(green, visible),
+            ImageChops.multiply(blue, visible),
+            contained_alpha,
+        ),
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(".tmp.png")
+    contained.save(temporary, format="PNG", compress_level=6)
+    temporary.replace(destination)
+
+
+def contain_rendered_frames(output_root: Path) -> dict[str, object]:
+    """Create deterministic contained sequences and exact loop boundaries."""
+    from PIL import Image, ImageChops
+
+    summary: dict[str, object] = {"output_root": str(output_root), "sequences": {}}
+    for label, source_dir in (("desktop", DESKTOP_OUTPUT), ("mobile", MOBILE_OUTPUT)):
+        destination_dir = output_root / label
+        expected_size = CAMERA_SPECS[label]["resolution"]
+        source_frames = [
+            source_dir / f"pimm50-red-stage-{frame:04d}.png"
+            for frame in range(FRAME_START, FRAME_END + 1)
+        ]
+        missing = [str(path) for path in source_frames if not path.is_file()]
+        if missing:
+            raise RuntimeError(f"Missing {label} source frames: {missing[:3]}")
+
+        for frame, source in enumerate(source_frames, start=FRAME_START):
+            destination = destination_dir / f"pimm50-red-stage-{frame:04d}.png"
+            contain_rgba_frame(source, destination, EDGE_FADE_GUTTERS[label])
+        first = destination_dir / "pimm50-red-stage-0001.png"
+        boundary = destination_dir / "pimm50-red-stage-0121.png"
+        shutil.copyfile(first, boundary)
+
+        border_maximum = 0
+        for frame in range(FRAME_START, LOOP_BOUNDARY_FRAME + 1):
+            path = destination_dir / f"pimm50-red-stage-{frame:04d}.png"
+            with Image.open(path) as image:
+                rgba = image.convert("RGBA")
+            if rgba.size != expected_size:
+                raise RuntimeError(f"Unexpected {label} dimensions at {path}: {rgba.size}")
+            alpha = rgba.getchannel("A")
+            width, height = rgba.size
+            border = Image.new("L", (2 * width + 2 * height, 1))
+            border.putdata(
+                list(alpha.crop((0, 0, width, 1)).getdata())
+                + list(alpha.crop((0, height - 1, width, height)).getdata())
+                + list(alpha.crop((0, 0, 1, height)).getdata())
+                + list(alpha.crop((width - 1, 0, width, height)).getdata())
+            )
+            border_maximum = max(border_maximum, max(border.getdata()))
+        with Image.open(first) as first_image, Image.open(boundary) as boundary_image:
+            loop_identical = (
+                ImageChops.difference(
+                    first_image.convert("RGBA"), boundary_image.convert("RGBA")
+                ).getbbox()
+                is None
+            )
+        if border_maximum != 0 or not loop_identical:
+            raise RuntimeError(
+                f"Containment audit failed for {label}: border={border_maximum}, "
+                f"loop_identical={loop_identical}"
+            )
+        summary["sequences"][label] = {
+            "frames": LOOP_BOUNDARY_FRAME,
+            "resolution": expected_size,
+            "gutters": EDGE_FADE_GUTTERS[label],
+            "border_alpha_max": border_maximum,
+            "frame_1_equals_121": loop_identical,
+        }
+    return summary
 
 
 def material_slots(obj: bpy.types.Object) -> tuple[str | None, ...]:
@@ -975,6 +1147,9 @@ def render_proofs(build: dict[str, object]) -> list[str]:
 
 def main() -> None:
     args = parse_args()
+    if args.contain_rendered_frames:
+        print(json.dumps(contain_rendered_frames(args.contained_output), indent=2))
+        return
     assert_running_from_target()
     product_collection, material_snapshot = assert_machine_contract()
     build = create_stage(product_collection, material_snapshot)
