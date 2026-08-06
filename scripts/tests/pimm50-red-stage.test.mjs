@@ -7,6 +7,8 @@ const parseTemplate = (source) => JSON.parse(source.replace(/^\/\*[\s\S]*?\*\//,
 
 const section = read('sections/maliev-pimm-30g-story.liquid');
 const chapter = read('snippets/maliev-pimm-30g-chapter.liquid');
+const styles = read('assets/maliev-pimm-30g.css');
+const blenderBuilder = read('scripts/blender/create_pimm50_red_stage.py');
 const template = parseTemplate(read('templates/product.injection-molding-machine.json'));
 const en = parseTemplate(read('locales/en.default.json'));
 const th = parseTemplate(read('locales/th.json'));
@@ -99,4 +101,22 @@ test('product story wires dedicated red-stage assets', () => {
   assert.equal(settings.mobile_video_asset, 'pimm50-red-stage-mobile.webm');
   assert.equal(settings.desktop_poster_asset, 'pimm50-red-stage-desktop.webp');
   assert.equal(settings.mobile_poster_asset, 'pimm50-red-stage-mobile.webp');
+});
+
+test('50G cinematic lockup uses condensed title typography and a brush backdrop', () => {
+  assert.match(section, /class="pimm50-lockup__title"/);
+  assert.match(styles, /--pimm50-font-impact:\s*'Antonio'/);
+  assert.match(styles, /--pimm50-font-marker:\s*'Permanent Marker'/);
+  assert.match(
+    styles,
+    /data-pimm30-layer='pimm30-next_model'\]::before[\s\S]*?content:\s*'50G'[\s\S]*?var\(--pimm50-font-marker\)/,
+  );
+});
+
+test('50G Blender builder preserves alpha production and hides unsupported controller digits', () => {
+  assert.match(blenderBuilder, /PIMM-50g-red-stage-loop-v2\.blend/);
+  assert.match(blenderBuilder, /film_transparent\s*=\s*True/);
+  assert.match(blenderBuilder, /neutralize_unverified_controller_readout/);
+  assert.match(blenderBuilder, /create_smoke_cards/);
+  assert.doesNotMatch(blenderBuilder, /350\s*°?C/i);
 });

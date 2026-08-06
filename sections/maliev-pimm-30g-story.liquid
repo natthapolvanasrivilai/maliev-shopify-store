@@ -185,12 +185,12 @@
             {%- when 'next_model' -%}
               <div class="pimm30-next-model__intro">
                 <p class="pimm30-chapter__label">{{ eyebrow_key | t }}</p>
-                <h2>{{ heading_key | t }}</h2>
-                <p>{{ body_key | t }}</p>
+                <h2 class="pimm50-lockup__title">{{ heading_key | t }}</h2>
+                <p class="pimm50-lockup__summary">{{ body_key | t }}</p>
                 <ul class="pimm30-next-model__upgrades">
-                  <li>{{ 'products.pimm30_story.next_model.facts.capacity' | t }}</li>
-                  <li>{{ 'products.pimm30_story.next_model.facts.melt_zone' | t }}</li>
-                  <li>{{ 'products.pimm30_story.next_model.facts.heaters' | t }}</li>
+                  <li data-pimm50-fact="capacity">{{ 'products.pimm30_story.next_model.facts.capacity' | t }}</li>
+                  <li data-pimm50-fact="melt-zone">{{ 'products.pimm30_story.next_model.facts.melt_zone' | t }}</li>
+                  <li data-pimm50-fact="heaters">{{ 'products.pimm30_story.next_model.facts.heaters' | t }}</li>
                 </ul>
               </div>
               {%- if next_product != blank and next_variant != blank -%}
