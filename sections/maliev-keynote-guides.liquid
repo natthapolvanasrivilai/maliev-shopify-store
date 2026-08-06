@@ -1,0 +1,86 @@
+{{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
+
+<section class="mkey mkey--guides" aria-label="{{ section.settings.aria_label | escape }}">
+  <div class="mkey__frame" data-mkr-group>
+    <div class="mkey__guides-head" data-mkr>
+      <h2 class="mkey__title">{{ section.settings.heading }}</h2>
+      <a class="mkey__btn mkey__btn--secondary" href="{{ section.settings.link | default: '/blogs/news' }}">{{ section.settings.link_label | default: 'See all posts' }}</a>
+    </div>
+    {%- assign guide_blog = blogs['news'] -%}
+    {%- if guide_blog.articles.size > 0 -%}
+      <ul class="mkey__guides-bento">
+        {%- for article in guide_blog.articles limit: 6 -%}
+          {%- assign guide_is_hero = false -%}
+          {%- if forloop.index <= 2 -%}
+            {%- assign guide_is_hero = true -%}
+          {%- endif -%}
+          <li class="mkey__guides-bento__item{% if guide_is_hero %} mkey__guides-bento__item--hero{% endif %}" data-mkr>
+            <a class="mkey__guides-bento__link" href="{{ article.url }}">
+              <div class="mkey__guides-bento__media">
+                {%- if article.image -%}
+                  {%- if guide_is_hero -%}
+                    {{
+                      article.image
+                      | image_url: width: 900
+                      | image_tag: widths: '450, 700, 900', sizes: '(max-width: 749px) 92vw, 44vw', loading: 'lazy'
+                    }}
+                  {%- else -%}
+                    {{
+                      article.image
+                      | image_url: width: 500
+                      | image_tag: widths: '250, 380, 500', sizes: '(max-width: 749px) 46vw, 21vw', loading: 'lazy'
+                    }}
+                  {%- endif -%}
+                {%- endif -%}
+              </div>
+              <div class="mkey__guides-bento__scrim"></div>
+              <div class="mkey__guides-bento__body">
+                <p class="mkey__guides-bento__date">{{ article.published_at | date: '%b %d, %Y' }}</p>
+                <h3 class="mkey__guides-bento__title">{{ article.title }}</h3>
+              </div>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Keynote guides",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "Guides and workshop notes"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Guides and workshop notes."
+    },
+    {
+      "type": "text",
+      "id": "link_label",
+      "label": "Blog link label",
+      "default": "See all posts"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "Blog link",
+      "info": "Defaults to /blogs/news. The section always pulls the 6 latest posts from the news blog automatically."
+    }
+  ],
+  "presets": [
+    {
+      "name": "Keynote guides"
+    }
+  ]
+}
+{% endschema %}

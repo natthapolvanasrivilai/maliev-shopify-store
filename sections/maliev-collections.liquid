@@ -1,0 +1,570 @@
+{{ 'component-card.css' | asset_url | stylesheet_tag }}
+{{ 'section-collection-list.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    --mc-directory-columns: {{ section.settings.columns_desktop }};
+    --mc-directory-columns-mobile: {{ section.settings.columns_mobile }};
+  }
+{%- endstyle -%}
+
+{%- liquid
+  assign directory_title = section.settings.title
+  assign directory_intro = section.settings.intro
+  assign language_code = localization.language.iso_code | downcase
+  assign locale_code = request.locale.iso_code | downcase
+  assign is_th = false
+  if language_code contains 'th' or locale_code contains 'th' or request.path contains '/th/'
+    assign is_th = true
+  endif
+  if is_th
+    assign directory_title = section.settings.title_th | default: directory_title
+    assign directory_intro = section.settings.intro_th | default: directory_intro
+  endif
+  assign help_title = section.settings.help_title
+  assign help_text = section.settings.help_text
+  assign help_label = section.settings.help_label
+  if is_th
+    assign help_title = section.settings.help_title_th | default: help_title
+    assign help_text = section.settings.help_text_th | default: help_text
+    assign help_label = section.settings.help_label_th | default: help_label
+  endif
+-%}
+
+<maliev-collection-directory class="mc-collection-directory">
+  <div class="page-width">
+    <header class="mc-collection-directory__header">
+      <div class="mc-collection-directory__headline">
+        <h1 class="mc-collection-directory__title inline-richtext">{{ directory_title }}</h1>
+        {%- if directory_intro != blank -%}
+          <div class="mc-collection-directory__intro rte">{{ directory_intro }}</div>
+        {%- endif -%}
+      </div>
+      <div class="mc-collection-directory__guidance">
+        {%- if help_title != blank -%}
+          <aside class="mc-collection-directory__help">
+            <div>
+              <h2>{{ help_title }}</h2>
+              {%- if help_text != blank -%}
+                <div class="rte">{{ help_text }}</div>
+              {%- endif -%}
+            </div>
+            {%- if section.settings.help_link != blank and help_label != blank -%}
+              <a href="{{ section.settings.help_link }}">
+                <span>{{ help_label }}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            {%- endif -%}
+          </aside>
+        {%- endif -%}
+      </div>
+    </header>
+    {%- liquid
+      assign configured_family_count = 0
+      for block in section.blocks
+        if block.type == 'family' and block.settings.primary_collection != blank
+          assign configured_family_count = configured_family_count | plus: 1
+        endif
+      endfor
+    -%}
+
+    {%- if configured_family_count > 0 -%}
+      <nav class="mc-collection-directory__nav" aria-label="{{ directory_title | escape }}" data-family-navigation>
+        <ul role="list">
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'family' or block.settings.primary_collection == blank -%}
+              {%- continue -%}
+            {%- endif -%}
+            {%- liquid
+              assign family_title = block.settings.heading
+              if is_th and block.settings.heading_th != blank
+                assign family_title = block.settings.heading_th
+              endif
+              if family_title == blank
+                assign family_title = block.settings.primary_collection.title
+              endif
+            -%}
+            <li>
+              <a href="#Family-{{ block.id }}" aria-controls="Family-{{ block.id }}" data-family-link>
+                {{ family_title }}
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </nav>
+
+      <div class="mc-collection-family-map">
+        {%- for block in section.blocks -%}
+          {%- if block.type != 'family' or block.settings.primary_collection == blank -%}
+            {%- continue -%}
+          {%- endif -%}
+          {%- liquid
+            assign family_title = block.settings.heading
+            if is_th and block.settings.heading_th != blank
+              assign family_title = block.settings.heading_th
+            endif
+            if family_title == blank
+              assign family_title = block.settings.primary_collection.title
+            endif
+            assign family_description = block.settings.description
+            if is_th and block.settings.description_th != blank
+              assign family_description = block.settings.description_th
+            endif
+            if family_description == blank
+              assign family_description = block.settings.primary_collection.description
+            endif
+          -%}
+          {% render 'card-collection-family',
+            block: block,
+            family_title: family_title,
+            family_description: family_description,
+            is_th: is_th
+          %}
+        {%- endfor -%}
+      </div>
+    {%- else -%}
+      {%- liquid
+        case section.settings.sort
+          when 'products_high', 'products_low'
+            assign collections = collections | sort: 'all_products_count'
+          when 'date', 'date_reversed'
+            assign collections = collections | sort: 'published_at'
+        endcase
+
+        if section.settings.sort == 'products_high' or section.settings.sort == 'date_reversed' or section.settings.sort == 'alphabetical_reversed'
+          assign collections = collections | reverse
+        endif
+
+        assign modulo_result = 28 | modulo: section.settings.columns_desktop
+        assign paginate_by = 30
+        if modulo_result == 0
+          assign paginate_by = 28
+        endif
+      -%}
+      {%- paginate collections by paginate_by -%}
+        {%- assign featured_collection = section.settings.featured_collection -%}
+        <ul class="mc-collection-directory__grid" role="list">
+          {%- if paginate.current_page == 1 and featured_collection != blank -%}
+            <li class="mc-collection-directory__item mc-collection-directory__item--featured">
+              {% render 'card-collection',
+                card_collection: featured_collection,
+                media_aspect_ratio: 'adapt',
+                columns: section.settings.columns_desktop,
+                featured: true
+              %}
+            </li>
+          {%- endif -%}
+
+          {%- for collection in collections -%}
+            {%- if featured_collection != blank and collection.id == featured_collection.id -%}
+              {%- continue -%}
+            {%- endif -%}
+            <li class="mc-collection-directory__item">
+              {% render 'card-collection',
+                card_collection: collection,
+                media_aspect_ratio: section.settings.image_ratio,
+                columns: 3
+              %}
+            </li>
+          {%- endfor -%}
+        </ul>
+        {% render 'pagination', paginate: paginate %}
+      {%- endpaginate -%}
+    {%- endif -%}
+  </div>
+</maliev-collection-directory>
+
+{% javascript %}
+  if (!customElements.get('maliev-collection-directory')) {
+    customElements.define(
+      'maliev-collection-directory',
+      class MalievCollectionDirectory extends HTMLElement {
+        connectedCallback() {
+          this.links = Array.from(this.querySelectorAll('[data-family-link]'));
+          this.panels = Array.from(this.querySelectorAll('[data-family-panel]'));
+
+          if (!this.links.length || !this.panels.length) return;
+
+          this.abortController = new AbortController();
+          this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          this.classList.add('is-enhanced');
+
+          this.links.forEach((link) => {
+            link.addEventListener(
+              'click',
+              () => this.setCurrent(link.getAttribute('href').slice(1)),
+              { signal: this.abortController.signal }
+            );
+          });
+
+          const initialPanel = window.location.hash ? document.getElementById(window.location.hash.slice(1)) : null;
+          if (initialPanel && this.contains(initialPanel) && initialPanel.matches('[data-family-panel]')) {
+            this.setCurrent(initialPanel.id);
+          }
+
+          this.setupViewportTracking();
+        }
+
+        disconnectedCallback() {
+          this.abortController?.abort();
+          if (this.frame) window.cancelAnimationFrame(this.frame);
+        }
+
+        setupViewportTracking() {
+          const update = () => {
+            this.frame = null;
+            const revealLine = window.innerHeight * 0.88;
+            const currentLine = Math.max(120, Math.min(window.innerHeight * 0.28, 240));
+
+            this.panels.forEach((panel) => {
+              if (this.reduceMotion || panel.getBoundingClientRect().top < revealLine) {
+                panel.classList.add('is-visible');
+              }
+            });
+
+            const current =
+              this.panels.find((panel) => {
+                const bounds = panel.getBoundingClientRect();
+                return bounds.top <= currentLine && bounds.bottom > currentLine;
+              }) ||
+              this.panels.slice().sort(
+                (first, second) =>
+                  Math.abs(first.getBoundingClientRect().top - currentLine) -
+                  Math.abs(second.getBoundingClientRect().top - currentLine)
+              )[0];
+
+            if (current) this.setCurrent(current.id);
+          };
+
+          const queueUpdate = () => {
+            if (this.frame) return;
+            this.frame = window.requestAnimationFrame(update);
+          };
+
+          window.addEventListener('scroll', queueUpdate, { passive: true, signal: this.abortController.signal });
+          window.addEventListener('resize', queueUpdate, { passive: true, signal: this.abortController.signal });
+          queueUpdate();
+        }
+
+        setCurrent(panelId) {
+          this.links.forEach((link) => {
+            const isCurrent = link.getAttribute('href') === `#${panelId}`;
+            link.classList.toggle('is-current', isCurrent);
+            if (isCurrent) {
+              link.setAttribute('aria-current', 'location');
+              this.keepLinkVisible(link);
+            } else {
+              link.removeAttribute('aria-current');
+            }
+          });
+        }
+
+        keepLinkVisible(link) {
+          const navigation = link.closest('[data-family-navigation]');
+          if (!navigation || navigation.scrollWidth <= navigation.clientWidth) return;
+
+          const navigationBounds = navigation.getBoundingClientRect();
+          const linkBounds = link.getBoundingClientRect();
+          const inset = 20;
+          const isClipped = linkBounds.left < navigationBounds.left + inset || linkBounds.right > navigationBounds.right - inset;
+
+          if (!isClipped) return;
+
+          const targetLeft =
+            navigation.scrollLeft + linkBounds.left - navigationBounds.left - (navigation.clientWidth - linkBounds.width) / 2;
+          navigation.scrollTo({ left: targetLeft, behavior: this.reduceMotion ? 'auto' : 'smooth' });
+        }
+      }
+    );
+  }
+{% endjavascript %}
+{% schema %}
+{
+  "name": "t:sections.main-list-collections.name",
+  "class": "section",
+  "settings": [
+    {
+      "type": "inline_richtext",
+      "id": "title",
+      "label": "t:sections.main-list-collections.settings.title.label",
+      "default": "t:sections.main-list-collections.settings.title.default"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "title_th",
+      "label": "Thai heading",
+      "default": "คอลเลกชัน"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Introduction",
+      "info": "Explain how customers should choose between the product families.",
+      "default": "<p>Everything we make, organized by product family so you can move directly to the right machines, tooling, materials, or finished products.</p>"
+    },
+    {
+      "type": "richtext",
+      "id": "intro_th",
+      "label": "Thai introduction",
+      "default": "<p>เริ่มจากสิ่งที่คุณต้องการผลิต ติดตั้ง บำรุงรักษา หรือดาวน์โหลด แต่ละกลุ่มจะนำไปยังผลิตภัณฑ์ที่ MALIEV ผลิตและให้การสนับสนุน</p>"
+    },
+    {
+      "type": "select",
+      "id": "sort",
+      "options": [
+        {
+          "value": "alphabetical",
+          "label": "t:sections.main-list-collections.settings.sort.options__1.label"
+        },
+        {
+          "value": "alphabetical_reversed",
+          "label": "t:sections.main-list-collections.settings.sort.options__2.label"
+        },
+        {
+          "value": "date_reversed",
+          "label": "t:sections.main-list-collections.settings.sort.options__3.label"
+        },
+        {
+          "value": "date",
+          "label": "t:sections.main-list-collections.settings.sort.options__4.label"
+        },
+        {
+          "value": "products_high",
+          "label": "t:sections.main-list-collections.settings.sort.options__5.label"
+        },
+        {
+          "value": "products_low",
+          "label": "t:sections.main-list-collections.settings.sort.options__6.label"
+        }
+      ],
+      "default": "alphabetical",
+      "label": "t:sections.main-list-collections.settings.sort.label"
+    },
+    {
+      "type": "collection",
+      "id": "featured_collection",
+      "label": "Featured collection",
+      "info": "Used only when no product-family blocks are configured."
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:sections.main-list-collections.settings.image_ratio.options__1.label"
+        },
+        {
+          "value": "portrait",
+          "label": "t:sections.main-list-collections.settings.image_ratio.options__2.label"
+        },
+        {
+          "value": "square",
+          "label": "t:sections.main-list-collections.settings.image_ratio.options__3.label"
+        }
+      ],
+      "default": "adapt",
+      "label": "t:sections.main-list-collections.settings.image_ratio.label"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "default": 3,
+      "label": "t:sections.main-list-collections.settings.columns_desktop.label"
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "options": [
+        {
+          "value": "1",
+          "label": "t:sections.main-list-collections.settings.columns_mobile.options__1.label"
+        },
+        {
+          "value": "2",
+          "label": "t:sections.main-list-collections.settings.columns_mobile.options__2.label"
+        }
+      ],
+      "default": "2",
+      "label": "t:sections.main-list-collections.settings.columns_mobile.label"
+    },
+    {
+      "type": "header",
+      "content": "Decision support"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "help_title",
+      "label": "Help heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "help_title_th",
+      "label": "Thai help heading"
+    },
+    {
+      "type": "richtext",
+      "id": "help_text",
+      "label": "Help text"
+    },
+    {
+      "type": "richtext",
+      "id": "help_text_th",
+      "label": "Thai help text"
+    },
+    {
+      "type": "url",
+      "id": "help_link",
+      "label": "Help link"
+    },
+    {
+      "type": "text",
+      "id": "help_label",
+      "label": "Help link label"
+    },
+    {
+      "type": "text",
+      "id": "help_label_th",
+      "label": "Thai help link label"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "family",
+      "name": "Product family",
+      "settings": [
+        {
+          "type": "select",
+          "id": "family_type",
+          "label": "Family type",
+          "options": [
+            { "value": "machines", "label": "Machines and molding" },
+            { "value": "simmount", "label": "SimMount" },
+            { "value": "made", "label": "MALIEV-made products" },
+            { "value": "digital", "label": "Digital models" },
+            { "value": "other", "label": "Other" }
+          ],
+          "default": "other"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Custom heading",
+          "info": "Leave blank to use the primary collection title."
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading_th",
+          "label": "Thai heading",
+          "info": "Leave blank to use the primary collection title."
+        },
+        {
+          "type": "richtext",
+          "id": "description",
+          "label": "Custom description",
+          "info": "Leave blank to use the primary collection description."
+        },
+        {
+          "type": "richtext",
+          "id": "description_th",
+          "label": "Thai description",
+          "info": "Leave blank to use the primary collection description."
+        },
+        {
+          "type": "text",
+          "id": "primary_label",
+          "label": "Primary link label",
+          "info": "Leave blank to use the primary collection title."
+        },
+        {
+          "type": "text",
+          "id": "primary_label_th",
+          "label": "Thai primary link label"
+        },
+        {
+          "type": "text",
+          "id": "image_alt",
+          "label": "Image description",
+          "info": "Describe the product shown when the collection image has no useful alternative text."
+        },
+        {
+          "type": "text",
+          "id": "image_alt_th",
+          "label": "Thai image description"
+        },
+        {
+          "type": "richtext",
+          "id": "decision_details",
+          "label": "Decision details"
+        },
+        {
+          "type": "richtext",
+          "id": "decision_details_th",
+          "label": "Thai decision details"
+        },
+        {
+          "type": "range",
+          "id": "product_preview_count",
+          "min": 0,
+          "max": 3,
+          "step": 1,
+          "default": 0,
+          "label": "Product images in media"
+        },
+        {
+          "type": "product",
+          "id": "featured_product",
+          "label": "Featured product image",
+          "info": "Overrides the collection image when no product mosaic is selected."
+        },
+        {
+          "type": "collection",
+          "id": "primary_collection",
+          "label": "Primary collection"
+        },
+        {
+          "type": "collection",
+          "id": "related_collection_1",
+          "label": "Related collection 1"
+        },
+        {
+          "type": "collection",
+          "id": "related_collection_2",
+          "label": "Related collection 2"
+        },
+        {
+          "type": "collection",
+          "id": "related_collection_3",
+          "label": "Related collection 3"
+        },
+        {
+          "type": "select",
+          "id": "layout",
+          "label": "Layout",
+          "options": [
+            { "value": "lead", "label": "Lead family" },
+            { "value": "feature", "label": "Feature family" },
+            { "value": "compact", "label": "Compact family" },
+            { "value": "standard", "label": "Standard family" }
+          ],
+          "default": "standard"
+        },
+        {
+          "type": "select",
+          "id": "tone",
+          "label": "Surface tone",
+          "options": [
+            { "value": "light", "label": "Light" },
+            { "value": "carbon", "label": "SimMount carbon" }
+          ],
+          "default": "light"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8
+}
+{% endschema %}

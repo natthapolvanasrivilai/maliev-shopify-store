@@ -1,0 +1,122 @@
+{%- paginate blog.articles by 6 -%}
+  <section class="mc-journal" style="--mc-section-top: {{ section.settings.padding_top }}px; --mc-section-bottom: {{ section.settings.padding_bottom }}px;">
+    <div class="page-width">
+      <header class="mc-journal__header">
+        <p class="maliev-eyebrow">{{ blog.title | escape }}</p>
+        <h1>{{ blog.title | escape }}</h1>
+      </header>
+
+      <div class="mc-journal__grid{% if section.settings.layout == 'collage' %} mc-journal__grid--editorial{% endif %}">
+        {%- for article in blog.articles -%}
+          {% render 'article-card',
+            blog: blog,
+            article: article,
+            media_height: section.settings.image_height,
+            media_aspect_ratio: article.image.aspect_ratio,
+            show_image: section.settings.show_image,
+            show_date: section.settings.show_date,
+            show_author: section.settings.show_author,
+            show_excerpt: true,
+            lazy_load: forloop.index > 2
+          %}
+        {%- endfor -%}
+      </div>
+
+      {%- if paginate.pages > 1 -%}
+        {% render 'pagination', paginate: paginate %}
+      {%- endif -%}
+    </div>
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "t:sections.main-blog.name",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "layout",
+      "options": [
+        {
+          "value": "grid",
+          "label": "t:sections.main-blog.settings.layout.options__1.label"
+        },
+        {
+          "value": "collage",
+          "label": "t:sections.main-blog.settings.layout.options__2.label"
+        }
+      ],
+      "default": "collage",
+      "label": "t:sections.main-blog.settings.layout.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "default": true,
+      "label": "t:sections.main-blog.settings.show_image.label"
+    },
+    {
+      "type": "select",
+      "id": "image_height",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:sections.main-blog.settings.image_height.options__1.label"
+        },
+        {
+          "value": "small",
+          "label": "t:sections.main-blog.settings.image_height.options__2.label"
+        },
+        {
+          "value": "medium",
+          "label": "t:sections.main-blog.settings.image_height.options__3.label"
+        },
+        {
+          "value": "large",
+          "label": "t:sections.main-blog.settings.image_height.options__4.label"
+        }
+      ],
+      "default": "medium",
+      "label": "t:sections.main-blog.settings.image_height.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "default": true,
+      "label": "t:sections.main-blog.settings.show_date.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_author",
+      "default": false,
+      "label": "t:sections.main-blog.settings.show_author.label"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.padding.section_padding_heading"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_bottom",
+      "default": 36
+    }
+  ]
+}
+{% endschema %}

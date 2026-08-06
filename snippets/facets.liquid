@@ -20,6 +20,14 @@
   assign sort_by = results.sort_by | default: results.default_sort_by
   assign total_active_values = 0
   assign default_presentation = 'text'
+  for filter in results.filters
+    assign total_active_values = total_active_values | plus: filter.active_values.size
+    if filter.type == 'price_range'
+      if filter.min_value.value != null or filter.max_value.value != null
+        assign total_active_values = total_active_values | plus: 1
+      endif
+    endif
+  endfor
   if results.url
     assign results_url = results.url
   else
@@ -66,11 +74,13 @@
                       {{ 'products.facets.filter_by_label' | t }}
                     </h2>
                   {%- endunless -%}
-                  <facet-remove class="active-facets__button-wrapper">
-                    <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
-                      <span>{{ 'products.facets.clear_all' | t }}</span>
-                    </a>
-                  </facet-remove>
+                  {%- if total_active_values > 0 -%}
+                    <facet-remove class="active-facets__button-wrapper">
+                      <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
+                        <span>{{ 'products.facets.clear_all' | t }}</span>
+                      </a>
+                    </facet-remove>
+                  {%- endif -%}
                 </div>
                 {%- for filter in results.filters -%}
                   {%- for value in filter.active_values -%}
@@ -111,7 +121,6 @@
             {% comment %} Filters for both horizontal and vertical filter {% endcomment %}
             {%- for filter in results.filters -%}
               {% liquid
-                assign total_active_values = total_active_values | plus: filter.active_values.size
                 assign presentation = filter.presentation | default: default_presentation
 
                 if presentation == 'image'
@@ -205,17 +214,8 @@
                             {%- endcapture -%}
 
                             {%- capture text_value -%}
-                              <span class="facet-checkbox__text" aria-hidden="true">
+                              <span class="facet-checkbox__text">
                                 <span class="facet-checkbox__text-label">{{- value.label | escape }}</span> ({{- value.count -}})
-                              </span>
-                              <span class="visually-hidden">
-                                {{- value.label | escape }} (
-                                {%- if value.count == 1 -%}
-                                  {{- 'products.facets.product_count_simple.one' | t: count: value.count -}}
-                                {%- else -%}
-                                  {{- 'products.facets.product_count_simple.other' | t: count: value.count -}}
-                                {%- endif -%}
-                                )
                               </span>
                             {%- endcapture -%}
 
@@ -370,11 +370,13 @@
                   {%- endif -%}
                 {% endif %}
               {%- endfor -%}
-              <facet-remove class="active-facets__button-wrapper">
-                <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
-                  <span>{{ 'products.facets.clear_all' | t }}</span>
-                </a>
-              </facet-remove>
+              {%- if total_active_values > 0 -%}
+                <facet-remove class="active-facets__button-wrapper">
+                  <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
+                    <span>{{ 'products.facets.clear_all' | t }}</span>
+                  </a>
+                </facet-remove>
+              {%- endif -%}
             </div>
           {%- endif -%}
         {% endif %}
@@ -574,17 +576,8 @@
                               {%- endcapture -%}
 
                               {%- capture text_value -%}
-                                <span class="facet-checkbox__text" aria-hidden="true">
+                                <span class="facet-checkbox__text">
                                   <span class="facet-checkbox__text-label">{{- value.label | escape }}</span> ({{- value.count -}})
-                                </span>
-                                <span class="visually-hidden">
-                                  {{- value.label | escape }} (
-                                  {%- if value.count == '1' -%}
-                                    {{- 'products.facets.product_count_simple.one' | t: count: value.count -}}
-                                  {%- else -%}
-                                    {{- 'products.facets.product_count_simple.other' | t: count: value.count -}}
-                                  {%- endif -%}
-                                  )
                                 </span>
                               {%- endcapture -%}
 
@@ -654,7 +647,7 @@
                             <button
                               type="button"
                               class="button button--primary"
-                              onclick="this.closest('.mobile-facets__wrapper').querySelector('summary').click()"
+                              data-mobile-facets-apply
                             >
                               {{ 'products.facets.apply' | t }}
                             </button>
@@ -705,7 +698,7 @@
                             <button
                               type="button"
                               class="button button--primary"
-                              onclick="this.closest('.mobile-facets__wrapper').querySelector('summary').click()"
+                              data-mobile-facets-apply
                             >
                               {{ 'products.facets.apply' | t }}
                             </button>
@@ -753,15 +746,17 @@
               {%- endif -%}
 
               <div class="mobile-facets__footer">
-                <facet-remove class="mobile-facets__clear-wrapper">
-                  <a href="{{ results_url }}" class="mobile-facets__clear underlined-link">
-                    {{- 'products.facets.clear_all' | t -}}
-                  </a>
-                </facet-remove>
+                {%- if total_active_values > 0 -%}
+                  <facet-remove class="mobile-facets__clear-wrapper">
+                    <a href="{{ results_url }}" class="mobile-facets__clear underlined-link">
+                      {{- 'products.facets.clear_all' | t -}}
+                    </a>
+                  </facet-remove>
+                {%- endif -%}
                 <button
                   type="button"
                   class="button button--primary"
-                  onclick="this.closest('.mobile-facets__wrapper').querySelector('summary').click()"
+                  data-mobile-facets-apply
                 >
                   {{ 'products.facets.apply' | t }}
                 </button>
@@ -816,11 +811,13 @@
         {%- endif -%}
       {%- endif -%}
     {%- endfor -%}
-    <facet-remove class="active-facets__button-wrapper">
-      <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
-        <span>{{ 'products.facets.clear_all' | t }}</span>
-      </a>
-    </facet-remove>
+    {%- if total_active_values > 0 -%}
+      <facet-remove class="active-facets__button-wrapper">
+        <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
+          <span>{{ 'products.facets.clear_all' | t }}</span>
+        </a>
+      </facet-remove>
+    {%- endif -%}
   </div>
   {% comment %} Sort, product count and filter pills at the end when filter is type of Drawer for the correct tabbing order {% endcomment %}
   {%- if enable_sorting and filter_type == 'drawer' -%}
@@ -925,11 +922,13 @@
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
-          <facet-remove class="active-facets__button-wrapper">
-            <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
-              <span>{{ 'products.facets.clear_all' | t }}</span>
-            </a>
-          </facet-remove>
+          {%- if total_active_values > 0 -%}
+            <facet-remove class="active-facets__button-wrapper">
+              <a href="{{ results_url }}" class="active-facets__button-remove underlined-link">
+                <span>{{ 'products.facets.clear_all' | t }}</span>
+              </a>
+            </facet-remove>
+          {%- endif -%}
         </div>
       </form>
     </facet-filters-form>

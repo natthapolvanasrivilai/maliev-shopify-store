@@ -10,7 +10,7 @@
 {
   "sections": {
     "slideshow_JjbcJx": {
-      "type": "slideshow",
+      "type": "maliev-slideshow",
       "blocks": {
         "slide_qGBLdM": {
           "type": "slide",
@@ -66,7 +66,7 @@
       }
     },
     "multirow_RjeRRr": {
-      "type": "multirow",
+      "type": "maliev-multirow",
       "blocks": {
         "row_xJ4JWi": {
           "type": "row",
@@ -94,9 +94,9 @@
           "type": "row",
           "settings": {
             "image": "shopify://shop_images/simmount-pro-vesa.6.png",
-            "caption": "Built for Sim Rigs",
+            "caption": "Profile Compatibility",
             "heading": "Fits 40x80 Aluminum Profiles",
-            "text": "<p>Securely mounts to 40x80 aluminum profiles with 10mm slots using M8 screws, ensuring stability and reliability for any racing rig.</p>",
+            "text": "<p>Mounts to compatible 40x80 aluminum profiles with 10 mm slots using the specified M8 hardware. Check your profile dimensions and slot size before ordering.</p>",
             "button_label": "",
             "button_link": ""
           }
@@ -176,7 +176,7 @@
       }
     },
     "main": {
-      "type": "main-product",
+      "type": "maliev-product",
       "blocks": {
         "vendor": {
           "type": "text",
@@ -254,7 +254,7 @@
       }
     },
     "related-products": {
-      "type": "related-products",
+      "type": "maliev-related-products",
       "custom_css": [],
       "settings": {
         "heading": "<strong>You may also like</strong>",
@@ -279,7 +279,7 @@
       }
     },
     "multicolumn_Ve34LV": {
-      "type": "multicolumn",
+      "type": "maliev-multicolumn",
       "blocks": {
         "column_bekxPG": {
           "type": "column",

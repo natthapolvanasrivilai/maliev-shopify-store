@@ -1,0 +1,70 @@
+{% doc %}
+Renders one manufacturing service link from a header service block.
+
+@param {block} service_block - Header manufacturing service block.
+@param {string} variant - Visual treatment: compact, featured, or mobile.
+@param {boolean} [show_arrow] - Whether to show the directional arrow.
+
+@example
+{% render 'maliev-service-link', service_block: block, variant: 'compact', show_arrow: true %}
+{% enddoc %}
+
+{%- liquid
+  assign service_title = service_block.settings.title
+  assign service_description = service_block.settings.description
+  if request.locale.iso_code == 'th'
+    assign service_title = service_block.settings.title_th | default: service_title
+    assign service_description = service_block.settings.description_th | default: service_description
+  endif
+
+  assign preset_asset = blank
+  case service_block.settings.image_preset
+    when 'molds'
+      assign preset_asset = 'maliev-catalogue-molds-parts.webp'
+    when 'printed'
+      assign preset_asset = 'maliev-catalogue-3d-printed.webp'
+    when 'materials'
+      assign preset_asset = 'maliev-catalogue-molding-materials.webp'
+  endcase
+
+  assign service_image = service_block.settings.image
+  assign show_link_image = false
+  if variant == 'featured'
+    if service_image != blank or preset_asset != blank
+      assign show_link_image = true
+    endif
+  endif
+-%}
+
+<a
+  class="mc-menu-link mc-menu-link--{{ variant }}{% if show_link_image %} mc-menu-link--with-media{% endif %}"
+  href="{{ service_block.settings.url }}"
+  {{ service_block.shopify_attributes }}
+>
+  {%- if show_link_image -%}
+    <span class="mc-menu-link__media" aria-hidden="true">
+      {%- if service_image != blank -%}
+        {{
+          service_image
+          | image_url: width: 640
+          | image_tag:
+            widths: '240, 360, 480, 640',
+            sizes: '(max-width: 1099px) 56px, 320px',
+            loading: 'lazy',
+            alt: ''
+        }}
+      {%- else -%}
+        <img src="{{ preset_asset | asset_url }}" alt="" width="1086" height="1448" loading="lazy">
+      {%- endif -%}
+    </span>
+  {%- endif -%}
+  <span class="mc-menu-link__copy">
+    <span class="mc-menu-link__title">{{ service_title | escape }}</span>
+    {%- if service_description != blank -%}
+      <span class="mc-menu-link__description">{{ service_description | strip_html | escape }}</span>
+    {%- endif -%}
+  </span>
+  {%- if show_arrow -%}
+    <svg class="mc-menu-link__arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+  {%- endif -%}
+</a>

@@ -9,6 +9,7 @@ class FacetFiltersForm extends HTMLElement {
 
     const facetForm = this.querySelector('form');
     facetForm.addEventListener('input', this.debouncedOnSubmit.bind(this));
+    facetForm.addEventListener('click', this.onMobileApplyClick.bind(this));
 
     const facetWrapper = this.querySelector('#FacetsWrapperDesktop');
     if (facetWrapper) facetWrapper.addEventListener('keyup', onKeyUpEscape);
@@ -280,6 +281,17 @@ class FacetFiltersForm extends HTMLElement {
       });
       this.onSubmitForm(forms.join('&'), event);
     }
+  }
+
+  onMobileApplyClick(event) {
+    const applyButton = event.target.closest('[data-mobile-facets-apply]');
+    if (!applyButton) return;
+
+    const menuDrawer = applyButton.closest('menu-drawer');
+    const summary = menuDrawer?.querySelector('summary.mobile-facets__open-wrapper');
+    if (!menuDrawer || !summary) return;
+
+    menuDrawer.closeMenuDrawer(event, summary);
   }
 
   onActiveFilterClick(event) {

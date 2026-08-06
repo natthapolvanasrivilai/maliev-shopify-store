@@ -1,0 +1,385 @@
+{{ 'component-facets.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'main-search.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+{%- if section.settings.enable_filtering or section.settings.enable_sorting -%}
+  <script src="{{ 'facets.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    --mc-search-columns: {{ section.settings.columns_desktop }};
+    --mc-search-columns-mobile: {{ section.settings.columns_mobile }};
+  }
+{%- endstyle -%}
+
+{%- liquid
+  assign sort_by = search.sort_by | default: search.default_sort_by
+  assign escaped_terms = search.terms | escape
+-%}
+
+{%- paginate search.results by 24 -%}
+  <section
+    class="mc-search"
+    style="--mc-section-top: {{ section.settings.padding_top }}px; --mc-section-bottom: {{ section.settings.padding_bottom }}px;"
+  >
+    <div class="page-width">
+      <header class="mc-search__header">
+        <p class="maliev-eyebrow">{{ 'general.search.search' | t }}</p>
+        <h1>
+          {%- if search.performed -%}
+            {{- 'templates.search.title' | t -}}
+          {%- else -%}
+            {{- 'general.search.search' | t -}}
+          {%- endif -%}
+        </h1>
+
+        <div class="mc-search__form">
+          {%- if settings.predictive_search_enabled -%}
+            <predictive-search data-loading-text="{{ 'accessibility.loading' | t }}">
+          {%- endif -%}
+          <main-search>
+            <form action="{{ routes.search_url }}" method="get" role="search">
+              <label class="visually-hidden" for="Search-In-Template">{{ 'general.search.search' | t }}</label>
+              <div class="mc-search__field">
+                <input
+                  id="Search-In-Template"
+                  type="search"
+                  name="q"
+                  value="{{ escaped_terms }}"
+                  placeholder="{{ 'general.search.search' | t }}"
+                  {% if settings.predictive_search_enabled %}
+                    role="combobox"
+                    aria-expanded="false"
+                    aria-owns="predictive-search-results"
+                    aria-controls="predictive-search-results"
+                    aria-haspopup="listbox"
+                    aria-autocomplete="list"
+                    autocorrect="off"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  {% endif %}
+                >
+                <input name="options[prefix]" type="hidden" value="last">
+                <button type="reset" class="mc-search__reset{% if search.terms == blank %} hidden{% endif %}" aria-label="{{ 'general.search.reset' | t }}">
+                  {{- 'icon-reset.svg' | inline_asset_content -}}
+                </button>
+                <button type="submit" class="mc-search__submit" aria-label="{{ 'general.search.search' | t }}">
+                  {{- 'icon-search.svg' | inline_asset_content -}}
+                </button>
+              </div>
+
+              {%- if settings.predictive_search_enabled -%}
+                <div class="predictive-search predictive-search--search-template" tabindex="-1" data-predictive-search>
+                  {% render 'loading-spinner', class: 'predictive-search__loading-state' %}
+                </div>
+                <span class="predictive-search-status visually-hidden" role="status" aria-hidden="true"></span>
+              {%- endif -%}
+            </form>
+          </main-search>
+          {%- if settings.predictive_search_enabled -%}</predictive-search>{%- endif -%}
+        </div>
+
+        {%- if search.performed -%}
+          <p class="mc-search__summary">
+            {{- 'templates.search.results_with_count_and_term' | t: terms: search.terms, count: search.results_count -}}
+          </p>
+        {%- endif -%}
+      </header>
+
+      {%- if search.performed and search.results_count > 0 -%}
+        <div class="mc-catalog__controls">
+          <p class="mc-catalog__count" id="ProductCountDesktop" role="status">
+            {{- 'templates.search.results_with_count' | t: count: search.results_count -}}
+          </p>
+
+          {%- if section.settings.enable_sorting -%}
+            <facet-filters-form class="mc-catalog__sort">
+              <form id="FacetSortForm">
+                {%- unless section.settings.enable_filtering -%}
+                  <input type="hidden" name="q" value="{{ search.terms | escape }}">
+                  <input name="options[prefix]" type="hidden" value="last">
+                {%- endunless -%}
+                <label for="SortBy">{{ 'products.facets.sort_by_label' | t }}</label>
+                <div class="select">
+                  <select name="sort_by" id="SortBy" aria-describedby="a11y-refresh-page-message">
+                    {%- for option in search.sort_options -%}
+                      <option value="{{ option.value | escape }}"{% if option.value == sort_by %} selected{% endif %}>
+                        {{- option.name | escape -}}
+                      </option>
+                    {%- endfor -%}
+                  </select>
+                  <span class="svg-wrapper">{{ 'icon-caret.svg' | inline_asset_content }}</span>
+                </div>
+              </form>
+            </facet-filters-form>
+          {%- endif -%}
+        </div>
+
+        {%- if section.settings.enable_filtering -%}
+          <aside
+            class="mc-catalog__filters"
+            id="main-search-filters"
+            aria-label="{{ 'products.facets.filter_button' | t }}"
+            data-id="{{ section.id }}"
+          >
+            {% render 'facets',
+              results: search,
+              enable_filtering: true,
+              enable_sorting: false,
+              filter_type: section.settings.filter_type,
+              paginate: paginate
+            %}
+          </aside>
+        {%- endif -%}
+
+        <div id="ProductGridContainer" class="mc-search__results">
+          <div class="mc-search__collection collection">
+            <div class="loading-overlay" aria-hidden="true">{% render 'loading-spinner' %}</div>
+            <ul id="product-grid" class="mc-search-grid" data-id="{{ section.id }}" role="list">
+              {%- for item in search.results -%}
+                <li class="mc-search-grid__item">
+                  {%- case item.object_type -%}
+                    {%- when 'product' -%}
+                      {% render 'card-product',
+                        card_product: item,
+                        media_aspect_ratio: section.settings.image_ratio,
+                        image_shape: section.settings.image_shape,
+                        show_secondary_image: section.settings.show_secondary_image,
+                        show_vendor: section.settings.show_vendor,
+                        show_rating: section.settings.show_rating,
+                        lazy_load: forloop.index > 2,
+                        quick_add: 'none',
+                        section_id: section.id
+                      %}
+                    {%- when 'article' -%}
+                      {% render 'article-card',
+                        article: item,
+                        show_image: true,
+                        show_date: section.settings.article_show_date,
+                        show_author: section.settings.article_show_author,
+                        show_excerpt: true,
+                        lazy_load: forloop.index > 2
+                      %}
+                    {%- else -%}
+                      <article class="mc-search-page-card">
+                        <p class="mc-search-page-card__type">{{ 'templates.search.page' | t }}</p>
+                        <h2><a href="{{ item.url }}">{{ item.title | escape }}</a></h2>
+                        {%- if item.content != blank -%}
+                          <p>{{ item.content | strip_html | truncatewords: 28 }}</p>
+                        {%- endif -%}
+                        <a class="mc-search-page-card__link" href="{{ item.url }}" aria-label="{{ item.title | escape }}">→</a>
+                      </article>
+                  {%- endcase -%}
+                </li>
+              {%- endfor -%}
+            </ul>
+
+            {%- if paginate.pages > 1 -%}
+              {% render 'pagination', paginate: paginate, anchor: '' %}
+            {%- endif -%}
+          </div>
+        </div>
+      {%- elsif search.performed -%}
+        <div class="mc-search__empty">
+          <p>{{ 'templates.search.no_results' | t: terms: search.terms }}</p>
+        </div>
+      {%- endif -%}
+    </div>
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "t:sections.main-search.name",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "default": 4,
+      "label": "t:sections.main-search.settings.columns_desktop.label"
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "default": "2",
+      "label": "t:sections.main-search.settings.columns_mobile.label",
+      "options": [
+        {
+          "value": "1",
+          "label": "t:sections.main-search.settings.columns_mobile.options__1.label"
+        },
+        {
+          "value": "2",
+          "label": "t:sections.main-search.settings.columns_mobile.options__2.label"
+        }
+      ]
+    },    
+    {
+      "type": "header",
+      "content": "t:sections.main-search.settings.header__1.content"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:sections.main-search.settings.image_ratio.options__1.label"
+        },
+        {
+          "value": "portrait",
+          "label": "t:sections.main-search.settings.image_ratio.options__2.label"
+        },
+        {
+          "value": "square",
+          "label": "t:sections.main-search.settings.image_ratio.options__3.label"
+        }
+      ],
+      "default": "adapt",
+      "label": "t:sections.main-search.settings.image_ratio.label"
+    },
+    {
+      "type": "select",
+      "id": "image_shape",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:sections.all.image_shape.options__1.label"
+        },
+        {
+          "value": "arch",
+          "label": "t:sections.all.image_shape.options__2.label"
+        },
+        {
+          "value": "blob",
+          "label": "t:sections.all.image_shape.options__3.label"
+        },
+        {
+          "value": "chevronleft",
+          "label": "t:sections.all.image_shape.options__4.label"
+        },
+        {
+          "value": "chevronright",
+          "label": "t:sections.all.image_shape.options__5.label"
+        },
+        {
+          "value": "diamond",
+          "label": "t:sections.all.image_shape.options__6.label"
+        },
+        {
+          "value": "parallelogram",
+          "label": "t:sections.all.image_shape.options__7.label"
+        },
+        {
+          "value": "round",
+          "label": "t:sections.all.image_shape.options__8.label"
+        }
+      ],
+      "default": "default",
+      "label": "t:sections.all.image_shape.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_secondary_image",
+      "default": false,
+      "label": "t:sections.main-search.settings.show_secondary_image.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "default": false,
+      "label": "t:sections.main-search.settings.show_vendor.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating",
+      "default": false,
+      "label": "t:sections.main-search.settings.show_rating.label",
+      "info": "t:sections.main-search.settings.show_rating.info"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.main-collection-product-grid.settings.header__1.content"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_filtering",
+      "default": true,
+      "label": "t:sections.main-collection-product-grid.settings.enable_filtering.label",
+      "info": "t:sections.main-collection-product-grid.settings.enable_filtering.info"
+    },
+    {
+      "type": "select",
+      "id": "filter_type",
+      "options": [
+        {
+          "value": "horizontal",
+          "label": "t:sections.main-collection-product-grid.settings.filter_type.options__1.label"
+        },
+        {
+          "value": "vertical",
+          "label": "t:sections.main-collection-product-grid.settings.filter_type.options__2.label"
+        },
+        {
+          "value": "drawer",
+          "label": "t:sections.main-collection-product-grid.settings.filter_type.options__3.label"
+        }
+      ],
+      "default": "horizontal",
+      "label": "t:sections.main-collection-product-grid.settings.filter_type.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_sorting",
+      "default": true,
+      "label": "t:sections.main-collection-product-grid.settings.enable_sorting.label"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.main-search.settings.header__2.content"
+    },
+    {
+      "type": "checkbox",
+      "id": "article_show_date",
+      "default": true,
+      "label": "t:sections.main-search.settings.article_show_date.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "article_show_author",
+      "default": false,
+      "label": "t:sections.main-search.settings.article_show_author.label"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.padding.section_padding_heading"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_bottom",
+      "default": 36
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,1440 @@
+/* MALIEV keynote homepage system.
+   Scroll-choreographed product chapters. Light workshop stage by default;
+   .mkey--carbon is the single dark SimMount stage.
+   Content is fully visible without JS: reveal states only exist under .mk-motion. */
+
+.mkey {
+  --mk-ink: var(--maliev-ink, #111315);
+  --mk-body: var(--maliev-ink-soft, #353a40);
+  --mk-muted: var(--maliev-graphite, #626a73);
+  --mk-white: var(--maliev-surface, #ffffff);
+  --mk-canvas: var(--maliev-canvas, #f3f5f6);
+  --mk-line: var(--maliev-rule, #d9dde1);
+  --mk-blue: var(--maliev-blue, #006fd6);
+  --mk-blue-pressed: var(--maliev-blue-hover, #005bb5);
+  --mk-green: var(--maliev-success, #087a55);
+  --mk-focus: var(--maliev-focus, #ffd21c);
+  --mk-carbon: var(--maliev-carbon, #0b0e11);
+  --mk-asphalt: var(--maliev-panel, #171b20);
+  --mk-cyan: var(--maliev-cyan, #18b7ff);
+  --mk-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mk-width: 125rem;
+  --mk-gutter: clamp(2rem, 4vw, 4.8rem);
+  --mk-display-font: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
+
+  background: var(--mk-white);
+  color: var(--mk-ink);
+  font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
+}
+
+.mkey *,
+.mkey *::before,
+.mkey *::after {
+  box-sizing: border-box;
+}
+
+.mkey a:not(.mkey__btn):not(.mkey__textlink) {
+  color: inherit;
+}
+
+.mkey img,
+.mkey video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Yellow ring alone vanishes on light stages; the ink halo keeps it >=3:1 everywhere. */
+.mkey :focus-visible {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: var(--maliev-radius-control);
+  box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
+}
+
+.mkey__frame {
+  margin: 0 auto;
+  max-width: var(--mk-width);
+  padding-left: var(--mk-gutter);
+  padding-right: var(--mk-gutter);
+}
+
+/* ---------- Type ---------- */
+
+/* One coordinated IBM Plex voice across product storytelling and commerce UI. */
+.mkey__display,
+.mkey__headline,
+.mkey__title {
+  font-family: var(--mk-display-font);
+  color: var(--mk-ink);
+  font-weight: 600;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.mkey__display {
+  font-size: clamp(3.6rem, 5.8vw, 7.2rem);
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+.mkey__headline {
+  font-size: clamp(2.8rem, 4vw, 5.2rem);
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+}
+
+.mkey__title {
+  font-size: clamp(2rem, 2.2vw, 2.8rem);
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.012em;
+}
+
+.mkey__lead {
+  color: var(--mk-body);
+  font-size: clamp(1.7rem, 1.75vw, 2.05rem);
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 58rem;
+  text-wrap: pretty;
+}
+
+.mkey__note {
+  color: var(--mk-muted);
+  font-size: 1.4rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Commercially load-bearing notes (availability scoping) read at body strength. */
+.mkey__note--scope {
+  color: var(--mk-body);
+  font-size: 1.5rem;
+}
+
+/* A note inside the actions row wraps to its own full-width line, tight under the buttons. */
+.mkey__actions .mkey__note {
+  flex: 0 0 100%;
+  margin-top: 0.4rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.mkey__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.mkey__btn {
+  align-items: center;
+  background: var(--mk-blue);
+  border: 0.1rem solid var(--mk-blue);
+  border-radius: 0.4rem;
+  color: var(--mk-white);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 1.45rem;
+  font-weight: 600;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 4.8rem;
+  padding: 1.25rem 2.2rem;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 180ms var(--mk-ease),
+    border-color 180ms var(--mk-ease),
+    color 180ms var(--mk-ease),
+    box-shadow 180ms var(--mk-ease),
+    transform 180ms var(--mk-ease);
+}
+
+.mkey__btn:hover {
+  background: var(--mk-blue-pressed);
+  border-color: var(--mk-blue-pressed);
+  box-shadow: 0 0.4rem 0.8rem rgba(0, 111, 214, 0.22);
+  transform: translateY(-0.2rem);
+}
+
+.mkey__btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 100ms;
+}
+
+.mkey__btn--secondary {
+  background: var(--mk-white);
+  border-color: var(--mk-blue);
+  color: var(--mk-blue);
+}
+
+.mkey__btn--secondary:hover {
+  background: var(--mk-canvas);
+  box-shadow: none;
+  color: var(--mk-blue-pressed);
+}
+
+.mkey__textlink {
+  align-items: center;
+  color: var(--mk-blue);
+  display: inline-flex;
+  font-size: 1.45rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  padding-block: 0.3rem;
+  text-decoration: none;
+}
+
+.mkey__textlink:hover {
+  color: var(--mk-blue-pressed);
+  text-decoration: underline;
+  text-underline-offset: 0.3rem;
+}
+
+.mkey__textlink .mkey__arrow {
+  transition: transform 180ms var(--mk-ease);
+}
+
+.mkey__textlink:hover .mkey__arrow {
+  transform: translateX(0.3rem);
+}
+
+/* ---------- Chips ---------- */
+
+.mkey__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__chip {
+  background: var(--mk-canvas);
+  border: 0.1rem solid var(--mk-line);
+  border-radius: 99.9rem;
+  color: var(--mk-ink);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.6rem 1.4rem;
+  white-space: nowrap;
+}
+
+/* ---------- Hero ---------- */
+
+.mkey--hero {
+  overflow: clip;
+  position: relative;
+}
+
+.mkey--hero .mkey__frame {
+  align-items: center;
+  display: grid;
+  gap: clamp(2.4rem, 4vw, 6rem);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  min-height: min(88vh, 92rem);
+  padding-bottom: clamp(4.8rem, 6vw, 8rem);
+  padding-top: clamp(4.8rem, 6vw, 8rem);
+}
+
+.mkey--hero .mkey__copy {
+  display: grid;
+  gap: 2.2rem;
+  justify-items: start;
+}
+
+.mkey--hero .mkey__media img {
+  margin-inline: auto;
+  width: min(100%, 72rem);
+}
+
+/* Overlay layout: the render is the full-bleed stage, copy sits in its left clear zone. */
+
+/* Full-bleed studio stage; homepage assets provide their own lighting and floor. */
+.mkey--hero-overlay .mkey__hero-bg {
+  background:
+    radial-gradient(92rem 58rem at 76% 78%, rgba(255, 255, 255, 0.85), transparent 64%),
+    linear-gradient(180deg, var(--mk-white) 0%, var(--mk-canvas) 58%, var(--mk-line) 100%);
+  inset: 0;
+  overflow: hidden;
+  position: absolute;
+}
+
+.mkey--hero-overlay .mkey__hero-bg img {
+  bottom: clamp(2.4rem, 6vh, 6.4rem);
+  height: min(86%, 88rem);
+  object-fit: contain;
+  object-position: bottom;
+  position: absolute;
+  right: clamp(3rem, 9vw, 16rem);
+  width: auto;
+}
+
+.mkey--hero-overlay .mkey__hero-bg--gallery {
+  background:
+    radial-gradient(ellipse at 42% 18%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.24) 44%, transparent 72%),
+    linear-gradient(145deg, #f2f3f4 0%, #e5e7e9 48%, #c8cdd1 100%);
+}
+
+.mkey--hero-overlay .mkey__hero-bg--gallery::after {
+  background: var(--mk-ink);
+  bottom: clamp(2.2rem, 5vh, 5.4rem);
+  content: '';
+  height: 0.1rem;
+  opacity: 0.14;
+  position: absolute;
+  right: clamp(3rem, 6vw, 9rem);
+  width: min(35vw, 52rem);
+}
+
+.mkey--hero-overlay .mkey__hero-bg--gallery img {
+  bottom: clamp(2.5rem, 5vh, 5.8rem);
+  filter: none;
+  height: min(84%, 88rem);
+  right: clamp(3rem, 8vw, 14rem);
+}
+
+/* Fill the viewport below the shell header. */
+.mkey--hero-overlay .mkey__frame {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100svh - var(--maliev-header-h, 7.3rem) - 0.1rem);
+  position: relative;
+  z-index: 1;
+}
+
+.mkey--hero-overlay .mkey__copy {
+  max-width: 68rem;
+}
+
+/* Accepted distilled hero: two machine-focused paths with an airy, bounded copy column. */
+.template-index .mkey--hero-overlay .mkey__copy.mkey__copy--machine-paths {
+  gap: 2.4rem;
+  max-width: 50rem;
+}
+
+.mkey--hero-overlay .mkey__btn {
+  background: var(--mk-ink);
+  border-color: var(--mk-ink);
+}
+
+.mkey--hero-overlay .mkey__btn:hover {
+  background: var(--mk-body);
+  border-color: var(--mk-body);
+  box-shadow: 0 0.4rem 0.8rem rgba(17, 19, 21, 0.18);
+}
+
+.mkey--hero-overlay .mkey__btn--secondary {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--mk-ink);
+  color: var(--mk-ink);
+}
+
+.mkey--hero-overlay .mkey__btn--secondary:hover {
+  background: var(--mk-canvas);
+  border-color: var(--mk-ink);
+  color: var(--mk-ink);
+}
+
+.mkey--hero-overlay .mkey__textlink,
+.mkey--hero-overlay .mkey__textlink:hover {
+  color: var(--mk-ink);
+}
+
+.mkey__hero-social {
+  bottom: clamp(1.8rem, 3vw, 4rem);
+  position: absolute;
+  right: clamp(2rem, 4vw, 6.4rem);
+  z-index: 3;
+}
+
+.mkey__hero-social .list-social {
+  align-items: center;
+  display: flex;
+  gap: 0.2rem;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__hero-social .list-social__link {
+  align-items: center;
+  color: var(--mk-ink);
+  display: inline-flex;
+  height: 4.4rem;
+  justify-content: center;
+  padding: 1.2rem;
+  width: 4.4rem;
+}
+
+.mkey__hero-social .icon {
+  height: 1.7rem;
+  width: 1.7rem;
+}
+
+/* Homepage pilot: restrained body type plus engineered display faces. */
+.template-index .mkey {
+  --mk-display-font: var(--maliev-font-future);
+  font-family: var(--maliev-font-sans);
+  font-synthesis: none;
+}
+
+.template-index .mkey__display,
+.template-index .mkey__headline,
+.template-index .mkey__title {
+  font-weight: 400;
+}
+
+.template-index .mkey--hero-overlay .mkey__display {
+  font-family: var(--maliev-font-hero);
+}
+
+@media screen and (min-width: 990px) {
+  .template-index .mkey--hero-overlay {
+    min-height: 100svh;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__frame {
+    max-width: none;
+    min-height: 100svh;
+    padding: clamp(11rem, 14vh, 15rem) clamp(6.4rem, 8vw, 12rem) clamp(7rem, 9vh, 10rem) clamp(3.2rem, 8vw, 13rem);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__copy {
+    gap: clamp(1.6rem, 2.2vh, 2.6rem);
+    max-width: clamp(40rem, 35vw, 52rem);
+    transform: translateY(2vh);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__display {
+    font-size: clamp(4.4rem, 4.8vw, 7.2rem);
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+    max-width: 11ch;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__lead {
+    font-size: clamp(1.45rem, 1.25vw, 1.8rem);
+    line-height: 1.55;
+    max-width: 48rem;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery {
+    background:
+      radial-gradient(ellipse at 43% 16%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.28) 45%, transparent 72%),
+      linear-gradient(145deg, #f1f2f3 0%, #e3e5e7 50%, #c2c7cb 100%);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery::after {
+    display: none;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery img {
+    bottom: clamp(2rem, 3vh, 3.6rem);
+    filter: none;
+    height: 88%;
+    object-fit: contain;
+    object-position: center bottom;
+    right: clamp(4rem, 8vw, 13rem);
+    width: auto;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__note {
+    color: var(--mk-body);
+    font-size: 1.2rem;
+    letter-spacing: 0.015em;
+  }
+}
+
+/* ---------- Chapter shell ---------- */
+
+.mkey--chapter {
+  background: var(--mk-canvas);
+  overflow: clip;
+}
+
+.mkey--chapter .mkey__frame {
+  display: grid;
+  gap: clamp(3.2rem, 5vw, 6.4rem);
+  padding-bottom: clamp(6.4rem, 9vw, 12rem);
+  padding-top: clamp(6.4rem, 9vw, 12rem);
+}
+
+.mkey__intro {
+  display: grid;
+  gap: 1.8rem;
+  justify-items: start;
+  max-width: 78rem;
+}
+
+/* ---------- Machines chapter ---------- */
+
+.mkey__stage-media {
+  border-radius: var(--maliev-radius-card);
+  overflow: hidden;
+}
+
+.mkey__stage-media img {
+  width: 100%;
+}
+
+.mkey__models {
+  display: grid;
+  gap: clamp(1.6rem, 2.5vw, 3.2rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(30rem, 100%), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__model {
+  background: var(--mk-white);
+  border: 0.1rem solid var(--mk-line);
+  border-radius: var(--maliev-radius-card);
+  display: grid;
+  gap: 1.4rem;
+  padding: clamp(2rem, 2.6vw, 3.2rem);
+  position: relative;
+  transition: border-color 180ms var(--mk-ease);
+}
+
+.mkey__model:hover {
+  border-color: var(--mk-blue);
+}
+
+/* Showcase media: the machine dominates the card. */
+.mkey__model-media {
+  align-items: flex-end;
+  display: flex;
+  justify-content: center;
+  min-height: 34rem;
+  padding-bottom: 1.6rem;
+}
+
+.mkey__model-media img {
+  max-height: 40rem;
+  object-fit: contain;
+  transition: transform 300ms var(--mk-ease);
+  width: auto;
+}
+
+.mkey__model:hover .mkey__model-media img {
+  transform: translateY(-0.5rem);
+}
+
+.mkey__model-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.6rem;
+  justify-content: space-between;
+}
+
+.mkey__model-name {
+  font-size: 2rem;
+}
+
+.mkey__model-name a {
+  text-decoration: none;
+}
+
+.mkey__model-name a::after {
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.mkey__model-name a:focus-visible::after {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: var(--maliev-radius-card);
+}
+
+.mkey__model-copy {
+  color: var(--mk-body);
+  font-size: 1.5rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mkey__model-meta {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.mkey__price {
+  color: var(--mk-ink);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.mkey__price small {
+  color: var(--mk-muted);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+/* ---------- See it run (Machines chapter continuation, no section break) ---------- */
+
+.mkey__inaction {
+  border-top: 0.1rem solid var(--mk-line);
+  display: grid;
+  gap: clamp(2.4rem, 3.5vw, 3.6rem);
+  padding-top: clamp(3.2rem, 5vw, 5.6rem);
+}
+
+.mkey__inaction-head {
+  display: grid;
+  gap: 1rem;
+}
+
+.mkey__inaction-lead {
+  font-size: 1.6rem;
+  max-width: 56rem;
+}
+
+.mkey__filmstrip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6rem 1.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__filmstrip-item {
+  display: grid;
+  gap: 1rem;
+  width: min(20rem, 100%);
+}
+
+.mkey__filmstrip-media {
+  align-items: center;
+  aspect-ratio: 4 / 5;
+  background: var(--mk-canvas);
+  border-radius: var(--maliev-radius-compact);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1.2rem;
+}
+
+.mkey__filmstrip-media img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.mkey__filmstrip-caption {
+  color: var(--mk-body);
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mkey__filmstrip-arrow {
+  color: var(--mk-line);
+  flex: 0 0 auto;
+  font-size: 2rem;
+}
+
+.mkey__inaction-video {
+  aspect-ratio: 4 / 3;
+  background: var(--mk-canvas);
+  border-radius: var(--maliev-radius-card);
+  max-width: 72rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.mkey__inaction-video video {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.mkey__inaction-video-caption {
+  margin-top: -1.6rem;
+}
+
+/* ---------- Carbon stage (SimMount) ---------- */
+
+.mkey--carbon {
+  background: var(--mk-carbon);
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__display,
+.mkey--carbon .mkey__headline,
+.mkey--carbon .mkey__title {
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__lead {
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.55;
+}
+
+.mkey--carbon .mkey__note {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.mkey--carbon .mkey__chip {
+  background: var(--mk-asphalt);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--mk-cyan);
+}
+
+.mkey--carbon .mkey__btn {
+  background: var(--mk-cyan);
+  border-color: var(--mk-cyan);
+  color: var(--mk-carbon);
+}
+
+.mkey--carbon .mkey__btn:hover {
+  background: var(--mk-cyan);
+  border-color: var(--mk-cyan);
+  box-shadow: 0 0.4rem 0.8rem rgba(24, 183, 255, 0.25);
+}
+
+.mkey--carbon .mkey__btn--secondary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__btn--secondary:hover {
+  background: var(--mk-asphalt);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: none;
+  color: var(--mk-white);
+}
+
+.mkey--carbon .mkey__textlink {
+  color: var(--mk-cyan);
+}
+
+.mkey--carbon .mkey__textlink:hover {
+  color: var(--mk-cyan);
+}
+
+.mkey__rigs {
+  display: grid;
+  gap: clamp(1.6rem, 2.5vw, 2.8rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__rig {
+  background: var(--mk-asphalt);
+  border-radius: var(--maliev-radius-panel);
+  display: grid;
+  gap: 1.2rem;
+  padding: clamp(2rem, 2.4vw, 2.8rem);
+  position: relative;
+  transition: transform 300ms var(--mk-ease);
+}
+
+.mkey__rig:hover {
+  transform: translateY(-0.4rem);
+}
+
+.mkey__rig-media {
+  align-items: center;
+  background: var(--mk-asphalt);
+  border-radius: var(--maliev-radius-compact);
+  display: flex;
+  justify-content: center;
+  min-height: 20rem;
+  overflow: hidden;
+}
+
+.mkey__rig-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.mkey__rig-name {
+  color: var(--mk-white);
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.mkey__rig-name a {
+  text-decoration: none;
+}
+
+.mkey__rig-name a::after {
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+/* Card-covering links: one ring on the ::after overlay, none on the inline text. */
+.mkey__rig-name a:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
+.mkey__rig-name a:focus-visible::after {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: 0.3rem;
+  border-radius: var(--maliev-radius-panel);
+  box-shadow: 0 0 0 0.9rem rgba(16, 18, 20, 0.85);
+}
+
+.mkey__rig-spec {
+  color: var(--mk-cyan);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mkey__rig-price {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ---------- Feature chapter (Mesh Splitter / Services) ---------- */
+
+.mkey--feature .mkey__frame {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.mkey--feature .mkey__copy {
+  display: grid;
+  gap: 1.8rem;
+  justify-items: start;
+}
+
+.mkey--feature .mkey__media {
+  border-radius: var(--maliev-radius-card);
+  overflow: hidden;
+  position: relative;
+}
+
+.mkey__video-toggle {
+  align-items: center;
+  background: rgba(16, 18, 20, 0.72);
+  border: 0;
+  border-radius: 0.4rem;
+  bottom: 1.2rem;
+  color: var(--mk-white);
+  cursor: pointer;
+  display: flex;
+  height: 4.8rem;
+  justify-content: center;
+  position: absolute;
+  right: 1.2rem;
+  width: 4.8rem;
+}
+
+.mkey__video-toggle:hover {
+  background: rgba(16, 18, 20, 0.88);
+}
+
+.mkey__video-toggle .mkey__video-toggle-play,
+.mkey__video-toggle[aria-pressed='true'] .mkey__video-toggle-pause {
+  display: none;
+}
+
+.mkey__video-toggle[aria-pressed='true'] .mkey__video-toggle-play {
+  display: block;
+}
+
+.mkey--feature .mkey__media img,
+.mkey--feature .mkey__media video {
+  width: 100%;
+}
+
+.mkey--feature.mkey--media-left .mkey__media {
+  order: -1;
+}
+
+.mkey__panels {
+  display: grid;
+  gap: 1.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__panel {
+  background: var(--mk-white);
+  border: 0.1rem solid var(--mk-line);
+  border-radius: var(--maliev-radius-compact);
+  transition: border-color 180ms var(--mk-ease);
+}
+
+.mkey__panel:hover {
+  border-color: var(--mk-blue);
+}
+
+.mkey__panel a {
+  align-items: baseline;
+  display: flex;
+  gap: 1.2rem;
+  justify-content: space-between;
+  padding: 1.6rem 2rem;
+  text-decoration: none;
+}
+
+.mkey__panel-name {
+  color: var(--mk-ink);
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.mkey__panel-hint {
+  color: var(--mk-muted);
+  font-size: 1.35rem;
+  text-align: right;
+}
+
+/* ---------- Guides strip ---------- */
+
+.mkey--guides,
+.mkey--bg-white {
+  background: var(--mk-white);
+}
+
+.mkey--guides .mkey__frame {
+  display: grid;
+  gap: clamp(2.4rem, 3.5vw, 4rem);
+  padding-bottom: clamp(5.6rem, 7vw, 9.6rem);
+  padding-top: clamp(5.6rem, 7vw, 9.6rem);
+}
+
+.mkey__guides-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6rem;
+  justify-content: space-between;
+}
+
+/* Guides: bento mix of two hero posts + four compact posts, image-forward with a scrim for legible overlaid text. */
+.mkey__guides-bento {
+  display: grid;
+  gap: 1.6rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkey__guides-bento__item {
+  background: var(--mk-canvas);
+  border-radius: var(--maliev-radius-compact);
+  grid-column: span 3;
+  overflow: hidden;
+}
+
+.mkey__guides-bento__item:not(.mkey__guides-bento__item--hero) {
+  aspect-ratio: 3 / 2;
+}
+
+.mkey__guides-bento__item--hero {
+  grid-row: span 2;
+  min-height: 30rem;
+}
+
+.mkey__guides-bento__link {
+  display: block;
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+.mkey__guides-bento__link:focus-visible {
+  outline: 0.3rem solid var(--mk-focus);
+  outline-offset: -0.3rem;
+}
+
+.mkey__guides-bento__media {
+  inset: 0;
+  position: absolute;
+}
+
+.mkey__guides-bento__media img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms var(--mk-ease);
+  width: 100%;
+}
+
+.mkey__guides-bento__item:hover .mkey__guides-bento__media img {
+  transform: scale(1.03);
+}
+
+.mkey__guides-bento__scrim {
+  background: linear-gradient(180deg, rgba(16, 18, 20, 0) 40%, rgba(16, 18, 20, 0.72) 100%);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.mkey__guides-bento__body {
+  bottom: 0;
+  left: 0;
+  padding: 1.6rem;
+  position: absolute;
+  right: 0;
+}
+
+.mkey__guides-bento__date {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+}
+
+.mkey__guides-bento__title {
+  color: var(--mk-white);
+  font-family: var(--mk-display-font);
+  font-size: 1.6rem;
+  font-stretch: 108%;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.mkey__guides-bento__item--hero .mkey__guides-bento__title {
+  font-size: 2.1rem;
+}
+
+/* ---------- Closing CTA ---------- */
+
+.mkey--cta {
+  background: var(--mk-white);
+}
+
+.mkey--cta .mkey__frame {
+  display: grid;
+  gap: 2.4rem;
+  justify-items: center;
+  padding-bottom: clamp(8rem, 11vw, 14rem);
+  padding-top: clamp(8rem, 11vw, 14rem);
+  text-align: center;
+}
+
+.mkey--cta .mkey__headline {
+  max-width: 86rem;
+}
+
+.mkey--cta .mkey__lead {
+  max-width: 64rem;
+}
+
+.mkey--cta .mkey__actions {
+  justify-content: center;
+}
+
+/* ---------- Scroll choreography ----------
+   Reveal states exist only when JS added .mk-motion to <html>.
+   Without JS or with reduced motion, everything renders in final state. */
+
+.mk-motion .mkey [data-mkr] {
+  opacity: 0;
+  transform: translateY(2.4rem);
+}
+
+.mk-motion .mkey [data-mkr='media'] {
+  transform: translateY(1.6rem) scale(1.03);
+}
+
+.mk-motion .mkey [data-mkr='fade'] {
+  transform: none;
+}
+
+/* Directional entrances: model cards approach from their own side,
+   SimMount hardware arrives along the racing line. */
+.mk-motion .mkey [data-mkr='left'] {
+  transform: translateX(-3.6rem);
+}
+
+.mk-motion .mkey [data-mkr='right'] {
+  transform: translateX(3.6rem);
+}
+
+.mk-motion .mkey [data-mkr='race'] {
+  transform: translateX(5.6rem);
+}
+
+.mk-motion .mkey .mk-in[data-mkr='race'] {
+  transition-delay: calc(var(--mkr-i, 0) * 130ms);
+  transition-duration: 800ms;
+}
+
+.mk-motion .mkey .mk-in[data-mkr] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 700ms var(--mk-ease),
+    transform 700ms var(--mk-ease);
+  transition-delay: calc(var(--mkr-i, 0) * 90ms);
+}
+
+.mk-motion .mkey .mk-in[data-mkr='media'] {
+  transition-duration: 900ms;
+}
+
+/* The product arrives before the copy: one decisive gallery uncover and a
+   shallow perspective settle. It runs once, keeps the machine inspectable,
+   and never turns into ambient motion that would need its own pause control. */
+@keyframes mk-hero-machine-uncover {
+  from {
+    clip-path: inset(0 0 0 24%);
+    opacity: 0.18;
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes mk-hero-machine-settle {
+  from {
+    transform: translate3d(4.8rem, 1.6rem, 0) scale(0.965);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.mk-motion .mkey--hero-overlay .mkey__hero-bg picture {
+  animation: mk-hero-machine-uncover 900ms var(--mk-ease) 60ms both;
+  display: block;
+  inset: 0;
+  position: absolute;
+}
+
+.mk-motion .mkey--hero-overlay .mkey__hero-bg picture img {
+  animation: mk-hero-machine-settle 1050ms var(--mk-ease) 60ms both;
+  transform-origin: 72% 82%;
+}
+
+.mk-motion .mkey--hero-overlay .mkey__copy .mk-in[data-mkr] {
+  transition-delay: calc(250ms + var(--mkr-i, 0) * 110ms);
+}
+
+/* Homepage hero copy reveals like a machine guard sliding clear: one decisive wipe,
+   followed by the explanation and actions at a measured 110ms cadence. */
+@keyframes mk-hero-copy-wipe {
+  from {
+    clip-path: inset(0 80% 0 0);
+    opacity: 0.25;
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__copy [data-mkr] {
+  clip-path: inset(0 80% 0 0);
+  opacity: 0.25;
+  transform: none;
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__copy .mk-in[data-mkr] {
+  animation: mk-hero-copy-wipe 760ms var(--mk-ease) both;
+  transition: none;
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__lead.mk-in[data-mkr] {
+  animation-delay: 110ms;
+}
+
+.mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__actions.mk-in[data-mkr] {
+  animation-delay: 220ms;
+}
+
+/* Depth on scroll where the browser supports scroll-driven animations. */
+@supports (animation-timeline: view()) {
+  /* The lineup stage settles from a slight zoom as it enters. */
+  @keyframes mk-stage-zoom {
+    from {
+      transform: scale(1.06);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  .mk-motion .mkey__stage-media img {
+    animation: mk-stage-zoom linear both;
+    animation-range: entry 0% cover 55%;
+    animation-timeline: view();
+  }
+}
+
+/* --- Machines stage: wipe open instead of the generic rise. --- */
+
+.mk-motion .mkey__stage-media [data-mkr] {
+  clip-path: inset(12% 7% 12% 7% round 1.2rem);
+  transform: translateY(1.2rem);
+}
+
+.mk-motion .mkey__stage-media .mk-in[data-mkr] {
+  clip-path: inset(0 0 0 0 round 1.2rem);
+  transition:
+    opacity 700ms var(--mk-ease),
+    transform 900ms var(--mk-ease),
+    clip-path 900ms var(--mk-ease);
+}
+
+/* --- SimMount: the start-line draws under the headline. --- */
+
+.mkey--carbon .mkey__headline {
+  padding-bottom: 1.8rem;
+  position: relative;
+}
+
+.mkey--carbon .mkey__headline::after {
+  background: var(--mk-cyan);
+  border-radius: 0;
+  bottom: 0;
+  content: '';
+  height: 0.4rem;
+  left: 0;
+  position: absolute;
+  transform-origin: left center;
+  width: 7.2rem;
+}
+
+.mk-motion .mkey--carbon .mkey__headline[data-mkr]::after {
+  transform: scaleX(0);
+}
+
+.mk-motion .mkey--carbon .mkey__headline.mk-in[data-mkr]::after {
+  transform: scaleX(1);
+  transition: transform 700ms var(--mk-ease) 250ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-motion .mkey [data-mkr] {
+    clip-path: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg,
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg picture,
+  .mk-motion .mkey--hero-overlay .mkey__hero-bg img,
+  .mk-motion .mkey__stage-media img {
+    animation: none;
+  }
+
+  .mk-motion .mkey--hero .mkey__frame--motion-wipe .mkey__copy [data-mkr] {
+    animation: none;
+    clip-path: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .mk-motion .mkey--carbon .mkey__headline[data-mkr]::after {
+    transform: scaleX(1);
+    transition: none;
+  }
+
+  .mkey__model-media img {
+    transition: none;
+  }
+
+  .mkey__btn,
+  .mkey__rig,
+  .mkey__guides-bento__media img,
+  .mkey__textlink .mkey__arrow {
+    transition: none;
+  }
+
+  .mkey__btn:hover,
+  .mkey__btn:active {
+    transform: none;
+  }
+
+  .mkey__rig:hover,
+  .mkey__model:hover .mkey__model-media img {
+    transform: none;
+  }
+
+  .mkey__guides-bento__item:hover .mkey__guides-bento__media img {
+    transform: none;
+  }
+}
+
+/* ---------- Responsive ---------- */
+
+@media screen and (max-width: 989px) {
+  .mkey--hero .mkey__frame {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .mkey--hero .mkey__media {
+    order: -1;
+  }
+
+  .mkey--hero .mkey__media img {
+    max-height: 48vh;
+    object-fit: contain;
+    width: auto;
+  }
+
+  /* Below 990px the render has no clear copy zone, so stack: copy first, render below. */
+  .mkey--hero-overlay {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - var(--maliev-header-h, 6.4rem) - 0.1rem);
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    order: 2;
+    padding: 2.4rem 0 3.2rem;
+    position: static;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg img {
+    height: auto;
+    max-height: 56vh;
+    position: static;
+    width: auto;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg--gallery {
+    min-height: 44rem;
+    position: relative;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg--gallery::after {
+    bottom: 2.4rem;
+    left: 12%;
+    right: 12%;
+    width: auto;
+  }
+
+  .mkey--hero-overlay .mkey__hero-bg--gallery img {
+    max-height: 48.72vh;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery {
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.24) 44%, transparent 72%),
+      linear-gradient(160deg, #f1f2f3 0%, #d0d4d7 100%);
+    min-height: clamp(38rem, 58vh, 52rem);
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery::after {
+    display: none;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery img {
+    bottom: 0;
+    filter: none;
+    height: 92%;
+    max-height: none;
+    object-fit: contain;
+    object-position: center bottom;
+    position: absolute;
+    right: 0;
+    width: 100%;
+  }
+
+  .mkey--hero-overlay .mkey__frame {
+    min-height: 0;
+  }
+
+  .template-index .mkey--hero-overlay .mkey__frame {
+    padding-top: 8rem;
+  }
+
+  .mkey--feature .mkey__frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mkey--feature.mkey--media-left .mkey__media {
+    order: 0;
+  }
+}
+
+@media screen and (max-width: 749px) {
+  .mkey__display {
+    font-size: clamp(3.4rem, 10.5vw, 4.6rem);
+  }
+
+  .mkey__headline {
+    font-size: clamp(2.8rem, 8.5vw, 3.6rem);
+  }
+
+  .mkey__btn {
+    flex: 1 1 auto;
+  }
+
+  .mkey__model-media {
+    min-height: 18rem;
+  }
+
+  .mkey__model-media img {
+    max-height: 22rem;
+  }
+
+  .mkey__filmstrip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mkey__filmstrip-item {
+    width: 100%;
+  }
+
+  .mkey__filmstrip-media {
+    aspect-ratio: 16 / 10;
+  }
+
+  .mkey__filmstrip-arrow {
+    display: none;
+  }
+
+  .mkey__inaction-video {
+    max-width: none;
+  }
+
+  .mkey__guides-bento__item,
+  .mkey__guides-bento__item--hero {
+    grid-column: span 6;
+    grid-row: span 1;
+    min-height: 0;
+  }
+
+  .mkey__guides-bento__item:not(.mkey__guides-bento__item--hero) {
+    aspect-ratio: 4 / 3;
+  }
+}

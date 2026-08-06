@@ -10,7 +10,7 @@
 {
   "sections": {
     "main": {
-      "type": "main-article",
+      "type": "maliev-article",
       "blocks": {
         "featured_image": {
           "type": "featured_image",
@@ -43,7 +43,7 @@
       "settings": {}
     },
     "featured_product_F9Fkzx": {
-      "type": "featured-product",
+      "type": "maliev-featured-product",
       "blocks": {
         "text_hJdy3X": {
           "type": "text",

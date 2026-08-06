@@ -8,14 +8,14 @@
   outline-offset: 0.2rem;
   outline-color: transparent;
   outline-style: solid;
-  transition-property: outline-color, outline-width, box-shadow;
+  transition-property: outline-color, box-shadow;
   transition-duration: var(--duration-short);
   transition-timing-function: ease;
   forced-color-adjust: none;
 }
 
 .swatch-input__input + .swatch-input__label.swatch-input__label--square {
-  --swatch-input--border-radius: 0.2rem;
+  --swatch-input--border-radius: var(--maliev-radius-control);
 }
 
 /* Active state */

@@ -114,10 +114,129 @@
     "collection_title": "Kokoelmasi nimi"
   },
   "products": {
+    "pimm30_story": {
+      "aria_label": "PIMM 30G machine presentation",
+      "media_stage": "PIMM 30G feature media",
+      "chapter_navigation": "PIMM 30G presentation chapters",
+      "identity": "Pneumatic injection molding machine",
+      "book_visit": "Book a factory visit",
+      "view_50g": "View the PIMM 50G",
+      "next_model_unconfigured": "Choose the 50g product in the Theme Editor to show live price and availability.",
+      "next_model": {
+        "made_to_order": "Made to order",
+        "lead_time": "{{ days }}-day production lead time",
+        "facts": {
+          "capacity": "50g shot capacity",
+          "melt_zone": "Steel melt zone",
+          "heaters": "2 × 350W hot-runner heater bands"
+        }
+      },
+      "pause": "Pause animation",
+      "resume": "Resume animation",
+      "replay": "Replay",
+      "specs": {
+        "capacity_label": "Shot capacity",
+        "capacity_value": "30 g",
+        "temperature_label": "Maximum temperature",
+        "temperature_value": "300°C",
+        "force_label": "Maximum output force",
+        "force_value": "876 kgf",
+        "pressure_label": "Maximum air pressure",
+        "pressure_value": "0.7 MPa"
+      },
+      "chapters": {
+        "overview": {
+          "nav": "Overview",
+          "eyebrow": "Pneumatic injection molding machine",
+          "heading": "PIMM 30G",
+          "body": "Compact precision, controlled performance, and real injection molding capability for a workshop-scale production setup.",
+          "metric": "30 g",
+          "metric_label": "Shot capacity",
+          "media_alt": "MALIEV PIMM 30G pneumatic injection molding machine centered in a bright studio"
+        },
+        "capacity": {
+          "nav": "30g shot capacity",
+          "eyebrow": "Shot capacity",
+          "heading": "Up to 30 grams per shot.",
+          "body": "The 30g melt and injection system is sized for prototypes, replacement parts, classroom projects, and low-volume plastic production.",
+          "metric": "30 g",
+          "metric_label": "Maximum shot capacity",
+          "media_alt": "PIMM 30G melt and injection assembly shown in a close technical view"
+        },
+        "temperature": {
+          "nav": "Temperature control",
+          "eyebrow": "Two heating zones",
+          "heading": "Heat set independently, up to 300°C.",
+          "body": "Two PID temperature controllers manage the machine's two 300W heating zones, giving the operator direct control over the melt path.",
+          "metric": "2 × 300 W",
+          "metric_label": "PID-controlled heating zones",
+          "media_alt": "Two illuminated PID temperature controllers on the PIMM 30G control enclosure"
+        },
+        "cylinder": {
+          "nav": "Pneumatic cylinder",
+          "eyebrow": "Linear drive",
+          "heading": "A large, high-quality pneumatic cylinder.",
+          "body": "The pneumatic cylinder drives the injection mechanism with a maximum stated output of 8,590N at 0.7MPa input pressure.",
+          "metric": "8,590 N",
+          "metric_label": "Approximately 876kgf maximum output",
+          "media_alt": "Large pneumatic cylinder and upper frame of the PIMM 30G machine"
+        },
+        "operation": {
+          "nav": "Pneumatic operation",
+          "eyebrow": "Direct operation",
+          "heading": "Air driven, switched by hand.",
+          "body": "A pneumatic toggle switch controls the injection action. The machine requires a suitable compressed-air supply, available separately or with the optional PUMA 25L compressor variant.",
+          "metric": "Pneumatic",
+          "metric_label": "Injection control system",
+          "media_alt": "Pneumatic toggle switch and blue air line on the PIMM 30G"
+        },
+        "regulator": {
+          "nav": "Pressure regulator",
+          "eyebrow": "Pressure setting",
+          "heading": "Set incoming air pressure at the regulator.",
+          "body": "The regulator and pressure gauge make the supply setting visible at the machine. Maximum input pressure is 0.7MPa, or 7 bar.",
+          "metric": "0.7 MPa",
+          "metric_label": "Maximum input air pressure",
+          "media_alt": "Pressure regulator and gauge on the PIMM 30G pneumatic assembly"
+        },
+        "fixture": {
+          "nav": "M10 fixture grid",
+          "eyebrow": "Mold setup",
+          "heading": "An M10 grid built for custom fixtures.",
+          "body": "The threaded base grid supports flexible positioning of molds, jigs, and supporting hardware for different workshop setups.",
+          "metric": "M10",
+          "metric_label": "Threaded fixture grid",
+          "media_alt": "M10 threaded fixture grid and open mold area at the base of the PIMM 30G"
+        },
+        "materials": {
+          "nav": "Plastic materials",
+          "eyebrow": "Material flexibility",
+          "heading": "From virgin pellets to recycled plastics.",
+          "body": "The PIMM 30G supports a broad range of plastic feedstocks, including recycled material. Actual suitability still depends on the resin, preparation, mold, and process settings.",
+          "metric": "300°C",
+          "metric_label": "Maximum operating temperature",
+          "media_alt": "Plastic pellets and recycled plastic material prepared beside the PIMM 30G"
+        },
+        "next_model": {
+          "nav": "PIMM 50G",
+          "eyebrow": "Need more shot capacity?",
+          "heading": "PIMM 50G",
+          "body": "The larger model increases shot capacity to 50g while retaining the compact pneumatic workflow. Price and availability below come directly from Shopify.",
+          "metric": "50 g",
+          "metric_label": "Maximum shot capacity",
+          "media_alt": "MALIEV PIMM 50G pneumatic injection molding machine in a bright studio"
+        }
+      }
+    },
     "product": {
       "add_to_cart": "Lisää ostoskoriin",
       "description": "Kuvaus",
       "on_sale": "Alennusmyynti",
+"badges": {
+  "label": "Product status",
+  "new": "New",
+  "best_seller": "Best seller"
+},
       "quantity": {
         "label": "Määrä",
         "input_label": "Tuotteen {{ product }} määrä",
@@ -260,6 +379,44 @@
     },
     "contact": {
       "form": {
+        "location": "MALIEV headquarters · Pak Kret, Nonthaburi",
+        "demo_title": "Request a machine demo.",
+        "demo_intro": "See our plastic injection molding machines at MALIEV headquarters and talk through the part you plan to make. Share the details below and our team will confirm your visit by email.",
+        "visit_title": "Your visit",
+        "visit_text": "Machine demonstrations are held only at our headquarters in Pak Kret, Nonthaburi.",
+        "address_label": "Headquarters",
+        "address": "MALIEV Co., Ltd., 36/1 Moo 3, Khlong Khoi, Pak Kret, Nonthaburi 11120, Thailand",
+        "hours_label": "Business hours",
+        "hours": "Monday–Friday, 09:00–18:00 Bangkok time",
+        "confirmation_label": "Booking",
+        "confirmation_value": "Requested online and confirmed manually by email",
+        "map_link": "Open Google Maps",
+        "line_link": "Message us on LINE",
+        "intent_legend": "What can we help with?",
+        "intent_demo": "Machine demo",
+        "intent_demo_hint": "Request a visit to MALIEV headquarters",
+        "intent_general": "General enquiry",
+        "intent_general_hint": "Ask about an order, product, or service",
+        "contact_details": "Your details",
+        "company": "Company or organization",
+        "demo_details": "About your demo",
+        "demo_details_hint": "This helps our team prepare a relevant conversation before confirming the visit.",
+        "attendees": "Number of attendees",
+        "preferred_date": "Preferred visit date",
+        "date_hint": "Your preferred date is a request and is not confirmed yet.",
+        "planned_part": "What part are you planning to make?",
+        "planned_part_hint": "Describe the part, approximate size, or intended use.",
+        "material": "Material",
+        "material_hint": "For example, PP, ABS, recycled plastic, or not sure yet.",
+        "mold_support": "Do you need mold support from MALIEV?",
+        "select_prompt": "Select an option",
+        "mold_support_yes": "Yes",
+        "mold_support_no": "No",
+        "mold_support_unsure": "Not sure yet",
+        "comment_hint": "For a general enquiry, enter your question here.",
+        "request_notice": "Submitting this form requests a visit; it does not confirm an appointment. Our team will reply by email to arrange the details.",
+        "send_demo": "Request demo",
+        "send_general": "Send enquiry",
         "name": "Nimi",
         "email": "Sähköposti",
         "phone": "Puhelinnumero",
@@ -317,7 +474,13 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Verot, alennukset ja toimituskulut lasketaan kassalla."
     },
     "footer": {
-      "payment": "Maksutavat"
+      "payment": "Maksutavat",
+      "support_heading": "Support & visit",
+      "policies_heading": "Policies",
+      "contact": "Contact MALIEV",
+      "factory_visit": "Book a factory visit",
+      "workshop_guides": "Workshop guides",
+      "manufacturing_services": "Manufacturing services"
     },
     "featured_blog": {
       "view_all": "Näytä kaikki",

@@ -10,52 +10,122 @@
 {
   "sections": {
     "main": {
-      "type": "main-list-collections",
-      "custom_css": [
-        ".grid {--grid-desktop-horizontal-spacing: 16px;}",
-        ".icon-wrap {display: none;}",
-        ".card__heading {font-size: 1em;}",
-        ".collection-list {margin-bottom: 16px;}"
-      ],
+      "type": "maliev-collections",
       "settings": {
-        "title": "<strong>Collections</strong>",
+        "title": "What are you building?",
+        "title_th": "คุณต้องการสร้างอะไร?",
+        "intro": "<p>Choose the path that matches your project. Each family opens the products and support available from MALIEV.</p>",
+        "intro_th": "<p>เลือกเส้นทางที่ตรงกับโครงการของคุณ แต่ละกลุ่มจะพาไปยังผลิตภัณฑ์และการสนับสนุนจาก MALIEV</p>",
         "sort": "alphabetical",
-        "image_ratio": "portrait",
-        "columns_desktop": 4,
-        "columns_mobile": "1"
-      }
-    },
-    "featured_collection_qJtLB4": {
-      "type": "featured-collection",
-      "settings": {
-        "collection": "featured-collection",
-        "products_to_show": 4,
-        "title": "<strong>Featured Products</strong>",
-        "heading_size": "h1",
-        "description": "",
-        "show_description": false,
-        "description_style": "body",
-        "columns_desktop": 4,
-        "enable_desktop_slider": false,
-        "full_width": false,
-        "show_view_all": true,
-        "view_all_style": "solid",
-        "color_scheme": "",
+        "featured_collection": "เครื่องฉีดพลาสติก",
         "image_ratio": "adapt",
-        "image_shape": "default",
-        "show_secondary_image": false,
-        "show_vendor": false,
-        "show_rating": false,
-        "quick_add": "none",
-        "columns_mobile": "2",
-        "swipe_on_mobile": false,
-        "padding_top": 36,
-        "padding_bottom": 36
-      }
+        "columns_desktop": 3,
+        "columns_mobile": "1",
+        "help_title": "Not sure which path fits your project?",
+        "help_title_th": "ยังไม่แน่ใจว่าโครงการของคุณเหมาะกับทางไหน?",
+        "help_text": "<p>Tell us what you want to make or mount. We will point you to the right machine, mold, material, or SimMount product.</p>",
+        "help_text_th": "<p>บอกเราว่าคุณต้องการผลิตหรือติดตั้งอะไร เราจะแนะนำเครื่องจักร แม่พิมพ์ วัสดุ หรือผลิตภัณฑ์ SimMount ที่เหมาะสม</p>",
+        "help_link": "shopify://pages/contact",
+        "help_label": "Talk to MALIEV",
+        "help_label_th": "ปรึกษา MALIEV"
+      },
+      "blocks": {
+        "machines": {
+          "type": "family",
+          "settings": {
+            "family_type": "machines",
+            "heading": "Machines & molding",
+            "heading_th": "เครื่องจักรและงานฉีดพลาสติก",
+            "description": "<p>Evaluate a compact injection molding machine with the molds, materials, and support needed to put it to work.</p>",
+            "description_th": "<p>ประเมินเครื่องฉีดพลาสติกขนาดกะทัดรัด พร้อมแม่พิมพ์ วัสดุ และการสนับสนุนที่จำเป็นต่อการใช้งานจริง</p>",
+            "primary_label": "Explore machines & molding",
+            "primary_label_th": "ดูเครื่องจักรและงานฉีดพลาสติก",
+            "image_alt": "MALIEV compact pneumatic injection molding machine",
+            "image_alt_th": "เครื่องฉีดพลาสติกระบบนิวแมติกขนาดกะทัดรัดของ MALIEV",
+            "decision_details": "<p>30G and 50G machines · demonstrations at Pak Kret · mold and material support</p>",
+            "decision_details_th": "<p>เครื่องรุ่น 30G และ 50G · สาธิตที่ปากเกร็ด · รองรับงานแม่พิมพ์และวัสดุ</p>",
+            "product_preview_count": 0,
+            "primary_collection": "เครื่องฉีดพลาสติก",
+            "related_collection_1": "molds",
+            "related_collection_2": "เม็ดพลาสติก",
+            "related_collection_3": "spare-parts",
+            "layout": "lead",
+            "tone": "light"
+          }
+        },
+        "simmount": {
+          "type": "family",
+          "settings": {
+            "family_type": "simmount",
+            "heading": "SimMount",
+            "heading_th": "SimMount",
+            "description": "<p>Precision mounting hardware for compatible 40 mm-series aluminium profiles, with a direct path to purchase.</p>",
+            "description_th": "<p>อุปกรณ์ยึดติดตั้งที่แม่นยำสำหรับโปรไฟล์อะลูมิเนียมซีรีส์ 40 มม. ที่รองรับ พร้อมเลือกซื้อได้โดยตรง</p>",
+            "primary_label": "Shop SimMount",
+            "primary_label_th": "เลือกซื้อ SimMount",
+            "image_alt": "SimMount monitor mounting hardware for 40 mm-series aluminium profiles",
+            "image_alt_th": "อุปกรณ์ยึดจอ SimMount สำหรับโปรไฟล์อะลูมิเนียมซีรีส์ 40 มม.",
+            "decision_details": "<p>Compatible 40 mm-series profiles · made by MALIEV · international shipping</p>",
+            "decision_details_th": "<p>รองรับโปรไฟล์ซีรีส์ 40 มม. · ผลิตโดย MALIEV · จัดส่งระหว่างประเทศ</p>",
+            "product_preview_count": 3,
+            "featured_product": "simmount-pro-vesa-kit-adjustable-monitor-mount-for-sim-racing-rigs",
+            "primary_collection": "sim-racing-solutions",
+            "layout": "feature",
+            "tone": "carbon"
+          }
+        },
+        "made": {
+          "type": "family",
+          "settings": {
+            "family_type": "made",
+            "heading": "MALIEV-made products",
+            "heading_th": "ผลิตภัณฑ์ที่ MALIEV ผลิต",
+            "description": "<p>Finished 3D-printed and injection-molded products designed and produced by our team in Thailand.</p>",
+            "description_th": "<p>ผลิตภัณฑ์พิมพ์ 3 มิติและฉีดพลาสติกที่ทีมงานของเราออกแบบและผลิตในประเทศไทย</p>",
+            "primary_label": "Shop MALIEV-made products",
+            "primary_label_th": "เลือกซื้อผลิตภัณฑ์จาก MALIEV",
+            "image_alt": "Selection of products designed and made by MALIEV",
+            "image_alt_th": "ผลิตภัณฑ์ที่ออกแบบและผลิตโดย MALIEV",
+            "decision_details": "<p>Designed and produced by MALIEV in Thailand</p>",
+            "decision_details_th": "<p>ออกแบบและผลิตโดย MALIEV ในประเทศไทย</p>",
+            "product_preview_count": 3,
+            "primary_collection": "3d-printed-products",
+            "related_collection_1": "injection-molding-products",
+            "related_collection_2": "littlelegends",
+            "layout": "compact",
+            "tone": "light"
+          }
+        },
+        "digital": {
+          "type": "family",
+          "settings": {
+            "family_type": "digital",
+            "heading": "Digital models",
+            "heading_th": "โมเดลดิจิทัล",
+            "description": "<p>Downloadable 3D model files prepared for printing, prototyping, and practical workshop use.</p>",
+            "description_th": "<p>ไฟล์โมเดล 3 มิติสำหรับดาวน์โหลด เพื่อการพิมพ์ การทำต้นแบบ และงานเวิร์กช็อป</p>",
+            "primary_label": "Browse digital models",
+            "primary_label_th": "ดูโมเดลดิจิทัล",
+            "image_alt": "Downloadable MALIEV 3D model collection",
+            "image_alt_th": "คอลเลกชันโมเดล 3 มิติของ MALIEV สำหรับดาวน์โหลด",
+            "decision_details": "<p>Downloadable files prepared for 3D printing</p>",
+            "decision_details_th": "<p>ไฟล์ดาวน์โหลดที่เตรียมไว้สำหรับการพิมพ์ 3 มิติ</p>",
+            "product_preview_count": 0,
+            "primary_collection": "cute-christmas-figure-3d-model-minimal-holiday-decoration-40mm",
+            "layout": "compact",
+            "tone": "light"
+          }
+        }
+      },
+      "block_order": [
+        "machines",
+        "simmount",
+        "made",
+        "digital"
+      ]
     }
   },
   "order": [
-    "main",
-    "featured_collection_qJtLB4"
+    "main"
   ]
 }

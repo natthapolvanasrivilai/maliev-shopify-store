@@ -1,0 +1,96 @@
+{% doc %}
+Renders a concise product-family decision card using a collection image, a featured product, or a small product mosaic.
+
+@param {block} block - Family block containing collection settings.
+@param {string} family_title - Localized family heading.
+@param {string} family_description - Localized family description.
+@param {boolean} is_th - Whether the current storefront language is Thai.
+{% enddoc %}
+
+{%- liquid
+  assign primary_collection = block.settings.primary_collection
+  assign featured_product = block.settings.featured_product
+  assign mosaic_count = block.settings.product_preview_count | default: 0
+  assign family_image = primary_collection.featured_image
+  if featured_product != blank and featured_product.featured_media != blank
+    assign family_image = featured_product.featured_media
+  elsif family_image == blank and primary_collection.products.first.featured_media != blank
+    assign family_image = primary_collection.products.first.featured_media
+  endif
+  assign family_image_loading = 'lazy'
+  if block.settings.layout == 'lead'
+    assign family_image_loading = 'eager'
+  endif
+  assign family_image_alt = block.settings.image_alt
+  assign family_primary_label = block.settings.primary_label
+  assign family_details = block.settings.decision_details
+  if is_th
+    assign family_image_alt = block.settings.image_alt_th | default: family_image_alt
+    assign family_primary_label = block.settings.primary_label_th | default: family_primary_label
+    assign family_details = block.settings.decision_details_th | default: family_details
+  endif
+  assign family_image_alt = family_image_alt | default: family_image.alt | default: family_title
+  assign family_primary_label = family_primary_label | default: primary_collection.title
+-%}
+
+<article
+  id="Family-{{ block.id }}"
+  class="mc-collection-family mc-collection-family--{{ block.settings.layout }} mc-collection-family--{{ block.settings.tone }} mc-collection-family--{{ block.settings.family_type }}"
+  data-family-panel
+  {{ block.shopify_attributes }}
+>
+  <a
+    class="mc-collection-family__media"
+    href="{{ primary_collection.url }}"
+    aria-label="{{ family_primary_label | escape }}"
+  >
+    {%- if mosaic_count > 0 and primary_collection.products_count > 0 -%}
+      <span class="mc-collection-family__mosaic mc-collection-family__mosaic--{{ mosaic_count }}">
+        {%- for preview_product in primary_collection.products limit: mosaic_count -%}
+          {%- if preview_product.featured_media != blank -%}
+            <span class="mc-collection-family__mosaic-item">
+              {{
+                preview_product.featured_media
+                | image_url: width: 900
+                | image_tag:
+                  widths: '240, 360, 480, 640, 900',
+                  sizes: '(min-width: 990px) 22vw, 48vw',
+                  loading: family_image_loading,
+                  alt: preview_product.featured_media.alt | default: preview_product.title
+              }}
+            </span>
+          {%- endif -%}
+        {%- endfor -%}
+      </span>
+    {%- elsif family_image != blank -%}
+      {{
+        family_image
+        | image_url: width: 1400
+        | image_tag:
+          class: 'mc-collection-family__image',
+          widths: '480, 720, 960, 1200, 1400',
+          sizes: '(min-width: 990px) 45vw, 100vw',
+          loading: family_image_loading,
+          alt: family_image_alt
+      }}
+    {%- else -%}
+      <span class="mc-collection-family__media-fallback" aria-hidden="true">
+        <span>{{ primary_collection.title | slice: 0 }}</span>
+      </span>
+    {%- endif -%}
+  </a>
+
+  <div class="mc-collection-family__content">
+    <h2 class="mc-collection-family__title">{{ family_title }}</h2>
+    <div class="mc-collection-family__description rte">{{ family_description }}</div>
+
+    {%- if family_details != blank -%}
+      <div class="mc-collection-family__details rte">{{ family_details }}</div>
+    {%- endif -%}
+
+    <a class="mc-collection-family__primary-link" href="{{ primary_collection.url }}">
+      <span>{{ family_primary_label | escape }}</span>
+      <span class="mc-collection-family__arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+</article>

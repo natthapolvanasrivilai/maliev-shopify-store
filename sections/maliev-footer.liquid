@@ -1,0 +1,308 @@
+{{ 'maliev-chrome.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-footer.js' | asset_url }}" defer="defer"></script>
+
+{%- assign footer_logo_alt = settings.logo.alt | default: shop.name | escape -%}
+{%- assign footer_loading_label = 'accessibility.loading' | t -%}
+{%- assign footer_error_label = 'accessibility.error' | t -%}
+
+<footer class="mc-footer">
+  <div class="mc-footer__main">
+    <div class="mc-footer__brand">
+      <a class="mc-footer__wordmark" href="{{ routes.root_url }}" aria-label="{{ shop.name | escape }}">
+        {%- if settings.logo != blank -%}
+          {{ settings.logo | image_url: width: 280 | image_tag: widths: '120, 180, 240, 280', width: 140, alt: footer_logo_alt }}
+        {%- else -%}
+          {{ shop.name | escape }}
+        {%- endif -%}
+      </a>
+      {%- if section.settings.description != blank -%}
+        <div class="mc-footer__description rte">{{ section.settings.description }}</div>
+      {%- endif -%}
+      {%- if section.settings.show_social -%}
+        <div class="mc-footer__social">{% render 'social-icons' %}</div>
+      {%- endif -%}
+    </div>
+
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when 'menu' -%}
+          {%- if block.settings.menu != blank -%}
+            <nav class="mc-footer__menu" aria-labelledby="FooterMenu-{{ block.id }}" {{ block.shopify_attributes }}>
+              <details class="mc-footer__disclosure" open data-footer-disclosure>
+                <summary>
+                  <h2 id="FooterMenu-{{ block.id }}">{{ block.settings.heading | default: block.settings.menu.title | escape }}</h2>
+                  <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+                </summary>
+                <ul role="list">
+                  {%- for link in block.settings.menu.links -%}
+                    {%- unless link.url == '#' -%}
+                      <li>
+                        <a href="{{ link.url }}"{% if link.url contains 'http' %} target="_blank" rel="noopener noreferrer"{% endif %}>
+                          {{ link.title | escape }}
+                          {%- if link.url contains 'http' -%}
+                            <span class="visually-hidden">({{ 'accessibility.link_messages.external' | t }} {{ 'accessibility.link_messages.new_window' | t }})</span>
+                          {%- endif -%}
+                        </a>
+                      </li>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </ul>
+              </details>
+            </nav>
+          {%- endif -%}
+        {%- when 'support' -%}
+          <nav class="mc-footer__menu" aria-labelledby="FooterSupport-{{ block.id }}" {{ block.shopify_attributes }}>
+            <details class="mc-footer__disclosure" open data-footer-disclosure>
+              <summary>
+                <h2 id="FooterSupport-{{ block.id }}">{{ 'sections.footer.support_heading' | t }}</h2>
+                <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+              </summary>
+              <ul role="list">
+                {%- if block.settings.contact_url != blank -%}
+                  <li><a href="{{ block.settings.contact_url }}">{{ 'sections.footer.contact' | t }}</a></li>
+                {%- endif -%}
+                {%- if block.settings.visit_url != blank -%}
+                  <li><a href="{{ block.settings.visit_url }}">{{ 'sections.footer.factory_visit' | t }}</a></li>
+                {%- endif -%}
+                {%- if block.settings.guides_url != blank -%}
+                  <li><a href="{{ block.settings.guides_url }}">{{ 'sections.footer.workshop_guides' | t }}</a></li>
+                {%- endif -%}
+                {%- if block.settings.services_url != blank -%}
+                  <li>
+                    <a href="{{ block.settings.services_url }}" target="_blank" rel="noopener noreferrer">
+                      {{ 'sections.footer.manufacturing_services' | t }}
+                      <span class="visually-hidden">({{ 'accessibility.link_messages.external' | t }} {{ 'accessibility.link_messages.new_window' | t }})</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+              </ul>
+            </details>
+          </nav>
+        {%- when 'newsletter' -%}
+          <div class="mc-footer__newsletter" {{ block.shopify_attributes }}>
+            <h2>{{ block.settings.heading | escape }}</h2>
+            {%- if block.settings.text != blank -%}<p>{{ block.settings.text | escape }}</p>{%- endif -%}
+            {%- form 'customer', id: 'MalievFooterNewsletter', class: 'mc-footer__newsletter-form' -%}
+              <input type="hidden" name="contact[tags]" value="newsletter">
+              <div class="mc-footer__newsletter-control">
+                <label class="visually-hidden" for="MalievFooterEmail">{{ 'newsletter.label' | t }}</label>
+                <input
+                  id="MalievFooterEmail"
+                  type="email"
+                  name="contact[email]"
+                  value="{{ form.email }}"
+                  autocomplete="email"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  placeholder="{{ 'newsletter.label' | t }}"
+                  required
+                  {% if form.errors %} aria-invalid="true" aria-describedby="MalievFooterNewsletterError"{% elsif form.posted_successfully? %} aria-describedby="MalievFooterNewsletterSuccess"{% endif %}
+                >
+                <button type="submit" aria-label="{{ 'newsletter.button_label' | t }}">
+                  <span>{{ 'newsletter.button_label' | t }}</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+              {%- if form.errors -%}
+                <p id="MalievFooterNewsletterError" class="mc-footer__form-message" role="alert">
+                  {{ form.errors.translated_fields.email | capitalize }} {{ form.errors.messages.email }}
+                </p>
+              {%- endif -%}
+              {%- if form.posted_successfully? -%}
+                <p id="MalievFooterNewsletterSuccess" class="mc-footer__form-message" role="status">{{ 'newsletter.success' | t }}</p>
+              {%- endif -%}
+            {%- endform -%}
+          </div>
+      {%- endcase -%}
+    {%- endfor -%}
+  </div>
+
+  <div class="mc-footer__utility">
+    <div class="mc-footer__localization">
+      {%- if section.settings.show_country and localization.available_countries.size > 1 -%}
+        {%- form 'localization', id: 'MalievFooterCountry', class: 'mc-footer__localization-form', data-footer-localization-form: '', data-loading-label: footer_loading_label, data-error-label: footer_error_label -%}
+          <label for="MalievFooterCountrySelect">{{ 'localization.country_label' | t }}</label>
+          <select
+            id="MalievFooterCountrySelect"
+            name="country_code"
+            data-footer-localization-select
+            data-initial-value="{{ localization.country.iso_code }}"
+          >
+            {%- for country in localization.available_countries -%}
+              <option value="{{ country.iso_code }}"{% if country.iso_code == localization.country.iso_code %} selected{% endif %}>
+                {{ country.name }} · {{ country.currency.iso_code }} {{ country.currency.symbol }}
+              </option>
+            {%- endfor -%}
+          </select>
+          <button class="mc-footer__localization-submit" type="submit">{{ 'localization.update_country' | t }}</button>
+          <p class="mc-footer__localization-status" role="status" aria-live="polite" data-footer-localization-status hidden></p>
+        {%- endform -%}
+      {%- endif -%}
+
+      {%- if section.settings.show_language and localization.available_languages.size > 1 -%}
+        {%- form 'localization', id: 'MalievFooterLanguage', class: 'mc-footer__localization-form', data-footer-localization-form: '', data-loading-label: footer_loading_label, data-error-label: footer_error_label -%}
+          <label for="MalievFooterLanguageSelect">{{ 'localization.language_label' | t }}</label>
+          <select
+            id="MalievFooterLanguageSelect"
+            name="language_code"
+            data-footer-localization-select
+            data-initial-value="{{ localization.language.iso_code }}"
+          >
+            {%- for language in localization.available_languages -%}
+              <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
+                {{ language.endonym_name | capitalize }}
+              </option>
+            {%- endfor -%}
+          </select>
+          <button class="mc-footer__localization-submit" type="submit">{{ 'localization.update_language' | t }}</button>
+          <p class="mc-footer__localization-status" role="status" aria-live="polite" data-footer-localization-status hidden></p>
+        {%- endform -%}
+      {%- endif -%}
+    </div>
+
+    <div class="mc-footer__legal">
+      <p>&copy; {{ 'now' | date: '%Y' }} {{ shop.name | link_to: routes.root_url }}</p>
+      {%- if section.settings.show_policies -%}
+        <details class="mc-footer__disclosure mc-footer__legal-disclosure" open data-footer-disclosure>
+          <summary>
+            <span>{{ 'sections.footer.policies_heading' | t }}</span>
+            <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+          </summary>
+          <ul role="list">
+            {%- for policy in shop.policies -%}
+              {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </details>
+      {%- endif -%}
+    </div>
+
+    {%- if section.settings.show_payment_icons and shop.enabled_payment_types != empty -%}
+      <ul class="mc-footer__payments" role="list" aria-label="{{ 'sections.footer.payment' | t }}">
+        {%- for type in shop.enabled_payment_types -%}
+          <li>{{ type | payment_type_svg_tag: class: 'icon icon--full-color' }}</li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "MALIEV footer",
+  "class": "mc-footer-section",
+  "max_blocks": 5,
+  "settings": [
+    {
+      "type": "richtext",
+      "id": "description",
+      "default": "<p>Engineered products, manufacturing support, and direct service from our team in Thailand.</p>",
+      "label": "Company description"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "default": true,
+      "label": "Show social links"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_country",
+      "default": true,
+      "label": "Show country and currency"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_language",
+      "default": true,
+      "label": "Show language"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_policies",
+      "default": true,
+      "label": "Show policy links"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment_icons",
+      "default": true,
+      "label": "Show payment icons"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "menu",
+      "name": "Menu",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading"
+        },
+        {
+          "type": "link_list",
+          "id": "menu",
+          "label": "Menu"
+        }
+      ]
+    },
+    {
+      "type": "support",
+      "name": "Support links",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "url",
+          "id": "contact_url",
+          "label": "Contact page"
+        },
+        {
+          "type": "url",
+          "id": "visit_url",
+          "label": "Factory visit page"
+        },
+        {
+          "type": "url",
+          "id": "guides_url",
+          "label": "Workshop guides"
+        },
+        {
+          "type": "url",
+          "id": "services_url",
+          "label": "Manufacturing services"
+        }
+      ]
+    },
+    {
+      "type": "newsletter",
+      "name": "Newsletter",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "default": "Workshop updates",
+          "label": "Heading"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "default": "New products, practical guides, and manufacturing notes. No noise.",
+          "label": "Text"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "MALIEV footer",
+      "blocks": [
+        { "type": "menu" },
+        { "type": "support" },
+        { "type": "newsletter" }
+      ]
+    }
+  ]
+}
+{% endschema %}

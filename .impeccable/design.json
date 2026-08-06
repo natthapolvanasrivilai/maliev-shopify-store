@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-18T00:00:00Z",
+  "title": "Design System: MALIEV Storefront",
+  "extensions": {
+    "colorMeta": {
+      "precision-blue": {
+        "role": "primary",
+        "displayName": "Precision Blue",
+        "canonical": "#006FD6",
+        "tonalRamp": ["oklch(20% 0.09 255)", "oklch(30% 0.13 255)", "oklch(40% 0.16 255)", "oklch(50% 0.18 255)", "oklch(58% 0.17 255)", "oklch(70% 0.13 255)", "oklch(84% 0.07 255)", "oklch(95% 0.02 255)"]
+      },
+      "precision-blue-pressed": {
+        "role": "primary",
+        "displayName": "Pressed Precision Blue",
+        "canonical": "#064FC4",
+        "tonalRamp": ["oklch(18% 0.09 260)", "oklch(28% 0.13 260)", "oklch(38% 0.17 260)", "oklch(47% 0.19 260)", "oklch(56% 0.17 260)", "oklch(68% 0.13 260)", "oklch(82% 0.07 260)", "oklch(94% 0.02 260)"]
+      },
+      "telemetry-cyan": {
+        "role": "secondary",
+        "displayName": "Telemetry Cyan",
+        "canonical": "#18B7FF",
+        "tonalRamp": ["oklch(25% 0.07 240)", "oklch(38% 0.10 240)", "oklch(50% 0.13 240)", "oklch(62% 0.14 240)", "oklch(72% 0.15 240)", "oklch(80% 0.12 240)", "oklch(89% 0.07 240)", "oklch(96% 0.02 240)"]
+      },
+      "carbon-black": {
+        "role": "secondary",
+        "displayName": "Carbon Black",
+        "canonical": "#0C1114",
+        "tonalRamp": ["oklch(14% 0.010 230)", "oklch(20% 0.012 230)", "oklch(28% 0.014 230)", "oklch(38% 0.014 230)", "oklch(50% 0.012 230)", "oklch(65% 0.010 230)", "oklch(82% 0.006 230)", "oklch(95% 0.003 230)"]
+      },
+      "asphalt": {
+        "role": "secondary",
+        "displayName": "Asphalt",
+        "canonical": "#161C22",
+        "tonalRamp": ["oklch(16% 0.012 235)", "oklch(22% 0.014 235)", "oklch(30% 0.016 235)", "oklch(40% 0.016 235)", "oklch(52% 0.014 235)", "oklch(66% 0.011 235)", "oklch(82% 0.007 235)", "oklch(95% 0.003 235)"]
+      },
+      "safety-yellow": {
+        "role": "tertiary",
+        "displayName": "Safety Yellow",
+        "canonical": "#FFD21C",
+        "tonalRamp": ["oklch(30% 0.07 95)", "oklch(45% 0.10 95)", "oklch(58% 0.13 95)", "oklch(70% 0.15 95)", "oklch(80% 0.16 95)", "oklch(88% 0.17 95)", "oklch(93% 0.12 95)", "oklch(97% 0.05 95)"]
+      },
+      "support-green": {
+        "role": "tertiary",
+        "displayName": "Support Green",
+        "canonical": "#00A36C",
+        "tonalRamp": ["oklch(22% 0.06 163)", "oklch(33% 0.09 163)", "oklch(44% 0.12 163)", "oklch(54% 0.14 163)", "oklch(63% 0.15 163)", "oklch(74% 0.12 163)", "oklch(86% 0.07 163)", "oklch(95% 0.03 163)"]
+      },
+      "engineering-ink": {
+        "role": "neutral",
+        "displayName": "Engineering Ink",
+        "canonical": "#101214",
+        "tonalRamp": ["oklch(15% 0.006 240)", "oklch(22% 0.007 240)", "oklch(32% 0.008 240)", "oklch(44% 0.008 240)", "oklch(56% 0.007 240)", "oklch(70% 0.006 240)", "oklch(84% 0.004 240)", "oklch(96% 0.002 240)"]
+      },
+      "alloy-gray": {
+        "role": "neutral",
+        "displayName": "Alloy Gray",
+        "canonical": "#697078",
+        "tonalRamp": ["oklch(20% 0.008 245)", "oklch(30% 0.010 245)", "oklch(40% 0.012 245)", "oklch(52% 0.012 245)", "oklch(62% 0.011 245)", "oklch(74% 0.009 245)", "oklch(86% 0.006 245)", "oklch(96% 0.003 245)"]
+      },
+      "optical-white": {
+        "role": "neutral",
+        "displayName": "Optical White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["oklch(30% 0 0)", "oklch(45% 0 0)", "oklch(60% 0 0)", "oklch(72% 0 0)", "oklch(82% 0 0)", "oklch(90% 0 0)", "oklch(96% 0 0)", "oklch(100% 0 0)"]
+      },
+      "workshop-canvas": {
+        "role": "neutral",
+        "displayName": "Workshop Canvas",
+        "canonical": "#F4F6F7",
+        "tonalRamp": ["oklch(30% 0.004 220)", "oklch(45% 0.005 220)", "oklch(58% 0.005 220)", "oklch(70% 0.005 220)", "oklch(80% 0.005 220)", "oklch(88% 0.004 220)", "oklch(94% 0.003 220)", "oklch(97.5% 0.002 220)"]
+      },
+      "fine-rule": {
+        "role": "neutral",
+        "displayName": "Fine Rule",
+        "canonical": "rgba(16, 18, 20, 0.1)",
+        "tonalRamp": ["rgba(16,18,20,0.4)", "rgba(16,18,20,0.32)", "rgba(16,18,20,0.24)", "rgba(16,18,20,0.18)", "rgba(16,18,20,0.14)", "rgba(16,18,20,0.10)", "rgba(16,18,20,0.06)", "rgba(16,18,20,0.03)"]
+      },
+      "foundry-dark": {
+        "role": "neutral",
+        "displayName": "Foundry Dark",
+        "canonical": "#101418",
+        "tonalRamp": ["oklch(15% 0.010 240)", "oklch(21% 0.012 240)", "oklch(29% 0.013 240)", "oklch(39% 0.013 240)", "oklch(51% 0.012 240)", "oklch(66% 0.010 240)", "oklch(82% 0.006 240)", "oklch(95% 0.003 240)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero claims on keynote product pages only; tight 0.94 leading, balanced lines." },
+      "headline": { "displayName": "Headline", "purpose": "Major product-story transitions and section-defining statements." },
+      "title": { "displayName": "Title", "purpose": "Product names, card titles, technical subtopics." },
+      "body": { "displayName": "Body", "purpose": "Explanation and supporting copy; 65-72ch cap; lead paragraphs may scale to clamp(1.7rem, 1.8vw, 2.1rem)." },
+      "label": { "displayName": "Label", "purpose": "Prices, specifications, buttons, concise metadata. Uppercase tracking only for compact panel labels." }
+    },
+    "shadows": [
+      { "name": "action-lift", "value": "0 4px 8px rgba(0, 111, 214, 0.22)", "purpose": "Primary-button hover/focus response only; SimMount uses a cyan-tinted equivalent at the same geometry." },
+      { "name": "overlay-separation", "value": "0 10px 28px rgba(16, 44, 78, 0.10)", "purpose": "Menus, predictive search, drawers, and floating layers." }
+    ],
+    "motion": [
+      { "name": "ease-engineered", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Default easing for control state transitions at 180ms." },
+      { "name": "ease-out-slow", "value": "cubic-bezier(0, 0, 0.3, 1)", "purpose": "Dawn base easing for larger reveals and drawers." },
+      { "name": "duration-control", "value": "180ms", "purpose": "Button and control transitions." },
+      { "name": "duration-default", "value": "200ms", "purpose": "General state changes (Dawn base)." },
+      { "name": "duration-medium", "value": "300ms", "purpose": "Panel and drawer movement." },
+      { "name": "duration-long", "value": "500ms", "purpose": "Large reveals; must have reduced-motion equivalents." }
+    ],
+    "breakpoints": [
+      { "name": "mobile-max", "value": "749px" },
+      { "name": "desktop-min", "value": "990px" },
+      { "name": "page-width", "value": "1200px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The commercial action on light surfaces: book a visit, request a quote, add to cart.",
+      "html": "<button class=\"ds-btn-primary\">Book a factory visit</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; background: #006FD6; color: #FFFFFF; border: 1px solid #006FD6; border-radius: 4px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; font-size: 14.5px; font-weight: 600; min-height: 48px; padding: 12.5px 22px; cursor: pointer; transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-primary:hover { background: #064FC4; border-color: #064FC4; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 111, 214, 0.22); } .ds-btn-primary:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { .ds-btn-primary { transition: none; } .ds-btn-primary:hover { transform: none; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting action beside a primary CTA: download specs, view details.",
+      "html": "<button class=\"ds-btn-secondary\">Download specifications</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; background: #FFFFFF; color: #006FD6; border: 1px solid #006FD6; border-radius: 4px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; font-size: 14.5px; font-weight: 600; min-height: 48px; padding: 12.5px 22px; cursor: pointer; transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), color 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-secondary:hover { background: #F4F6F7; color: #064FC4; border-color: #064FC4; } .ds-btn-secondary:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; }"
+    },
+    {
+      "name": "SimMount Button",
+      "kind": "button",
+      "refersTo": "button-simmount",
+      "description": "SimMount's direct-checkout action: telemetry cyan on carbon, immediate and prominent.",
+      "html": "<div class=\"ds-simmount-ground\"><button class=\"ds-btn-simmount\">Add to cart</button></div>",
+      "css": ".ds-simmount-ground { background: #0C1114; padding: 24px; border-radius: 8px; display: inline-block; } .ds-btn-simmount { display: inline-flex; align-items: center; justify-content: center; background: #18B7FF; color: #0C1114; border: 1px solid #18B7FF; border-radius: 4px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; font-size: 14.5px; font-weight: 600; min-height: 48px; padding: 12.5px 22px; cursor: pointer; transition: filter 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-simmount:hover { filter: brightness(1.1); transform: translateY(-2px); } .ds-btn-simmount:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { .ds-btn-simmount:hover { transform: none; } }"
+    },
+    {
+      "name": "Spec Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Compact machine facts and spec metadata; the only pill-shaped element in the system.",
+      "html": "<span class=\"ds-chip\">50 g shot capacity</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; background: #F4F6F7; color: #101214; border: 1px solid rgba(16, 18, 20, 0.1); border-radius: 999px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; font-size: 12px; font-weight: 600; line-height: 1.2; padding: 6px 14px; }"
+    },
+    {
+      "name": "Standard Input",
+      "kind": "input",
+      "refersTo": "input-standard",
+      "description": "Forms across the store: quotation requests, contact, checkout fields.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Company name\" />",
+      "css": ".ds-input { background: #FFFFFF; color: #101214; border: 1px solid rgba(16, 18, 20, 0.1); border-radius: 4px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; font-size: 16px; min-height: 48px; padding: 12px 16px; width: 280px; } .ds-input::placeholder { color: #697078; } .ds-input:focus-visible { outline: 3px solid #006FD6; outline-offset: 3px; border-color: #006FD6; }"
+    },
+    {
+      "name": "Product Card",
+      "kind": "card",
+      "refersTo": "product-card",
+      "description": "Catalog card in the store shell: flat, bordered, image-first.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-media\"></div><h3 class=\"ds-card-title\">PIMM-50G</h3><p class=\"ds-card-meta\">Compact injection molding machine</p><span class=\"ds-card-price\">Deposit from ฿—</span></article>",
+      "css": ".ds-card { background: #FFFFFF; color: #101214; border: 1px solid rgba(16, 18, 20, 0.1); border-radius: 12px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; padding: 16px; width: 260px; transition: border-color 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-card:hover { border-color: #006FD6; } .ds-card-media { background: #F4F6F7; border-radius: 8px; height: 160px; margin-bottom: 12px; } .ds-card-title { font-size: 18px; font-weight: 600; line-height: 1.2; margin: 0 0 4px; } .ds-card-meta { color: #697078; font-size: 13px; line-height: 1.5; margin: 0 0 8px; } .ds-card-price { color: #101214; font-size: 13.5px; font-weight: 600; }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Optical white header with fine rule; Precision Blue marks hover and active states.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-nav-logo\">MALIEV</span><a class=\"ds-nav-link ds-nav-link--active\" href=\"#\">Machines</a><a class=\"ds-nav-link\" href=\"#\">SimMount</a><a class=\"ds-nav-link\" href=\"#\">Guides</a><a class=\"ds-nav-link\" href=\"#\">Contact</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 24px; background: #FFFFFF; border-bottom: 1px solid rgba(16, 18, 20, 0.1); font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; height: 72px; padding: 0 24px; } .ds-nav-logo { color: #101214; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; margin-right: 16px; } .ds-nav-link { color: #101214; font-size: 14px; font-weight: 400; text-decoration: none; transition: color 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-nav-link:hover { color: #006FD6; } .ds-nav-link--active { color: #006FD6; font-weight: 600; } .ds-nav-link:focus-visible { outline: 3px solid #FFD21C; outline-offset: 3px; }"
+    },
+    {
+      "name": "SimMount Panel",
+      "kind": "custom",
+      "refersTo": "simmount-panel",
+      "description": "SimMount's telemetry stage panel: asphalt on carbon, cyan data emphasis, HUD-like spec rows.",
+      "html": "<div class=\"ds-sm-stage\"><section class=\"ds-sm-panel\"><h3 class=\"ds-sm-title\">SimMount Pro VESA</h3><div class=\"ds-sm-row\"><span class=\"ds-sm-key\">Load rating</span><span class=\"ds-sm-val\">12 kg</span></div><div class=\"ds-sm-row\"><span class=\"ds-sm-key\">Material</span><span class=\"ds-sm-val\">PETG-CF</span></div><div class=\"ds-sm-row\"><span class=\"ds-sm-key\">Compatibility</span><span class=\"ds-sm-val\">VESA 75/100</span></div></section></div>",
+      "css": ".ds-sm-stage { background: #0C1114; padding: 24px; border-radius: 12px; display: inline-block; } .ds-sm-panel { background: #161C22; border-radius: 16px; font-family: Inter, 'Noto Sans Thai', system-ui, sans-serif; padding: 28px; width: 300px; } .ds-sm-title { color: #FFFFFF; font-size: 20px; font-weight: 600; line-height: 1.2; margin: 0 0 16px; } .ds-sm-row { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 10px 0; } .ds-sm-key { color: rgba(255, 255, 255, 0.62); font-size: 13px; } .ds-sm-val { color: #18B7FF; font-size: 13px; font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "One Factory, Two Stages",
+    "overview": "The storefront is a bright, exceptionally organized engineering showroom with two spotlighted stages inside it. The showroom itself — home, collections, cart, search, account — is a clean, functional store: cool white surfaces, honest prices, quiet structure, nothing performing. Step onto a product line's pages and the lights change. The injection molding machines stand on the workshop stage: optical white, precision blue, accurate renders, keynote pacing. SimMount stands on the paddock stage: carbon black, telemetry cyan, motorsport precision. One factory built both; the shared thread is engineering discipline, not shared styling.\n\nProduct imagery carries the emotional weight on both stages. Typography and layout establish the reading order, then get out of the product's way. Each major viewport on a keynote page advances one idea: compact fit, credible output, accessible ownership, local manufacturing, serviceability, or the next commercial action. Dense specifications belong in structured comparisons and downloadable documents, never in an undifferentiated wall of catalog content.\n\nThis system explicitly rejects anything that looks or behaves like a lightly customized Shopify template — especially recognizable Dawn patterns — along with generic industrial-supplier clutter and gamer-RGB noise. The PIMM-50G dark cinematic launch page (near-black surfaces, heat-orange accents) is a deliberate campaign one-off; its palette is not part of this system and must not leak into other surfaces.",
+    "keyCharacteristics": [
+      "A neutral, transactional store shell that never competes with the product stages.",
+      "Machine stage: optical white, precision blue, accurate KeyShot/Blender renders, keynote pacing.",
+      "SimMount stage: carbon black and asphalt surfaces, telemetry cyan, motorsport-technical density.",
+      "One bilingual sans-serif family (Inter + Noto Sans Thai) at two weights, everywhere.",
+      "Flat, crisp surfaces; compact engineered radii; functional elevation only.",
+      "Clear routes to book a factory visit, place a production deposit, request a quote, chat on LINE — or simply add SimMount to cart."
+    ],
+    "rules": [
+      { "name": "The Precision Blue Rule", "body": "Precision Blue marks an action, an active state, or a technical point of focus; it never becomes ambient decoration.", "section": "colors" },
+      { "name": "The Two Stages Rule", "body": "Telemetry Cyan and carbon surfaces belong to SimMount; Precision Blue and workshop light belong to machines and the shell. The two palettes never mix on one surface.", "section": "colors" },
+      { "name": "The Campaign One-Off Rule", "body": "The PIMM-50G launch page's dark heat palette (#070B10, #FF7A1A, #FFB347) is campaign scenery, not a system token. Do not reuse it on new surfaces.", "section": "colors" },
+      { "name": "The Safety Yellow Rule", "body": "Safety Yellow is reserved for keyboard focus and genuine attention states; using it as a promotional accent is prohibited.", "section": "colors" },
+      { "name": "The Two-Weight Rule", "body": "Use 400 for sustained reading and 600 for hierarchy; heavier weights and artificial boldness are prohibited.", "section": "typography" },
+      { "name": "The One Clear Claim Rule", "body": "Every major keynote viewport gets one dominant headline; secondary text supports it rather than competes with it.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "A surface at rest has no decorative shadow; if every card appears to float, the hierarchy has failed.", "section": "elevation" },
+      { "name": "The Eight-Pixel Ceiling Rule", "body": "Control response shadows may blur no more than 8px; broad ghost-card shadows are forbidden.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the store shell (home, collections, cart, search) clean, fast, and transactional; reserve keynote theatrics for product-line pages.",
+      "Do lead keynote pages with accurate product imagery and one clear claim.",
+      "Do use Precision Blue (#006FD6) for action on light surfaces and Telemetry Cyan (#18B7FF) for action on SimMount carbon — never both on one surface.",
+      "Do keep specifications, dimensions, warranty, replacement parts, deposit terms, and Thailand-only machine availability easy to verify.",
+      "Do provide dedicated desktop and mobile image compositions rather than destructive automatic crops.",
+      "Do preserve WCAG 2.2 AA contrast, keyboard access, visible focus, and equivalent reduced-motion states in both Thai and English.",
+      "Do retain Shopify section schemas and merchant-editable content when implementing the system."
+    ],
+    "donts": [
+      "Don't make the storefront look or behave like a lightly customized Shopify template, especially recognizable Dawn patterns.",
+      "Don't introduce generic industrial-supplier clutter, dense walls of specifications, or visual theatrics that obscure engineering facts, pricing, or contact paths.",
+      "Don't let SimMount collapse into gamer-RGB clutter or aggressive esports styling; motorsport-technical means precision and speed, not neon noise.",
+      "Don't reuse the PIMM-50G launch campaign's dark heat palette (#070B10, #FF7A1A) on any new surface; it is a one-off.",
+      "Don't use cream, sand, parchment, gradient text, decorative glassmorphism, or CSS grid-pattern backgrounds as shortcuts to a designed appearance.",
+      "Don't repeat tiny uppercase tracked eyebrows or numbered markers as section scaffolding; labels must describe real technical hierarchy or sequence.",
+      "Don't pair a 1px decorative border with a broad shadow, exceed 16px card radii, or turn every surface into a floating card.",
+      "Don't gate content visibility on animation or ship motion without a reduced-motion equivalent.",
+      "Don't show customer-owned molds, parts, names, or logos without explicit permission."
+    ]
+  }
+}

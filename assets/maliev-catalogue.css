@@ -1,0 +1,258 @@
+.mcat {
+  --mcat-gutter: clamp(2rem, 4vw, 5.6rem);
+  background: var(--maliev-surface, #fff);
+  color: var(--maliev-ink, #101419);
+  overflow: hidden;
+  padding: clamp(5.6rem, 7vw, 8rem) 0;
+}
+
+.mcat__frame {
+  margin: 0 auto;
+  max-width: 160rem;
+}
+
+.mcat__header {
+  align-items: center;
+  display: flex;
+  margin: 0 var(--mcat-gutter) clamp(2.4rem, 3vw, 3.6rem);
+}
+
+body main .mcat .mcat__title {
+  color: inherit;
+  font-family: var(--maliev-font-sans, "IBM Plex Sans", sans-serif);
+  /* The legacy shell forces generic h2 sizing with !important. Keep this
+     image-shelf heading intentionally compact until that global rule is retired. */
+  font-size: clamp(2.4rem, 2.5vw, 3.4rem) !important;
+  font-weight: 600;
+  letter-spacing: -.025em;
+  line-height: 1.08;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.mcat__viewport {
+  position: relative;
+}
+
+.mcat__track {
+  display: flex;
+  gap: clamp(1.2rem, 1.4vw, 2rem);
+  list-style: none;
+  margin: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0 var(--mcat-gutter) .8rem;
+  scroll-padding-inline: var(--mcat-gutter);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.mcat__track::-webkit-scrollbar {
+  display: none;
+}
+
+.mcat__item {
+  flex: 0 0 clamp(28rem, 25vw, 34rem);
+  scroll-snap-align: start;
+}
+
+.mcat__card {
+  aspect-ratio: 3 / 4;
+  background: var(--maliev-carbon, #0b0e11);
+  border-radius: var(--maliev-radius-card);
+  color: #fff;
+  display: block;
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+  text-decoration: none;
+}
+
+.mcat__card::after {
+  background: linear-gradient(180deg, rgba(7, 10, 13, .94) 0%, rgba(7, 10, 13, .74) 30%, rgba(7, 10, 13, .08) 62%, transparent 74%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.mcat__card--light {
+  background: #e7e9eb;
+  color: var(--maliev-ink, #101419);
+}
+
+.mcat__card--light::after {
+  background: linear-gradient(180deg, rgba(247, 248, 249, .98) 0%, rgba(247, 248, 249, .82) 32%, rgba(247, 248, 249, .12) 64%, transparent 76%);
+}
+
+.mcat__card--blue {
+  background: var(--maliev-canvas, #f3f5f6);
+  color: var(--maliev-ink, #101419);
+}
+
+.mcat__card--blue::after {
+  background: linear-gradient(180deg, rgba(239, 247, 252, .98) 0%, rgba(239, 247, 252, .84) 32%, rgba(239, 247, 252, .1) 64%, transparent 76%);
+}
+
+.mcat__media,
+.mcat__media img {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.mcat__media {
+  z-index: 0;
+}
+
+.mcat__media img {
+  object-fit: cover;
+  object-position: center;
+  transition: transform 500ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mcat__copy {
+  padding: clamp(2rem, 2.2vw, 2.8rem);
+  position: relative;
+  z-index: 2;
+}
+
+.mcat .mcat__card-title {
+  color: inherit;
+  font-family: var(--maliev-font-sans, "IBM Plex Sans", sans-serif);
+  font-size: clamp(2.5rem, 2.3vw, 3.3rem);
+  font-weight: 600;
+  letter-spacing: -.03em;
+  line-height: 1.02;
+  margin: 0;
+  max-width: 13ch;
+  text-wrap: balance;
+}
+
+.mcat__description {
+  color: currentColor;
+  font-size: clamp(1.4rem, 1.15vw, 1.6rem);
+  line-height: 1.4;
+  margin: 1.2rem 0 0;
+  max-width: 31ch;
+  opacity: .86;
+  text-wrap: pretty;
+}
+
+.mcat__link-label {
+  color: currentColor;
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.5rem;
+}
+
+.mcat__control {
+  align-items: center;
+  appearance: none;
+  background: var(--maliev-surface, #fff);
+  border: 0;
+  border-radius: 50%;
+  color: var(--maliev-ink, #101419);
+  cursor: pointer;
+  display: inline-flex;
+  height: 4.8rem;
+  justify-content: center;
+  padding: 0;
+  transition: background-color 160ms cubic-bezier(.22, 1, .36, 1), color 160ms cubic-bezier(.22, 1, .36, 1), transform 160ms cubic-bezier(.22, 1, .36, 1);
+  width: 4.8rem;
+}
+
+.mcat__control--previous,
+.mcat__control--next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.mcat__control--previous {
+  left: clamp(.8rem, 2vw, 2.4rem);
+}
+
+.mcat__control--next {
+  right: clamp(.8rem, 2vw, 2.4rem);
+}
+
+.mcat__control:hover {
+  background: var(--maliev-ink, #101419);
+  color: var(--maliev-surface, #fff);
+}
+
+.mcat__control--previous:hover,
+.mcat__control--next:hover {
+  transform: translateY(-50%) scale(1.04);
+}
+
+.mcat__control:active {
+  transform: scale(.96);
+}
+
+.mcat__control--previous:active,
+.mcat__control--next:active {
+  transform: translateY(-50%) scale(.96);
+}
+
+.mcat__control:focus-visible,
+.mcat__card:focus-visible {
+  outline: .3rem solid var(--maliev-focus, #ffd21c);
+  outline-offset: .3rem;
+}
+
+.mcat__control svg {
+  fill: none;
+  height: 1.9rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 1.9rem;
+}
+
+.mcat__card:hover .mcat__media img {
+  transform: scale(1.02);
+}
+
+@media (max-width: 749px) {
+  .mcat {
+    --mcat-gutter: 2rem;
+    padding-block: 5.6rem;
+  }
+
+  .mcat__header {
+    margin-bottom: 2.4rem;
+  }
+
+  .mcat__item {
+    flex-basis: 78vw;
+  }
+
+  .mcat__control--previous,
+  .mcat__control--next {
+    height: 4.4rem;
+    width: 4.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcat__track {
+    scroll-behavior: auto;
+  }
+
+  .mcat__control,
+  .mcat__media img {
+    transition: none;
+  }
+
+  .mcat__card:hover .mcat__media img {
+    transform: none;
+  }
+}

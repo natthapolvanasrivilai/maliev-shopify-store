@@ -1,0 +1,91 @@
+{%- liquid
+  assign detail_block = nil
+  assign menu_link_key = menu_link.title | handleize
+
+  for detail in section.blocks
+    assign detail_key = detail.settings.link_title | handleize
+    if detail.type == 'menu_detail' and detail_key == menu_link_key
+      assign detail_block = detail
+      break
+    endif
+  endfor
+
+  assign link_description = detail_block.settings.description
+  if request.locale.iso_code == 'th' and detail_block.settings.description_th != blank
+    assign link_description = detail_block.settings.description_th
+  endif
+  if link_description == blank and menu_link.object != blank
+    assign link_description = menu_link.object.description | default: menu_link.object.content | strip_html | truncatewords: 18
+  endif
+
+  assign preset_asset = blank
+  case detail_block.settings.image_preset
+    when 'machines'
+      assign preset_asset = 'maliev-catalogue-machines.webp'
+    when 'simmount'
+      assign preset_asset = 'maliev-catalogue-simmount.webp'
+    when 'printed'
+      assign preset_asset = 'maliev-catalogue-3d-printed.webp'
+    when 'molds'
+      assign preset_asset = 'maliev-catalogue-molds-parts.webp'
+    when 'mesh'
+      assign preset_asset = 'maliev-catalogue-mesh-splitter.webp'
+    when 'materials'
+      assign preset_asset = 'maliev-catalogue-molding-materials.webp'
+    when 'digital'
+      assign preset_asset = 'maliev-catalogue-digital-files.webp'
+  endcase
+
+  assign link_image = detail_block.settings.image
+  if link_image == blank and preset_asset == blank
+    assign link_image = menu_link.object.featured_image
+  endif
+  assign has_link_image = false
+  if link_image != blank or preset_asset != blank
+    assign has_link_image = true
+  endif
+
+  assign show_link_image = false
+  if has_link_image and variant != 'compact'
+    assign show_link_image = true
+  endif
+-%}
+
+<a
+  class="mc-menu-link mc-menu-link--{{ variant }}{% if show_link_image %} mc-menu-link--with-media{% endif %}"
+  href="{{ menu_link.url }}"
+  {% if menu_link.current %}aria-current="page"{% endif %}
+>
+  {%- if show_link_image -%}
+    <span class="mc-menu-link__media" aria-hidden="true">
+      {%- if link_image != blank -%}
+        {{
+          link_image
+          | image_url: width: 360
+          | image_tag:
+            widths: '120, 180, 240, 360',
+            sizes: '(max-width: 1099px) 56px, 320px',
+            loading: 'lazy',
+            alt: ''
+        }}
+      {%- else -%}
+        <img
+          src="{{ preset_asset | asset_url }}"
+          alt=""
+          width="1086"
+          height="1448"
+          loading="lazy"
+        >
+      {%- endif -%}
+    </span>
+  {%- endif -%}
+  <span class="mc-menu-link__copy">
+    <span class="mc-menu-link__title">{{ menu_link.title | escape }}</span>
+    {%- if link_description != blank -%}
+      <span class="mc-menu-link__description">{{ link_description | strip_html | escape }}</span>
+    {%- endif -%}
+  </span>
+  {%- if show_arrow -%}
+    <svg class="mc-menu-link__arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+  {%- endif -%}
+</a>

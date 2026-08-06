@@ -1,23 +1,23 @@
 <!doctype html>
-<html class="js" lang="{{ request.locale.iso_code }}">
+<html class="no-js" lang="{{ request.locale.iso_code }}">
   <head>
+    <script>
+      document.documentElement.classList.remove('no-js');
+      document.documentElement.classList.add('js');
+    </script>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="theme-color" content="">
     <link rel="canonical" href="{{ canonical_url }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..600&display=swap" rel="stylesheet">
+    {{ 'IBMPlexSans-Regular-Latin1.woff2' | asset_url | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous' }}
+    {%- if request.locale.iso_code contains 'th' -%}
+      {{ 'IBMPlexSansThai-Regular.woff2' | asset_url | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous' }}
+    {%- endif -%}
 
-    
     {%- if settings.favicon != blank -%}
       <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 32, height: 32 }}">
     {%- endif -%}
-
-    {%- unless settings.type_header_font.system? and settings.type_body_font.system? -%}
-      <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
-    {%- endunless -%}
 
     {%- liquid
       assign maliev_page_title = page_title
@@ -37,6 +37,15 @@
       if request.page_type == 'product' and maliev_is_50g_product and maliev_is_thai_locale
         assign maliev_page_title = 'เครื่องฉีดพลาสติกระบบลม 50g'
         assign maliev_page_description = 'เครื่องฉีดพลาสติกระบบลมรุ่น 50g จาก MALIEV รองรับ shot สูงสุด 50g โซนหลอมวัสดุเหล็ก ฮีตเตอร์ hot runner 2 x 350W ความสูงเครื่อง 1014.5 มม. และระยะเวลาผลิตประมาณ 30 วัน'
+      endif
+      if request.page_type == 'index'
+        if maliev_is_thai_locale
+          assign maliev_page_title = 'เครื่องฉีดพลาสติกขนาดกะทัดรัด ผลิตในไทย'
+          assign maliev_page_description = 'MALIEV ออกแบบและผลิตเครื่องฉีดพลาสติกระบบลมขนาดกะทัดรัดในประเทศไทย พร้อมแม่พิมพ์ อะไหล่ บริการผลิตตามสั่ง และอุปกรณ์ซิมเรซซิ่ง SimMount ที่จัดส่งทั่วโลก'
+        else
+          assign maliev_page_title = 'Compact injection molding machines, made in Thailand'
+          assign maliev_page_description = 'MALIEV designs and builds compact pneumatic injection molding machines in Thailand — plus molds, spare parts, custom manufacturing, and SimMount sim racing hardware that ships worldwide.'
+        endif
       endif
     -%}
 
@@ -66,19 +75,8 @@
 
     {{ content_for_header }}
 
-    {%- liquid
-      assign body_font_bold = settings.type_body_font | font_modify: 'weight', 'bold'
-      assign body_font_italic = settings.type_body_font | font_modify: 'style', 'italic'
-      assign body_font_bold_italic = body_font_bold | font_modify: 'style', 'italic'
-    %}
-
     {% style %}
-      {{ settings.type_body_font | font_face: font_display: 'swap' }}
-      {{ body_font_bold | font_face: font_display: 'swap' }}
-      {{ body_font_italic | font_face: font_display: 'swap' }}
-      {{ body_font_bold_italic | font_face: font_display: 'swap' }}
-      {{ settings.type_header_font | font_face: font_display: 'swap' }}
-
+      {% assign scheme_classes = '' %}
       {% for scheme in settings.color_schemes -%}
         {% assign scheme_classes = scheme_classes | append: ', .color-' | append: scheme.id %}
         {% if forloop.index == 1 -%}
@@ -125,13 +123,13 @@
       }
 
       :root {
-        --font-body-family: {{ settings.type_body_font.family }}, "Noto Sans Thai", {{ settings.type_body_font.fallback_families }};
-        --font-body-style: {{ settings.type_body_font.style }};
+        --font-body-family: 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif;
+        --font-body-style: normal;
         --font-body-weight: 400;
         --font-body-weight-bold: 600;
 
-        --font-heading-family: {{ settings.type_header_font.family }}, "Noto Sans Thai", {{ settings.type_header_font.fallback_families }};
-        --font-heading-style: {{ settings.type_header_font.style }};
+        --font-heading-family: 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif;
+        --font-heading-style: normal;
         --font-heading-weight: 600;
 
         --font-body-scale: {{ settings.body_scale | divided_by: 100.0 }};
@@ -281,6 +279,8 @@
     {% endstyle %}
 
     {{ 'base.css' | asset_url | stylesheet_tag }}
+    {{ 'maliev-shell.css' | asset_url | stylesheet_tag }}
+    {{ 'maliev-commerce.css' | asset_url | stylesheet_tag }}
     <link rel="stylesheet" href="{{ 'component-cart-items.css' | asset_url }}" media="print" onload="this.media='all'">
 
     {%- if settings.cart_type == 'drawer' -%}
@@ -290,17 +290,6 @@
       {{ 'component-price.css' | asset_url | stylesheet_tag }}
       {{ 'component-discounts.css' | asset_url | stylesheet_tag }}
     {%- endif -%}
-
-    {%- unless settings.type_body_font.system? -%}
-      {% comment %}theme-check-disable AssetPreload{% endcomment %}
-      <link rel="preload" as="font" href="{{ settings.type_body_font | font_url }}" type="font/woff2" crossorigin>
-      {% comment %}theme-check-enable AssetPreload{% endcomment %}
-    {%- endunless -%}
-    {%- unless settings.type_header_font.system? -%}
-      {% comment %}theme-check-disable AssetPreload{% endcomment %}
-      <link rel="preload" as="font" href="{{ settings.type_header_font | font_url }}" type="font/woff2" crossorigin>
-      {% comment %}theme-check-enable AssetPreload{% endcomment %}
-    {%- endunless -%}
 
     {%- if localization.available_countries.size > 1 or localization.available_languages.size > 1 -%}
       {{ 'component-localization-form.css' | asset_url | stylesheet_tag: preload: true }}
@@ -329,10 +318,12 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-568NMRCL');</script>
     <!-- End Google Tag Manager -->
+    {% comment %}theme-check-disable RemoteAsset{% endcomment %}
     <script id='merchantWidgetScript'
             src="https://www.gstatic.com/shopping/merchant/merchantwidget.js"
             defer>
     </script>
+    {% comment %}theme-check-enable RemoteAsset{% endcomment %}
     <script type="text/javascript">
       merchantWidgetScript.addEventListener('load', function () {
         merchantwidget.start({
@@ -778,7 +769,11 @@
     {%- endif -%}
 </head>
 
-  <body class="gradient{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}">
+  <body
+    class="gradient template-{{ template.name | handle }}{% if template.suffix %} template-{{ template.name | handle }}--{{ template.suffix | handle }}{% endif %}{% if settings.animations_hover_elements != 'none' %} animate--hover-{{ settings.animations_hover_elements }}{% endif %}"
+    data-template="{{ template.name | escape }}"
+    {% if template.suffix %}data-template-suffix="{{ template.suffix | escape }}"{% endif %}
+  >
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-568NMRCL"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -858,3 +853,4 @@
     {%- endif -%}
   </body>
 </html>
+

@@ -1,0 +1,183 @@
+{{ 'maliev-simmount-campaign.css' | asset_url | stylesheet_tag }}
+
+<section id="simmount" class="msim" aria-label="{{ section.settings.aria_label | escape }}">
+  <div class="msim__media">
+    <picture>
+      {%- if section.settings.mobile_image != blank -%}
+        <source media="(max-width: 749px)" srcset="{{ section.settings.mobile_image | image_url: width: 1200 }}">
+      {%- elsif section.settings.mobile_asset_name != blank -%}
+        <source media="(max-width: 749px)" srcset="{{ section.settings.mobile_asset_name | asset_url }}">
+      {%- endif -%}
+
+      {%- if section.settings.image != blank -%}
+        {{
+          section.settings.image
+          | image_url: width: 2400
+          | image_tag:
+            widths: '960, 1440, 1920, 2400',
+            sizes: '100vw',
+            loading: 'lazy',
+            alt: section.settings.image_alt
+        }}
+      {%- elsif section.settings.asset_name != blank -%}
+        <img
+          src="{{ section.settings.asset_name | asset_url }}"
+          alt="{{ section.settings.image_alt | escape }}"
+          width="1920"
+          height="1080"
+          loading="lazy"
+        >
+      {%- endif -%}
+    </picture>
+  </div>
+
+  <div class="msim__content">
+    <p class="msim__brand">{{ section.settings.brand_label | escape }}</p>
+    <h2 class="msim__headline">{{ section.settings.heading | escape }}</h2>
+    {%- if section.settings.lead != blank -%}
+      <p class="msim__lead">{{ section.settings.lead | escape }}</p>
+    {%- endif -%}
+
+    {%- if section.settings.primary_label != blank -%}
+      <a class="msim__button" href="{{ section.settings.primary_link | default: '/collections/sim-racing-solutions' }}">
+        {{ section.settings.primary_label | escape }}
+      </a>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <nav class="msim__products" aria-label="{{ section.settings.product_nav_label | escape }}">
+        <ul role="list">
+          {%- for block in section.blocks -%}
+            {%- liquid
+              assign rig_product = block.settings.product
+              assign product_name = block.settings.name
+              assign product_link = block.settings.link
+
+              if rig_product != blank
+                if product_name == blank
+                  assign product_name = rig_product.title
+                endif
+                assign product_link = rig_product.url
+              endif
+
+              if product_link == blank
+                assign product_link = section.settings.primary_link | default: '/collections/sim-racing-solutions'
+              endif
+            -%}
+            {%- if product_name != blank -%}
+              <li {{ block.shopify_attributes }}>
+                <a href="{{ product_link }}">
+                  <span>{{ product_name | escape }}</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </nav>
+    {%- endif -%}
+
+    {%- if section.settings.note != blank -%}
+      <p class="msim__note">{{ section.settings.note | escape }}</p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "SimMount campaign",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "SimMount sim racing hardware"
+    },
+    {
+      "type": "text",
+      "id": "brand_label",
+      "label": "Brand label",
+      "default": "SimMount"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Hold your line."
+    },
+    {
+      "type": "textarea",
+      "id": "lead",
+      "label": "Lead text",
+      "default": "Purpose-built monitor and bass-shaker mounts for 40 mm-series aluminium profiles, engineered and made by MALIEV."
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Desktop campaign image"
+    },
+    {
+      "type": "text",
+      "id": "asset_name",
+      "label": "Desktop theme asset filename"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "Mobile campaign image"
+    },
+    {
+      "type": "text",
+      "id": "mobile_asset_name",
+      "label": "Mobile theme asset filename"
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Image alternative text",
+      "default": "SimMount monitor and bass-shaker hardware installed on black 40 mm-series aluminium profiles"
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label",
+      "default": "Shop SimMount"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "product_nav_label",
+      "label": "Featured products accessibility label",
+      "default": "Featured SimMount products"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Supporting note",
+      "default": "Check each product page for supported profile sizes and slot hardware. Ships worldwide."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "rig_product",
+      "name": "Featured SimMount product",
+      "settings": [
+        { "type": "product", "id": "product", "label": "Product" },
+        { "type": "text", "id": "name", "label": "Display name" },
+        { "type": "url", "id": "link", "label": "Link override" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "SimMount campaign",
+      "blocks": [{ "type": "rig_product" }, { "type": "rig_product" }, { "type": "rig_product" }]
+    }
+  ]
+}
+{% endschema %}

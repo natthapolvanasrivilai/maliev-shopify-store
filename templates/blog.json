@@ -10,7 +10,7 @@
 {
   "sections": {
     "main": {
-      "type": "main-blog-v2",
+      "type": "maliev-journal",
       "custom_css": [
         ".full-unstyled-link {font-weight: 600;}",
         "h1 {display: none;}",

@@ -1,0 +1,181 @@
+{{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Hero supports split and overlay layouts. {%- endcomment -%}
+
+<section
+  class="mkey mkey--hero{% if section.settings.layout == 'overlay' %} mkey--hero-overlay{% endif %}"
+  aria-label="{{ section.settings.aria_label | escape }}"
+>
+  {%- if section.settings.layout == 'overlay' -%}
+    <div class="mkey__hero-bg mkey__hero-bg--gallery" aria-hidden="true">
+      <picture>
+        {%- if section.settings.mobile_asset_name != blank -%}
+          <source media="(max-width: 989px)" srcset="{{ section.settings.mobile_asset_name | asset_url }}">
+        {%- endif -%}
+        {%- if section.settings.image != blank -%}
+          <img src="{{ section.settings.image | image_url: width: 2600 }}" alt="" width="2600" height="1463" fetchpriority="high">
+        {%- elsif section.settings.asset_name != blank -%}
+          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="2200" fetchpriority="high">
+        {%- elsif section.settings.image_url != blank -%}
+          <img src="{{ section.settings.image_url }}" alt="" width="2592" height="1458" fetchpriority="high">
+        {%- endif -%}
+      </picture>
+    </div>
+  {%- endif -%}
+  <div class="mkey__frame mkey__frame--motion-wipe" data-mkr-group>
+    <div class="mkey__copy mkey__copy--machine-paths">
+      <h1 class="mkey__display" data-mkr>{{ section.settings.heading }}</h1>
+      {%- if section.settings.lead != blank -%}
+        <p class="mkey__lead" data-mkr>{{ section.settings.lead }}</p>
+      {%- endif -%}
+      <div class="mkey__actions" data-mkr>
+        {%- if section.settings.primary_label != blank -%}
+          <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}">{{ section.settings.primary_label }}</a>
+        {%- endif -%}
+        {%- if section.settings.secondary_label != blank -%}
+          <a class="mkey__textlink" href="{{ section.settings.secondary_link | default: '/collections/all' }}">
+            {{ section.settings.secondary_label }}
+            <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        {%- endif -%}
+      </div>
+    </div>
+    {%- if section.settings.layout == 'overlay' -%}
+      {%- comment -%} Media is the full-bleed background; the machine image alt lives on the section aria-label. {%- endcomment -%}
+    {%- else -%}
+    <div class="mkey__media" data-mkr="media">
+      {%- if section.settings.image != blank -%}
+        {{
+          section.settings.image
+          | image_url: width: 2200
+          | image_tag:
+            widths: '750, 1100, 1500, 2200',
+            sizes: '(max-width: 989px) 92vw, 56vw',
+            alt: section.settings.image_alt,
+            fetchpriority: 'high'
+        }}
+      {%- elsif section.settings.asset_name != blank -%}
+        <img src="{{ section.settings.asset_name | asset_url }}" alt="{{ section.settings.image_alt | escape }}" width="1600" height="1200" fetchpriority="high">
+      {%- elsif section.settings.image_url != blank -%}
+        <img src="{{ section.settings.image_url }}" alt="{{ section.settings.image_alt | escape }}" width="1600" height="1200" fetchpriority="high">
+      {%- endif -%}
+    </div>
+    {%- endif -%}
+  </div>
+  {%- if section.settings.show_social -%}
+    <div class="mkey__hero-social">
+      {% render 'social-icons', class: 'mkey__hero-social-list' %}
+    </div>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Keynote hero",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Section accessibility label",
+      "default": "MALIEV introduction"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Injection molding, sized for your workshop."
+    },
+    {
+      "type": "textarea",
+      "id": "lead",
+      "label": "Lead text",
+      "default": "MALIEV designs and builds compact pneumatic injection molding machines in Thailand — serious small-batch production without the industrial footprint."
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Primary button label",
+      "default": "Book a factory visit"
+    },
+    {
+      "type": "url",
+      "id": "primary_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary button label",
+      "default": "Explore the machines"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "text",
+      "id": "tertiary_label",
+      "label": "Text link label",
+      "info": "Small routing link beside the buttons, for example to SimMount"
+    },
+    {
+      "type": "url",
+      "id": "tertiary_link",
+      "label": "Text link"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        { "value": "split", "label": "Split (copy beside media)" },
+        { "value": "overlay", "label": "Overlay (copy over full-bleed media)" }
+      ],
+      "default": "split"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Hero image"
+    },
+    {
+      "type": "text",
+      "id": "mobile_asset_name",
+      "label": "Mobile theme asset filename",
+      "info": "Overlay layout only — portrait image swapped in below 750px"
+    },
+    {
+      "type": "text",
+      "id": "asset_name",
+      "label": "Theme asset filename",
+      "info": "Used when no image is picked, for example pimm-50g-wide-hero.png"
+    },
+    {
+      "type": "text",
+      "id": "image_url",
+      "label": "Fallback hero image URL"
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Hero image alt text",
+      "default": "MALIEV compact pneumatic injection molding machine, three-quarter studio view"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Supporting note",
+      "default": "Built in-house. Supported in Thailand. One-year warranty."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "label": "Show social links",
+      "default": true
+    }
+  ],
+  "presets": [{ "name": "Keynote hero" }]
+}
+{% endschema %}
