@@ -35,12 +35,12 @@ test('configuration media supports pointer and keyboard scrubbing', () => {
   assert.match(script, /video\.currentTime = nextTime/);
 });
 
-test('configuration dragging coalesces absolute pointer positions into animation-frame seeks', () => {
+test('configuration dragging reverses horizontal pointer travel while coalescing animation-frame seeks', () => {
   const script = read('assets/maliev-pimm-30g.js');
 
   assert.match(script, /const rotationStartTime = 65 \/ 24/);
   assert.match(script, /const rotationEndTime = 101 \/ 24/);
-  assert.match(script, /dragStartProgress \+ \(event\.clientX - dragStartX\) \* progressPerPixel\(\)/);
+  assert.match(script, /dragStartProgress - \(event\.clientX - dragStartX\) \* progressPerPixel\(\)/);
   assert.match(script, /scrubFrame = window\.requestAnimationFrame\(applyScrub\)/);
   assert.match(script, /URL\.createObjectURL\(blob\)/);
   assert.match(script, /fetch\(sourceUrl, \{ cache: 'force-cache' \}\)/);

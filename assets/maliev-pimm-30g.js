@@ -335,7 +335,7 @@
 
       turntable.addEventListener('pointermove', (event) => {
         if (!dragging) return;
-        queueScrub(dragStartProgress + (event.clientX - dragStartX) * progressPerPixel());
+        queueScrub(dragStartProgress - (event.clientX - dragStartX) * progressPerPixel());
       });
 
       const stopDragging = (event) => {
