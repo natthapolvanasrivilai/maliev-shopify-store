@@ -106,10 +106,10 @@
           "type": "chapter",
           "settings": {
             "role": "next_model",
-            "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm50-keynote-reveal-desktop.webp",
-            "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm50-keynote-reveal-mobile.webp"
+            "desktop_video_asset": "pimm50-red-stage-desktop.webm",
+            "desktop_poster_asset": "pimm50-red-stage-desktop.webp",
+            "mobile_video_asset": "pimm50-red-stage-mobile.webm",
+            "mobile_poster_asset": "pimm50-red-stage-mobile.webp"
           }
         }
       },

@@ -46,6 +46,7 @@
     let heroHasPlayed = reduced || activeId !== 'pimm30-overview';
     let specCountHasPlayed = reduced || activeId !== 'pimm30-overview';
     let specCountFrame = 0;
+    let responsiveVideoFrame = 0;
 
     story.classList.toggle('is-reduced-motion', reduced);
     story.classList.toggle('is-static', designMode);
@@ -161,6 +162,20 @@
       });
     }
 
+    function syncResponsiveVideo() {
+      responsiveVideoFrame = 0;
+      const nextVideo = visibleVideo(layers.get(activeId));
+      if (nextVideo === activeVideo) return;
+
+      resetVideo(activeVideo);
+      playActiveVideo(true);
+    }
+
+    function queueResponsiveVideoSync() {
+      if (responsiveVideoFrame) return;
+      responsiveVideoFrame = window.requestAnimationFrame(syncResponsiveVideo);
+    }
+
     function activate(chapterId, restartVideo = true) {
       if (!layers.has(chapterId)) return;
       const previousId = activeId;
@@ -217,6 +232,7 @@
       });
       video.addEventListener('error', () => {
         const layer = video.closest('[data-pimm30-layer]');
+        resetVideo(video);
         if (layer) {
           layer.classList.add('is-video-failed');
           layer.classList.remove('has-active-video');
@@ -228,6 +244,8 @@
         }
       });
     });
+
+    window.addEventListener('resize', queueResponsiveVideoSync, { passive: true });
 
     story.querySelectorAll('[data-pimm30-turntable]').forEach((turntable) => {
       const video = visibleVideo(turntable);

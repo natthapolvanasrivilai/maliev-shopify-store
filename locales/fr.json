@@ -123,6 +123,15 @@
       "book_visit": "Book a factory visit",
       "view_50g": "View the PIMM 50G",
       "next_model_unconfigured": "Choose the 50g product in the Theme Editor to show live price and availability.",
+      "next_model": {
+        "made_to_order": "Made to order",
+        "lead_time": "{{ days }}-day production lead time",
+        "facts": {
+          "capacity": "50g shot capacity",
+          "melt_zone": "Steel melt zone",
+          "heaters": "2 × 350W hot-runner heater bands"
+        }
+      },
       "pause": "Pause animation",
       "resume": "Resume animation",
       "replay": "Replay",
@@ -212,7 +221,7 @@
         "next_model": {
           "nav": "PIMM 50G",
           "eyebrow": "Need more shot capacity?",
-          "heading": "Step up to the PIMM 50G.",
+          "heading": "PIMM 50G",
           "body": "The larger model increases shot capacity to 50g while retaining the compact pneumatic workflow. Price and availability below come directly from Shopify.",
           "metric": "50 g",
           "metric_label": "Maximum shot capacity",

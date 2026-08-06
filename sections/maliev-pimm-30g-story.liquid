@@ -188,15 +188,27 @@
                 <h2>{{ heading_key | t }}</h2>
                 <p>{{ body_key | t }}</p>
                 <ul class="pimm30-next-model__upgrades">
-                  <li>{{ 'maliev_home_i18n.featured.pill_capacity_50' | t }}</li>
-                  <li>{{ 'maliev_home_i18n.featured.pill_meltzone_50' | t }}</li>
-                  <li>{{ 'maliev_home_i18n.featured.pill_heaters_50' | t }}</li>
+                  <li>{{ 'products.pimm30_story.next_model.facts.capacity' | t }}</li>
+                  <li>{{ 'products.pimm30_story.next_model.facts.melt_zone' | t }}</li>
+                  <li>{{ 'products.pimm30_story.next_model.facts.heaters' | t }}</li>
                 </ul>
               </div>
               {%- if next_product != blank and next_variant != blank -%}
                 <div class="pimm30-next-model">
                   <div><span>{{ next_product.title | escape }}</span><strong>{{ next_variant.price | money_with_currency }}</strong></div>
-                  <p class="pimm30-next-model__availability{% unless next_variant.available %} is-unavailable{% endunless %}">{% if next_variant.available %}{{ 'products.product.inventory_in_stock' | t }}{% else %}{{ 'products.product.inventory_out_of_stock' | t }}{% endif %}</p>
+                  {% if next_variant.available %}
+                    <p class="pimm30-next-model__availability" data-pimm50-made-to-order>
+                      {{ 'products.pimm30_story.next_model.made_to_order' | t }}
+                    </p>
+                    {% assign next_lead_time = next_product.metafields.custom.lead_time.value | default: 30 %}
+                    <p class="pimm30-next-model__lead-time">
+                      {{ 'products.pimm30_story.next_model.lead_time' | t: days: next_lead_time }}
+                    </p>
+                  {% else %}
+                    <p class="pimm30-next-model__availability is-unavailable">
+                      {{ 'products.product.inventory_out_of_stock' | t }}
+                    </p>
+                  {% endif %}
                 </div>
                 <a class="pimm30-action pimm30-action--primary" href="{{ next_product.url }}"><span>{{ 'products.pimm30_story.view_50g' | t }}</span><span aria-hidden="true">→</span></a>
               {%- else -%}

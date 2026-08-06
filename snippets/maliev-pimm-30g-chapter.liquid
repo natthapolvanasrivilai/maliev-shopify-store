@@ -34,8 +34,12 @@
 
   assign has_desktop_video = false
   assign has_mobile_video = false
+  assign is_looping = false
   assign desktop_asset_mime = 'video/mp4'
   assign mobile_asset_mime = 'video/mp4'
+  if block.settings.role == 'next_model'
+    assign is_looping = true
+  endif
   if block.settings.desktop_video != blank or block.settings.desktop_video_asset != blank
     assign has_desktop_video = true
   endif
@@ -82,6 +86,7 @@
         data-pimm30-video
         muted
         playsinline
+        {% if is_looping %}loop{% endif %}
         preload="{% if eager %}metadata{% else %}none{% endif %}"
       >
         {%- if block.settings.desktop_video != blank -%}
@@ -100,6 +105,7 @@
         data-pimm30-video
         muted
         playsinline
+        {% if is_looping %}loop{% endif %}
         preload="{% if eager %}metadata{% else %}none{% endif %}"
       >
         {%- if block.settings.mobile_video != blank -%}
