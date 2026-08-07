@@ -2840,3 +2840,398 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     transform-origin: 50% 42%;
   }
 }
+
+/*
+ * Responsive presentation contract
+ *
+ * Keep every chapter to one viewport, let the browser choose a fluid layout
+ * rather than a one-pixel breakpoint, and contain the transparent source
+ * artwork so the complete product remains inspectable at every size.
+ */
+.pimm30-story,
+.pimm30-story *,
+.pimm30-story *::before,
+.pimm30-story *::after {
+  box-sizing: border-box;
+}
+
+.pimm30-story,
+.pimm30-stage,
+.pimm30-story__chapters,
+.pimm30-chapter {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.pimm30-chapter {
+  height: 100svh;
+  max-height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  scroll-snap-stop: always;
+}
+
+.pimm30-chapter__content {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pimm30-stage__backdrop {
+  align-items: center;
+  inset: clamp(9rem, 18svh, 15rem) 0 auto;
+  max-width: 100%;
+  overflow: visible;
+  padding-inline: clamp(1rem, 4vw, 5rem);
+  text-align: center;
+  white-space: normal;
+  width: 100%;
+}
+
+.pimm30-stage__backdrop span {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.pimm30-stage__poster,
+.pimm30-stage__poster img,
+.pimm30-stage__video,
+.pimm30-stage__layer[data-pimm30-layer] .pimm30-stage__poster,
+.pimm30-stage__layer[data-pimm30-layer] .pimm30-stage__poster img,
+.pimm30-stage__layer[data-pimm30-layer] .pimm30-stage__video {
+  inset: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  padding: 0 !important;
+  transform: none !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster img,
+.pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__video {
+  object-position: 53% 50% !important;
+}
+
+.pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before {
+  inset: 50% auto auto 50%;
+  right: auto;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-4deg);
+  width: min(72vw, 92rem);
+}
+
+.pimm30-chapter--hero .pimm30-chapter__hero-heading,
+.pimm30-chapter--hero .pimm30-chapter__model,
+.pimm30-chapter--hero .pimm30-chapter__lead,
+.pimm30-chapter--hero .pimm30-spec-rail--hero,
+.pimm30-chapter--hero .pimm30-action--hero {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.pimm30-chapter--hero .pimm30-chapter__hero-heading,
+.pimm30-chapter--hero .pimm30-chapter__lead {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.pimm30-spec-rail--hero {
+  column-gap: clamp(0.35rem, 1vw, 1.25rem);
+  justify-items: start;
+  text-align: left;
+}
+
+.pimm30-spec-rail--hero > div {
+  align-items: flex-start;
+  justify-self: stretch;
+  min-width: 0;
+  padding-inline: clamp(0.15rem, 0.45vw, 0.8rem);
+  text-align: left;
+}
+
+.pimm30-spec-rail--hero dt,
+.pimm30-spec-rail--hero dd,
+.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.pimm30-spec-rail--hero dt {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.pimm30-spec-rail--hero dd {
+  font-size: clamp(1.08rem, 1.65vw, 2rem);
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+
+.pimm30-spec-label__nowrap {
+  white-space: nowrap;
+}
+
+.pimm30-action--hero {
+  align-items: center;
+  border-radius: var(--maliev-radius-compact);
+  box-shadow: 0 1rem 2.4rem rgba(0, 111, 214, 0.18);
+  font-size: clamp(1.25rem, 1.45vw, 1.6rem);
+  min-height: clamp(4.6rem, 6vw, 6.4rem);
+  padding-inline: clamp(1.35rem, 2vw, 2.4rem);
+  position: relative;
+  transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.pimm30-action--hero:focus-visible,
+.pimm30-stage__layer[data-pimm30-turntable]:focus-visible {
+  outline: 0.25rem solid color-mix(in srgb, var(--pimm30-blue) 70%, white);
+  outline-offset: 0.35rem;
+}
+
+.pimm30-action--hero:hover {
+  box-shadow: 0 1.25rem 2.8rem rgba(0, 111, 214, 0.28);
+  transform: translateY(-0.25rem);
+}
+
+/* Three local-only CTA treatments for Impeccable Live comparison. */
+.pimm30-cta-variant--compact .pimm30-action--hero {
+  border-radius: 999px;
+  box-shadow: 0 0.8rem 2rem rgba(0, 111, 214, 0.2);
+  min-height: clamp(4rem, 5vw, 5.2rem);
+  max-width: 30rem;
+}
+
+.pimm30-cta-variant--compact .pimm30-action--hero > span:last-child {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: inline-flex;
+  height: 2.4rem;
+  justify-content: center;
+  width: 2.4rem;
+}
+
+.pimm30-cta-variant--editorial .pimm30-action--hero {
+  border-radius: var(--maliev-radius-compact);
+  max-width: 40rem;
+}
+
+.pimm30-cta-variant--dual .pimm30-action--hero {
+  background: transparent;
+  border: 0.15rem solid var(--pimm30-blue);
+  box-shadow: none;
+  color: var(--pimm30-blue);
+}
+
+.pimm30-cta-variant--dual .pimm30-action--hero:hover {
+  background: var(--pimm30-blue);
+  color: #fff;
+}
+
+.pimm30-chapter--hero .pimm30-scroll-cue {
+  bottom: max(1.6rem, env(safe-area-inset-bottom));
+  display: inline-flex !important;
+  left: 50% !important;
+  margin: 0 !important;
+  max-width: none !important;
+  position: absolute;
+  transform: translateX(-50%) !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+}
+
+@media (max-width: 699px) {
+  .pimm30-stage__backdrop {
+    font-size: clamp(3.4rem, 13vw, 6.8rem);
+    inset-block-start: clamp(8rem, 17svh, 12rem);
+    line-height: 0.82;
+  }
+
+  .pimm30-chapter,
+  .pimm30-chapter__content {
+    min-height: 100svh;
+  }
+
+  .pimm30-chapter__content {
+    padding-block: calc(var(--pimm30-header-space) + 1rem) max(1.15rem, env(safe-area-inset-bottom));
+    padding-inline: clamp(1rem, 4vw, 1.8rem);
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    align-content: center;
+    gap: clamp(0.55rem, 1.8svh, 1.1rem);
+    grid-template-rows: auto auto auto auto auto;
+    padding-block: calc(var(--pimm30-header-space) + 0.9rem) max(1.15rem, env(safe-area-inset-bottom));
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    font-size: clamp(3.8rem, 13vw, 5.6rem);
+    inset-block-start: calc(var(--pimm30-header-space) + 0.8rem);
+  }
+
+  .pimm30-spec-rail--hero {
+    column-gap: 0.35rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 0.65rem;
+  }
+
+  .pimm30-spec-rail--hero > div {
+    padding-inline: 0.35rem;
+  }
+
+  .pimm30-spec-rail--hero > div:nth-child(3) {
+    border-left: 0;
+  }
+
+  .pimm30-spec-rail--hero dt {
+    font-size: 0.78rem;
+    line-height: 1.15;
+  }
+
+  .pimm30-spec-rail--hero dd {
+    font-size: clamp(1.25rem, 5.7vw, 2rem);
+  }
+
+  .pimm30-action--hero {
+    min-height: 4.4rem;
+    width: 100%;
+  }
+
+  .pimm30-chapter:not(.pimm30-chapter--hero) .pimm30-chapter__content {
+    justify-content: flex-end;
+    padding-top: 0.9rem;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-chapter__content {
+    background: transparent;
+    justify-content: flex-end;
+    min-height: 100svh;
+    padding-block: calc(var(--pimm30-header-space) + 1.2rem) max(1.15rem, env(safe-area-inset-bottom));
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm50-lockup__title {
+    font-size: clamp(3.5rem, 12vw, 5.4rem) !important;
+    line-height: 0.86;
+  }
+
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm50-lockup__summary,
+  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-next-model__upgrades {
+    display: none;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before {
+    width: 92vw;
+  }
+
+  .pimm30-stage__layer[data-pimm30-turntable] {
+    touch-action: pan-y;
+  }
+}
+
+@media (min-width: 700px) {
+  .pimm30-chapter__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 40%;
+    min-height: 100svh;
+    padding-block: max(10rem, 14svh) max(3rem, 8svh);
+    padding-inline: var(--maliev-gutter);
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto 1fr;
+    max-width: 40%;
+    padding-block: max(10rem, 14svh) max(3rem, 8svh);
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__hero-heading {
+    font-size: clamp(3.4rem, 4vw, 6rem);
+    line-height: 0.98;
+    margin-bottom: clamp(1.2rem, 2.6svh, 3rem);
+    max-width: 100%;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    font-size: clamp(4.8rem, 5vw, 7.4rem);
+    max-width: 100%;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead {
+    font-size: clamp(1.25rem, 1.5vw, 1.75rem);
+    line-height: 1.45;
+    max-width: 100%;
+  }
+
+  .pimm30-spec-rail--hero {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: clamp(1.2rem, 2.2svh, 2.6rem);
+  }
+
+  .pimm30-spec-rail--hero dt {
+    font-size: clamp(0.7rem, 0.78vw, 1rem);
+    line-height: 1.2;
+  }
+
+  .pimm30-spec-rail--hero dd {
+    font-size: clamp(1rem, 1.35vw, 1.8rem);
+  }
+
+  .pimm30-action--hero {
+    max-width: 100%;
+    margin-top: clamp(1.8rem, 4svh, 4rem);
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    object-position: 55% 50% !important;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1099px) {
+  .pimm30-chapter__content,
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    max-width: 44%;
+  }
+
+  .pimm30-spec-rail--hero {
+    column-gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 0.8rem;
+  }
+
+  .pimm30-spec-rail--hero > div:nth-child(3) {
+    border-left: 0;
+  }
+}
+
+@media (max-height: 680px) {
+  .pimm30-chapter__content,
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    padding-block: calc(var(--pimm30-header-space) + 0.7rem) max(0.9rem, env(safe-area-inset-bottom));
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__hero-heading {
+    font-size: clamp(2.8rem, 5.5vw, 4.8rem);
+    margin-bottom: 0.55rem;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    font-size: clamp(3.4rem, 6.2vw, 5.4rem);
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero {
+    margin-top: 0.8rem;
+    min-height: 3.8rem;
+  }
+}

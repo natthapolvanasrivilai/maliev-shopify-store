@@ -68,7 +68,7 @@
     {% if block.settings.role == 'configuration' %}
       data-pimm30-turntable
       role="group"
-      tabindex="-1"
+      tabindex="0"
       aria-label="{{ media_alt | escape }}. {% if localization.language.iso_code contains 'th' %}ลากไปทางซ้ายหรือขวาเพื่อหมุนดูเครื่อง{% else %}Drag left or right to rotate the machine{% endif %}."
     {% endif %}
     aria-hidden="{% if eager %}false{% else %}true{% endif %}"

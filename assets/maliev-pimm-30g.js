@@ -41,6 +41,10 @@
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
     const reduced = REDUCED_MOTION.matches || saveData || designMode;
+    const requestedCtaVariant = new URLSearchParams(window.location.search).get('cta_variant');
+    if (['compact', 'editorial', 'dual'].includes(requestedCtaVariant)) {
+      story.classList.add(`pimm30-cta-variant--${requestedCtaVariant}`);
+    }
     const hashChapter = chapters.find((chapter) => chapter.id && `#${chapter.id}` === window.location.hash);
     let activeId = (hashChapter || chapters[0]) ? (hashChapter || chapters[0]).dataset.pimm30Chapter : '';
     let activeVideo = null;
