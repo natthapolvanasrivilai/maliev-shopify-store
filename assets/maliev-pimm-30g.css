@@ -3235,3 +3235,365 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     min-height: 3.8rem;
   }
 }
+
+/*
+ * Final responsive presentation contract
+ *
+ * The exploratory responsive probes above remain useful history, but their
+ * broad max-width/media resets can compound at intermediate widths. This
+ * final contract owns the layout at the two actual presentation modes:
+ * stacked, non-overlapping mobile; and a readable 40/60 desktop split.
+ */
+
+.pimm30-story,
+.pimm30-story__chapters,
+.pimm30-chapter {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.pimm30-chapter {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100svh !important;
+  overflow: visible !important;
+}
+
+.pimm30-chapter__content,
+.pimm30-chapter__content > * {
+  box-sizing: border-box;
+  max-width: 100% !important;
+  min-width: 0;
+  width: 100%;
+}
+
+.pimm30-chapter__content {
+  overflow: visible !important;
+}
+
+.pimm30-chapter__content h1,
+.pimm30-chapter__content h2,
+.pimm30-chapter__content p,
+.pimm30-chapter__content dt,
+.pimm30-chapter__content dd {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] {
+  overflow: visible !important;
+}
+
+.pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster,
+.pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster picture,
+.pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster img,
+.pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] video {
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  transform: none !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.pimm30-stage__backdrop {
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
+}
+
+.pimm30-stage__backdrop span {
+  white-space: nowrap;
+}
+
+/* Mobile and tablet: reserve a clean machine band, then place readable copy. */
+@media (max-width: 1023px) {
+  .pimm30-chapter {
+    align-items: stretch !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .pimm30-chapter__content {
+    display: flex !important;
+    flex: 1 0 auto;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 100svh !important;
+    padding: calc(var(--pimm30-header-space) + 44svh) 1rem 4.8rem !important;
+    position: relative;
+    z-index: 3;
+  }
+
+  .pimm30-chapter__content > * {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    background: linear-gradient(
+      to bottom,
+      transparent 0,
+      rgba(11, 14, 17, 0.9) 16%,
+      #0b0e11 31%,
+      #0b0e11 100%
+    );
+    display: grid !important;
+    gap: 0.7rem;
+    grid-template-rows: auto auto auto auto;
+    justify-content: stretch;
+    padding-top: calc(var(--pimm30-header-space) + 44svh) !important;
+  }
+
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
+    background: linear-gradient(
+      to bottom,
+      transparent 0,
+      rgba(247, 248, 250, 0.92) 16%,
+      var(--pimm30-surface) 31%,
+      var(--pimm30-surface) 100%
+    );
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__hero-heading,
+  .pimm30-chapter--hero .pimm30-chapter__lead {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    align-self: end;
+    display: block !important;
+    font-size: clamp(3.4rem, 13vw, 5.5rem) !important;
+    line-height: 0.9;
+    margin: 0 !important;
+    position: static !important;
+    text-align: left;
+    width: 100% !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero {
+    align-items: stretch;
+    display: grid !important;
+    gap: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0.4rem 0 0 !important;
+    text-align: left;
+    width: 100% !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    align-items: flex-start;
+    border-left: 0 !important;
+    min-width: 0;
+    padding: 0.55rem 0.65rem 0.55rem 0 !important;
+    text-align: left !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero > div:nth-child(n + 3) {
+    border-top: 0.1rem solid currentColor !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.72rem, 2.3vw, 0.9rem) !important;
+    line-height: 1.15;
+    text-align: left !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(1.3rem, 5.2vw, 2rem) !important;
+    line-height: 1.05;
+    text-align: left !important;
+    white-space: nowrap;
+  }
+
+  .pimm30-action--hero {
+    align-self: stretch;
+    margin: 0.9rem 0 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-scroll-cue {
+    bottom: 0.85rem !important;
+    left: 50% !important;
+    position: absolute !important;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    width: max-content !important;
+    z-index: 4;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] {
+    bottom: auto !important;
+    height: 43svh !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: var(--pimm30-header-space) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster picture,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] video {
+    bottom: auto !important;
+    height: 43svh !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    top: 0 !important;
+    width: calc(100% - 1.5rem) !important;
+  }
+
+  .pimm30-stage__backdrop {
+    font-size: clamp(2.8rem, 11.5vw, 5.4rem) !important;
+    inset: calc(var(--pimm30-header-space) + 2svh) 0 auto !important;
+    line-height: 0.82;
+    padding-inline: 0.5rem;
+    width: 100% !important;
+  }
+}
+
+/* Desktop: a true 40/60 composition with copy unconstrained by a second 40%. */
+@media (min-width: 1024px) {
+  .pimm30-chapter {
+    align-items: stretch !important;
+    display: grid !important;
+    grid-template-columns: 40% minmax(0, 60%) !important;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100svh !important;
+    min-height: 100svh !important;
+  }
+
+  .pimm30-chapter__content,
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    display: flex !important;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 1;
+    justify-content: center;
+    max-width: none !important;
+    min-height: 100svh !important;
+    padding: clamp(8rem, 14svh, 12rem) clamp(2.4rem, 3.5vw, 5rem) clamp(5rem, 8svh, 8rem) !important;
+    width: 100% !important;
+    z-index: 3;
+  }
+
+  .pimm30-chapter__content > * {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__hero-heading {
+    display: block !important;
+    font-size: clamp(3.35rem, 4.2vw, 6rem) !important;
+    line-height: 0.98;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    display: block !important;
+    font-size: clamp(4.2rem, 5vw, 7rem) !important;
+    line-height: 0.9;
+    margin-top: clamp(0.8rem, 2vh, 1.8rem) !important;
+    position: static !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead {
+    display: block !important;
+    font-size: clamp(1.15rem, 1.45vw, 1.65rem) !important;
+    line-height: 1.45;
+    margin-top: clamp(0.8rem, 1.5vh, 1.4rem) !important;
+    max-width: 38ch !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero {
+    display: grid !important;
+    gap: 0.45rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: clamp(1.3rem, 2.5vh, 2.4rem) 0 0 !important;
+    text-align: left;
+    width: 100% !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    border-left: 0.1rem solid currentColor !important;
+    min-width: 0;
+    padding: 0 0.75rem !important;
+    text-align: left !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    border-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.72rem, 0.75vw, 0.95rem) !important;
+    line-height: 1.15;
+    text-align: left !important;
+  }
+
+  .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(1.15rem, 1.45vw, 1.85rem) !important;
+    line-height: 1.05;
+    text-align: left !important;
+    white-space: nowrap;
+  }
+
+  .pimm30-action--hero {
+    margin: clamp(1.4rem, 3vh, 3rem) 0 0 !important;
+    max-width: 30rem !important;
+    width: 100% !important;
+  }
+
+  .pimm30-scroll-cue {
+    bottom: clamp(1.4rem, 3vh, 3rem) !important;
+    left: 50% !important;
+    position: absolute !important;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    width: max-content !important;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] {
+    bottom: 0 !important;
+    height: 100% !important;
+    left: 40% !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 60% !important;
+  }
+
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster picture,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] video {
+    bottom: 0 !important;
+    height: 100% !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    top: 0 !important;
+    width: calc(100% - 2rem) !important;
+  }
+
+  .pimm30-stage__backdrop {
+    font-size: clamp(6rem, 8vw, 12rem) !important;
+    inset: 18svh 0 auto 40% !important;
+    line-height: 0.8;
+    width: 60% !important;
+  }
+}
+
+/* The desktop hero source is a transparent 16:9 canvas. Crop only its empty
+   side margins so the machine fills the 60% media column without clipping the
+   machine or its ground shadow. Mobile keeps the full contained render. */
+@media (min-width: 1024px) {
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster picture,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster img,
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] video {
+    object-fit: cover !important;
+    object-position: 69% 50% !important;
+  }
+}
