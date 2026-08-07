@@ -118,7 +118,10 @@
                   ><span data-pimm30-spec-number aria-hidden="true">876</span><span aria-hidden="true"> kgf</span></dd>
                 </div>
                 <div>
-                  <dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt>
+                  {%- assign pressure_label = 'products.pimm30_story.specs.pressure_label' | t -%}
+                  <dt class="pimm30-spec-label">
+                    {{ pressure_label | replace: 'air pressure', '<span class="pimm30-spec-label__nowrap">air pressure</span>' }}
+                  </dt>
                   <dd
                     data-pimm30-spec-count
                     data-pimm30-spec-final="0.7"

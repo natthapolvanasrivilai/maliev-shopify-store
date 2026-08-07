@@ -364,6 +364,10 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   border-left: 0.1rem solid currentColor;
 }
 
+.pimm30-spec-label__nowrap {
+  white-space: nowrap;
+}
+
 .pimm30-spec-rail dt,
 .pimm30-chapter__metric dt {
   color: var(--pimm30-muted);
@@ -2782,6 +2786,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   }
 
   .pimm30-chapter--hero .pimm30-spec-rail > div {
+    align-items: flex-start;
     justify-self: start;
     min-width: 0;
     padding-inline: clamp(0.2rem, 0.55vw, 0.8rem);
@@ -2799,6 +2804,10 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     letter-spacing: -0.03em;
     text-align: left;
     white-space: nowrap;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail [data-pimm30-spec-number] {
+    text-align: left;
   }
 
   /* The cue belongs to the viewport, not the left content column. */
