@@ -1161,6 +1161,16 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 }
 
 @media (min-width: 990px) {
+  .pimm30-chapter--hero .pimm30-spec-rail {
+    justify-items: start;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail > div,
+  .pimm30-chapter--hero .pimm30-spec-rail dt,
+  .pimm30-chapter--hero .pimm30-spec-rail dd {
+    text-align: left;
+  }
+
   .pimm30-chapter:not(.pimm30-chapter--hero):not(.pimm30-chapter--next_model) {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
