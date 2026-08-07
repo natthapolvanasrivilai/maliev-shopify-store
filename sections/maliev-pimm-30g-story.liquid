@@ -1,4 +1,9 @@
-{{ 'maliev-pimm-30g.css' | asset_url | stylesheet_tag }}
+{%- comment -%}
+  Keep the hero column contract cache-busted while the local theme preview is
+  hot-reloading. The static revision also gives deployed browsers a new URL
+  whenever this responsive media contract changes.
+{%- endcomment -%}
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260807-hero-column" media="all">
 <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'maliev-pimm-30g.js' | asset_url }}" defer="defer"></script>
 
@@ -30,11 +35,12 @@
     </div>
 
     {%- comment -%}
-      Keep the hero media in its own responsive column. The stage remains the
-      shared sticky presentation surface, while this wrapper gives the hero a
-      real 40/60 composition instead of depending on image positioning alone.
-      The chapter-level noscript fallback below is intentionally retained for
-      no-JavaScript storefronts.
+      Keep the live hero media in its own responsive column. The stage remains
+      the shared sticky presentation surface, while this wrapper gives the
+      hero a real 40/60 composition instead of depending on image positioning
+      alone. The chapter-level noscript fallback below is intentionally
+      retained for no-JavaScript storefronts; it is not a second live image,
+      so JavaScript-enabled pages cannot double-render or ghost the machine.
     {%- endcomment -%}
     <div class="pimm30-stage__hero-media-column" data-pimm30-hero-media aria-hidden="true">
       {%- for block in section.blocks -%}
@@ -110,7 +116,7 @@
           %}
         </noscript>
 
-        <div class="pimm30-chapter__content">
+        <div class="pimm30-chapter__content{% if role == 'overview' %} pimm30-chapter__content--hero{% endif %}">
           {%- case role -%}
             {%- when 'overview' -%}
               <h1 class="pimm30-chapter__hero-heading">{{ 'products.pimm30_story.identity' | t }}</h1>

@@ -2,6 +2,1324 @@
   margin: 0;
 }
 
+/*
+ * Responsive hero media contract
+ *
+ * The JavaScript-enabled presentation uses the live stage media column. The
+ * picture in the noscript element is only the resilient no-JavaScript
+ * fallback, so it must not be treated as a second live image. Keep the live
+ * alpha render contained by its column and let the surrounding layout decide
+ * how much of the machine is visible at each breakpoint.
+ */
+.pimm30-stage__hero-media-column {
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  bottom: 0 !important;
+  height: 100% !important;
+  inset-inline: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    height: min(clamp(22rem, 58svh, 34rem), calc(100svh - 18rem)) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero {
+    min-height: 100svh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    background: transparent !important;
+    inset: 0 !important;
+    position: static !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content--hero {
+    display: block !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model,
+  .pimm30-chapter--hero .pimm30-chapter__lead,
+  .pimm30-chapter--hero .pimm30-chapter__content--hero > .pimm30-chapter__eyebrow {
+    position: absolute !important;
+    z-index: 3;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    left: 50% !important;
+    top: calc(var(--pimm30-header-space) + clamp(0.8rem, 4svh, 2.2rem)) !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead,
+  .pimm30-chapter--hero .pimm30-chapter__content--hero > .pimm30-chapter__eyebrow {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    bottom: clamp(7.75rem, 15svh, 10.5rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    width: 100% !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt {
+    font-size: clamp(0.52rem, 1.8vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    bottom: clamp(3.75rem, 7.5svh, 5.4rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 5;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: 0.55rem !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 5;
+  }
+
+  .pimm30-stage__backdrop {
+    font-size: clamp(2.55rem, 12.5vw, 5.6rem) !important;
+    inset: calc(var(--pimm30-header-space) + clamp(4.4rem, 12svh, 7.5rem)) 0 auto !important;
+    line-height: 0.82 !important;
+    padding-inline: 0.35rem !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero {
+    display: grid !important;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%) !important;
+    min-height: 100svh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    align-content: center !important;
+    background: transparent !important;
+    display: grid !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    grid-template-rows: auto auto auto auto !important;
+    inset: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: clamp(2rem, 6vw, 6.5rem) clamp(1.5rem, 4vw, 4.5rem) !important;
+    position: relative !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt {
+    font-size: clamp(0.56rem, 0.7vw, 0.75rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    font-size: clamp(1.05rem, 1.9vw, 2rem) !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    justify-self: start !important;
+    margin-top: clamp(1rem, 2vw, 1.8rem) !important;
+    max-width: min(100%, 25rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: clamp(0.75rem, 1.8vw, 1.5rem) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 5;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(clamp(1.12, 0.92 + 2.5vw / 100, 1.36)) !important;
+    transform-origin: 56% 50% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    bottom: 0 !important;
+    content: '' !important;
+    display: block !important;
+    left: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    top: 0 !important;
+    width: clamp(2rem, 6vw, 7rem) !important;
+    z-index: 3 !important;
+  }
+}
+
+/*
+ * Authoritative live hero column contract.
+ *
+ * The JavaScript-enabled presentation uses this real media column. The
+ * chapter-level <noscript> picture remains a fallback for browsers without
+ * JavaScript and must not participate in the live composition.
+ */
+.pimm30-stage__hero-media-column {
+  box-sizing: border-box !important;
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  bottom: 0 !important;
+  box-sizing: border-box !important;
+  clip-path: none !important;
+  height: 100% !important;
+  inset: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  mask-image: none !important;
+  max-height: none !important;
+  max-width: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  background: transparent !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  transform: none !important;
+  transform-origin: 50% 50% !important;
+}
+
+.pimm30-stage__hero-media-column::after {
+  background: linear-gradient(90deg, var(--pimm30-surface, #f7f8fa) 0%, rgba(247, 248, 250, 0.62) 34%, rgba(247, 248, 250, 0) 100%) !important;
+  bottom: 0 !important;
+  content: '' !important;
+  display: block !important;
+  left: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  top: 0 !important;
+  width: clamp(2rem, 5vw, 6rem) !important;
+  z-index: 3 !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    /* Use the dynamic viewport: Codex/embedded browsers report a much
+       smaller svh while the visible viewport is still tall enough for the
+       machine. Keeping the media in its own band prevents the alpha render
+       from colliding with the metric rail. */
+    /* Theme rem units are 10px; keep a dedicated band between the header and
+       metric rail at both short and tall phone heights. */
+    height: min(clamp(35rem, calc(100dvh - 21rem), 66rem), calc(100dvh - 14rem)) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: none !important;
+  }
+
+  .pimm30-chapter--hero {
+    min-height: 100dvh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    background: transparent !important;
+    inset: 0 !important;
+    position: static !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    left: 50% !important;
+    position: absolute !important;
+    top: calc(var(--pimm30-header-space) + clamp(0.8rem, 4dvh, 2.2rem)) !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    z-index: 4 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead,
+  .pimm30-chapter--hero .pimm30-chapter__content--hero > .pimm30-chapter__eyebrow {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero,
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    bottom: clamp(8.5rem, 16dvh, 11rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    transform: none !important;
+    width: 100% !important;
+    z-index: 5 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.12rem, 0.7vw, 0.4rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dt {
+    font-size: clamp(0.52rem, 1.8vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero [data-pimm30-spec-number],
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero,
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    bottom: clamp(4.4rem, 8.2dvh, 6rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.55rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6 !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero {
+    display: grid !important;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%) !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    align-content: center !important;
+    background: transparent !important;
+    display: grid !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    grid-template-rows: auto auto auto auto !important;
+    inset: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: clamp(2rem, 6vw, 6.5rem) clamp(1.5rem, 4vw, 4.5rem) !important;
+    position: relative !important;
+    z-index: 4 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero,
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    transform: none !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child,
+  .pimm30-chapter--hero .pimm30-chapter__spec:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero [data-pimm30-spec-number],
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero,
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    justify-self: start !important;
+    margin-top: clamp(1rem, 2vw, 1.8rem) !important;
+    max-width: min(100%, 25rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: clamp(0.75rem, 1.8vw, 1.5rem) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6 !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    /* The desktop source is a complete 16:9 studio composition. Scale that
+       composition inside the media column so the machine reads at product
+       scale while the text column remains an independent, unobstructed lane. */
+    /* Keep this as a simple scale value: the local Shopify preview parser
+       drops nested clamp/calc expressions from the declaration, which would
+       silently leave the high-resolution machine at its undersized fallback. */
+    transform: scale(1.44) !important;
+    transform-origin: 58% 50% !important;
+  }
+}
+
+/* Keep the live media column and hero rail authoritative after the legacy
+ * art-direction rules above. The chapter <noscript> picture remains only the
+ * no-JavaScript fallback; it is never a second live image. */
+.pimm30-stage__hero-media-column {
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  bottom: 0 !important;
+  clip-path: none !important;
+  display: block !important;
+  height: 100% !important;
+  inset-inline: 0 !important;
+  left: 0 !important;
+  mask-image: none !important;
+  max-height: none !important;
+  max-width: none !important;
+  right: auto !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  transform-origin: 50% 50% !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    height: min(clamp(22rem, 56svh, 34rem), calc(100svh - 18rem)) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    bottom: clamp(7.75rem, 15svh, 10.5rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    transform: none !important;
+    width: 100% !important;
+    z-index: 5 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.1rem, 0.65vw, 0.35rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.5rem, 1.75vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-label__nowrap {
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action.pimm30-action--hero {
+    bottom: clamp(3.75rem, 7.5svh, 5.4rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.55rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6 !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(1.05rem, 1.9vw, 2rem) !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action.pimm30-action--hero {
+    justify-self: start !important;
+    margin-top: clamp(1rem, 2vw, 1.8rem) !important;
+    max-width: min(100%, 25rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.08) !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    background: linear-gradient(90deg, rgba(247, 248, 250, 0.92) 0%, rgba(247, 248, 250, 0.52) 38%, rgba(247, 248, 250, 0) 100%) !important;
+    bottom: 0 !important;
+    content: '' !important;
+    display: block !important;
+    left: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    top: 0 !important;
+    width: clamp(2.5rem, 5vw, 6rem) !important;
+    z-index: 3 !important;
+  }
+}
+
+/*
+ * Final live hero contract
+ *
+ * The picture inside <noscript> is intentionally only the no-JavaScript
+ * fallback. JavaScript-enabled storefronts use the stage media column above;
+ * these rules make that column the single responsive source of truth. Keep
+ * the alpha render contained by the available rail, preserve its transparent
+ * shadow, and keep the metrics/action rail out of the machine image on small
+ * screens.
+ */
+.pimm30-stage__hero-media-column {
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  bottom: 0 !important;
+  clip-path: none !important;
+  display: block !important;
+  height: 100% !important;
+  inset-inline: 0 !important;
+  left: 0 !important;
+  mask-image: none !important;
+  max-height: none !important;
+  max-width: none !important;
+  right: auto !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  transform-origin: 50% 50% !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    height: min(clamp(22rem, 56svh, 34rem), calc(100svh - 18rem)) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    bottom: clamp(7.75rem, 15svh, 10.5rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    transform: none !important;
+    width: 100% !important;
+    z-index: 5 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.1rem, 0.65vw, 0.35rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.5rem, 1.75vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-label__nowrap {
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action.pimm30-action--hero {
+    bottom: clamp(3.75rem, 7.5svh, 5.4rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.55rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6 !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(1.05rem, 1.9vw, 2rem) !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action.pimm30-action--hero {
+    justify-self: start !important;
+    margin-top: clamp(1rem, 2vw, 1.8rem) !important;
+    max-width: min(100%, 25rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.08) !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    background: linear-gradient(90deg, rgba(247, 248, 250, 0.92) 0%, rgba(247, 248, 250, 0.52) 38%, rgba(247, 248, 250, 0) 100%) !important;
+    bottom: 0 !important;
+    content: '' !important;
+    display: block !important;
+    left: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    top: 0 !important;
+    width: clamp(2.5rem, 5vw, 6rem) !important;
+    z-index: 3 !important;
+  }
+}
+
+/* Align the actual hero rail/action elements (the live markup uses these
+   semantic classes rather than chapter__specs/chapter__cta). */
+@media (max-width: 899px) {
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    bottom: clamp(7.75rem, 15svh, 10.5rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    width: 100% !important;
+    z-index: 5;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding-inline: clamp(0.12rem, 0.7vw, 0.4rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.52rem, 1.8vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero {
+    bottom: clamp(3.75rem, 7.5svh, 5.4rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    white-space: nowrap !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.2) !important;
+    transform-origin: 56% 50% !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.32) !important;
+  }
+}
+
+/*
+ * Responsive hero media source of truth
+ *
+ * The live overview layer is a real media column. Keep the alpha render
+ * contained inside that column so the machine and its ground shadow can never
+ * be cut by a viewport edge. The no-JavaScript picture remains a separate
+ * fallback in the section markup and does not participate in this layout.
+ */
+.pimm30-stage__hero-media-column {
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+  height: 100% !important;
+  inset: 0 !important;
+  overflow: visible !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster,
+.pimm30-stage__hero-media-column
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster
+  img,
+.pimm30-stage__hero-media-column
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  video {
+  height: 100% !important;
+  inset: 0 !important;
+  max-height: none !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column::after {
+  background: linear-gradient(
+    to right,
+    var(--pimm30-surface, #f7f8fa) 0%,
+    color-mix(in srgb, var(--pimm30-surface, #f7f8fa) 72%, transparent) 10%,
+    transparent 34%
+  ) !important;
+  display: block !important;
+  height: 100% !important;
+  opacity: 1 !important;
+  width: clamp(3rem, 8vw, 8rem) !important;
+}
+
+.pimm30-story:not(.is-hero-bright) .pimm30-stage__hero-media-column::after {
+  background: linear-gradient(to right, #0b0e11 0%, rgba(11, 14, 17, 0.76) 14%, transparent 36%) !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    bottom: auto !important;
+    height: clamp(20rem, 60svh, 34rem) !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: var(--pimm30-header-space) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    height: 100% !important;
+    inset: 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-stage__hero-media-column
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster,
+  .pimm30-stage__hero-media-column
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-stage__hero-media-column
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    video {
+    object-position: 50% 50% !important;
+    transform: none !important;
+  }
+
+  .pimm30-chapter--hero {
+    display: block !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    position: relative !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
+    background: transparent !important;
+    display: block !important;
+    height: 100svh !important;
+    inset: 0 !important;
+    min-height: 100svh !important;
+    padding: 0 1rem !important;
+    pointer-events: none;
+    position: absolute !important;
+    width: 100% !important;
+    z-index: 3;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content > * {
+    pointer-events: auto;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__hero-heading,
+  .pimm30-chapter--hero .pimm30-chapter__lead {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    display: block !important;
+    font-size: clamp(3.2rem, 14vw, 5.2rem) !important;
+    inset: calc(var(--pimm30-header-space) + 0.6rem) auto auto 50% !important;
+    line-height: 0.9 !important;
+    margin: 0 !important;
+    max-width: calc(100% - 2rem) !important;
+    position: absolute !important;
+    text-align: center !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    bottom: clamp(7.8rem, 15svh, 10.4rem) !important;
+    display: grid !important;
+    gap: 0 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0.75rem !important;
+    margin: 0 !important;
+    position: absolute !important;
+    right: 0.75rem !important;
+    transform: none !important;
+    width: auto !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    align-items: center !important;
+    border-left: 0.1rem solid color-mix(in srgb, currentColor 25%, transparent) !important;
+    border-top: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    min-height: 3.6rem !important;
+    min-width: 0 !important;
+    padding: 0 0.2rem !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    border-left: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.54rem, 1.9vw, 0.72rem) !important;
+    line-height: 1.15 !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+    text-wrap: balance !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    font-size: clamp(0.92rem, 4vw, 1.45rem) !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero {
+    bottom: clamp(4rem, 7.5svh, 5.4rem) !important;
+    left: 1rem !important;
+    margin: 0 !important;
+    max-width: none !important;
+    min-height: 3.8rem !important;
+    position: absolute !important;
+    right: 1rem !important;
+    width: auto !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.8rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 4;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero {
+    align-items: stretch !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%) !important;
+    min-height: 100svh !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    box-sizing: border-box !important;
+    display: grid !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-height: 100svh !important;
+    padding-block: clamp(7.5rem, 14svh, 12rem) clamp(3rem, 8svh, 6rem) !important;
+    padding-inline: var(--maliev-gutter) clamp(2rem, 4vw, 5rem) !important;
+    position: relative !important;
+    width: 100% !important;
+    z-index: 3;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content > * {
+    margin-inline: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__hero-heading {
+    display: block !important;
+    font-size: clamp(3.2rem, 4.4vw, 6.2rem) !important;
+    grid-row: 1 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    display: block !important;
+    font-size: clamp(4.6rem, 5.8vw, 8rem) !important;
+    grid-row: 2 !important;
+    position: static !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead {
+    display: block !important;
+    font-size: clamp(1.35rem, 1.7vw, 1.8rem) !important;
+    grid-row: 3 !important;
+    max-width: 46rem !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    align-items: stretch !important;
+    display: grid !important;
+    grid-row: 4 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5svh, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    align-items: flex-start !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    padding-left: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.65rem, 0.8vw, 0.9rem) !important;
+    line-height: 1.2 !important;
+    text-wrap: balance !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    font-size: clamp(1.55rem, 2.25vw, 2.7rem) !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero {
+    align-self: start !important;
+    grid-row: 5 !important;
+    margin-top: clamp(1.4rem, 3svh, 2.8rem) !important;
+    max-width: min(100%, 40rem) !important;
+    position: static !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(1.1rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+  }
+
+  .pimm30-stage__hero-media-column
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-stage__hero-media-column
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    video {
+    transform: scale(1.28) !important;
+    transform-origin: 56% 50% !important;
+  }
+}
+
 .pimm30-story {
   --pimm30-ink: #11151b;
   --pimm30-muted: #4d5662;
@@ -2537,6 +3855,213 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 }
 
 /*
+ * Responsive hero media contract
+ *
+ * The stage's live overview is the image column.  Keep the no-JS picture in
+ * the chapter as a fallback only; never position a second copy of the image
+ * over the live layer.  Below 900px the visual gets a reserved band above the
+ * metrics and CTA.  At 900px and up, the stage and chapter share a bounded
+ * 40/60 composition.  Both modes use contain rather than cover so the render's
+ * transparent canvas and ground shadow are never hard-cropped.
+ */
+.pimm30-stage__hero-media-column {
+  box-sizing: border-box;
+  isolation: isolate;
+  overflow: visible !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+  box-sizing: border-box;
+  overflow: visible !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  box-sizing: border-box;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  overflow: visible !important;
+}
+
+/* Phone and tablet: keep the machine in a real visual band.  The lower copy
+   controls never share pixels with the render, which prevents the machine or
+   its shadow from sitting behind the metrics. */
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    bottom: auto !important;
+    height: clamp(20rem, 56svh, 36rem) !important;
+    inset-inline: 0 !important;
+    padding-inline: clamp(0.5rem, 3vw, 1.25rem);
+    top: var(--pimm30-header-space) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    bottom: 0 !important;
+    height: 100% !important;
+    inset-inline: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    bottom: 0 !important;
+    height: 100% !important;
+    inset-inline: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
+    background: transparent !important;
+    box-sizing: border-box;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    padding-inline: clamp(0.75rem, 4vw, 1.25rem) !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    bottom: clamp(8.8rem, 17svh, 11.5rem) !important;
+    display: grid !important;
+    gap: 0 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 50% !important;
+    margin: 0 !important;
+    position: absolute !important;
+    transform: translateX(-50%) !important;
+    width: min(calc(100% - 1.5rem), 34rem) !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    align-items: center !important;
+    border-left: 0.1rem solid color-mix(in srgb, currentColor 25%, transparent) !important;
+    border-top: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    min-height: clamp(3.4rem, 7svh, 4.4rem) !important;
+    min-width: 0 !important;
+    padding: 0 clamp(0.15rem, 1vw, 0.45rem) !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    border-left: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.56rem, 1.9vw, 0.78rem) !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    font-size: clamp(0.95rem, 3.9vw, 1.55rem) !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero {
+    bottom: clamp(4.4rem, 8.2svh, 6rem) !important;
+    left: clamp(0.75rem, 4vw, 1.25rem) !important;
+    margin: 0 !important;
+    max-width: none !important;
+    min-height: 3.8rem !important;
+    position: absolute !important;
+    right: clamp(0.75rem, 4vw, 1.25rem) !important;
+    width: auto !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.8rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+  }
+
+  /* The mobile source is tall; constrain its box instead of enlarging it
+     beyond the column, so its transparent shadow remains visible edge-to-edge. */
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    object-position: 50% 46% !important;
+  }
+}
+
+/* Desktop: the live stage media is the right side of the same 40/60 grid as
+   the hero copy.  Scale the transparent 16:9 render inside that column so the
+   machine reads as the primary object, while the stage itself remains the only
+   clipping boundary. */
+@media (min-width: 900px) {
+  .pimm30-stage__hero-media-column {
+    bottom: 0 !important;
+    height: 100% !important;
+    left: 40% !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 60% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    bottom: 0 !important;
+    height: 100% !important;
+    inset-inline: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.42) !important;
+    transform-origin: 50% 54% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    background: linear-gradient(90deg, var(--pimm30-surface) 0%, transparent 14%, transparent 88%, var(--pimm30-surface) 100%);
+    content: '';
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    transition: opacity 420ms ease;
+    z-index: 4;
+  }
+
+  .pimm30-story.is-hero-bright .pimm30-stage__hero-media-column::after {
+    opacity: 0.72;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content--hero,
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    grid-column: 1 !important;
+    width: 100% !important;
+  }
+}
+
+/* Avoid a one-pixel breakpoint cliff: tablets that can support two readable
+   columns use the desktop contract; narrower tablets stay in the clean stack. */
+@media (min-width: 900px) and (max-width: 1099px) {
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.28) !important;
+  }
+}
+
+/*
  * Hero media column
  *
  * The animated stage remains one shared sticky canvas, but the overview layer
@@ -3925,5 +5450,629 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
     .pimm30-stage__poster {
     opacity: 1 !important;
     visibility: visible !important;
+  }
+}
+
+/*
+ * Final semantic hero rail overrides (the live markup uses spec-rail and
+ * action classes, not chapter__specs/chapter__cta).
+ */
+@media (max-width: 899px) {
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    bottom: clamp(7.75rem, 15svh, 10.5rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    width: 100% !important;
+    z-index: 5;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding-inline: clamp(0.12rem, 0.7vw, 0.4rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(0.52rem, 1.8vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero {
+    bottom: clamp(3.75rem, 7.5svh, 5.4rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero > div:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    white-space: nowrap !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.2) !important;
+    transform-origin: 56% 50% !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(1.32) !important;
+  }
+}
+
+/*
+ * Responsive media-column contract. The live presentation image is
+ * contained by a dedicated column; the noscript picture remains only as a
+ * no-JavaScript fallback and never participates in the live composition.
+ */
+.pimm30-stage__hero-media-column {
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+  bottom: 0 !important;
+  height: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  bottom: 0 !important;
+  height: 100% !important;
+  inset-inline: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    height: min(clamp(22rem, 58svh, 34rem), calc(100svh - 18rem)) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero {
+    min-height: 100svh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    background: transparent !important;
+    inset: 0 !important;
+    position: static !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    left: 50% !important;
+    position: absolute !important;
+    top: calc(var(--pimm30-header-space) + clamp(0.8rem, 4svh, 2.2rem)) !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead,
+  .pimm30-chapter--hero .pimm30-chapter__content--hero > .pimm30-chapter__eyebrow {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    bottom: clamp(7.75rem, 15svh, 10.5rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    width: 100% !important;
+    z-index: 5;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding-inline: clamp(0.12rem, 0.7vw, 0.4rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt {
+    font-size: clamp(0.52rem, 1.8vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    bottom: clamp(3.75rem, 7.5svh, 5.4rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.55rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6;
+  }
+
+  .pimm30-stage__backdrop {
+    font-size: clamp(2.55rem, 12.5vw, 5.6rem) !important;
+    inset: calc(var(--pimm30-header-space) + clamp(4.4rem, 12svh, 7.5rem)) 0 auto !important;
+    line-height: 0.82 !important;
+    padding-inline: 0.35rem !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero {
+    display: grid !important;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%) !important;
+    min-height: 100svh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    align-content: center !important;
+    background: transparent !important;
+    display: grid !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    grid-template-rows: auto auto auto auto !important;
+    inset: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: clamp(2rem, 6vw, 6.5rem) clamp(1.5rem, 4vw, 4.5rem) !important;
+    position: relative !important;
+    z-index: 4;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dt {
+    font-size: clamp(0.56rem, 0.7vw, 0.75rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    font-size: clamp(1.05rem, 1.9vw, 2rem) !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    justify-self: start !important;
+    margin-top: clamp(1rem, 2vw, 1.8rem) !important;
+    max-width: min(100%, 25rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: clamp(0.75rem, 1.8vw, 1.5rem) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: scale(clamp(1.12, 0.92 + 2.5vw / 100, 1.36)) !important;
+    transform-origin: 56% 50% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    bottom: 0 !important;
+    content: '' !important;
+    display: block !important;
+    left: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    top: 0 !important;
+    width: clamp(2rem, 6vw, 7rem) !important;
+    z-index: 3 !important;
+  }
+}
+
+/* Final cascade guard for the live responsive hero column. */
+.pimm30-stage__hero-media-column {
+  box-sizing: border-box !important;
+  bottom: auto !important;
+  height: 100% !important;
+  left: 40% !important;
+  overflow: visible !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 60% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster picture,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  bottom: 0 !important;
+  box-sizing: border-box !important;
+  clip-path: none !important;
+  height: 100% !important;
+  inset: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  mask-image: none !important;
+  max-height: none !important;
+  max-width: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+.pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+  background: transparent !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  transform: none !important;
+  transform-origin: 50% 50% !important;
+}
+
+.pimm30-stage__hero-media-column::after {
+  background: linear-gradient(90deg, var(--pimm30-surface, #f7f8fa) 0%, rgba(247, 248, 250, 0.62) 34%, rgba(247, 248, 250, 0) 100%) !important;
+  bottom: 0 !important;
+  content: '' !important;
+  display: block !important;
+  left: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  top: 0 !important;
+  width: clamp(2rem, 5vw, 6rem) !important;
+  z-index: 3 !important;
+}
+
+@media (max-width: 899px) {
+  .pimm30-stage__hero-media-column {
+    /* Theme rem units are 10px; keep a dedicated band between the header and
+       metric rail at both short and tall phone heights. */
+    height: min(clamp(35rem, calc(100dvh - 22.75rem), 66rem), calc(100dvh - 15.5rem)) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    width: 100% !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    transform: none !important;
+  }
+
+  .pimm30-chapter--hero {
+    min-height: 100dvh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    background: transparent !important;
+    inset: 0 !important;
+    position: static !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__model {
+    left: 50% !important;
+    position: absolute !important;
+    top: calc(var(--pimm30-header-space) + clamp(0.8rem, 4dvh, 2.2rem)) !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    z-index: 4 !important;
+  }
+
+  /* Keep the intermediate tablet range from inheriting a full-width display
+     box for the model label. Its intrinsic width must follow the lettering so
+     it cannot push outside the viewport before the two-column breakpoint. */
+  @media (min-width: 700px) {
+    .pimm30-chapter--hero .pimm30-chapter__model {
+      max-width: calc(100% - 2rem) !important;
+      width: max-content !important;
+    }
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__lead,
+  .pimm30-chapter--hero .pimm30-chapter__content--hero > .pimm30-chapter__eyebrow {
+    display: none !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero,
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    bottom: clamp(8.5rem, 16dvh, 11rem) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding-inline: clamp(0.65rem, 3vw, 1.25rem) !important;
+    position: absolute !important;
+    right: 0 !important;
+    text-align: center !important;
+    transform: none !important;
+    width: 100% !important;
+    z-index: 5 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.12rem, 0.7vw, 0.4rem) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    margin-inline: auto !important;
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: center !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dt {
+    font-size: clamp(0.52rem, 1.8vw, 0.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero [data-pimm30-spec-number],
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    font-size: clamp(0.95rem, 4.1vw, 1.35rem) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero,
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    bottom: clamp(4.4rem, 8.2dvh, 6rem) !important;
+    left: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    position: absolute !important;
+    right: clamp(0.65rem, 2.5vw, 1.25rem) !important;
+    width: auto !important;
+    z-index: 6 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.55rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6 !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .pimm30-chapter--hero {
+    display: grid !important;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%) !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    align-content: center !important;
+    background: transparent !important;
+    display: grid !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    grid-template-rows: auto auto auto auto !important;
+    inset: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: clamp(2rem, 6vw, 6.5rem) clamp(1.5rem, 4vw, 4.5rem) !important;
+    position: relative !important;
+    z-index: 4 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero,
+  .pimm30-chapter--hero .pimm30-chapter__specs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    margin: clamp(1rem, 2.5vw, 2rem) 0 0 !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    transform: none !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-chapter--hero .pimm30-chapter__spec {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding-inline: clamp(0.35rem, 0.8vw, 0.8rem) !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child,
+  .pimm30-chapter--hero .pimm30-chapter__spec:first-child {
+    padding-inline-start: 0 !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-chapter__spec dt,
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    max-width: 100% !important;
+    overflow-wrap: normal !important;
+    text-align: left !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+  .pimm30-chapter--hero .pimm30-spec-rail--hero [data-pimm30-spec-number],
+  .pimm30-chapter--hero .pimm30-chapter__spec dd {
+    white-space: nowrap !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-action--hero,
+  .pimm30-chapter--hero .pimm30-chapter__cta {
+    justify-self: start !important;
+    margin-top: clamp(1rem, 2vw, 1.8rem) !important;
+    max-width: min(100%, 25rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: clamp(0.75rem, 1.8vw, 1.5rem) !important;
+    left: 50% !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 6 !important;
+  }
+
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
+  .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
+    /* The desktop source carries transparent copy space on its left side.
+       Crop that empty portion inside the media column instead of scaling the
+       entire composition past the viewport. The machine stays fully visible,
+       reads at product scale, and keeps its floor shadow in the column. */
+    object-fit: cover !important;
+    object-position: 72% 50% !important;
+    transform: none !important;
+    transform-origin: 50% 50% !important;
   }
 }
