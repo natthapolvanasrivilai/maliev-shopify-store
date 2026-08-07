@@ -2777,21 +2777,27 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 
   .pimm30-chapter--hero .pimm30-spec-rail {
     column-gap: clamp(0.4rem, 1vw, 1.2rem);
+    justify-items: start;
+    text-align: left;
   }
 
   .pimm30-chapter--hero .pimm30-spec-rail > div {
+    justify-self: start;
     min-width: 0;
     padding-inline: clamp(0.2rem, 0.55vw, 0.8rem);
+    text-align: left;
   }
 
   .pimm30-chapter--hero .pimm30-spec-rail dt {
     font-size: clamp(0.72rem, 0.78vw, 1.05rem);
     overflow-wrap: anywhere;
+    text-align: left;
   }
 
   .pimm30-chapter--hero .pimm30-spec-rail dd {
     font-size: clamp(1.2rem, 1.65vw, 2rem);
     letter-spacing: -0.03em;
+    text-align: left;
     white-space: nowrap;
   }
 
