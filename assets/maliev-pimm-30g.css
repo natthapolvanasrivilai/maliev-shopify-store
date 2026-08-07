@@ -2536,6 +2536,118 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   }
 }
 
+/*
+ * Hero media column
+ *
+ * The animated stage remains one shared sticky canvas, but the overview layer
+ * now has an explicit media-column parent. This keeps the machine centered in
+ * the right-hand 60% on larger screens and lets the same media naturally stack
+ * to a full-width column on phones. A short, state-aware fade softens the
+ * transparent render's left shadow edge without cropping the image itself.
+ */
+.pimm30-stage__hero-media-column {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.pimm30-stage__hero-media-column::after {
+  background: linear-gradient(
+    to right,
+    rgba(11, 14, 17, 0.94) 0%,
+    rgba(11, 14, 17, 0.64) 24%,
+    rgba(11, 14, 17, 0) 100%
+  );
+  content: '';
+  inset: 0 auto 0 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 520ms ease;
+  width: clamp(2.4rem, 7vw, 8rem);
+  z-index: 2;
+}
+
+.pimm30-stage__hero-media-column:has(
+    .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'].is-active
+  )::after {
+  opacity: 1;
+}
+
+.pimm30-story.is-hero-bright .pimm30-stage__hero-media-column::after {
+  background: linear-gradient(
+    to right,
+    rgba(247, 248, 250, 0.96) 0%,
+    rgba(247, 248, 250, 0.64) 24%,
+    rgba(247, 248, 250, 0) 100%
+  );
+}
+
+.pimm30-stage__hero-media-column
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+  inset: 0 !important;
+  overflow: visible !important;
+  width: 100% !important;
+}
+
+.pimm30-stage__hero-media-column
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster,
+.pimm30-stage__hero-media-column
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster
+  picture,
+.pimm30-stage__hero-media-column
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster
+  img,
+.pimm30-stage__hero-media-column
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  video {
+  inset: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  transform: none !important;
+  width: 100% !important;
+}
+
+@media (min-width: 1024px) {
+  .pimm30-stage__hero-media-column {
+    bottom: 0;
+    height: 100%;
+    left: 40%;
+    right: 0;
+    top: 0;
+    width: 60%;
+  }
+}
+
+@media (max-width: 1023px) {
+  .pimm30-stage__hero-media-column {
+    bottom: 0;
+    height: 100%;
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .pimm30-stage__hero-media-column
+    .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    bottom: 0 !important;
+    height: calc(100% - var(--pimm30-header-space)) !important;
+    inset: var(--pimm30-header-space) 0 0 !important;
+  }
+
+  .pimm30-stage__hero-media-column::after {
+    display: none;
+  }
+}
+
 @media (min-width: 700px) {
   /* Keep CSS media visibility in lockstep with visibleVideo() and the
      Liquid source breakpoint at 700px. */

@@ -29,26 +29,50 @@
       <span>Machine</span>
     </div>
 
+    {%- comment -%}
+      Keep the hero media in its own responsive column. The stage remains the
+      shared sticky presentation surface, while this wrapper gives the hero a
+      real 40/60 composition instead of depending on image positioning alone.
+      The chapter-level noscript fallback below is intentionally retained for
+      no-JavaScript storefronts.
+    {%- endcomment -%}
+    <div class="pimm30-stage__hero-media-column" data-pimm30-hero-media aria-hidden="true">
+      {%- for block in section.blocks -%}
+        {%- if block.settings.role == 'overview' -%}
+          {%- liquid
+            assign chapter_id = 'pimm30-' | append: block.settings.role
+            assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
+            assign translated_media_alt = media_alt_key | t
+          -%}
+          {% render 'maliev-pimm-30g-chapter',
+            block: block,
+            chapter_id: chapter_id,
+            media_alt: translated_media_alt,
+            mode: 'stage',
+            eager: true
+          %}
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+
     {%- for block in section.blocks -%}
-      {%- liquid
-        assign chapter_id = 'pimm30-' | append: block.settings.role
-        assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
-        assign translated_media_alt = media_alt_key | t
-        if block.settings.role == 'configuration'
-          assign translated_media_alt = product.title | append: ' configuration and purchase view'
-        endif
-        assign is_hero = false
-        if block.settings.role == 'overview'
-          assign is_hero = true
-        endif
-      -%}
-      {% render 'maliev-pimm-30g-chapter',
-        block: block,
-        chapter_id: chapter_id,
-        media_alt: translated_media_alt,
-        mode: 'stage',
-        eager: is_hero
-      %}
+      {%- unless block.settings.role == 'overview' -%}
+        {%- liquid
+          assign chapter_id = 'pimm30-' | append: block.settings.role
+          assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
+          assign translated_media_alt = media_alt_key | t
+          if block.settings.role == 'configuration'
+            assign translated_media_alt = product.title | append: ' configuration and purchase view'
+          endif
+        -%}
+        {% render 'maliev-pimm-30g-chapter',
+          block: block,
+          chapter_id: chapter_id,
+          media_alt: translated_media_alt,
+          mode: 'stage',
+          eager: false
+        %}
+      {%- endunless -%}
     {%- endfor -%}
 
   </div>
