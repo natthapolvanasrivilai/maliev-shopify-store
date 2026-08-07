@@ -4,7 +4,9 @@
 
   function visibleVideo(layer) {
     if (!layer) return null;
-    const mobile = window.matchMedia('(max-width: 749px)').matches;
+    // Keep media selection aligned with the fluid 700px layout contract. The
+    // old 749px boundary caused a one-pixel media swap and abrupt crop change.
+    const mobile = window.matchMedia('(max-width: 699px)').matches;
     return layer.querySelector(
       mobile
         ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
@@ -335,7 +337,14 @@
 
       turntable.addEventListener('pointermove', (event) => {
         if (!dragging) return;
-        queueScrub(dragStartProgress - (event.clientX - dragStartX) * progressPerPixel());
+        // PointerEvent coalescing keeps high-refresh touch and mouse drags
+        // smooth without adding a second render loop. Fall back for browsers
+        // that do not expose getCoalescedEvents().
+        const coalesced = typeof event.getCoalescedEvents === 'function'
+          ? event.getCoalescedEvents()
+          : [];
+        const point = coalesced.length ? coalesced[coalesced.length - 1] : event;
+        queueScrub(dragStartProgress - (point.clientX - dragStartX) * progressPerPixel());
       });
 
       const stopDragging = (event) => {

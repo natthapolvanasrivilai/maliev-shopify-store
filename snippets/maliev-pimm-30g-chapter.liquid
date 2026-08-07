@@ -56,7 +56,7 @@
 
 {%- if mode == 'static' -%}
   <picture class="pimm30-chapter-media pimm30-chapter-media--static">
-    {%- if mobile_poster_url != blank -%}<source media="(max-width: 749px)" srcset="{{ mobile_poster_url }}">{%- endif -%}
+    {%- if mobile_poster_url != blank -%}<source media="(max-width: 699px)" srcset="{{ mobile_poster_url }}">{%- endif -%}
     {%- if desktop_poster_url != blank -%}
       <img src="{{ desktop_poster_url }}" alt="{{ media_alt | escape }}" loading="{{ poster_loading }}" width="1800" height="2200">
     {%- endif -%}
@@ -74,7 +74,7 @@
     aria-hidden="{% if eager %}false{% else %}true{% endif %}"
   >
     <picture class="pimm30-stage__poster">
-      {%- if mobile_poster_url != blank -%}<source media="(max-width: 749px)" srcset="{{ mobile_poster_url }}">{%- endif -%}
+      {%- if mobile_poster_url != blank -%}<source media="(max-width: 699px)" srcset="{{ mobile_poster_url }}">{%- endif -%}
       {%- if desktop_poster_url != blank -%}
         <img src="{{ desktop_poster_url }}" alt="{{ media_alt | escape }}" loading="{{ poster_loading }}" width="1800" height="2200">
       {%- endif -%}
