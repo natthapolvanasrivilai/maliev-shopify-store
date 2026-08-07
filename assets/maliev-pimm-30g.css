@@ -1320,36 +1320,36 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:has(.pimm30-story) {
+  html:has(.pimm30-story:not(.is-debug-motion)) {
     scroll-snap-type: none;
   }
 
-  .pimm30-stage__layer,
-  .pimm30-stage__video,
-  .pimm30-stage::before,
-  .pimm30-action {
+  .pimm30-story:not(.is-debug-motion) .pimm30-stage__layer,
+  .pimm30-story:not(.is-debug-motion) .pimm30-stage__video,
+  .pimm30-story:not(.is-debug-motion) .pimm30-stage::before,
+  .pimm30-story:not(.is-debug-motion) .pimm30-action {
     transition: none;
   }
 
-  html:not(.no-js) .pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+  html:not(.no-js) .pimm30-story:not(.is-debug-motion) .pimm30-chapter--hero .pimm30-chapter__model {
     transition: none;
     transition-delay: 0s;
   }
 
-  .pimm30-scroll-cue span + span {
+  .pimm30-story:not(.is-debug-motion) .pimm30-scroll-cue span + span {
     animation: none;
   }
 
-  .pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step {
+  .pimm30-story:not(.is-debug-motion)[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step {
     animation: none;
     opacity: 0;
   }
 
-  .pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--7 {
+  .pimm30-story:not(.is-debug-motion)[data-active-chapter='pimm30-regulator'] .pimm30-pressure__step--7 {
     opacity: 1;
   }
 
-  .pimm30-story[data-active-chapter='pimm30-regulator'] .pimm30-pressure__secondary {
+  .pimm30-story:not(.is-debug-motion)[data-active-chapter='pimm30-regulator'] .pimm30-pressure__secondary {
     animation: none;
     opacity: 1;
     transform: scale(1.24);
@@ -1991,17 +1991,17 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before,
-  .pimm30-chapter[data-chapter-role='next_model'] .pimm30-action--primary {
+  .pimm30-story:not(.is-debug-motion) .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before,
+  .pimm30-story:not(.is-debug-motion) .pimm30-chapter[data-chapter-role='next_model'] .pimm30-action--primary {
     animation: none !important;
     transition: none !important;
   }
 
-  .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] .pimm30-stage__video {
+  .pimm30-story:not(.is-debug-motion) .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] .pimm30-stage__video {
     display: none !important;
   }
 
-  .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] .pimm30-stage__poster {
+  .pimm30-story:not(.is-debug-motion) .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] .pimm30-stage__poster {
     opacity: 1 !important;
     visibility: visible !important;
   }
@@ -3585,15 +3585,68 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   }
 }
 
-/* The desktop hero source is a transparent 16:9 canvas. Crop only its empty
-   side margins so the machine fills the 60% media column without clipping the
-   machine or its ground shadow. Mobile keeps the full contained render. */
+/* Keep the full transparent desktop canvas. The ground shadow is part of the
+   render and must remain intact at every viewport size. */
 @media (min-width: 1024px) {
+  .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] {
+    overflow: visible !important;
+  }
+
   .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster,
   .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster picture,
   .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] .pimm30-stage__poster img,
   .pimm30-stage__layer[data-pimm30-layer="pimm30-overview"] video {
-    object-fit: cover !important;
-    object-position: 69% 50% !important;
+    object-fit: contain !important;
+    object-position: 50% 50% !important;
+  }
+}
+
+/* The cue belongs to the presentation viewport, not the 40% copy column. */
+@media (min-width: 1024px) {
+  .pimm30-chapter--hero .pimm30-chapter__content {
+    /* The copy remains a grid item, but must not become the absolute-position
+       containing block for the viewport-wide cue. */
+    position: static !important;
+  }
+
+  .pimm30-chapter--hero .pimm30-scroll-cue {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
+/* Local preview only: let Codex inspect the real motion system even when its
+   embedded browser reports prefers-reduced-motion. Hosted storefronts still
+   follow the visitor's accessibility preference via the media query above. */
+@media (prefers-reduced-motion: reduce) {
+  html:has(.pimm30-story.is-debug-motion:not(.is-static)) {
+    scroll-snap-type: y mandatory;
+  }
+
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__layer,
+  html:has(.pimm30-story.is-debug-motion) .pimm30-action--hero {
+    transition: opacity 420ms ease, transform 420ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 699px) {
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__video--mobile,
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__video--all-devices {
+    display: block !important;
+  }
+
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__video--desktop {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (min-width: 700px) {
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__video--desktop,
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__video--all-devices {
+    display: block !important;
+  }
+
+  html:has(.pimm30-story.is-debug-motion) .pimm30-stage__video--mobile {
+    display: none !important;
   }
 }

@@ -40,11 +40,19 @@
     const consentRevealDelay = 900;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
-    const reduced = REDUCED_MOTION.matches || saveData || designMode;
+    // The local Shopify dev preview is the debugging surface. Codex's embedded
+    // browser can advertise prefers-reduced-motion even when the developer is
+    // actively inspecting motion. Keep the real accessibility preference on
+    // hosted storefronts, but allow the local preview to exercise full motion.
+    const localDebugPreview = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+      && window.location.port === '9393';
+    const reduced = !localDebugPreview && (REDUCED_MOTION.matches || saveData || designMode);
     const requestedCtaVariant = new URLSearchParams(window.location.search).get('cta_variant');
-    if (['compact', 'editorial', 'dual'].includes(requestedCtaVariant)) {
-      story.classList.add(`pimm30-cta-variant--${requestedCtaVariant}`);
-    }
+    const ctaVariants = ['compact', 'editorial', 'dual'];
+    const ctaVariant = ctaVariants.includes(requestedCtaVariant) ? requestedCtaVariant : 'compact';
+    story.classList.remove(...ctaVariants.map((variant) => `pimm30-cta-variant--${variant}`));
+    story.classList.add(`pimm30-cta-variant--${ctaVariant}`);
+    story.classList.toggle('is-debug-motion', localDebugPreview);
     const hashChapter = chapters.find((chapter) => chapter.id && `#${chapter.id}` === window.location.hash);
     let activeId = (hashChapter || chapters[0]) ? (hashChapter || chapters[0]).dataset.pimm30Chapter : '';
     let activeVideo = null;
@@ -55,7 +63,11 @@
     let responsiveVideoFrame = 0;
 
     story.classList.toggle('is-reduced-motion', reduced);
-    story.classList.toggle('is-static', designMode);
+    // Theme-editor previews are intentionally static on the hosted storefront,
+    // but the local Shopify dev preview is the motion-debugging surface. Do not
+    // let the editor flag silence videos when inspecting the presentation at
+    // localhost:9393.
+    story.classList.toggle('is-static', designMode && !localDebugPreview);
 
     function revealHeroPoster() {
       story.classList.remove('is-hero-pending');
