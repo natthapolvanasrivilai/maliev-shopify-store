@@ -584,6 +584,18 @@
 @media (max-width: 899px), (orientation: portrait) {
   .pimm30-story {
     --pimm30-copy-share: 100%;
+    /* The mobile keynote has a deliberate reading order: model lockup, then
+     * machine, then the explanatory feature rail. Reserve a real media lane
+     * for that lockup instead of letting the sibling stage cover it. */
+    --pimm30-mobile-model-space: clamp(8rem, 24vw, 11rem);
+    --pimm30-hero-media-height: min(
+      clamp(
+        20rem,
+        calc(68svh - var(--pimm30-mobile-model-space)),
+        50rem
+      ),
+      calc(100svh - var(--pimm30-header-space) - var(--pimm30-mobile-model-space))
+    );
     /* Keep the transparent machine legible in short landscape windows too;
      * the original 52svh token makes a 600x400 stage only 208px tall. */
     --pimm30-media-height: clamp(20rem, 68svh, 50rem);
@@ -597,6 +609,16 @@
     height: var(--pimm30-media-height) !important;
     inset: var(--pimm30-header-space) 0 auto !important;
     width: 100% !important;
+  }
+
+  /* The overview is the only stack slide with a pre-media model lockup. Keep
+   * its complete canvas below that lockup while the other chapters retain the
+   * shared media band. */
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    height: var(--pimm30-hero-media-height) !important;
+    inset: calc(var(--pimm30-header-space) + var(--pimm30-mobile-model-space)) 0 auto !important;
   }
 
   .pimm30-story .pimm30-stage__backdrop {
@@ -638,6 +660,28 @@
     transform: none !important;
   }
 
+  /* The broad transparent ground plane lives inside the media element, not
+   * only on the layer. Mask both poster and alpha video so the shadow fades at
+   * the rendered canvas edge on every mobile art direction. */
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
+    -webkit-mask-position: 0 0 !important;
+    mask-position: 0 0 !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-size: 100% 100% !important;
+    mask-size: 100% 100% !important;
+  }
+
   .pimm30-story .pimm30-chapter {
     display: block !important;
     grid-template-columns: none !important;
@@ -652,6 +696,28 @@
     padding: calc(var(--pimm30-header-space) + var(--pimm30-media-height) + 2rem)
       clamp(1.2rem, 6vw, 3.2rem) max(2rem, env(safe-area-inset-bottom)) !important;
     width: 100% !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
+    padding-top: calc(
+      var(--pimm30-header-space) + var(--pimm30-mobile-model-space) +
+        var(--pimm30-hero-media-height) + 2rem
+    ) !important;
+  }
+
+  /* Source order remains semantic (the heading still labels the chapter),
+   * while the lockup occupies the first visual lane on narrow screens. */
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+    display: block !important;
+    left: 50% !important;
+    margin: 0 !important;
+    position: absolute !important;
+    top: calc(var(--pimm30-header-space) + clamp(0.8rem, 3svh, 1.4rem)) !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    z-index: 5 !important;
   }
 }
 
@@ -795,4 +861,27 @@
     transform: scale(1.75) !important;
     transform-origin: 70% 50% !important;
   }
+}
+
+/* The alpha source carries a studio ground plane that reaches the canvas
+ * edges. A stage-coloured lower-edge dissolve keeps that plane continuous
+ * with the presentation surface after the media mask has done its work. */
+.pimm30-story
+  .pimm30-stage
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']::after {
+  background: linear-gradient(
+    to right,
+    var(--pimm30-stage-surface) 0%,
+    var(--pimm30-stage-surface) 16%,
+    transparent 32%,
+    transparent 68%,
+    var(--pimm30-stage-surface) 84%,
+    var(--pimm30-stage-surface) 100%
+  ) !important;
+  content: '' !important;
+  display: block !important;
+  inset: 58% 0 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  z-index: 3 !important;
 }

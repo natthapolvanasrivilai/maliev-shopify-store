@@ -91,6 +91,35 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   );
 });
 
+test('mobile hero keeps the model lockup above the machine and fades the rendered shadow', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(
+    keynoteCss,
+    /@media \(max-width: 899px\), \(orientation: portrait\)[\s\S]*?--pimm30-mobile-model-space:\s*clamp\(8rem, 24vw, 11rem\)[\s\S]*?--pimm30-hero-media-height:\s*min\([\s\S]*?calc\(68svh - var\(--pimm30-mobile-model-space\)\)[\s\S]*?calc\(100svh - var\(--pimm30-header-space\) - var\(--pimm30-mobile-model-space\)\)/
+  );
+  assert.match(
+    keynoteCss,
+    /data-pimm30-layer=['"]pimm30-overview['"]\]\s*\{[\s\S]*?height:\s*var\(--pimm30-hero-media-height\) !important[\s\S]*?inset:\s*calc\(var\(--pimm30-header-space\) \+ var\(--pimm30-mobile-model-space\)\) 0 auto !important/
+  );
+  assert.match(
+    keynoteCss,
+    /\.pimm30-story \.pimm30-chapter--hero \.pimm30-chapter__content[\s\S]*?padding-top:\s*calc\([\s\S]*?var\(--pimm30-mobile-model-space\)[\s\S]*?var\(--pimm30-hero-media-height\)/
+  );
+  assert.match(
+    keynoteCss,
+    /\.pimm30-story \.pimm30-chapter--hero \.pimm30-chapter__model[\s\S]*?left:\s*50% !important[\s\S]*?position:\s*absolute !important[\s\S]*?top:\s*calc\(var\(--pimm30-header-space\) \+ clamp\(0\.8rem, 3svh, 1\.4rem\)\) !important[\s\S]*?transform:\s*translateX\(-50%\) !important/
+  );
+  assert.match(
+    keynoteCss,
+    /data-pimm30-layer=['"]pimm30-overview['"]\][\s\S]*?\.pimm30-stage__poster\s+img,[\s\S]*?\.pimm30-stage__video\s*\{[\s\S]*?mask-image:\s*linear-gradient\(to right, transparent 0%, #000 24%, #000 76%, transparent 100%\) !important/
+  );
+  assert.match(
+    keynoteCss,
+    /data-pimm30-layer=['"]pimm30-overview['"]\]\:\:after\s*\{[\s\S]*?background:\s*linear-gradient\([\s\S]*?var\(--pimm30-stage-surface\)[\s\S]*?inset:\s*58% 0 0 !important/
+  );
+});
+
 test('hero startup begins in a dark studio and turns light at the configured milestone', () => {
   const section = read('sections/maliev-pimm-30g-story.liquid');
   const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
