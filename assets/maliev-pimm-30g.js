@@ -1,12 +1,16 @@
 (() => {
   const STORY_SELECTOR = '[data-pimm30-story]';
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const PORTRAIT_STAGE_ROLES = new Set(['pimm30-overview', 'pimm30-temperature', 'pimm30-next_model']);
 
   function visibleVideo(layer) {
     if (!layer) return null;
-    // Keep media selection aligned with the fluid 700px layout contract. The
-    // old 749px boundary caused a one-pixel media swap and abrupt crop change.
-    const mobile = window.matchMedia('(max-width: 699px)').matches;
+    if (PORTRAIT_STAGE_ROLES.has(layer.dataset.pimm30Layer)) {
+      return layer.querySelector('.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices');
+    }
+    // Portrait assets fill tall media regions; compact landscape windows use
+    // the wide assets so the machine remains large without cropping.
+    const mobile = window.matchMedia('(max-width: 539px), (orientation: portrait)').matches;
     return layer.querySelector(
       mobile
         ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
@@ -36,7 +40,6 @@
       final: Number(counter.dataset.pimm30SpecFinal || 0),
       decimals: Number(counter.dataset.pimm30SpecDecimals || 0),
     }));
-    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3500) / 1000;
     const consentRevealDelay = 900;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
@@ -129,14 +132,12 @@
       specCountFrame = window.setTimeout(tick, 16);
     }
 
-    function setHeroTone(bright) {
-      story.classList.toggle('is-hero-bright', bright);
-      story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
-      overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark');
-      if (bright) {
-        revealConsentAfterHero();
-        startSpecCounts();
-      }
+    function setHeroTone() {
+      story.classList.add('is-hero-bright');
+      story.dataset.pimm30HeroTone = 'bright';
+      overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : 'bright');
+      revealConsentAfterHero();
+      startSpecCounts();
     }
 
     function resetVideo(video) {
@@ -161,23 +162,26 @@
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
         revealHeroPoster();
-        setHeroTone(true);
+        setHeroTone();
         return;
       }
 
       if (restart) resetVideo(video);
       video.classList.add('is-playing');
-      layer.classList.add('has-active-video');
-      video.play().catch(() => {
-        layer.classList.add('is-video-failed');
-        layer.classList.remove('has-active-video');
-        video.classList.remove('is-playing', 'is-paused');
-        if (activeId === 'pimm30-overview') {
-          heroHasPlayed = true;
-          revealHeroPoster();
-          setHeroTone(true);
-        }
-      });
+      video.play()
+        .then(() => {
+          if (activeVideo === video && !video.paused) layer.classList.add('has-active-video');
+        })
+        .catch(() => {
+          layer.classList.add('is-video-failed');
+          layer.classList.remove('has-active-video');
+          video.classList.remove('is-playing', 'is-paused');
+          if (activeId === 'pimm30-overview') {
+            heroHasPlayed = true;
+            revealHeroPoster();
+            setHeroTone();
+          }
+        });
     }
 
     function syncResponsiveVideo() {
@@ -204,7 +208,7 @@
         heroHasPlayed = true;
         revealHeroPoster();
         completeSpecCounts();
-        setHeroTone(true);
+        setHeroTone();
       }
 
       overlaySentinel.setAttribute(
@@ -223,14 +227,14 @@
         }
       });
 
-      if (chapterId !== 'pimm30-overview') setHeroTone(true);
+      if (chapterId !== 'pimm30-overview') setHeroTone();
       playActiveVideo(restartVideo);
     }
 
     story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
       video.addEventListener('timeupdate', () => {
         if (video !== activeVideo || activeId !== 'pimm30-overview' || heroHasPlayed) return;
-        setHeroTone(video.currentTime >= lightMilestone);
+        setHeroTone();
       });
       video.addEventListener('ended', () => {
         const layer = video.closest('[data-pimm30-layer]');
@@ -245,7 +249,7 @@
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
-          setHeroTone(true);
+          setHeroTone();
         }
       });
       video.addEventListener('error', () => {
@@ -258,7 +262,7 @@
         if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
-          setHeroTone(true);
+          setHeroTone();
         }
       });
     });
@@ -549,10 +553,10 @@
       heroHasPlayed = true;
       revealHeroPoster();
       completeSpecCounts();
-      setHeroTone(true);
+      setHeroTone();
     } else {
       setSpecCounts(0);
-      setHeroTone(false);
+      setHeroTone();
     }
     activate(activeId, true);
   }

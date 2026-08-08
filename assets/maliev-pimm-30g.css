@@ -1425,7 +1425,7 @@ html:not(.no-js) .pimm30-story.is-hero-pending
 .pimm30-stage__poster img,
 .pimm30-stage__video {
   background: transparent;
-  object-fit: cover;
+  object-fit: contain;
   object-position: 50% 50%;
 }
 
@@ -2191,7 +2191,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   }
 
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']:not([data-pimm30-layer='pimm30-overview']) {
-    clip-path: inset(0 0 50svh 0);
+    clip-path: none;
   }
 
   .pimm30-chapter:not(.pimm30-chapter--hero) .pimm30-chapter__content {
@@ -2516,13 +2516,13 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   .pimm30-stage__layer:not([data-pimm30-layer='pimm30-overview']):not(
       [data-pimm30-layer='pimm30-next_model']
     ) {
-    clip-path: inset(0 0 0 40%);
+    clip-path: none;
   }
 
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']:not([data-pimm30-layer='pimm30-overview']) {
-    clip-path: inset(var(--pimm30-header-space) 0 0 0);
-    -webkit-mask-image: linear-gradient(to right, transparent 35%, rgba(0, 0, 0, 0.15) 40%, #000 51%);
-    mask-image: linear-gradient(to right, transparent 35%, rgba(0, 0, 0, 0.15) 40%, #000 51%);
+    clip-path: none;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
   .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] .pimm30-stage__poster img,
@@ -6066,12 +6066,10 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 
   .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] .pimm30-stage__poster img,
   .pimm30-stage__hero-media-column > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] video {
-    /* The desktop source carries transparent copy space on its left side.
-       Crop that empty portion inside the media column instead of scaling the
-       entire composition past the viewport. The machine stays fully visible,
-       reads at product scale, and keeps its floor shadow in the column. */
-    object-fit: cover !important;
-    object-position: 72% 50% !important;
+    /* Preserve the complete transparent canvas; the presentation stylesheet
+       selects the portrait source when that gives the machine more scale. */
+    object-fit: contain !important;
+    object-position: 50% 50% !important;
     transform: none !important;
     transform-origin: 50% 50% !important;
   }

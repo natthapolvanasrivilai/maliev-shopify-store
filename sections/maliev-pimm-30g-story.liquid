@@ -3,7 +3,8 @@
   hot-reloading. The static revision also gives deployed browsers a new URL
   whenever this responsive media contract changes.
 {%- endcomment -%}
-<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260807-hero-column" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260808-keynote-stage" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g-keynote.css' | asset_url }}&pimm30rev=20260808-keynote-stage" media="all">
 <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'maliev-pimm-30g.js' | asset_url }}" defer="defer"></script>
 
@@ -19,12 +20,12 @@
 -%}
 
 <section
-  class="pimm30-story pimm30-cta-variant--compact is-hero-pending"
+  class="pimm30-story pimm30-cta-variant--compact is-hero-pending is-hero-bright"
   id="Pimm30Story-{{ section.id }}"
   data-pimm30-story
   data-pimm30-light-milestone="{{ section.settings.hero_light_milestone }}"
   data-header-overlay-sentinel
-  data-header-overlay-tone="dark"
+  data-header-overlay-tone="bright"
   aria-label="{{ 'products.pimm30_story.aria_label' | t | escape }}"
 >
   <div class="pimm30-stage" data-pimm30-stage aria-label="{{ 'products.pimm30_story.media_stage' | t | escape }}">
@@ -34,51 +35,26 @@
       <span>Machine</span>
     </div>
 
-    {%- comment -%}
-      Keep the live hero media in its own responsive column. The stage remains
-      the shared sticky presentation surface, while this wrapper gives the
-      hero a real 40/60 composition instead of depending on image positioning
-      alone. The chapter-level noscript fallback below is intentionally
-      retained for no-JavaScript storefronts; it is not a second live image,
-      so JavaScript-enabled pages cannot double-render or ghost the machine.
-    {%- endcomment -%}
-    <div class="pimm30-stage__hero-media-column" data-pimm30-hero-media aria-hidden="true">
-      {%- for block in section.blocks -%}
-        {%- if block.settings.role == 'overview' -%}
-          {%- liquid
-            assign chapter_id = 'pimm30-' | append: block.settings.role
-            assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
-            assign translated_media_alt = media_alt_key | t
-          -%}
-          {% render 'maliev-pimm-30g-chapter',
-            block: block,
-            chapter_id: chapter_id,
-            media_alt: translated_media_alt,
-            mode: 'stage',
-            eager: true
-          %}
-        {%- endif -%}
-      {%- endfor -%}
-    </div>
-
     {%- for block in section.blocks -%}
-      {%- unless block.settings.role == 'overview' -%}
-        {%- liquid
-          assign chapter_id = 'pimm30-' | append: block.settings.role
-          assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
-          assign translated_media_alt = media_alt_key | t
-          if block.settings.role == 'configuration'
-            assign translated_media_alt = product.title | append: ' configuration and purchase view'
-          endif
-        -%}
-        {% render 'maliev-pimm-30g-chapter',
-          block: block,
-          chapter_id: chapter_id,
-          media_alt: translated_media_alt,
-          mode: 'stage',
-          eager: false
-        %}
-      {%- endunless -%}
+      {%- liquid
+        assign chapter_id = 'pimm30-' | append: block.settings.role
+        assign media_alt_key = 'products.pimm30_story.chapters.' | append: block.settings.role | append: '.media_alt'
+        assign translated_media_alt = media_alt_key | t
+        if block.settings.role == 'configuration'
+          assign translated_media_alt = product.title | append: ' configuration and purchase view'
+        endif
+        assign eager_media = false
+        if block.settings.role == 'overview'
+          assign eager_media = true
+        endif
+      -%}
+      {% render 'maliev-pimm-30g-chapter',
+        block: block,
+        chapter_id: chapter_id,
+        media_alt: translated_media_alt,
+        mode: 'stage',
+        eager: eager_media
+      %}
     {%- endfor -%}
 
   </div>

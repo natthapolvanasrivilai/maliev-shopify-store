@@ -1,0 +1,543 @@
+/*
+ * PIMM presentation stage
+ *
+ * This file is the single responsive layout authority for the product story.
+ * The original stylesheet continues to own typography, controls and motion;
+ * this layer deliberately neutralizes its historical crop masks and split
+ * surfaces so transparent media and copy share one Keynote-like canvas.
+ */
+
+.pimm30-story {
+  --pimm30-stage-background: #f3f5f6;
+  --pimm30-stage-surface: #f3f5f6;
+  --pimm30-stage-dark: #0a0e13;
+  --pimm30-copy-share: 100%;
+  --pimm30-media-height: clamp(20rem, 52vh, 50rem);
+  --pimm30-media-height: clamp(20rem, 52svh, 50rem);
+  background: var(--pimm30-stage-surface) !important;
+  isolation: isolate;
+  overflow-x: clip !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] {
+  --pimm30-stage-background:
+    radial-gradient(circle at 74% 48%, rgba(164, 28, 24, 0.24), transparent 38%),
+    var(--pimm30-stage-dark);
+  background: var(--pimm30-stage-dark) !important;
+}
+
+.pimm30-story .pimm30-stage {
+  background: var(--pimm30-stage-background) !important;
+  height: 100vh !important;
+  height: 100svh !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  transition: background-color 320ms ease !important;
+}
+
+.pimm30-story .pimm30-stage::before {
+  content: none !important;
+  display: none !important;
+}
+
+.pimm30-story .pimm30-stage__backdrop {
+  align-items: flex-start !important;
+  color: rgba(17, 21, 27, 0.055) !important;
+  display: none !important;
+  inset: auto !important;
+  opacity: 0 !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-overview'] .pimm30-stage__backdrop {
+  opacity: 1 !important;
+}
+
+.pimm30-story .pimm30-stage > .pimm30-stage__layer {
+  -webkit-mask-image: none !important;
+  background: transparent !important;
+  clip-path: none !important;
+  filter: none !important;
+  height: var(--pimm30-media-height) !important;
+  inset: var(--pimm30-header-space) 0 auto !important;
+  mask-image: none !important;
+  max-height: none !important;
+  max-width: none !important;
+  overflow: visible !important;
+  transform: none !important;
+  width: 100% !important;
+}
+
+.pimm30-story .pimm30-stage > .pimm30-stage__layer::before,
+.pimm30-story .pimm30-stage > .pimm30-stage__layer::after {
+  content: none !important;
+  display: none !important;
+}
+
+.pimm30-story .pimm30-stage__poster,
+.pimm30-story .pimm30-stage__poster picture,
+.pimm30-story .pimm30-stage__poster img,
+.pimm30-story .pimm30-stage__video {
+  background: transparent !important;
+  border: 0 !important;
+  bottom: 0 !important;
+  box-sizing: border-box !important;
+  clip-path: none !important;
+  height: 100% !important;
+  inset: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  max-height: none !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+  transform-origin: 50% 50% !important;
+  width: 100% !important;
+}
+
+.pimm30-story .pimm30-stage > .pimm30-stage__layer .pimm30-stage__poster img,
+.pimm30-story .pimm30-stage > .pimm30-stage__layer .pimm30-stage__video {
+  object-fit: contain !important;
+  object-position: 50% 50% !important;
+  padding: 0 !important;
+  transform: none !important;
+  transform-origin: 50% 50% !important;
+}
+
+html:not(.no-js)
+  .pimm30-story.is-hero-pending
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']:not(.has-active-video)
+  .pimm30-stage__poster {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.pimm30-story .pimm30-stage__video--desktop {
+  display: none !important;
+}
+
+.pimm30-story .pimm30-stage__video--mobile,
+.pimm30-story .pimm30-stage__video--all-devices {
+  display: block !important;
+}
+
+.pimm30-story
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__video--desktop {
+  display: none !important;
+}
+
+.pimm30-story
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__video--mobile {
+  display: block !important;
+}
+
+.pimm30-story
+  .pimm30-stage__layer:is(
+    [data-pimm30-layer='pimm30-temperature'],
+    [data-pimm30-layer='pimm30-next_model']
+  )
+  .pimm30-stage__video--desktop {
+  display: none !important;
+}
+
+.pimm30-story
+  .pimm30-stage__layer:is(
+    [data-pimm30-layer='pimm30-temperature'],
+    [data-pimm30-layer='pimm30-next_model']
+  )
+  .pimm30-stage__video--mobile {
+  display: block !important;
+}
+
+.pimm30-story .pimm30-stage__layer.is-video-failed .pimm30-stage__video,
+.pimm30-story.is-static .pimm30-stage__video,
+.pimm30-story.is-reduced-motion .pimm30-stage__video {
+  display: none !important;
+}
+
+.pimm30-story .pimm30-stage__turntable-hint {
+  bottom: 1.6rem !important;
+  left: 50% !important;
+}
+
+.pimm30-story .pimm30-story__chapters {
+  margin-top: -100vh !important;
+  margin-top: -100svh !important;
+  overflow: visible !important;
+}
+
+.pimm30-story .pimm30-chapter {
+  align-items: stretch !important;
+  background: transparent !important;
+  display: block !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  min-height: 100svh !important;
+  overflow: visible !important;
+}
+
+.pimm30-story .pimm30-chapter__content,
+.pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content,
+.pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+  align-content: start !important;
+  align-self: stretch !important;
+  background: transparent !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  height: auto !important;
+  inset: auto !important;
+  margin: 0 !important;
+  min-height: 100vh !important;
+  min-height: 100svh !important;
+  padding: calc(var(--pimm30-header-space) + var(--pimm30-media-height) + 2rem)
+    clamp(1.8rem, 6vw, 3.2rem) max(3.2rem, env(safe-area-inset-bottom)) !important;
+  position: relative !important;
+  transform: none !important;
+  width: 100% !important;
+  z-index: 4 !important;
+}
+
+.pimm30-story .pimm30-chapter__content > * {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: 58rem !important;
+  min-width: 0 !important;
+}
+
+.pimm30-story .pimm30-chapter h1,
+.pimm30-story .pimm30-chapter h2,
+.pimm30-story .pimm30-chapter p,
+.pimm30-story .pimm30-chapter li,
+.pimm30-story .pimm30-chapter dd,
+.pimm30-story .pimm30-chapter dt {
+  overflow-wrap: break-word !important;
+}
+
+.pimm30-story .pimm30-chapter h1 {
+  font-size: clamp(2.6rem, 9vw, 4.4rem) !important;
+}
+
+.pimm30-story .pimm30-chapter h2,
+.pimm30-story .pimm30-chapter--configuration h2 {
+  font-size: clamp(3rem, 8.8vw, 4.8rem) !important;
+}
+
+.pimm30-story .pimm30-chapter__content > p:not(
+    .pimm30-chapter__identity,
+    .pimm30-chapter__label,
+    .pimm30-chapter__model
+  ) {
+  font-size: clamp(1.4rem, 4vw, 1.7rem) !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-chapter__hero-heading,
+.pimm30-story .pimm30-chapter--hero .pimm30-chapter__lead {
+  display: block !important;
+  inset: auto !important;
+  position: static !important;
+  transform: none !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-chapter__content > * {
+  grid-area: auto !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+  display: block !important;
+  font-size: clamp(5.4rem, 18vw, 8.4rem) !important;
+  inset: auto !important;
+  margin: 0 0 1.2rem !important;
+  max-width: 100% !important;
+  opacity: 1 !important;
+  position: static !important;
+  transform: none !important;
+  width: auto !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+  bottom: auto !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  inset: auto !important;
+  left: auto !important;
+  margin: 1.8rem 0 0 !important;
+  max-width: 58rem !important;
+  position: static !important;
+  right: auto !important;
+  text-align: left !important;
+  transform: none !important;
+  width: 100% !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+  border: 0 !important;
+  border-top: 0.1rem solid var(--pimm30-rule) !important;
+  overflow: visible !important;
+  padding: 1rem 0.8rem 1rem 0 !important;
+  text-align: left !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero dt,
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero dd,
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero [data-pimm30-spec-number] {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: 100% !important;
+  text-align: left !important;
+  white-space: normal !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
+  bottom: auto !important;
+  display: flex !important;
+  justify-self: start !important;
+  left: auto !important;
+  margin-top: 1.6rem !important;
+  max-width: 28rem !important;
+  position: static !important;
+  right: auto !important;
+  width: 100% !important;
+}
+
+/* Portrait detail artwork is intentionally authored as an edge-to-edge
+ * close-up. Feather only those source edges so they dissolve into the shared
+ * stage instead of ending as a visible horizontal cut. */
+@media (orientation: portrait), (max-width: 539px) {
+  .pimm30-story
+    .pimm30-stage__layer:is(
+      [data-pimm30-layer='pimm30-cylinder'],
+      [data-pimm30-layer='pimm30-operation'],
+      [data-pimm30-layer='pimm30-regulator'],
+      [data-pimm30-layer='pimm30-fixture']
+    )
+    .pimm30-stage__poster
+    img {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%) !important;
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%) !important;
+  }
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-scroll-cue {
+  bottom: auto !important;
+  display: flex !important;
+  justify-self: start !important;
+  left: auto !important;
+  margin-top: 1.2rem !important;
+  position: static !important;
+  right: auto !important;
+  transform: none !important;
+  white-space: normal !important;
+  width: auto !important;
+}
+
+.pimm30-story .pimm30-chapter__metric {
+  align-items: start !important;
+  display: grid !important;
+  gap: 1.2rem !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.pimm30-story .pimm30-chapter__metric dd {
+  min-width: 0 !important;
+  text-align: left !important;
+}
+
+.pimm30-story .pimm30-chapter__metric--pressure dd {
+  align-items: flex-start !important;
+}
+
+.pimm30-story .pimm30-next-model__upgrades {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.pimm30-story .pimm30-next-model__upgrades li,
+.pimm30-story .pimm30-next-model__upgrades li:first-child {
+  border: 0 !important;
+  border-top: 0.1rem solid rgba(255, 255, 255, 0.2) !important;
+  padding: 0.8rem 0 !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-chapter--next_model h2,
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-chapter--next_model p,
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-chapter--next_model li,
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-chapter--next_model span,
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-chapter--next_model strong {
+  color: #fff !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model']
+  .pimm30-chapter--next_model
+  .pimm30-chapter__label {
+  color: #8fc8ff !important;
+}
+
+/* Compact landscape windows already have enough inline space for a true
+ * side-by-side slide; portrait phones retain the stacked media-first layout. */
+@media (min-width: 700px), (min-width: 540px) and (orientation: landscape) {
+  .pimm30-story {
+    --pimm30-copy-share: 42%;
+  }
+
+  .pimm30-story .pimm30-stage > .pimm30-stage__layer {
+    height: auto !important;
+    inset: var(--pimm30-header-space) 0 0 var(--pimm30-copy-share) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-stage__backdrop {
+    display: flex !important;
+    font-size: clamp(5rem, 9vw, 13rem) !important;
+    inset: 50% clamp(1.5rem, 3vw, 4.5rem) auto calc(var(--pimm30-copy-share) + 2rem) !important;
+    line-height: 0.78 !important;
+    transform: translateY(-50%) !important;
+  }
+
+  .pimm30-story .pimm30-chapter {
+    display: grid !important;
+    grid-template-columns: var(--pimm30-copy-share) minmax(0, 1fr) !important;
+  }
+
+  .pimm30-story .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    align-content: center !important;
+    grid-column: 1 !important;
+    min-width: 0 !important;
+    padding: calc(var(--pimm30-header-space) + 2rem) clamp(2rem, 4vw, 5rem)
+      max(3rem, env(safe-area-inset-bottom)) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story .pimm30-chapter__content > * {
+    max-width: 52rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter h1 {
+    font-size: clamp(2.6rem, 3vw, 4.8rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter h2,
+  .pimm30-story .pimm30-chapter--configuration h2 {
+    font-size: clamp(3rem, 3.4vw, 5.4rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter__content > p:not(
+      .pimm30-chapter__identity,
+      .pimm30-chapter__label,
+      .pimm30-chapter__model
+    ) {
+    font-size: clamp(1.35rem, 1.3vw, 1.75rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+    font-size: clamp(5.6rem, 7vw, 10rem) !important;
+  }
+
+  .pimm30-story .pimm30-stage__turntable-hint {
+    bottom: clamp(1.8rem, 4svh, 4rem) !important;
+    left: 50% !important;
+  }
+}
+
+@media (min-width: 540px) and (orientation: landscape) {
+  .pimm30-story .pimm30-stage__video--desktop,
+  .pimm30-story .pimm30-stage__video--all-devices {
+    display: block !important;
+  }
+
+  .pimm30-story .pimm30-stage__video--mobile {
+    display: none !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video--desktop {
+    display: none !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video--mobile {
+    display: block !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage__layer:is(
+      [data-pimm30-layer='pimm30-temperature'],
+      [data-pimm30-layer='pimm30-next_model']
+    )
+    .pimm30-stage__video--desktop {
+    display: none !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage__layer:is(
+      [data-pimm30-layer='pimm30-temperature'],
+      [data-pimm30-layer='pimm30-next_model']
+    )
+    .pimm30-stage__video--mobile {
+    display: block !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
+    .pimm30-stage__video--desktop {
+    transform: scale(1.65) !important;
+  }
+}
+
+@media (min-width: 1100px) {
+  .pimm30-story {
+    --pimm30-copy-share: 40%;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .pimm30-story .pimm30-next-model__upgrades {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .pimm30-story .pimm30-next-model__upgrades li,
+  .pimm30-story .pimm30-next-model__upgrades li:first-child {
+    border-top: 0 !important;
+    padding: 0.7rem 1rem !important;
+  }
+
+  .pimm30-story .pimm30-next-model__upgrades li:first-child {
+    padding-left: 0 !important;
+  }
+
+  .pimm30-story .pimm30-next-model__upgrades li + li {
+    border-left: 0.1rem solid rgba(255, 255, 255, 0.2) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pimm30-story .pimm30-stage,
+  .pimm30-story .pimm30-stage__layer,
+  .pimm30-story .pimm30-stage__backdrop,
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+    transition: none !important;
+  }
+
+  .pimm30-story .pimm30-scroll-cue span + span,
+  .pimm30-story .pimm30-pressure__step,
+  .pimm30-story .pimm30-pressure__secondary {
+    animation: none !important;
+  }
+}

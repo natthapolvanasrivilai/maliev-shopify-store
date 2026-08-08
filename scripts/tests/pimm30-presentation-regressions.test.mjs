@@ -11,12 +11,23 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 test('alpha videos replace their poster layer while playing', () => {
   const liquid = read('snippets/maliev-pimm-30g-chapter.liquid');
   const css = read('assets/maliev-pimm-30g.css');
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
   const script = read('assets/maliev-pimm-30g.js');
 
   assert.doesNotMatch(liquid, /<video\b[^>]*\bposter=/);
   assert.match(css, /\.pimm30-stage__layer\.has-active-video \.pimm30-stage__poster/);
+  assert.match(keynoteCss, /\.is-hero-pending[\s\S]*?\.pimm30-stage__poster[\s\S]*?visibility:\s*visible\s*!important/);
+  assert.match(script, /video\.play\(\)\s*\.then\(\(\) => \{[\s\S]*?classList\.add\('has-active-video'\)/);
+  assert.doesNotMatch(script, /classList\.add\('has-active-video'\);\s*video\.play\(\)/);
   assert.match(script, /classList\.add\('has-active-video'\)/);
   assert.match(script, /classList\.remove\('has-active-video'\)/);
+});
+
+test('transparent presentation media is never hard-cropped by the stage', () => {
+  const css = read('assets/maliev-pimm-30g.css');
+
+  assert.doesNotMatch(css, /object-fit:\s*cover/);
+  assert.doesNotMatch(css, /clip-path:\s*inset\(/);
 });
 
 test('configuration media supports pointer and keyboard scrubbing', () => {
@@ -40,7 +51,7 @@ test('configuration dragging reverses horizontal pointer travel while coalescing
 
   assert.match(script, /const rotationStartTime = 65 \/ 24/);
   assert.match(script, /const rotationEndTime = 101 \/ 24/);
-  assert.match(script, /dragStartProgress - \(event\.clientX - dragStartX\) \* progressPerPixel\(\)/);
+  assert.match(script, /dragStartProgress - \(point\.clientX - dragStartX\) \* progressPerPixel\(\)/);
   assert.match(script, /scrubFrame = window\.requestAnimationFrame\(applyScrub\)/);
   assert.match(script, /URL\.createObjectURL\(blob\)/);
   assert.match(script, /fetch\(sourceUrl, \{ cache: 'force-cache' \}\)/);
