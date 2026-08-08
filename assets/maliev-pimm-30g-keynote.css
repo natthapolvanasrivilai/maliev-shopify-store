@@ -387,8 +387,9 @@
 }
 
 /* Compact landscape windows already have enough inline space for a true
- * side-by-side slide; portrait phones retain the stacked media-first layout. */
-@media (min-width: 700px), (min-width: 540px) and (orientation: landscape) {
+ * side-by-side slide; every portrait viewport retains the stacked media-first
+ * layout, even when a tablet is wider than 700px. */
+@media (min-width: 540px) and (orientation: landscape) {
   .pimm30-story {
     --pimm30-copy-share: 42%;
   }
@@ -546,7 +547,7 @@
   width: 100% !important;
 }
 
-@media (min-width: 540px) and (orientation: landscape) {
+@media (min-width: 900px) and (orientation: landscape) {
   .pimm30-story .pimm30-stage {
     overflow: visible !important;
   }
@@ -571,6 +572,165 @@
   }
 }
 
+/*
+ * Responsive hardening contract (keep this block last).
+ *
+ * The stage and the chapter copy are siblings in the DOM.  A portrait or
+ * compact landscape viewport therefore cannot safely use the desktop grid:
+ * it would leave the copy in a narrow column while the transparent media is
+ * art-directed to a tall source.  Stack those viewports media-first; reserve
+ * the split canvas for wide landscape windows only.
+ */
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-copy-share: 100%;
+    /* Keep the transparent machine legible in short landscape windows too;
+     * the original 52svh token makes a 600x400 stage only 208px tall. */
+    --pimm30-media-height: clamp(20rem, 68svh, 50rem);
+  }
+
+  .pimm30-story .pimm30-stage {
+    overflow: hidden !important;
+  }
+
+  .pimm30-story .pimm30-stage > .pimm30-stage__layer {
+    height: var(--pimm30-media-height) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story .pimm30-stage__backdrop {
+    display: none !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    -webkit-mask-position: 0 0 !important;
+    mask-position: 0 0 !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-size: 100% 100% !important;
+    mask-size: 100% 100% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    -webkit-mask-position: 0 0 !important;
+    mask-position: 0 0 !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-size: 100% 100% !important;
+    mask-size: 100% 100% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
+    .pimm30-stage__video {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    transform: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter {
+    display: block !important;
+    grid-template-columns: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    grid-column: auto !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    padding: calc(var(--pimm30-header-space) + var(--pimm30-media-height) + 2rem)
+      clamp(1.2rem, 6vw, 3.2rem) max(2rem, env(safe-area-inset-bottom)) !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story {
+    --pimm30-copy-share: 40%;
+  }
+
+  .pimm30-story .pimm30-stage__backdrop {
+    inset: 50% 0 auto calc(var(--pimm30-copy-share) + 1.5rem) !important;
+    max-width: calc(100% - var(--pimm30-copy-share) - 1.5rem) !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-stage > .pimm30-stage__layer {
+    height: auto !important;
+    inset: var(--pimm30-header-space) 0 0 var(--pimm30-copy-share) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter {
+    display: grid !important;
+    grid-template-columns: var(--pimm30-copy-share) minmax(0, 1fr) !important;
+  }
+
+  /* Scale the desktop hero artwork for presence, but fade the complete
+   * transparent canvas at the media column edges.  Masking the layer (rather
+   * than the scaled image) keeps the ground shadow from ending in a sharp
+   * rectangle when the source canvas extends beyond its column. */
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    -webkit-mask-position: 0 0 !important;
+    mask-position: 0 0 !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-size: 100% 100% !important;
+    mask-size: 100% 100% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    -webkit-mask-position: 0 0 !important;
+    mask-position: 0 0 !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-size: 100% 100% !important;
+    mask-size: 100% 100% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
+    .pimm30-stage__video {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+}
+
 @media (max-width: 539px), (orientation: portrait) {
   /* Portrait posters carry a broad studio ground plane. Feather the rendered
    * canvas edges so that plane dissolves into the shared stage instead of
@@ -586,5 +746,53 @@
     picture {
     -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
     mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
+  }
+}
+
+/* Short landscape windows have the same inline room as desktop but much less
+ * vertical room.  Keep the hero machine fully inside the stage instead of
+ * letting the large-screen scale cut the feet or ground plane at the fold. */
+@media (min-width: 900px) and (orientation: landscape) and (max-height: 699px) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: scale(1.25) !important;
+    transform-origin: 70% 50% !important;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) and (min-height: 700px) and (max-height: 799px) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: scale(1.45) !important;
+    transform-origin: 70% 50% !important;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) and (min-height: 800px) and (max-height: 899px) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: scale(1.75) !important;
+    transform-origin: 70% 50% !important;
   }
 }

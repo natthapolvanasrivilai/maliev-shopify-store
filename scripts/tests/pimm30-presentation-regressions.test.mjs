@@ -54,6 +54,43 @@ test('hero art direction keeps wide media on landscape screens', () => {
   assert.doesNotMatch(script, /PORTRAIT_STAGE_ROLES/);
 });
 
+test('responsive keynote contract stacks narrow slides and contains transparent hero edges', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  // A width-only tablet query was the regression: 867x1032 was portrait but
+  // still entered the desktop split.  Wide composition is orientation-aware
+  // and starts only when the copy column can remain legible.
+  assert.doesNotMatch(keynoteCss, /@media\s*\(min-width:\s*700px\),/);
+  assert.match(
+    keynoteCss,
+    /@media \(max-width: 899px\), \(orientation: portrait\)[\s\S]*?--pimm30-copy-share:\s*100%[\s\S]*?--pimm30-media-height:\s*clamp\(20rem, 68svh, 50rem\)[\s\S]*?\.pimm30-stage__backdrop[\s\S]*?display:\s*none !important[\s\S]*?\.pimm30-chapter\s*\{[\s\S]*?display:\s*block !important/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?--pimm30-copy-share:\s*40%[\s\S]*?grid-template-columns:\s*var\(--pimm30-copy-share\) minmax\(0, 1fr\) !important/
+  );
+
+  // The hero source is intentionally scaled for presence on wide screens;
+  // mask the layer box so its broad transparent ground plane fades at the
+  // media-column edges instead of ending in a hard left/right cut.
+  assert.match(
+    keynoteCss,
+    /data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?mask-image:\s*linear-gradient\(to right, transparent 0%, #000 12%, #000 88%, transparent 100%\) !important/
+  );
+  assert.match(
+    keynoteCss,
+    /\.pimm30-stage__backdrop\s*\{[\s\S]*?max-width:\s*calc\(100% - var\(--pimm30-copy-share\) - 1\.5rem\) !important[\s\S]*?overflow:\s*hidden !important/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 699px\)[\s\S]*?transform:\s*scale\(1\.25\) !important/
+  );
+  assert.match(
+    keynoteCss,
+    /data-pimm30-layer=['"]pimm30-configuration['"][\s\S]*?mask-image:\s*linear-gradient\(to right, transparent 0%, #000 12%, #000 88%, transparent 100%\) !important/
+  );
+});
+
 test('hero startup begins in a dark studio and turns light at the configured milestone', () => {
   const section = read('sections/maliev-pimm-30g-story.liquid');
   const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
