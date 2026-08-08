@@ -625,6 +625,27 @@
     display: none !important;
   }
 
+  /* Keep the keynote's typographic depth in the bright overview. The dark
+   * opening deliberately suppresses it; after the light cue this sits behind
+   * the machine rather than competing with the 30 G lockup above it. */
+  .pimm30-story.is-hero-bright[data-active-chapter='pimm30-overview']
+    .pimm30-stage__backdrop {
+    align-items: center !important;
+    display: flex !important;
+    font-size: clamp(3.2rem, 13vw, 6.2rem) !important;
+    inset: calc(
+        var(--pimm30-header-space) + var(--pimm30-mobile-model-space) +
+          clamp(1.5rem, 4svh, 3rem)
+      )
+      0 auto !important;
+    justify-content: center !important;
+    line-height: 0.78 !important;
+    opacity: 1 !important;
+    padding-inline: 0.6rem !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
   .pimm30-story
     .pimm30-stage
     > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
@@ -660,9 +681,10 @@
     transform: none !important;
   }
 
-  /* The broad transparent ground plane lives inside the media element, not
-   * only on the layer. Mask both poster and alpha video so the shadow fades at
-   * the rendered canvas edge on every mobile art direction. */
+  /* The broad transparent ground plane lives inside the portrait source, not
+   * in the full-width layer. Give the rendered source its intrinsic width
+   * first, then fade that actual canvas edge. Masking the layer (or a
+   * full-width object-fit box) misses the source edge and leaves a rectangle. */
   .pimm30-story
     .pimm30-stage
     > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
@@ -672,8 +694,13 @@
     .pimm30-stage
     > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
     .pimm30-stage__video {
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
-    mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
+    inset: 0 auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%) !important;
     -webkit-mask-position: 0 0 !important;
     mask-position: 0 0 !important;
     -webkit-mask-repeat: no-repeat !important;
@@ -884,4 +911,16 @@
   pointer-events: none !important;
   position: absolute !important;
   z-index: 3 !important;
+}
+
+/* The stack uses the media element's intrinsic portrait canvas above. A
+ * full-layer wash would sit over the restored type backdrop and would again
+ * be positioned relative to the wrong width. */
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']::after {
+    content: none !important;
+    display: none !important;
+  }
 }
