@@ -91,7 +91,7 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   );
 });
 
-test('mobile hero keeps the model lockup above the machine, restores the backdrop, and fades the real canvas edge', () => {
+test('mobile hero keeps the model lockup above the machine, restores the backdrop, and reserves the CTA viewport lane', () => {
   const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
 
   assert.match(
@@ -121,6 +121,26 @@ test('mobile hero keeps the model lockup above the machine, restores the backdro
   assert.match(
     keynoteCss,
     /@media \(max-width: 899px\), \(orientation: portrait\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"]\]\:\:after\s*\{[\s\S]*?content:\s*none !important[\s\S]*?display:\s*none !important/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-feature-rail:\s*10rem[\s\S]*?--pimm30-mobile-action-height:\s*5\.2rem[\s\S]*?--pimm30-hero-media-height:\s*clamp\([\s\S]*?100svh - var\(--pimm30-header-space\)[\s\S]*?var\(--pimm30-mobile-feature-rail\)[\s\S]*?var\(--pimm30-mobile-action-height\)/
+  );
+  assert.match(
+    keynoteCss,
+    /\.pimm30-story \.pimm30-chapter--hero \.pimm30-chapter__hero-heading,[\s\S]*?\.pimm30-chapter__lead\s*\{[\s\S]*?clip-path:\s*inset\(50%\) !important[\s\S]*?position:\s*absolute !important/
+  );
+  assert.match(
+    keynoteCss,
+    /\.pimm30-story \.pimm30-chapter--hero \.pimm30-action--hero\s*\{[\s\S]*?min-height:\s*var\(--pimm30-mobile-action-height\) !important/
+  );
+  assert.match(
+    keynoteCss,
+    /data-active-chapter=['"]pimm30-overview['"][\s\S]*?\.pimm30-scroll-cue\s*\{[\s\S]*?display:\s*none !important/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 540px\) and \(max-width: 899px\) and \(orientation: landscape\)[\s\S]*?grid-template-columns:\s*var\(--pimm30-compact-landscape-copy\) minmax\(0, 1fr\) !important/
   );
 });
 

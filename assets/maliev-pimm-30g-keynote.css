@@ -924,3 +924,161 @@
     display: none !important;
   }
 }
+
+/* Mobile overview is a complete presentation slide, not a long reading
+ * stack. Reserve space for the feature rail and primary action before sizing
+ * the transparent machine lane; the product name remains available as the
+ * semantic heading and as the bright-stage backdrop behind the machine. */
+@media (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-model-space: clamp(8rem, 18vw, 9.6rem);
+    --pimm30-mobile-feature-rail: 10rem;
+    --pimm30-mobile-action-height: 5.2rem;
+    --pimm30-mobile-layout-gap: 3.6rem;
+    --pimm30-mobile-safe-bottom: max(1.2rem, env(safe-area-inset-bottom));
+    --pimm30-hero-media-height: clamp(
+      18rem,
+      calc(
+        100svh - var(--pimm30-header-space) -
+          var(--pimm30-mobile-model-space) -
+          var(--pimm30-mobile-feature-rail) -
+          var(--pimm30-mobile-action-height) -
+          var(--pimm30-mobile-layout-gap) -
+          var(--pimm30-mobile-safe-bottom)
+      ),
+      38rem
+    );
+  }
+
+  /* The background lockup carries the visible product name on the compact
+   * keynote. Keep the actual heading and lead in the accessibility tree
+   * without spending the CTA's reserved viewport space. */
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__hero-heading,
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__lead {
+    block-size: 1px !important;
+    clip-path: inset(50%) !important;
+    inline-size: 1px !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
+    min-height: 100svh !important;
+    padding: calc(
+        var(--pimm30-header-space) + var(--pimm30-mobile-model-space) +
+          var(--pimm30-hero-media-height) + 1rem
+      )
+      clamp(1.2rem, 6vw, 3.2rem) var(--pimm30-mobile-safe-bottom) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    margin-top: 0 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    padding-block: 0.65rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
+    margin-top: 1.2rem !important;
+    max-width: none !important;
+    min-height: var(--pimm30-mobile-action-height) !important;
+  }
+
+  /* One bottom affordance at a time: the CTA owns the hero's action lane. */
+  .pimm30-story[data-active-chapter='pimm30-overview']
+    .pimm30-chapter--hero
+    .pimm30-scroll-cue {
+    display: none !important;
+  }
+}
+
+/* A short landscape handset has room for a compact side-by-side keynote, not
+ * a portrait stack. This keeps the complete machine, feature rail and CTA in
+ * the same frame without shrinking the artwork into an unreadable thumbnail. */
+@media (min-width: 540px) and (max-width: 899px) and (orientation: landscape) {
+  .pimm30-story {
+    --pimm30-compact-landscape-copy: 46%;
+    --pimm30-mobile-safe-bottom: max(0.8rem, env(safe-area-inset-bottom));
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'] {
+    height: auto !important;
+    inset: var(--pimm30-header-space) 0 0 var(--pimm30-compact-landscape-copy) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.is-hero-bright[data-active-chapter='pimm30-overview']
+    .pimm30-stage__backdrop {
+    font-size: clamp(3rem, 8vw, 5rem) !important;
+    inset: calc(var(--pimm30-header-space) + 1rem) 0 auto
+      var(--pimm30-compact-landscape-copy) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero {
+    display: grid !important;
+    grid-template-columns: var(--pimm30-compact-landscape-copy) minmax(0, 1fr) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__hero-heading,
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__lead {
+    block-size: 1px !important;
+    clip-path: inset(50%) !important;
+    inline-size: 1px !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    white-space: nowrap !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__content,
+  .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
+    grid-column: 1 !important;
+    min-height: 100svh !important;
+    padding: calc(var(--pimm30-header-space) + 0.75rem) 1.2rem
+      var(--pimm30-mobile-safe-bottom) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+    font-size: clamp(3.2rem, 8vw, 5.4rem) !important;
+    margin: 0 0 0.6rem !important;
+    position: static !important;
+    transform: none !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
+    margin-top: 0 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    padding-block: 0.45rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
+    margin-top: 0.75rem !important;
+    max-width: none !important;
+    min-height: 4.8rem !important;
+  }
+
+  .pimm30-story[data-active-chapter='pimm30-overview']
+    .pimm30-chapter--hero
+    .pimm30-scroll-cue {
+    display: none !important;
+  }
+}
+
+/* Keep the primary action touch-safe on short wide tablets too. */
+@media (min-width: 900px) and (orientation: landscape) and (max-height: 699px) {
+  .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
+    min-height: 4.8rem !important;
+  }
+}
