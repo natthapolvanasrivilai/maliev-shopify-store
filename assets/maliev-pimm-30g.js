@@ -36,6 +36,7 @@
       decimals: Number(counter.dataset.pimm30SpecDecimals || 0),
     }));
     const consentRevealDelay = 900;
+    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 2750) / 1000;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
     // The local Shopify dev preview is the debugging surface. Codex's embedded
@@ -127,12 +128,18 @@
       specCountFrame = window.setTimeout(tick, 16);
     }
 
-    function setHeroTone() {
-      story.classList.add('is-hero-bright');
-      story.dataset.pimm30HeroTone = 'bright';
-      overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : 'bright');
-      revealConsentAfterHero();
-      startSpecCounts();
+    function setHeroTone(bright) {
+      story.classList.toggle('is-hero-bright', bright);
+      story.classList.toggle('is-hero-dark', !bright);
+      story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
+      overlaySentinel.setAttribute(
+        'data-header-overlay-tone',
+        activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark'
+      );
+      if (bright) {
+        revealConsentAfterHero();
+        startSpecCounts();
+      }
     }
 
     function resetVideo(video) {
@@ -157,7 +164,7 @@
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
         revealHeroPoster();
-        setHeroTone();
+        setHeroTone(true);
         return;
       }
 
@@ -174,7 +181,7 @@
           if (activeId === 'pimm30-overview') {
             heroHasPlayed = true;
             revealHeroPoster();
-            setHeroTone();
+            setHeroTone(true);
           }
         });
     }
@@ -203,7 +210,7 @@
         heroHasPlayed = true;
         revealHeroPoster();
         completeSpecCounts();
-        setHeroTone();
+        setHeroTone(true);
       }
 
       overlaySentinel.setAttribute(
@@ -222,14 +229,14 @@
         }
       });
 
-      if (chapterId !== 'pimm30-overview') setHeroTone();
+      if (chapterId !== 'pimm30-overview') setHeroTone(true);
       playActiveVideo(restartVideo);
     }
 
     story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
       video.addEventListener('timeupdate', () => {
         if (video !== activeVideo || activeId !== 'pimm30-overview' || heroHasPlayed) return;
-        setHeroTone();
+        setHeroTone(video.currentTime >= lightMilestone);
       });
       video.addEventListener('ended', () => {
         const layer = video.closest('[data-pimm30-layer]');
@@ -244,7 +251,7 @@
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
-          setHeroTone();
+          setHeroTone(true);
         }
       });
       video.addEventListener('error', () => {
@@ -257,7 +264,7 @@
         if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
-          setHeroTone();
+          setHeroTone(true);
         }
       });
     });
@@ -548,10 +555,10 @@
       heroHasPlayed = true;
       revealHeroPoster();
       completeSpecCounts();
-      setHeroTone();
+      setHeroTone(true);
     } else {
       setSpecCounts(0);
-      setHeroTone();
+      setHeroTone(false);
     }
     activate(activeId, true);
   }

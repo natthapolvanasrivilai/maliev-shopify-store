@@ -17,6 +17,21 @@
   background: var(--pimm30-stage-surface) !important;
   isolation: isolate;
   overflow-x: clip !important;
+  transition: background-color 900ms cubic-bezier(0.22, 1, 0.36, 1), color 420ms ease !important;
+}
+
+/* The first frame is a dark studio. JavaScript removes this state only when
+ * the configured light milestone is reached, so the machine can start on a
+ * controlled black stage instead of flashing the final bright poster. */
+.pimm30-story.is-hero-dark {
+  --pimm30-stage-background: var(--pimm30-stage-dark);
+  --pimm30-stage-surface: var(--pimm30-stage-dark);
+  background: var(--pimm30-stage-dark) !important;
+  color: #fff;
+}
+
+.pimm30-story.is-hero-dark .pimm30-stage {
+  background: var(--pimm30-stage-dark) !important;
 }
 
 .pimm30-story[data-active-chapter='pimm30-next_model'] {
@@ -32,7 +47,7 @@
   height: 100svh !important;
   isolation: isolate !important;
   overflow: hidden !important;
-  transition: background-color 320ms ease !important;
+  transition: background-color 900ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 .pimm30-story .pimm30-stage::before {
@@ -109,14 +124,6 @@
   padding: 0 !important;
   transform: none !important;
   transform-origin: 50% 50% !important;
-}
-
-html:not(.no-js)
-  .pimm30-story.is-hero-pending
-  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']:not(.has-active-video)
-  .pimm30-stage__poster {
-  opacity: 1 !important;
-  visibility: visible !important;
 }
 
 .pimm30-story .pimm30-stage__video--desktop {

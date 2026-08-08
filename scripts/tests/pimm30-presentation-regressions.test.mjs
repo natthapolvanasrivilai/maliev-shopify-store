@@ -16,7 +16,7 @@ test('alpha videos replace their poster layer while playing', () => {
 
   assert.doesNotMatch(liquid, /<video\b[^>]*\bposter=/);
   assert.match(css, /\.pimm30-stage__layer\.has-active-video \.pimm30-stage__poster/);
-  assert.match(keynoteCss, /\.is-hero-pending[\s\S]*?\.pimm30-stage__poster[\s\S]*?visibility:\s*visible\s*!important/);
+  assert.doesNotMatch(keynoteCss, /\.is-hero-pending[\s\S]*?\.pimm30-stage__poster[\s\S]*?visibility:\s*visible\s*!important/);
   assert.match(script, /video\.play\(\)\s*\.then\(\(\) => \{[\s\S]*?classList\.add\('has-active-video'\)/);
   assert.doesNotMatch(script, /classList\.add\('has-active-video'\);\s*video\.play\(\)/);
   assert.match(script, /classList\.add\('has-active-video'\)/);
@@ -52,6 +52,25 @@ test('hero art direction keeps wide media on landscape screens', () => {
   assert.match(keynoteCss, /@media \(min-width: 540px\) and \(orientation: landscape\)[\s\S]*?\.pimm30-stage__video--desktop[\s\S]*?display: block !important[\s\S]*?\.pimm30-stage__video--mobile[\s\S]*?display: none !important/);
   assert.match(script, /matchMedia\('\(max-width: 539px\), \(orientation: portrait\)'\)/);
   assert.doesNotMatch(script, /PORTRAIT_STAGE_ROLES/);
+});
+
+test('hero startup begins in a dark studio and turns light at the configured milestone', () => {
+  const section = read('sections/maliev-pimm-30g-story.liquid');
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+  const script = read('assets/maliev-pimm-30g.js');
+
+  assert.match(section, /class="[^"]*is-hero-pending[^"]*is-hero-dark[^"]*"/);
+  assert.doesNotMatch(section, /class="[^"]*is-hero-pending[^"]*is-hero-bright/);
+  assert.match(section, /data-pimm30-light-milestone="\{\{ section\.settings\.hero_light_milestone \}\}"/);
+  assert.match(section, /data-header-overlay-tone="dark"/);
+  assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark[\s\S]*?background:\s*var\(--pimm30-stage-dark\)\s*!important/);
+  assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark \.pimm30-stage[\s\S]*?background:\s*var\(--pimm30-stage-dark\)\s*!important/);
+  assert.match(keynoteCss, /transition:\s*background-color 900ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/);
+  assert.match(script, /const lightMilestone = Number\(story\.dataset\.pimm30LightMilestone \|\| 2750\) \/ 1000/);
+  assert.match(script, /function setHeroTone\(bright\)[\s\S]*?classList\.toggle\('is-hero-bright', bright\)[\s\S]*?classList\.toggle\('is-hero-dark', !bright\)/);
+  assert.match(script, /timeupdate'[\s\S]*?setHeroTone\(video\.currentTime >= lightMilestone\)/);
+  assert.match(script, /setSpecCounts\(0\);\s*setHeroTone\(false\)/);
+  assert.match(script, /if \(reduced \|\| !initialHeroVideo \|\| activeId !== 'pimm30-overview'\)[\s\S]*?setHeroTone\(true\)/);
 });
 
 test('configuration media supports pointer and keyboard scrubbing', () => {
