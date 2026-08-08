@@ -33,12 +33,12 @@
     assign mobile_poster_url = desktop_poster_url
   endif
 
+  # Keep the default poster aligned with the wide desktop source. The picture's
+  # mobile source still art-directs portrait screens, while the img fallback
+  # must not paint a portrait canvas into a landscape hero column.
   assign stage_poster_url = desktop_poster_url
-  if mobile_poster_url != blank
-    case block.settings.role
-      when 'overview', 'temperature', 'materials', 'configuration', 'next_model'
-        assign stage_poster_url = mobile_poster_url
-    endcase
+  if stage_poster_url == blank
+    assign stage_poster_url = mobile_poster_url
   endif
 
   assign has_desktop_video = false

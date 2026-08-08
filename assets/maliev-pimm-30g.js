@@ -1,21 +1,16 @@
 (() => {
   const STORY_SELECTOR = '[data-pimm30-story]';
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const PORTRAIT_STAGE_ROLES = new Set(['pimm30-overview', 'pimm30-temperature', 'pimm30-next_model']);
-
   function visibleVideo(layer) {
     if (!layer) return null;
-    if (PORTRAIT_STAGE_ROLES.has(layer.dataset.pimm30Layer)) {
-      return layer.querySelector('.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices');
-    }
-    // Portrait assets fill tall media regions; compact landscape windows use
-    // the wide assets so the machine remains large without cropping.
+    // Portrait assets fill tall media regions; landscape windows use the wide
+    // assets so the machine remains large without cropping. Keep this selector
+    // in lockstep with the CSS art-direction and Liquid <picture> breakpoint.
     const mobile = window.matchMedia('(max-width: 539px), (orientation: portrait)').matches;
-    return layer.querySelector(
-      mobile
-        ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
-        : '.pimm30-stage__video--desktop, .pimm30-stage__video--all-devices'
-    );
+    const preferredSelector = mobile
+      ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
+      : '.pimm30-stage__video--desktop, .pimm30-stage__video--all-devices';
+    return layer.querySelector(preferredSelector);
   }
 
   function initStory(story) {

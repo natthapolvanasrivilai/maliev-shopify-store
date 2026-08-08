@@ -139,11 +139,6 @@
               <a class="pimm30-action pimm30-action--primary pimm30-action--hero" href="{{ section.settings.visit_link | default: '/pages/contact' }}">
                 <span>{{ 'products.pimm30_story.book_visit' | t }}</span><span aria-hidden="true">→</span>
               </a>
-              <a class="pimm30-scroll-cue" href="#pimm30-capacity">
-                <span>{% if is_thai %}เลื่อนเพื่อดูรายละเอียด{% else %}Scroll to explore{% endif %}</span>
-                <span aria-hidden="true">↓</span>
-              </a>
-
             {%- when 'configuration' -%}
               <p class="pimm30-chapter__label">{% if is_thai %}เลือกรุ่นและอุปกรณ์{% else %}Configuration and purchase{% endif %}</p>
               <h2>{% if is_thai %}เลือกชุดเครื่องที่เหมาะกับงาน{% else %}Choose the machine setup that fits your workshop.{% endif %}</h2>
@@ -245,6 +240,12 @@
               {%- endif -%}
           {%- endcase -%}
         </div>
+        {%- if role == 'overview' -%}
+          <a class="pimm30-scroll-cue" href="#pimm30-capacity">
+            <span>{% if is_thai %}เลื่อนเพื่อดูรายละเอียด{% else %}Scroll to explore{% endif %}</span>
+            <span aria-hidden="true">↓</span>
+          </a>
+        {%- endif -%}
       </article>
     {%- endfor -%}
   </div>

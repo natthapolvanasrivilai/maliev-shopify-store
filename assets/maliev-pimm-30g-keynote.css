@@ -128,34 +128,15 @@ html:not(.no-js)
   display: block !important;
 }
 
-.pimm30-story
-  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-  .pimm30-stage__video--desktop {
-  display: none !important;
-}
+@media (min-width: 540px) and (orientation: landscape) {
+  .pimm30-story .pimm30-stage__video--desktop,
+  .pimm30-story .pimm30-stage__video--all-devices {
+    display: block !important;
+  }
 
-.pimm30-story
-  .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-  .pimm30-stage__video--mobile {
-  display: block !important;
-}
-
-.pimm30-story
-  .pimm30-stage__layer:is(
-    [data-pimm30-layer='pimm30-temperature'],
-    [data-pimm30-layer='pimm30-next_model']
-  )
-  .pimm30-stage__video--desktop {
-  display: none !important;
-}
-
-.pimm30-story
-  .pimm30-stage__layer:is(
-    [data-pimm30-layer='pimm30-temperature'],
-    [data-pimm30-layer='pimm30-next_model']
-  )
-  .pimm30-stage__video--mobile {
-  display: block !important;
+  .pimm30-story .pimm30-stage__video--mobile {
+    display: none !important;
+  }
 }
 
 .pimm30-story .pimm30-stage__layer.is-video-failed .pimm30-stage__video,
@@ -330,16 +311,30 @@ html:not(.no-js)
 }
 
 .pimm30-story .pimm30-chapter--hero .pimm30-scroll-cue {
-  bottom: auto !important;
+  bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
   display: flex !important;
-  justify-self: start !important;
-  left: auto !important;
-  margin-top: 1.2rem !important;
-  position: static !important;
+  left: 50% !important;
+  margin: 0 !important;
+  position: absolute !important;
   right: auto !important;
-  transform: none !important;
-  white-space: normal !important;
-  width: auto !important;
+  transform: translateX(-50%) !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  z-index: 6 !important;
+}
+
+/* The cue is a viewport affordance, not chapter copy. While the overview is
+ * active, pin it to the screen so tall portrait compositions cannot push it
+ * below the fold; the chapter state removes it as soon as the next slide owns
+ * the stage. */
+.pimm30-story[data-active-chapter='pimm30-overview']
+  .pimm30-chapter--hero
+  .pimm30-scroll-cue {
+  bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
+  left: 50% !important;
+  position: fixed !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
 }
 
 .pimm30-story .pimm30-chapter__metric {
@@ -463,36 +458,6 @@ html:not(.no-js)
   }
 
   .pimm30-story
-    .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__video--desktop {
-    display: none !important;
-  }
-
-  .pimm30-story
-    .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__video--mobile {
-    display: block !important;
-  }
-
-  .pimm30-story
-    .pimm30-stage__layer:is(
-      [data-pimm30-layer='pimm30-temperature'],
-      [data-pimm30-layer='pimm30-next_model']
-    )
-    .pimm30-stage__video--desktop {
-    display: none !important;
-  }
-
-  .pimm30-story
-    .pimm30-stage__layer:is(
-      [data-pimm30-layer='pimm30-temperature'],
-      [data-pimm30-layer='pimm30-next_model']
-    )
-    .pimm30-stage__video--mobile {
-    display: block !important;
-  }
-
-  .pimm30-story
     .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
     .pimm30-stage__video--desktop {
     transform: scale(1.65) !important;
@@ -539,5 +504,80 @@ html:not(.no-js)
   .pimm30-story .pimm30-pressure__step,
   .pimm30-story .pimm30-pressure__secondary {
     animation: none !important;
+  }
+}
+
+/* Final desktop hero contract. The stage layer is the real containing block;
+ * keep the complete transparent canvas inside it and anchor the cue to the
+ * viewport-wide chapter instead of the copy column. */
+.pimm30-story
+  .pimm30-stage
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster,
+.pimm30-story
+  .pimm30-stage
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster
+  picture,
+.pimm30-story
+  .pimm30-stage
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__poster
+  img,
+.pimm30-story
+  .pimm30-stage
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+  .pimm30-stage__video {
+  bottom: 0 !important;
+  clip-path: none !important;
+  inset: 0 !important;
+  left: 0 !important;
+  mask-image: none !important;
+  max-width: none !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+@media (min-width: 540px) and (orientation: landscape) {
+  .pimm30-story .pimm30-stage {
+    overflow: visible !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    transform: scale(2) !important;
+    transform-origin: 70% 50% !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-scroll-cue {
+    bottom: max(0.9rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 539px), (orientation: portrait) {
+  /* Portrait posters carry a broad studio ground plane. Feather the rendered
+   * canvas edges so that plane dissolves into the shared stage instead of
+   * exposing a rectangular source boundary on narrow screens. */
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    picture {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 24%, #000 76%, transparent 100%) !important;
   }
 }

@@ -25,9 +25,33 @@ test('alpha videos replace their poster layer while playing', () => {
 
 test('transparent presentation media is never hard-cropped by the stage', () => {
   const css = read('assets/maliev-pimm-30g.css');
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
 
   assert.doesNotMatch(css, /object-fit:\s*cover/);
   assert.doesNotMatch(css, /clip-path:\s*inset\(/);
+  assert.match(
+    keynoteCss,
+    /\.pimm30-story\s+\.pimm30-stage\s+>\s*\.pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-overview['"]\][\s\S]*?inset:\s*0\s*!important/
+  );
+  assert.match(keynoteCss, /\.pimm30-chapter--hero \.pimm30-scroll-cue[\s\S]*?position:\s*absolute\s*!important/);
+  assert.match(keynoteCss, /\.pimm30-chapter--hero \.pimm30-scroll-cue[\s\S]*?left:\s*50%\s*!important/);
+  assert.match(keynoteCss, /\.pimm30-chapter--hero \.pimm30-scroll-cue[\s\S]*?transform:\s*translateX\(-50%\)\s*!important/);
+  assert.match(keynoteCss, /data-active-chapter=['"]pimm30-overview['"][\s\S]*?\.pimm30-scroll-cue[\s\S]*?position:\s*fixed\s*!important/);
+  assert.match(keynoteCss, /@media \(max-width: 539px\), \(orientation: portrait\)[\s\S]*?\.pimm30-stage__poster[\s\S]*?mask-image:\s*linear-gradient\(to right/);
+});
+
+test('hero art direction keeps wide media on landscape screens', () => {
+  const liquid = read('snippets/maliev-pimm-30g-chapter.liquid');
+  const section = read('sections/maliev-pimm-30g-story.liquid');
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+  const script = read('assets/maliev-pimm-30g.js');
+
+  assert.match(section, /<\/div>\s*\{%- if role == 'overview' -%\}[\s\S]*?class="pimm30-scroll-cue"/);
+  assert.match(liquid, /assign stage_poster_url = desktop_poster_url[\s\S]*?if stage_poster_url == blank[\s\S]*?assign stage_poster_url = mobile_poster_url/);
+  assert.doesNotMatch(liquid, /when 'overview',[\s\S]*?assign stage_poster_url = mobile_poster_url/);
+  assert.match(keynoteCss, /@media \(min-width: 540px\) and \(orientation: landscape\)[\s\S]*?\.pimm30-stage__video--desktop[\s\S]*?display: block !important[\s\S]*?\.pimm30-stage__video--mobile[\s\S]*?display: none !important/);
+  assert.match(script, /matchMedia\('\(max-width: 539px\), \(orientation: portrait\)'\)/);
+  assert.doesNotMatch(script, /PORTRAIT_STAGE_ROLES/);
 });
 
 test('configuration media supports pointer and keyboard scrubbing', () => {
