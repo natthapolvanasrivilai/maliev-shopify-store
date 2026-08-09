@@ -1129,6 +1129,28 @@
   }
 }
 
+/* iPad portrait has enough physical canvas to make the actual machine the
+ * slide's dominant object.  Give it an intentional scale pass and a 24px
+ * feature-to-action separation instead of inheriting the phone's 8px rhythm. */
+@media (min-width: 700px) and (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-control-gap: 2.4rem;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: translateX(-50%) scale(1.16) !important;
+    transform-origin: 50% 58% !important;
+  }
+}
+
 /* A short landscape handset has room for a compact side-by-side keynote, not
  * a portrait stack. This keeps the complete machine, feature rail and CTA in
  * the same frame without shrinking the artwork into an unreadable thumbnail. */

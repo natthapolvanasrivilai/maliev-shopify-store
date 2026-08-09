@@ -174,6 +174,10 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
     keynoteCss,
     /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?transform:\s*translateX\(-50%\) !important[\s\S]*?transform-origin:\s*50% 50% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?inset:\s*60% 0 -42% !important[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
   );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 700px\) and \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-control-gap:\s*2\.4rem[\s\S]*?transform:\s*translateX\(-50%\) scale\(1\.16\) !important[\s\S]*?transform-origin:\s*50% 58% !important/
+  );
   assert.doesNotMatch(
     keynoteCss,
     /transform:\s*translateX\(-50%\) scale\(1\.(?:18|42)\) !important/
