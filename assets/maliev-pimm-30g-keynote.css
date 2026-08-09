@@ -8,8 +8,8 @@
  */
 
 .pimm30-story {
-  --pimm30-stage-background: #f3f5f6;
-  --pimm30-stage-surface: #f3f5f6;
+  --pimm30-stage-background: #fafbfc;
+  --pimm30-stage-surface: #fafbfc;
   --pimm30-stage-dark: #0a0e13;
   --pimm30-copy-share: 100%;
   --pimm30-media-height: clamp(20rem, 52vh, 50rem);

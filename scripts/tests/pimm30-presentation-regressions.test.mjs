@@ -283,3 +283,15 @@ test('hero feature rail keeps machine specifications readable as product highlig
     /\.pimm30-spec-rail--hero dt\s*\{[\s\S]*?font-size:\s*clamp\(1\.15rem, 0\.95vw, 1\.3rem\) !important[\s\S]*?\.pimm30-spec-rail--hero dd,[\s\S]*?font-size:\s*clamp\(2\.1rem, 1\.9vw, 2\.8rem\) !important/
   );
 });
+
+test('bright PIMM studio uses a high-key surface without diluting dark startup', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(keynoteCss, /--pimm30-stage-background:\s*#fafbfc;/);
+  assert.match(keynoteCss, /--pimm30-stage-surface:\s*#fafbfc;/);
+  assert.match(keynoteCss, /--pimm30-stage-dark:\s*#0a0e13;/);
+  assert.match(
+    keynoteCss,
+    /is-hero-dark[\s\S]*?--pimm30-stage-surface:\s*var\(--pimm30-stage-dark\)/,
+  );
+});
