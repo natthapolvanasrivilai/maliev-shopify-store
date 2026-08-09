@@ -50,6 +50,19 @@
   transition: background-color 900ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
+/* The startup film owns the first moment.  The model lockup arrives only
+ * after that complete machine sequence; reduced-motion and media-fallback
+ * paths mark the story complete immediately in the controller. */
+.pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
+  opacity: 1;
+  transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.pimm30-story.is-hero-sequencing .pimm30-chapter--hero .pimm30-chapter__model {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .pimm30-story .pimm30-stage::before {
   content: none !important;
   display: none !important;
@@ -929,7 +942,7 @@
  * stack. Reserve space for the feature rail and primary action before sizing
  * the transparent machine lane; the product name remains available as the
  * semantic heading and as the bright-stage backdrop behind the machine. */
-@media (max-width: 899px) and (orientation: portrait) {
+@media (max-width: 899px), (orientation: portrait) {
   .pimm30-story {
     --pimm30-mobile-model-space: clamp(8rem, 18vw, 9.6rem);
     --pimm30-mobile-feature-rail: 8.8rem;
@@ -1018,6 +1031,24 @@
     display: flex !important;
     min-height: var(--pimm30-mobile-scroll-height) !important;
     z-index: 7 !important;
+  }
+}
+
+/* Tall portrait canvases have enough stage depth to let the transparent
+ * source read as a product, not a thumbnail.  The intrinsic-source edge
+ * feathering above stays in force, so this is expansion rather than a crop. */
+@media (orientation: portrait) and (min-height: 700px) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: translateX(-50%) scale(1.18) !important;
+    transform-origin: 50% 50% !important;
   }
 }
 

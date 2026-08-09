@@ -72,6 +72,11 @@
       story.classList.remove('is-hero-pending');
     }
 
+    function setHeroComplete(complete) {
+      story.classList.toggle('is-hero-complete', complete);
+      story.classList.toggle('is-hero-sequencing', !complete);
+    }
+
     function revealConsentAfterHero() {
       if (document.documentElement.classList.contains('pimm30-consent-ready')) return;
       if (reduced) {
@@ -164,6 +169,7 @@
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
         revealHeroPoster();
+        setHeroComplete(true);
         setHeroTone(true);
         return;
       }
@@ -181,6 +187,7 @@
           if (activeId === 'pimm30-overview') {
             heroHasPlayed = true;
             revealHeroPoster();
+            setHeroComplete(true);
             setHeroTone(true);
           }
         });
@@ -209,6 +216,7 @@
       if (previousId === 'pimm30-overview' && chapterId !== 'pimm30-overview') {
         heroHasPlayed = true;
         revealHeroPoster();
+        setHeroComplete(true);
         completeSpecCounts();
         setHeroTone(true);
       }
@@ -251,6 +259,7 @@
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
+          setHeroComplete(true);
           setHeroTone(true);
         }
       });
@@ -264,6 +273,7 @@
         if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
+          setHeroComplete(true);
           setHeroTone(true);
         }
       });
@@ -554,10 +564,12 @@
     if (reduced || !initialHeroVideo || activeId !== 'pimm30-overview') {
       heroHasPlayed = true;
       revealHeroPoster();
+      setHeroComplete(true);
       completeSpecCounts();
       setHeroTone(true);
     } else {
       setSpecCounts(0);
+      setHeroComplete(false);
       setHeroTone(false);
     }
     activate(activeId, true);
