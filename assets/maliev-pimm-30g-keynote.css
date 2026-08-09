@@ -35,6 +35,13 @@
   background: var(--pimm30-stage-dark) !important;
 }
 
+/* Keep the opening frame genuinely unlit. The stage identity is introduced
+ * only with the bright presentation state after the startup sequence. */
+.pimm30-story.is-hero-dark .pimm30-stage__backdrop {
+  display: none !important;
+  opacity: 0 !important;
+}
+
 .pimm30-story[data-active-chapter='pimm30-next_model'] {
   --pimm30-stage-background:
     radial-gradient(circle at 74% 48%, rgba(164, 28, 24, 0.24), transparent 38%),
@@ -92,8 +99,16 @@
   transform: none !important;
 }
 
-.pimm30-story[data-active-chapter='pimm30-overview'] .pimm30-stage__backdrop {
+/* The identity is a shared stage layer: it arrives only after the dark boot,
+ * then remains behind every presentation chapter rather than disappearing
+ * when the next slide becomes active. */
+.pimm30-story.is-hero-bright .pimm30-stage__backdrop {
   opacity: 1 !important;
+}
+
+.pimm30-story.is-hero-bright[data-active-chapter='pimm30-next_model']
+  .pimm30-stage__backdrop {
+  color: rgba(255, 255, 255, 0.16) !important;
 }
 
 .pimm30-story .pimm30-stage > .pimm30-stage__layer {
@@ -652,11 +667,10 @@
     display: none !important;
   }
 
-  /* Keep the keynote's typographic depth in the bright overview. The dark
-   * opening deliberately suppresses it; after the light cue this sits behind
-   * the machine rather than competing with the 30 G lockup above it. */
-  .pimm30-story.is-hero-bright[data-active-chapter='pimm30-overview']
-    .pimm30-stage__backdrop {
+  /* Keep the keynote's typographic depth on every bright chapter. The dark
+   * opening deliberately suppresses it; after the light cue it sits behind
+   * the active machine media rather than competing with foreground copy. */
+  .pimm30-story.is-hero-bright .pimm30-stage__backdrop {
     align-items: center !important;
     display: flex !important;
     font-size: clamp(3.2rem, 13vw, 6.2rem) !important;
@@ -778,7 +792,7 @@
 @media (min-width: 900px) and (orientation: landscape) {
   .pimm30-story {
     --pimm30-copy-share: 40%;
-    --pimm30-desktop-hero-scale: 1.5;
+    --pimm30-desktop-hero-scale: 1.7;
   }
 
   .pimm30-story .pimm30-stage__backdrop {
@@ -1135,8 +1149,7 @@
     width: auto !important;
   }
 
-  .pimm30-story.is-hero-bright[data-active-chapter='pimm30-overview']
-    .pimm30-stage__backdrop {
+  .pimm30-story.is-hero-bright .pimm30-stage__backdrop {
     font-size: clamp(3rem, 8vw, 5rem) !important;
     inset: calc(var(--pimm30-header-space) + 1rem) 0 auto
       var(--pimm30-compact-landscape-copy) !important;

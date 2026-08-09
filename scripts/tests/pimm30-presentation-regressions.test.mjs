@@ -83,7 +83,7 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?--pimm30-desktop-hero-scale:\s*1\.5[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 699px\)[\s\S]*?--pimm30-desktop-hero-scale:\s*1\.18/
+    /@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?--pimm30-desktop-hero-scale:\s*1\.7[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 699px\)[\s\S]*?--pimm30-desktop-hero-scale:\s*1\.18/
   );
   assert.match(
     keynoteCss,
@@ -120,7 +120,7 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
   );
   assert.match(
     keynoteCss,
-    /\.pimm30-story\.is-hero-bright\[data-active-chapter=['"]pimm30-overview['"]\][\s\S]*?\.pimm30-stage__backdrop\s*\{[\s\S]*?display:\s*flex !important[\s\S]*?font-size:\s*clamp\(3\.2rem, 13vw, 6\.2rem\) !important[\s\S]*?var\(--pimm30-mobile-model-space\)/
+    /\.pimm30-story\.is-hero-bright \.pimm30-stage__backdrop\s*\{[\s\S]*?display:\s*flex !important[\s\S]*?font-size:\s*clamp\(3\.2rem, 13vw, 6\.2rem\) !important[\s\S]*?var\(--pimm30-mobile-model-space\)/
   );
   assert.match(
     keynoteCss,
@@ -191,6 +191,9 @@ test('hero startup begins in a dark studio and turns light at the configured mil
   assert.match(section, /data-header-overlay-tone="dark"/);
   assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark[\s\S]*?background:\s*var\(--pimm30-stage-dark\)\s*!important/);
   assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark \.pimm30-stage[\s\S]*?background:\s*var\(--pimm30-stage-dark\)\s*!important/);
+  assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark \.pimm30-stage__backdrop\s*\{[\s\S]*?display:\s*none !important[\s\S]*?opacity:\s*0 !important/);
+  assert.match(keynoteCss, /\.pimm30-story\.is-hero-bright \.pimm30-stage__backdrop\s*\{[\s\S]*?opacity:\s*1 !important/);
+  assert.match(keynoteCss, /data-active-chapter=['"]pimm30-next_model['"][\s\S]*?\.pimm30-stage__backdrop\s*\{[\s\S]*?color:\s*rgba\(255, 255, 255, 0\.16\) !important/);
   assert.match(keynoteCss, /transition:\s*background-color 900ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/);
   assert.match(script, /function setHeroTone\(bright\)[\s\S]*?classList\.toggle\('is-hero-bright', bright\)[\s\S]*?classList\.toggle\('is-hero-dark', !bright\)/);
   assert.doesNotMatch(script, /timeupdate'[\s\S]*?setHeroTone\(/);
