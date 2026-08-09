@@ -158,6 +158,14 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
     keynoteCss,
     /@media \(orientation: portrait\) and \(min-height: 700px\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?transform:\s*translateX\(-50%\) scale\(1\.18\) !important/
   );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-feature-rail:\s*6rem[\s\S]*?--pimm30-hero-media-height:\s*clamp\([\s\S]*?64rem/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
+  );
 });
 
 test('hero startup begins in a dark studio and turns light at the configured milestone', () => {
@@ -180,6 +188,7 @@ test('hero startup begins in a dark studio and turns light at the configured mil
   assert.match(keynoteCss, /\.pimm30-story\.is-hero-sequencing \.pimm30-chapter--hero \.pimm30-chapter__model\s*\{[\s\S]*?opacity:\s*0 !important/);
   assert.match(script, /function setHeroComplete\(complete\)[\s\S]*?classList\.toggle\('is-hero-complete', complete\)[\s\S]*?classList\.toggle\('is-hero-sequencing', !complete\)/);
   assert.match(script, /video\.addEventListener\('ended'[\s\S]*?heroHasPlayed = true;[\s\S]*?setHeroComplete\(true\);/);
+  assert.match(script, /layer\.dataset\.pimm30Layer === 'pimm30-overview'[\s\S]*?video\.classList\.add\('is-paused'\)[\s\S]*?layer\.classList\.add\('has-active-video'\)/);
 });
 
 test('configuration media supports pointer and keyboard scrubbing', () => {

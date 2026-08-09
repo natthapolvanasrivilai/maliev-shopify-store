@@ -248,10 +248,15 @@
       });
       video.addEventListener('ended', () => {
         const layer = video.closest('[data-pimm30-layer]');
-        if (layer && layer.matches('[data-pimm30-turntable]')) {
+        const holdsFinalFrame = layer && (
+          layer.matches('[data-pimm30-turntable]') ||
+          layer.dataset.pimm30Layer === 'pimm30-overview'
+        );
+        if (holdsFinalFrame) {
           video.classList.remove('is-playing');
           video.classList.add('is-paused');
-          layer.classList.add('has-active-video', 'is-turntable-ready');
+          layer.classList.add('has-active-video');
+          if (layer.matches('[data-pimm30-turntable]')) layer.classList.add('is-turntable-ready');
         } else {
           video.classList.remove('is-playing', 'is-paused');
           if (layer) layer.classList.remove('has-active-video');
