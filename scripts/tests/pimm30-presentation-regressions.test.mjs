@@ -83,7 +83,7 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 699px\)[\s\S]*?transform:\s*scale\(1\.25\) !important/
+    /@media \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?height:\s*auto !important[\s\S]*?max-height:\s*100% !important[\s\S]*?max-width:\s*100% !important[\s\S]*?transform:\s*none !important[\s\S]*?width:\s*100% !important/
   );
   assert.match(
     keynoteCss,
@@ -156,7 +156,7 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
   );
   assert.match(
     keynoteCss,
-    /@media \(orientation: portrait\) and \(min-height: 700px\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?transform:\s*translateX\(-50%\) scale\(1\.18\) !important/
+    /@media \(orientation: portrait\) and \(min-height: 700px\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?transform:\s*translateX\(-50%\) !important[\s\S]*?transform-origin:\s*50% 50% !important/
   );
   assert.match(
     keynoteCss,
@@ -164,7 +164,11 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?transform:\s*translateX\(-50%\) scale\(1\.42\) !important[\s\S]*?transform-origin:\s*50% 15% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?inset:\s*60% 0 -42% !important[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
+    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?transform:\s*translateX\(-50%\) !important[\s\S]*?transform-origin:\s*50% 50% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?inset:\s*60% 0 -42% !important[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
+  );
+  assert.doesNotMatch(
+    keynoteCss,
+    /transform:\s*translateX\(-50%\) scale\(1\.(?:18|42)\) !important/
   );
 });
 

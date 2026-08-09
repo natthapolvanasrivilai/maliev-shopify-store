@@ -1047,9 +1047,9 @@
   }
 }
 
-/* Tall portrait canvases have enough stage depth to let the transparent
- * source read as a product, not a thumbnail.  The intrinsic-source edge
- * feathering above stays in force, so this is expansion rather than a crop. */
+/* Portrait media stays entirely inside the stage's CTA-reserved media lane.
+ * The alpha source already has its own product framing; scaling its canvas
+ * made the lower machine extend beyond the stage and caused a hard crop. */
 @media (orientation: portrait) and (min-height: 700px) {
   .pimm30-story
     .pimm30-stage
@@ -1060,7 +1060,7 @@
     .pimm30-stage
     > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
     .pimm30-stage__video {
-    transform: translateX(-50%) scale(1.18) !important;
+    transform: translateX(-50%) !important;
     transform-origin: 50% 50% !important;
   }
 }
@@ -1095,8 +1095,8 @@
     .pimm30-stage
     > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
     .pimm30-stage__video {
-    transform: translateX(-50%) scale(1.42) !important;
-    transform-origin: 50% 15% !important;
+    transform: translateX(-50%) !important;
+    transform-origin: 50% 50% !important;
   }
 
   /* Blend the alpha source's lower studio plane into the shared canvas.  This
@@ -1291,5 +1291,30 @@
   .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
   .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
     font-size: clamp(2rem, 5.5vw, 2.6rem) !important;
+  }
+}
+
+/* This final containment rule intentionally follows every art-direction
+ * override. A Keynote slide may scale its layout, but never the complete
+ * machine source beyond the media region that is visible on the slide. */
+@media (orientation: landscape) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    height: auto !important;
+    inset: 0 !important;
+    margin: auto !important;
+    max-height: 100% !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    transform: none !important;
+    transform-origin: 50% 50% !important;
+    width: 100% !important;
   }
 }
