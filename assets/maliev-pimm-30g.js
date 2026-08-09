@@ -36,7 +36,6 @@
       decimals: Number(counter.dataset.pimm30SpecDecimals || 0),
     }));
     const consentRevealDelay = 900;
-    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 2750) / 1000;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
     // The local Shopify dev preview is the debugging surface. Codex's embedded
@@ -242,10 +241,6 @@
     }
 
     story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
-      video.addEventListener('timeupdate', () => {
-        if (video !== activeVideo || activeId !== 'pimm30-overview' || heroHasPlayed) return;
-        setHeroTone(video.currentTime >= lightMilestone);
-      });
       video.addEventListener('ended', () => {
         const layer = video.closest('[data-pimm30-layer]');
         const holdsFinalFrame = layer && (

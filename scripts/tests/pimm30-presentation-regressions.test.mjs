@@ -164,7 +164,7 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
+    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?transform:\s*translateX\(-50%\) scale\(1\.42\) !important[\s\S]*?transform-origin:\s*50% 15% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?inset:\s*60% 0 -42% !important[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
   );
 });
 
@@ -180,12 +180,12 @@ test('hero startup begins in a dark studio and turns light at the configured mil
   assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark[\s\S]*?background:\s*var\(--pimm30-stage-dark\)\s*!important/);
   assert.match(keynoteCss, /\.pimm30-story\.is-hero-dark \.pimm30-stage[\s\S]*?background:\s*var\(--pimm30-stage-dark\)\s*!important/);
   assert.match(keynoteCss, /transition:\s*background-color 900ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/);
-  assert.match(script, /const lightMilestone = Number\(story\.dataset\.pimm30LightMilestone \|\| 2750\) \/ 1000/);
   assert.match(script, /function setHeroTone\(bright\)[\s\S]*?classList\.toggle\('is-hero-bright', bright\)[\s\S]*?classList\.toggle\('is-hero-dark', !bright\)/);
-  assert.match(script, /timeupdate'[\s\S]*?setHeroTone\(video\.currentTime >= lightMilestone\)/);
+  assert.doesNotMatch(script, /timeupdate'[\s\S]*?setHeroTone\(/);
   assert.match(script, /setSpecCounts\(0\);\s*setHeroComplete\(false\);\s*setHeroTone\(false\)/);
   assert.match(script, /if \(reduced \|\| !initialHeroVideo \|\| activeId !== 'pimm30-overview'\)[\s\S]*?setHeroTone\(true\)/);
   assert.match(keynoteCss, /\.pimm30-story\.is-hero-sequencing \.pimm30-chapter--hero \.pimm30-chapter__model\s*\{[\s\S]*?opacity:\s*0 !important/);
+  assert.match(keynoteCss, /\.pimm30-story\.is-hero-sequencing \.pimm30-chapter--hero \.pimm30-chapter__content,[\s\S]*?\.pimm30-scroll-cue\s*\{[\s\S]*?visibility:\s*hidden !important/);
   assert.match(script, /function setHeroComplete\(complete\)[\s\S]*?classList\.toggle\('is-hero-complete', complete\)[\s\S]*?classList\.toggle\('is-hero-sequencing', !complete\)/);
   assert.match(script, /video\.addEventListener\('ended'[\s\S]*?heroHasPlayed = true;[\s\S]*?setHeroComplete\(true\);/);
   assert.match(script, /layer\.dataset\.pimm30Layer === 'pimm30-overview'[\s\S]*?video\.classList\.add\('is-paused'\)[\s\S]*?layer\.classList\.add\('has-active-video'\)/);
