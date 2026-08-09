@@ -932,21 +932,23 @@
 @media (max-width: 899px) and (orientation: portrait) {
   .pimm30-story {
     --pimm30-mobile-model-space: clamp(8rem, 18vw, 9.6rem);
-    --pimm30-mobile-feature-rail: 10rem;
+    --pimm30-mobile-feature-rail: 8.8rem;
     --pimm30-mobile-action-height: 5.2rem;
-    --pimm30-mobile-layout-gap: 3.6rem;
+    --pimm30-mobile-scroll-height: 3rem;
+    --pimm30-mobile-control-gap: 0.8rem;
     --pimm30-mobile-safe-bottom: max(1.2rem, env(safe-area-inset-bottom));
     --pimm30-hero-media-height: clamp(
-      18rem,
+      16rem,
       calc(
         100svh - var(--pimm30-header-space) -
           var(--pimm30-mobile-model-space) -
           var(--pimm30-mobile-feature-rail) -
           var(--pimm30-mobile-action-height) -
-          var(--pimm30-mobile-layout-gap) -
+          var(--pimm30-mobile-scroll-height) -
+          (var(--pimm30-mobile-control-gap) * 3) -
           var(--pimm30-mobile-safe-bottom)
       ),
-      38rem
+      58rem
     );
   }
 
@@ -967,15 +969,23 @@
   .pimm30-story .pimm30-chapter--hero .pimm30-chapter__content,
   .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
     min-height: 100svh !important;
-    padding: calc(
-        var(--pimm30-header-space) + var(--pimm30-mobile-model-space) +
-          var(--pimm30-hero-media-height) + 1rem
-      )
-      clamp(1.2rem, 6vw, 3.2rem) var(--pimm30-mobile-safe-bottom) !important;
+    padding: 0 clamp(1.2rem, 6vw, 3.2rem) !important;
+    position: relative !important;
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
-    margin-top: 0 !important;
+    bottom: calc(
+      var(--pimm30-mobile-safe-bottom) + var(--pimm30-mobile-scroll-height) +
+        var(--pimm30-mobile-control-gap) + var(--pimm30-mobile-action-height) +
+        var(--pimm30-mobile-control-gap)
+    ) !important;
+    left: clamp(1.2rem, 6vw, 3.2rem) !important;
+    justify-self: stretch !important;
+    margin: 0 !important;
+    position: absolute !important;
+    right: clamp(1.2rem, 6vw, 3.2rem) !important;
+    width: auto !important;
+    z-index: 6 !important;
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
@@ -984,16 +994,30 @@
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
-    margin-top: 1.2rem !important;
+    bottom: calc(
+      var(--pimm30-mobile-safe-bottom) + var(--pimm30-mobile-scroll-height) +
+        var(--pimm30-mobile-control-gap)
+    ) !important;
+    left: clamp(1.2rem, 6vw, 3.2rem) !important;
+    justify-self: stretch !important;
+    margin: 0 !important;
     max-width: none !important;
     min-height: var(--pimm30-mobile-action-height) !important;
+    position: absolute !important;
+    right: clamp(1.2rem, 6vw, 3.2rem) !important;
+    width: auto !important;
+    z-index: 6 !important;
   }
 
-  /* One bottom affordance at a time: the CTA owns the hero's action lane. */
+  /* The cue is the final, centered element in the mobile presentation stack.
+   * Its height is reserved above, so it never steals the CTA's action lane. */
   .pimm30-story[data-active-chapter='pimm30-overview']
     .pimm30-chapter--hero
     .pimm30-scroll-cue {
-    display: none !important;
+    bottom: var(--pimm30-mobile-safe-bottom) !important;
+    display: flex !important;
+    min-height: var(--pimm30-mobile-scroll-height) !important;
+    z-index: 7 !important;
   }
 }
 
@@ -1003,6 +1027,9 @@
 @media (min-width: 540px) and (max-width: 899px) and (orientation: landscape) {
   .pimm30-story {
     --pimm30-compact-landscape-copy: 46%;
+    --pimm30-mobile-action-height: 4.8rem;
+    --pimm30-mobile-scroll-height: 2.6rem;
+    --pimm30-mobile-control-gap: 0.6rem;
     --pimm30-mobile-safe-bottom: max(0.8rem, env(safe-area-inset-bottom));
   }
 
@@ -1042,20 +1069,33 @@
   .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chapter__content {
     grid-column: 1 !important;
     min-height: 100svh !important;
-    padding: calc(var(--pimm30-header-space) + 0.75rem) 1.2rem
-      var(--pimm30-mobile-safe-bottom) !important;
+    padding: calc(var(--pimm30-header-space) + 0.75rem) 1.2rem 0 !important;
+    position: relative !important;
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-chapter__model {
     font-size: clamp(3.2rem, 8vw, 5.4rem) !important;
-    margin: 0 0 0.6rem !important;
-    position: static !important;
+    left: 1.2rem !important;
+    margin: 0 !important;
+    position: absolute !important;
+    top: calc(var(--pimm30-header-space) + 0.75rem) !important;
     transform: none !important;
-    width: auto !important;
+    width: calc(var(--pimm30-compact-landscape-copy) - 2.4rem) !important;
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero {
-    margin-top: 0 !important;
+    bottom: calc(
+      var(--pimm30-mobile-safe-bottom) + var(--pimm30-mobile-scroll-height) +
+        var(--pimm30-mobile-control-gap) + var(--pimm30-mobile-action-height) +
+        var(--pimm30-mobile-control-gap)
+    ) !important;
+    left: 1.2rem !important;
+    justify-self: stretch !important;
+    margin: 0 !important;
+    position: absolute !important;
+    right: 1.2rem !important;
+    width: auto !important;
+    z-index: 6 !important;
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
@@ -1064,15 +1104,28 @@
   }
 
   .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
-    margin-top: 0.75rem !important;
+    bottom: calc(
+      var(--pimm30-mobile-safe-bottom) + var(--pimm30-mobile-scroll-height) +
+        var(--pimm30-mobile-control-gap)
+    ) !important;
+    left: 1.2rem !important;
+    justify-self: stretch !important;
+    margin: 0 !important;
     max-width: none !important;
-    min-height: 4.8rem !important;
+    min-height: var(--pimm30-mobile-action-height) !important;
+    position: absolute !important;
+    right: 1.2rem !important;
+    width: auto !important;
+    z-index: 6 !important;
   }
 
   .pimm30-story[data-active-chapter='pimm30-overview']
     .pimm30-chapter--hero
     .pimm30-scroll-cue {
-    display: none !important;
+    bottom: var(--pimm30-mobile-safe-bottom) !important;
+    display: flex !important;
+    min-height: var(--pimm30-mobile-scroll-height) !important;
+    z-index: 7 !important;
   }
 }
 
