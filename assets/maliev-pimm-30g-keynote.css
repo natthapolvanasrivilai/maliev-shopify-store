@@ -12,6 +12,7 @@
   --pimm30-stage-surface: #fafbfc;
   --pimm30-stage-dark: #0a0e13;
   --pimm30-copy-share: 100%;
+  --pimm30-desktop-hero-scale: 1;
   --pimm30-media-height: clamp(20rem, 52vh, 50rem);
   --pimm30-media-height: clamp(20rem, 52svh, 50rem);
   background: var(--pimm30-stage-surface) !important;
@@ -777,6 +778,7 @@
 @media (min-width: 900px) and (orientation: landscape) {
   .pimm30-story {
     --pimm30-copy-share: 40%;
+    --pimm30-desktop-hero-scale: 1.5;
   }
 
   .pimm30-story .pimm30-stage__backdrop {
@@ -869,50 +871,23 @@
 }
 
 /* Short landscape windows have the same inline room as desktop but much less
- * vertical room.  Keep the hero machine fully inside the stage instead of
- * letting the large-screen scale cut the feet or ground plane at the fold. */
+ * vertical room. Taper the scale instead of reverting to the undersized
+ * unscaled canvas, so the complete machine stays inside the stage. */
 @media (min-width: 900px) and (orientation: landscape) and (max-height: 699px) {
-  .pimm30-story
-    .pimm30-stage
-    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__poster
-    img,
-  .pimm30-story
-    .pimm30-stage
-    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__video {
-    transform: scale(1.25) !important;
-    transform-origin: 70% 50% !important;
+  .pimm30-story {
+    --pimm30-desktop-hero-scale: 1.18;
   }
 }
 
 @media (min-width: 900px) and (orientation: landscape) and (min-height: 700px) and (max-height: 799px) {
-  .pimm30-story
-    .pimm30-stage
-    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__poster
-    img,
-  .pimm30-story
-    .pimm30-stage
-    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__video {
-    transform: scale(1.45) !important;
-    transform-origin: 70% 50% !important;
+  .pimm30-story {
+    --pimm30-desktop-hero-scale: 1.4;
   }
 }
 
 @media (min-width: 900px) and (orientation: landscape) and (min-height: 800px) and (max-height: 899px) {
-  .pimm30-story
-    .pimm30-stage
-    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__poster
-    img,
-  .pimm30-story
-    .pimm30-stage
-    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
-    .pimm30-stage__video {
-    transform: scale(1.75) !important;
-    transform-origin: 70% 50% !important;
+  .pimm30-story {
+    --pimm30-desktop-hero-scale: 1.55;
   }
 }
 
@@ -1294,9 +1269,10 @@
   }
 }
 
-/* This final containment rule intentionally follows every art-direction
- * override. A Keynote slide may scale its layout, but never the complete
- * machine source beyond the media region that is visible on the slide. */
+/* This final rule keeps the complete source's untransformed bounds inside the
+ * media column, then applies the height-aware desktop presence scale above.
+ * The layer mask feathers only its transparent canvas edges, so the machine
+ * remains complete and the ground plane never ends in a hard rectangle. */
 @media (orientation: landscape) {
   .pimm30-story
     .pimm30-stage
@@ -1313,7 +1289,7 @@
     max-height: 100% !important;
     max-width: 100% !important;
     object-fit: contain !important;
-    transform: none !important;
+    transform: scale(var(--pimm30-desktop-hero-scale)) !important;
     transform-origin: 50% 50% !important;
     width: 100% !important;
   }

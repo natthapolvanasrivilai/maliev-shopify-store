@@ -83,7 +83,11 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   );
   assert.match(
     keynoteCss,
-    /@media \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?height:\s*auto !important[\s\S]*?max-height:\s*100% !important[\s\S]*?max-width:\s*100% !important[\s\S]*?transform:\s*none !important[\s\S]*?width:\s*100% !important/
+    /@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?--pimm30-desktop-hero-scale:\s*1\.5[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 699px\)[\s\S]*?--pimm30-desktop-hero-scale:\s*1\.18/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?height:\s*auto !important[\s\S]*?max-height:\s*100% !important[\s\S]*?max-width:\s*100% !important[\s\S]*?transform:\s*scale\(var\(--pimm30-desktop-hero-scale\)\) !important[\s\S]*?width:\s*100% !important/
   );
   assert.match(
     keynoteCss,
