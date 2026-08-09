@@ -1251,3 +1251,45 @@
     min-height: 4.8rem !important;
   }
 }
+
+/* The four figures are the machine's proof points, not fine-print. Keep the
+ * technical rail quiet in material but legible at a glance: labels establish
+ * the measurement, then the value carries the visual weight. */
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+  color: color-mix(in srgb, var(--pimm30-ink) 74%, transparent) !important;
+  font-size: clamp(1.15rem, 0.95vw, 1.3rem) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+  color: var(--pimm30-ink) !important;
+  font-size: clamp(2.1rem, 1.9vw, 2.8rem) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.05 !important;
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 10rem;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    min-height: 5rem !important;
+    padding: 0.65rem 0.55rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dt {
+    font-size: clamp(1.15rem, 3.3vw, 1.35rem) !important;
+    min-height: 2.4em;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero dd,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail.pimm30-spec-rail--hero [data-pimm30-spec-number] {
+    font-size: clamp(2rem, 5.5vw, 2.6rem) !important;
+  }
+}

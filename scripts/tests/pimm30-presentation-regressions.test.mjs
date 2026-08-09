@@ -264,3 +264,18 @@ test('capacity chapter uses the approved three-cube media only', () => {
   assert.match(template, /pimm30-capacity-three-cube-mobile\.webm/);
   assert.doesNotMatch(template, /pimm30-capacity-scale-(?:desktop|mobile)\.webm/);
 });
+
+test('hero feature rail keeps machine specifications readable as product highlights', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  // The rail has to earn its dedicated bottom lane: the labels and values
+  // cannot collapse into the tiny technical annotation scale on phone.
+  assert.match(
+    keynoteCss,
+    /--pimm30-mobile-feature-rail:\s*10rem[\s\S]*?\.pimm30-spec-rail--hero dt\s*\{[\s\S]*?font-size:\s*clamp\(1\.15rem, 3\.3vw, 1\.35rem\) !important[\s\S]*?\.pimm30-spec-rail--hero dd,[\s\S]*?font-size:\s*clamp\(2rem, 5\.5vw, 2\.6rem\) !important/
+  );
+  assert.match(
+    keynoteCss,
+    /\.pimm30-spec-rail--hero dt\s*\{[\s\S]*?font-size:\s*clamp\(1\.15rem, 0\.95vw, 1\.3rem\) !important[\s\S]*?\.pimm30-spec-rail--hero dd,[\s\S]*?font-size:\s*clamp\(2\.1rem, 1\.9vw, 2\.8rem\) !important/
+  );
+});
