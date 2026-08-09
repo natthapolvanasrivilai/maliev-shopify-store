@@ -782,10 +782,13 @@
   }
 
   .pimm30-story .pimm30-stage__backdrop {
-    inset: 50% 0 auto calc(var(--pimm30-copy-share) + 1.5rem) !important;
-    max-width: calc(100% - var(--pimm30-copy-share) - 1.5rem) !important;
+    align-items: center !important;
+    inset: 50% 0 auto var(--pimm30-copy-share) !important;
+    justify-content: center !important;
+    max-width: calc(100% - var(--pimm30-copy-share)) !important;
     min-width: 0 !important;
     overflow: hidden !important;
+    text-align: center !important;
     width: auto !important;
   }
 
@@ -1292,5 +1295,22 @@
     transform: scale(var(--pimm30-desktop-hero-scale)) !important;
     transform-origin: 50% 50% !important;
     width: 100% !important;
+  }
+}
+
+/* The desktop source has internal transparent space to the machine's left.
+ * Offset that authored canvas only on the wide split so the actual product,
+ * not merely its file bounds, shares the backdrop's media-column centerline. */
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: translateX(-12.5%) scale(var(--pimm30-desktop-hero-scale)) !important;
   }
 }

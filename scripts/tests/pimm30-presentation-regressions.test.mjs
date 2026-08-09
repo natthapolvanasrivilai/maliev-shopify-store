@@ -79,7 +79,7 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   );
   assert.match(
     keynoteCss,
-    /\.pimm30-stage__backdrop\s*\{[\s\S]*?max-width:\s*calc\(100% - var\(--pimm30-copy-share\) - 1\.5rem\) !important[\s\S]*?overflow:\s*hidden !important/
+    /@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?\.pimm30-stage__backdrop\s*\{[\s\S]*?align-items:\s*center !important[\s\S]*?inset:\s*50% 0 auto var\(--pimm30-copy-share\) !important[\s\S]*?justify-content:\s*center !important[\s\S]*?max-width:\s*calc\(100% - var\(--pimm30-copy-share\)\) !important[\s\S]*?text-align:\s*center !important/
   );
   assert.match(
     keynoteCss,
@@ -88,6 +88,10 @@ test('responsive keynote contract stacks narrow slides and contains transparent 
   assert.match(
     keynoteCss,
     /@media \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?height:\s*auto !important[\s\S]*?max-height:\s*100% !important[\s\S]*?max-width:\s*100% !important[\s\S]*?transform:\s*scale\(var\(--pimm30-desktop-hero-scale\)\) !important[\s\S]*?width:\s*100% !important/
+  );
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?transform:\s*translateX\(-12\.5%\) scale\(var\(--pimm30-desktop-hero-scale\)\) !important/
   );
   assert.match(
     keynoteCss,
