@@ -1130,11 +1130,15 @@
 }
 
 /* iPad portrait has enough physical canvas to make the actual machine the
- * slide's dominant object.  Give it an intentional scale pass and a 24px
+ * slide's dominant object. Give it an intentional scale pass and a 24px
  * feature-to-action separation instead of inheriting the phone's 8px rhythm. */
 @media (min-width: 700px) and (max-width: 899px) and (orientation: portrait) {
   .pimm30-story {
     --pimm30-mobile-control-gap: 2.4rem;
+  }
+
+  .pimm30-story.is-hero-bright .pimm30-stage__backdrop {
+    font-size: clamp(6rem, 12vw, 9rem) !important;
   }
 
   .pimm30-story
@@ -1146,8 +1150,26 @@
     .pimm30-stage
     > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
     .pimm30-stage__video {
-    transform: translateX(-50%) scale(1.16) !important;
+    transform: translateX(-50%) translateY(1.4rem) scale(1.3) !important;
     transform-origin: 50% 58% !important;
+  }
+
+  /* Keep the label geometrically centered, independent of the directional
+   * arrow's visual weight at the right edge of the compact action. */
+  .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
+    align-items: center !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    text-align: center !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-action--hero > span:first-child {
+    grid-column: 2 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-action--hero > span:last-child {
+    grid-column: 3 !important;
+    justify-self: end !important;
   }
 }
 
