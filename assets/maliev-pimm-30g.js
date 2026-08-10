@@ -165,6 +165,45 @@
       activeVideo = video;
       if (!video || reduced) return;
 
+      if (layer.matches('[data-pimm30-turntable]')) {
+        if (restart) resetVideo(video);
+
+        const holdInteractiveFrame = () => {
+          const interactiveFrame = (65 / 24 + 101 / 24) / 2;
+          const revealFrame = () => {
+            const settleFrame = () => {
+              video.pause();
+              video.classList.remove('is-playing');
+              video.classList.add('is-paused');
+              layer.classList.add('has-active-video', 'is-turntable-ready');
+            };
+
+            // Chromium does not reliably paint a programmatically sought frame
+            // until the media pipeline has advanced once. Keep the poster in
+            // place during that single muted frame so the handoff cannot flash.
+            video.play()
+              .then(() => window.requestAnimationFrame(settleFrame))
+              .catch(settleFrame);
+          };
+
+          if (Math.abs(video.currentTime - interactiveFrame) < 1 / 48) {
+            revealFrame();
+            return;
+          }
+
+          video.addEventListener('seeked', revealFrame, { once: true });
+          video.currentTime = (65 / 24 + 101 / 24) / 2;
+        };
+
+        if (video.readyState >= 1) {
+          holdInteractiveFrame();
+        } else {
+          video.addEventListener('loadedmetadata', holdInteractiveFrame, { once: true });
+          video.load();
+        }
+        return;
+      }
+
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
         revealHeroPoster();
@@ -251,7 +290,10 @@
           video.classList.remove('is-playing');
           video.classList.add('is-paused');
           layer.classList.add('has-active-video');
-          if (layer.matches('[data-pimm30-turntable]')) layer.classList.add('is-turntable-ready');
+          if (layer.matches('[data-pimm30-turntable]')) {
+            video.currentTime = (65 / 24 + 101 / 24) / 2;
+            layer.classList.add('is-turntable-ready');
+          }
         } else {
           video.classList.remove('is-playing', 'is-paused');
           if (layer) layer.classList.remove('has-active-video');
@@ -331,8 +373,6 @@
 
         return seekableSourcePromise;
       };
-
-      video.addEventListener('playing', prepareSeekableVideo, { once: true });
 
       const progressPerPixel = () => 1 / Math.max(turntable.clientWidth, 720);
 

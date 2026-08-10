@@ -254,6 +254,20 @@ test('configuration dragging reverses horizontal pointer travel while coalescing
   assert.doesNotMatch(script, /const deltaX = event\.clientX - lastX/);
 });
 
+test('configuration enters on a visible interactive frame instead of the transparent video tail', () => {
+  const script = read('assets/maliev-pimm-30g.js');
+
+  assert.match(
+    script,
+    /layer\.matches\('\[data-pimm30-turntable\]'\)[\s\S]*?video\.currentTime = \(65 \/ 24 \+ 101 \/ 24\) \/ 2[\s\S]*?is-turntable-ready[\s\S]*?video\.load\(\)/,
+  );
+  assert.match(script, /video\.play\(\)[\s\S]*?requestAnimationFrame\(settleFrame\)/);
+  assert.doesNotMatch(
+    script,
+    /layer\.matches\('\[data-pimm30-turntable\]'\)[\s\S]{0,260}?video\.play\(\)/,
+  );
+});
+
 test('configuration turntable makes every rendered angle directly seekable', () => {
   const output = execFileSync(
     'ffprobe',
@@ -323,5 +337,65 @@ test('bright PIMM studio uses a high-key surface without diluting dark startup',
   assert.match(
     keynoteCss,
     /is-hero-dark[\s\S]*?--pimm30-stage-surface:\s*var\(--pimm30-stage-dark\)/,
+  );
+});
+
+test('final responsive contract removes side fades and presents each hero feature independently', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(
+    keynoteCss,
+    /PIMM responsive art-direction contract[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?mask-image:\s*none !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /PIMM responsive art-direction contract[\s\S]*?\.pimm30-spec-rail--hero\s*\{[\s\S]*?gap:\s*clamp\(0\.6rem, 1\.5vw, 1\.2rem\) !important[\s\S]*?\.pimm30-spec-rail--hero > div[\s\S]*?background:\s*rgba\(255, 255, 255, 0\.72\) !important[\s\S]*?border-radius:\s*1rem !important[\s\S]*?border-top:\s*0 !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /Final compact\/tablet cascade seal[\s\S]*?min-width:\s*600px[\s\S]*?max-width:\s*899px[\s\S]*?scale\(1\.25\) !important/,
+  );
+  assert.doesNotMatch(
+    keynoteCss,
+    /Final compact\/tablet cascade seal[\s\S]*?scale\(1\.32\) !important/,
+  );
+});
+
+test('detail chapters use the approved close-up assets', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+
+  assert.match(template, /"temperature"[\s\S]*?pimm30-v10-temperature-desktop\.webp[\s\S]*?pimm30-v10-temperature-mobile\.webp/);
+  assert.doesNotMatch(template, /pimm30-temperature-controller-(?:desktop|mobile)\.webm/);
+  assert.match(template, /"regulator"[\s\S]*?pimm30-v4-regulator-desktop\.webp[\s\S]*?pimm30-v4-regulator-mobile\.webp/);
+  assert.doesNotMatch(template, /pimm30-v10-regulator-(?:desktop|mobile)\.webp/);
+});
+
+test('portrait chapters have deliberate media crops and a one-viewport commerce slide', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(keynoteCss, /PIMM responsive art-direction contract[\s\S]*?pimm30-capacity[\s\S]*?scale\(1\.55\) !important/);
+  assert.match(keynoteCss, /pimm30-temperature[\s\S]*?mask-image:\s*linear-gradient\(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%\) !important/);
+  assert.match(keynoteCss, /pimm30-regulator[\s\S]*?object-position:\s*50% 50% !important/);
+  assert.match(
+    keynoteCss,
+    /pimm30-configuration[\s\S]*?height:\s*46svh !important[\s\S]*?\.pimm30-chapter--configuration \.pimm30-chapter__content[\s\S]*?height:\s*100svh !important[\s\S]*?overflow:\s*hidden !important/,
+  );
+  assert.match(keynoteCss, /pimm30-configuration[\s\S]*?touch-action:\s*pan-y !important/);
+  assert.match(
+    keynoteCss,
+    /Final compact\/tablet cascade seal[\s\S]*?\.pimm30-stage > \.pimm30-stage__layer\.is-active\s*\{[\s\S]*?opacity:\s*1 !important/,
+  );
+});
+
+test('PIMM 50G finale removes the shared backdrop and strengthens the red stage glow', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(
+    keynoteCss,
+    /data-active-chapter=['"]pimm30-next_model['"]\] \.pimm30-stage__backdrop\s*\{[\s\S]*?display:\s*none !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /data-active-chapter=['"]pimm30-next_model['"]\] \.pimm30-stage\s*\{[\s\S]*?radial-gradient\(circle at 62% 38%, rgba\(228, 30, 24, 0\.46\), transparent 42%\)/,
   );
 });

@@ -36,10 +36,10 @@
           "type": "chapter",
           "settings": {
             "role": "temperature",
-            "desktop_video_asset": "pimm30-temperature-controller-desktop.webm",
-            "desktop_poster_asset": "pimm30-temperature-controller-desktop.webp",
-            "mobile_video_asset": "pimm30-temperature-controller-mobile.webm",
-            "mobile_poster_asset": "pimm30-temperature-controller-mobile.webp"
+            "desktop_video_asset": "",
+            "desktop_poster_asset": "pimm30-v10-temperature-desktop.webp",
+            "mobile_video_asset": "",
+            "mobile_poster_asset": "pimm30-v10-temperature-mobile.webp"
           }
         },
         "cylinder": {
@@ -67,9 +67,9 @@
           "settings": {
             "role": "regulator",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v10-regulator-desktop.webp",
+            "desktop_poster_asset": "pimm30-v4-regulator-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v10-regulator-mobile.webp"
+            "mobile_poster_asset": "pimm30-v4-regulator-mobile.webp"
           }
         },
         "fixture": {

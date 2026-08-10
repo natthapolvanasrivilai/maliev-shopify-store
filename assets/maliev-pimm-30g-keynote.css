@@ -614,6 +614,423 @@
   }
 }
 
+/* Responsive contract cascade seal. Keep this last: the legacy presentation
+ * stylesheet intentionally contains historical breakpoint experiments. */
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 11rem;
+    --pimm30-mobile-control-gap: 1.2rem;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'],
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'] :is(.pimm30-stage__poster, picture, img, video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero {
+    gap: clamp(0.6rem, 1.5vw, 1.2rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    background: rgba(255, 255, 255, 0.72) !important;
+    border: 0.1rem solid rgba(17, 21, 27, 0.1) !important;
+    border-radius: 1rem !important;
+    border-top: 0 !important;
+    min-height: 5.2rem !important;
+    padding: 0.8rem clamp(0.7rem, 1.8vw, 1.2rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero dt {
+    min-height: 0 !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-capacity'] :is(img, video) {
+    transform: scale(1.55) !important;
+    transform-origin: 50% 50% !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-temperature'] :is(img, video) {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    object-position: 50% 50% !important;
+    transform: scale(1.08) !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-regulator'] :is(img, video) {
+    object-position: 50% 50% !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-configuration'] {
+    -webkit-mask-image: none !important;
+    height: 46svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    mask-image: none !important;
+    touch-action: pan-y !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-configuration'] :is(.pimm30-stage__poster, picture, img, video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-configuration'] :is(img, video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 46svh + 0.8rem)
+      clamp(1.2rem, 6vw, 3.2rem) max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration h2 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem) !important;
+    line-height: 1.05 !important;
+    margin-bottom: 0.6rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce {
+    margin-top: 0.6rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce__summary {
+    margin-bottom: 0.8rem !important;
+    padding: 0.8rem 0 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce__actions {
+    gap: 0.6rem !important;
+    margin-top: 0.8rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-action {
+    min-height: 4.8rem !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-next_model'] {
+    height: 50svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-next_model'] :is(img, video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) scale(1.06) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 48svh) clamp(1.2rem, 6vw, 3.2rem)
+      max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 7.8rem;
+    --pimm30-mobile-control-gap: 1.6rem;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'] :is(img, video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    transform: translateX(-50%) scale(1.25) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    min-height: 6.2rem !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) and (min-height: 1100px) {
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'] :is(img, video) {
+    transform: translateX(-50%) translateY(0.8rem) scale(1.3) !important;
+  }
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage__backdrop {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage {
+  background:
+    radial-gradient(circle at 62% 38%, rgba(228, 30, 24, 0.46), transparent 42%),
+    radial-gradient(circle at 52% 54%, rgba(121, 12, 10, 0.34), transparent 55%),
+    var(--pimm30-stage-dark) !important;
+}
+
+/* Specifications read as four independent instrument highlights at every
+ * breakpoint; no full-width rule is allowed to masquerade as a section edge. */
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero {
+  gap: clamp(0.6rem, 1.5vw, 1.2rem) !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 0.1rem solid rgba(17, 21, 27, 0.1) !important;
+  border-radius: 1rem !important;
+  border-top: 0 !important;
+  padding: 0.9rem clamp(0.8rem, 1.2vw, 1.2rem) !important;
+}
+
+/* PIMM responsive art-direction contract
+ *
+ * This final contract owns the visual clearances and chapter-specific crops.
+ * Transparent media is never side-feathered on compact screens: authored
+ * shadows may use the whole canvas, while the copy and controls keep their own
+ * reserved presentation lanes. */
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 11rem;
+    --pimm30-mobile-control-gap: 1.2rem;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    picture,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero {
+    gap: clamp(0.6rem, 1.5vw, 1.2rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    background: rgba(255, 255, 255, 0.72) !important;
+    border: 0.1rem solid rgba(17, 21, 27, 0.1) !important;
+    border-radius: 1rem !important;
+    border-top: 0 !important;
+    min-height: 5.2rem !important;
+    padding: 0.8rem clamp(0.7rem, 1.8vw, 1.2rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero dt {
+    min-height: 0 !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-capacity']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: scale(1.55) !important;
+    transform-origin: 50% 50% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    object-position: 50% 50% !important;
+    transform: scale(1.08) !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    object-position: 50% 50% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    -webkit-mask-image: none !important;
+    height: 46svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    mask-image: none !important;
+    touch-action: pan-y !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
+    :is(.pimm30-stage__poster, .pimm30-stage__poster picture, .pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    position: absolute !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 46svh + 0.8rem)
+      clamp(1.2rem, 6vw, 3.2rem) max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration h2 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem) !important;
+    line-height: 1.05 !important;
+    margin-bottom: 0.6rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce {
+    margin-top: 0.6rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce__summary {
+    margin-bottom: 0.8rem !important;
+    padding: 0.8rem 0 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce__actions {
+    gap: 0.6rem !important;
+    margin-top: 0.8rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-action {
+    min-height: 4.8rem !important;
+  }
+
+  .pimm30-story .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    touch-action: pan-y !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 7.8rem;
+    --pimm30-mobile-control-gap: 1.6rem;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: translateX(-50%) scale(1.25) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    min-height: 6.2rem !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) and (min-height: 1100px) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: translateX(-50%) translateY(0.8rem) scale(1.3) !important;
+  }
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage__backdrop {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage {
+  background:
+    radial-gradient(circle at 62% 38%, rgba(228, 30, 24, 0.46), transparent 42%),
+    radial-gradient(circle at 52% 54%, rgba(121, 12, 10, 0.34), transparent 55%),
+    var(--pimm30-stage-dark) !important;
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] {
+    height: 50svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) scale(1.06) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 48svh) clamp(1.2rem, 6vw, 3.2rem)
+      max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /*
  * Responsive hardening contract (keep this block last).
  *
@@ -1421,4 +1838,319 @@
     .pimm30-stage__video {
     transform: translateX(-12.5%) scale(var(--pimm30-desktop-hero-scale)) !important;
   }
+}
+
+/* Specifications read as four independent instrument highlights at every
+ * breakpoint; no full-width rule is allowed to masquerade as a section edge. */
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero {
+  gap: clamp(0.6rem, 1.5vw, 1.2rem) !important;
+}
+
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+.pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 0.1rem solid rgba(17, 21, 27, 0.1) !important;
+  border-radius: 1rem !important;
+  border-top: 0 !important;
+  padding: 0.9rem clamp(0.8rem, 1.2vw, 1.2rem) !important;
+}
+
+/* Controller close-ups dissolve vertically into the white studio so their
+ * authored canvas never reads as a rectangular photograph. */
+.pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-temperature'] :is(img, video) {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+  object-position: 50% 50% !important;
+}
+
+/* Final compact/tablet cascade seal. */
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story.pimm30-story .pimm30-stage > .pimm30-stage__layer.is-active {
+    opacity: 1 !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview'],
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    :is(.pimm30-stage__poster, .pimm30-stage__poster picture) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-capacity']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: scale(1.55) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    object-position: 50% 50% !important;
+    transform: scale(1.08) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    object-position: 50% 50% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    -webkit-mask-image: none !important;
+    height: 46svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    mask-image: none !important;
+    touch-action: pan-y !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: none !important;
+    height: 100% !important;
+    left: 50% !important;
+    mask-image: none !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] {
+    height: 50svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) scale(1.06) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 11rem;
+    --pimm30-mobile-control-gap: 1.2rem;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'],
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'] :is(.pimm30-stage__poster, picture, img, video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero {
+    gap: clamp(0.6rem, 1.5vw, 1.2rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    background: rgba(255, 255, 255, 0.72) !important;
+    border: 0.1rem solid rgba(17, 21, 27, 0.1) !important;
+    border-radius: 1rem !important;
+    border-top: 0 !important;
+    min-height: 5.2rem !important;
+    padding: 0.8rem clamp(0.7rem, 1.8vw, 1.2rem) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero dt {
+    min-height: 0 !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-capacity'] :is(img, video) {
+    transform: scale(1.55) !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-temperature'] :is(img, video) {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%) !important;
+    object-position: 50% 50% !important;
+    transform: scale(1.08) !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-regulator'] :is(img, video) {
+    object-position: 50% 50% !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-configuration'] {
+    -webkit-mask-image: none !important;
+    height: 46svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    mask-image: none !important;
+    touch-action: pan-y !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-configuration'] :is(.pimm30-stage__poster, picture, img, video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-configuration'] :is(img, video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 46svh + 0.8rem)
+      clamp(1.2rem, 6vw, 3.2rem) max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration h2 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem) !important;
+    line-height: 1.05 !important;
+    margin-bottom: 0.6rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce {
+    margin-top: 0.6rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce__summary {
+    margin-bottom: 0.8rem !important;
+    padding: 0.8rem 0 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-commerce__actions {
+    gap: 0.6rem !important;
+    margin-top: 0.8rem !important;
+  }
+
+  .pimm30-story .pimm30-chapter--configuration .pimm30-action {
+    min-height: 4.8rem !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-next_model'] {
+    height: 50svh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-next_model'] :is(img, video) {
+    height: 100% !important;
+    left: 50% !important;
+    object-fit: contain !important;
+    right: auto !important;
+    transform: translateX(-50%) scale(1.06) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 48svh) clamp(1.2rem, 6vw, 3.2rem)
+      max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-mobile-feature-rail: 7.8rem;
+    --pimm30-mobile-control-gap: 1.6rem;
+  }
+
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'] :is(img, video) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    transform: translateX(-50%) scale(1.25) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    transform: translateX(-50%) scale(1.25) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div,
+  .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero > div:first-child {
+    min-height: 6.2rem !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) and (min-height: 1100px) {
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-overview'] :is(img, video) {
+    transform: translateX(-50%) translateY(0.8rem) scale(1.25) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster
+    img,
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video {
+    transform: translateX(-50%) translateY(0.8rem) scale(1.25) !important;
+  }
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage__backdrop {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage {
+  background:
+    radial-gradient(circle at 62% 38%, rgba(228, 30, 24, 0.46), transparent 42%),
+    radial-gradient(circle at 52% 54%, rgba(121, 12, 10, 0.34), transparent 55%),
+    var(--pimm30-stage-dark) !important;
 }
