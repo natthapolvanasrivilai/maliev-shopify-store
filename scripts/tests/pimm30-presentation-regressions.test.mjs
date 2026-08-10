@@ -460,7 +460,7 @@ test('detail chapters use the approved close-up assets and animated heater seque
     /Temperature animation focus[\s\S]*?\.pimm30-story\.pimm30-story[\s\S]*?> \.pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-temperature['"]\][\s\S]*?object-fit:\s*contain !important[\s\S]*?transform:\s*none !important/,
   );
   for (const [asset, width, height] of [
-    ['pimm30-temperature-controller-desktop.webm', 1920, 1080],
+    ['pimm30-temperature-controller-desktop.webm', 1200, 1440],
     ['pimm30-temperature-controller-mobile.webm', 1080, 1920],
   ]) {
     const probe = JSON.parse(execFileSync(
@@ -482,9 +482,14 @@ test('detail chapters use the approved close-up assets and animated heater seque
 
     const start = alphaBounds(`assets/${asset}`, 0);
     const end = alphaBounds(`assets/${asset}`, 9.9);
-    const minimumCloseupWidth = width === 1920 ? 1300 : 1000;
+    const minimumCloseupWidth = width === 1200 ? 850 : 1000;
     assert.ok(start.w >= minimumCloseupWidth, `${asset} starts too far from the controllers: ${JSON.stringify(start)}`);
     assert.ok(end.w >= minimumCloseupWidth, `${asset} ends too far from the controllers: ${JSON.stringify(end)}`);
+    assert.ok(start.h >= height * 0.98, `${asset} does not fill the stage vertically at startup: ${JSON.stringify(start)}`);
+    assert.ok(end.h >= height * 0.98, `${asset} does not fill the stage vertically at completion: ${JSON.stringify(end)}`);
+    if (asset.includes('desktop')) {
+      assert.equal(width / height, 5 / 6, 'desktop controller media must fill the tall presentation stage');
+    }
   }
   assert.match(template, /"regulator"[\s\S]*?pimm30-v4-regulator-desktop\.webp[\s\S]*?pimm30-v4-regulator-mobile\.webp/);
   assert.doesNotMatch(template, /pimm30-v10-regulator-(?:desktop|mobile)\.webp/);
