@@ -787,6 +787,63 @@
     var(--pimm30-stage-dark) !important;
 }
 
+/* PIMM 50G presence seal
+ *
+ * The finale owns a dedicated model mark rather than the shared product
+ * backdrop. Keep it centred behind the transparent red-stage media, remove
+ * the legacy diamond bullets, and restore the authored desktop framing that
+ * gives the 50G machine the same visual authority as the landing hero. */
+.pimm30-story[data-active-chapter='pimm30-next_model']
+  .pimm30-stage
+  > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before {
+  align-items: center !important;
+  color: rgba(238, 38, 31, 0.2) !important;
+  content: '50G' !important;
+  display: flex !important;
+  font-family: var(--pimm50-font-marker) !important;
+  font-size: clamp(18rem, 28vw, 38rem) !important;
+  font-weight: 400 !important;
+  inset: 50% auto auto 50% !important;
+  justify-content: center !important;
+  letter-spacing: -0.08em !important;
+  line-height: 0.75 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  text-align: center !important;
+  transform: translate(-50%, -50%) rotate(-4deg) !important;
+  white-space: nowrap !important;
+  width: min(56vw, 72rem) !important;
+  z-index: 0 !important;
+}
+
+.pimm30-story .pimm30-next-model__upgrades li {
+  padding-inline: clamp(1rem, 1.8vw, 1.8rem) !important;
+}
+
+.pimm30-story .pimm30-next-model__upgrades li::before {
+  content: none !important;
+  display: none !important;
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story[data-active-chapter='pimm30-next_model']
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: scale(2.05) !important;
+    transform-origin: 50% 50% !important;
+  }
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story[data-active-chapter='pimm30-next_model']
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']::before {
+    font-size: clamp(12rem, 42vw, 22rem) !important;
+    width: 92vw !important;
+  }
+}
+
 /* Keep both 48px purchase actions inside common phone-height viewports without
  * shrinking controls or stealing height from the turntable presentation. */
 @media (max-width: 599px) and (orientation: portrait) {
@@ -2268,4 +2325,50 @@
     radial-gradient(circle at 62% 38%, rgba(228, 30, 24, 0.46), transparent 42%),
     radial-gradient(circle at 52% 54%, rgba(121, 12, 10, 0.34), transparent 55%),
     var(--pimm30-stage-dark) !important;
+}
+
+/* Final PIMM 50G viewport containment authority. These height-aware rules
+ * intentionally sit after every compact/tablet seal above. */
+.pimm30-story
+  .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'].is-video-failed
+  .pimm30-stage__poster {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+@media (min-width: 900px) and (orientation: landscape) and (max-height: 700px) {
+  .pimm30-story[data-active-chapter='pimm30-next_model']
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: scale(1.7) !important;
+  }
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story .pimm30-chapter--next_model .pimm30-action {
+    min-height: 4.8rem !important;
+  }
+}
+
+@media (max-width: 899px) and (orientation: portrait) and (max-height: 640px) {
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-next_model'] {
+    height: 42svh !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-next_model']
+    :is(img, video) {
+    transform: translateX(-50%) translateY(-3rem) scale(0.72) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    padding: calc(var(--pimm30-header-space) + 36svh) clamp(1.2rem, 6vw, 3.2rem)
+      max(0.8rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--next_model .pimm30-action {
+    min-height: 4.8rem !important;
+  }
 }

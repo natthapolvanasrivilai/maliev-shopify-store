@@ -490,7 +490,7 @@ test('configuration pricing keeps the price dominant and wraps metadata as whole
 test('configuration presentation assets share the polished revision token', () => {
   const liquid = read('sections/maliev-pimm-30g-story.liquid');
 
-  assert.equal((liquid.match(/pimm30rev=20260810-configuration-purchase/g) || []).length, 3);
+  assert.equal((liquid.match(/pimm30rev=20260810-pimm50-presence/g) || []).length, 4);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {
@@ -710,7 +710,7 @@ test('portrait chapters contain media and keep all capacity content inside one v
   );
 });
 
-test('PIMM 50G finale removes the shared backdrop and strengthens the red stage glow', () => {
+test('PIMM 50G finale hides the shared backdrop and restores its dedicated model mark', () => {
   const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
 
   assert.match(
@@ -720,6 +720,40 @@ test('PIMM 50G finale removes the shared backdrop and strengthens the red stage 
   assert.match(
     keynoteCss,
     /data-active-chapter=['"]pimm30-next_model['"]\] \.pimm30-stage\s*\{[\s\S]*?radial-gradient\(circle at 62% 38%, rgba\(228, 30, 24, 0\.46\), transparent 42%\)/,
+  );
+  assert.match(
+    keynoteCss,
+    /PIMM 50G presence seal[\s\S]*?data-pimm30-layer=['"]pimm30-next_model['"]\]::before\s*\{[\s\S]*?content:\s*'50G' !important[\s\S]*?display:\s*flex !important/,
+  );
+});
+
+test('PIMM 50G finale matches landing-page machine presence without decorative glyph artifacts', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    keynoteCss,
+    /PIMM 50G presence seal[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-next_model['"][\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?transform:\s*scale\(2\.05\) !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /PIMM 50G presence seal[\s\S]*?\.pimm30-next-model__upgrades li::before\s*\{[\s\S]*?content:\s*none !important[\s\S]*?display:\s*none !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /Final PIMM 50G viewport containment authority[\s\S]*?data-pimm30-layer=['"]pimm30-next_model['"]\]\.is-video-failed[\s\S]*?\.pimm30-stage__poster\s*\{[\s\S]*?opacity:\s*1 !important[\s\S]*?visibility:\s*visible !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /Final PIMM 50G viewport containment authority[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 700px\)[\s\S]*?data-pimm30-layer=['"]pimm30-next_model['"][\s\S]*?transform:\s*scale\(1\.7\) !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /Final PIMM 50G viewport containment authority[\s\S]*?@media \(max-width: 899px\) and \(orientation: portrait\) and \(max-height: 640px\)[\s\S]*?data-pimm30-layer=['"]pimm30-next_model['"]\]\s*\{[\s\S]*?height:\s*42svh !important[\s\S]*?:is\(img, video\)[\s\S]*?transform:\s*translateX\(-50%\) translateY\(-3rem\) scale\(0\.72\) !important[\s\S]*?pimm30-chapter--next_model \.pimm30-chapter__content[\s\S]*?padding:\s*calc\(var\(--pimm30-header-space\) \+ 36svh\)[\s\S]*?pimm30-action[\s\S]*?min-height:\s*4\.8rem !important/,
+  );
+  assert.match(
+    noCropCss,
+    /PIMM 50G short-phone no-overlap seal[\s\S]*?data-pimm30-layer=['"]pimm30-next_model['"][\s\S]*?transform:\s*translateX\(-50%\) translateY\(-3rem\) scale\(0\.72\) !important/,
   );
 });
 

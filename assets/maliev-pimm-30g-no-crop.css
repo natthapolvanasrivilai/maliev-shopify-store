@@ -485,3 +485,15 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* PIMM 50G short-phone no-overlap seal. This file loads after the Keynote
+ * layout, so repeat the identical poster/video framing at the true end of the
+ * cascade to keep the machine clear of the finale title on 568px canvases. */
+@media (max-width: 899px) and (orientation: portrait) and (max-height: 640px) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: translateX(-50%) translateY(-3rem) scale(0.72) !important;
+  }
+}
