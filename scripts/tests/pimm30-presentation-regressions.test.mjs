@@ -487,10 +487,10 @@ test('configuration pricing keeps the price dominant and wraps metadata as whole
   assert.doesNotMatch(summaryRule, /grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 });
 
-test('configuration presentation assets share the polished revision token', () => {
+test('presentation assets share the responsive hero revision token', () => {
   const liquid = read('sections/maliev-pimm-30g-story.liquid');
 
-  assert.equal((liquid.match(/pimm30rev=20260810-pimm50-presence/g) || []).length, 4);
+  assert.equal((liquid.match(/pimm30rev=20260810-hero-matrix/g) || []).length, 4);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {
@@ -605,6 +605,27 @@ test('final responsive contract removes side fades and presents each hero featur
   assert.doesNotMatch(
     keynoteCss,
     /Final compact\/tablet cascade seal[\s\S]*?scale\(1\.32\) !important/,
+  );
+});
+
+test('final hero geometry authority budgets every viewport lane without card or media overflow', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /PIMM hero viewport matrix authority[\s\S]*?--pimm30-hero-spec-action-gap:\s*clamp\(1\.6rem, 2svh, 2\.4rem\)[\s\S]*?--pimm30-hero-action-cue-gap:\s*clamp\(0\.8rem, 1\.2svh, 1\.2rem\)/,
+  );
+  assert.match(
+    noCropCss,
+    /PIMM hero viewport matrix authority[\s\S]*?grid-template-rows:\s*repeat\(2, minmax\(0, 1fr\)\) !important[\s\S]*?min-height:\s*0 !important/,
+  );
+  assert.match(
+    noCropCss,
+    /PIMM hero viewport matrix authority[\s\S]*?data-pimm30-layer=['"]pimm30-overview['"][\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?height:\s*100% !important[\s\S]*?transform:\s*translate\(-60\.6%, -50%\) !important[\s\S]*?width:\s*auto !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Short-landscape keynote rail[\s\S]*?max-height:\s*540px[\s\S]*?white-space:\s*nowrap !important/,
   );
 });
 
