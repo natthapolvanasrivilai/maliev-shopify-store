@@ -83,6 +83,34 @@ test('hero art preserves alpha shadow clearance before CSS presentation scaling'
   assert.ok(mobile.w - mobileSolid.w > 80, 'mobile ground shadow was stripped from the alpha render');
 });
 
+test('air-cylinder desktop art fills its tall stage without cropping the product', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+
+  assert.match(
+    template,
+    /"cylinder"[\s\S]*?"desktop_poster_asset": "pimm30-v11-cylinder-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v10-cylinder-mobile\.webp"/,
+  );
+
+  const probe = JSON.parse(execFileSync(
+    'ffprobe',
+    [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height',
+      '-of', 'json',
+      join(root, 'assets', 'pimm30-v11-cylinder-desktop.webp'),
+    ],
+    { encoding: 'utf8' },
+  ));
+  assert.equal(probe.streams[0].width, 900);
+  assert.equal(probe.streams[0].height, 1200);
+
+  const bounds = alphaBounds('assets/pimm30-v11-cylinder-desktop.webp');
+  assert.ok(bounds.w >= 780, `cylinder is too narrow in its source canvas: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.h >= 980, `cylinder does not fill the source height: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.x1 > 0 && bounds.x2 < 899, `cylinder alpha touches a side: ${JSON.stringify(bounds)}`);
+});
+
 test('hero uses a continuous aspect-aware layout with no backdrop wash layer', () => {
   const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
   const template = read('templates/product.injection-molding-machine.json');
