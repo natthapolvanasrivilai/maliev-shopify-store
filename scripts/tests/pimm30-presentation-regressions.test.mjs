@@ -195,18 +195,18 @@ test('direct-operation slide keeps the complete pneumatic assembly in a top-focu
   );
 });
 
-test('M10 fixture art uses the responsive stage without cropping the assembly', () => {
+test('M10 fixture chapter shows the complete machine without cropping the assembly', () => {
   const template = read('templates/product.injection-molding-machine.json');
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
 
   assert.match(
     template,
-    /"fixture"[\s\S]*?"desktop_poster_asset": "pimm30-v15-fixture-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v15-fixture-mobile\.webp"/,
+    /"fixture"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v12-operation-desktop\.webp"/,
   );
-  assert.doesNotMatch(template, /pimm30-v10-fixture-(?:desktop|mobile)\.webp/);
+  assert.doesNotMatch(template, /pimm30-v(?:10|15)-fixture-(?:desktop|mobile)\.webp/);
 
-  for (const [path, expectedWidth, expectedHeight, minimumOpaqueWidth] of [
-    ['assets/pimm30-v15-fixture-desktop.webp', 1200, 1440, 1080],
-    ['assets/pimm30-v15-fixture-mobile.webp', 1200, 800, 1080],
+  for (const [path, expectedWidth, expectedHeight, minimumOpaqueHeight] of [
+    ['assets/pimm30-v12-operation-desktop.webp', 1200, 1440, 1280],
   ]) {
     const probe = JSON.parse(execFileSync(
       'ffprobe',
@@ -223,10 +223,31 @@ test('M10 fixture art uses the responsive stage without cropping the assembly', 
     assert.equal(probe.streams[0].height, expectedHeight);
 
     const bounds = alphaBounds(path);
-    assert.ok(bounds.w >= minimumOpaqueWidth, `${path} leaves the fixture undersized: ${JSON.stringify(bounds)}`);
+    assert.ok(bounds.h >= minimumOpaqueHeight, `${path} omits part of the machine: ${JSON.stringify(bounds)}`);
     assert.ok(bounds.x1 > 0 && bounds.x2 < expectedWidth - 1, `${path} touches a horizontal edge: ${JSON.stringify(bounds)}`);
     assert.ok(bounds.y1 > 0 && bounds.y2 < expectedHeight - 1, `${path} touches a vertical edge: ${JSON.stringify(bounds)}`);
   }
+
+  assert.match(
+    noCropCss,
+    /Complete M10 fixture composition[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?mask-image:\s*none !important[\s\S]*?object-fit:\s*contain !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Complete M10 fixture composition[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?height:\s*86svh !important[\s\S]*?transform:\s*translate\(-59\.6%, -50%\) !important/,
+  );
+  assert.match(
+    noCropCss,
+    /final guard[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?padding-top:\s*calc\(var\(--pimm30-header-space\) \+ 60svh\) !important/,
+  );
+  assert.match(
+    noCropCss,
+    /max-width: 539px[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?54svh[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?height:\s*45svh !important/,
+  );
+  assert.match(
+    noCropCss,
+    /max-height: 540px[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?width:\s*41vw !important[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?height:\s*82svh !important/,
+  );
 });
 
 test('hero uses a continuous aspect-aware layout with no backdrop wash layer', () => {
@@ -521,7 +542,7 @@ test('presentation assets share the responsive hero revision token', () => {
   const revisions = [...liquid.matchAll(/pimm30rev=([\w-]+)/g)].map((match) => match[1]);
 
   assert.equal(revisions.length, 4);
-  assert.deepEqual([...new Set(revisions)], ['20260810-regulator-focus']);
+  assert.deepEqual([...new Set(revisions)], ['20260810-fixture-complete']);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {

@@ -77,9 +77,9 @@
           "settings": {
             "role": "fixture",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v15-fixture-desktop.webp",
+            "desktop_poster_asset": "pimm30-v12-operation-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v15-fixture-mobile.webp"
+            "mobile_poster_asset": "pimm30-v12-operation-desktop.webp"
           }
         },
         "materials": {

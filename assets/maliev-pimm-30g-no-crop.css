@@ -414,6 +414,99 @@
   }
 }
 
+/* Complete M10 fixture composition. The fixture close-up sources omit the
+ * cylinder and controls, so this chapter uses the complete three-quarter
+ * machine render and aligns its opaque machine bounds—not its transparent
+ * canvas—to the center of the available presentation field. */
+.pimm30-story.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-fixture']
+  :is(.pimm30-stage__poster, picture, img, .pimm30-stage__video) {
+  -webkit-mask-image: none !important;
+  clip-path: none !important;
+  mask-image: none !important;
+  max-height: none !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  opacity: 1 !important;
+}
+
+.pimm30-story.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-fixture']
+  :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+  bottom: auto !important;
+  left: 74% !important;
+  right: auto !important;
+  top: 50% !important;
+  transform: translate(-59.6%, -50%) !important;
+  transform-origin: 59.6% 50% !important;
+  width: auto !important;
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-fixture']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 86svh !important;
+    transform: translate(-59.6%, -50%) !important;
+  }
+}
+
+@media (orientation: portrait), (max-width: 539px) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-fixture']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 52svh !important;
+    left: 50% !important;
+    top: calc(var(--pimm30-header-space) + 26svh) !important;
+    transform: translate(-59.6%, -50%) !important;
+  }
+}
+
+@media (min-width: 540px) and (max-width: 899px) and (orientation: landscape) and (max-height: 540px) {
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__content {
+    align-content: center !important;
+    display: grid !important;
+    gap: clamp(0.55rem, 1.5svh, 1rem) !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    padding: calc(var(--pimm30-header-space) + 0.4rem) 1.5rem 1.2rem !important;
+    position: relative !important;
+    width: 41vw !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__content > * {
+    max-width: none !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture h2 {
+    font-size: clamp(2.35rem, 4vw, 3.2rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__lead {
+    font-size: clamp(1.15rem, 1.75vw, 1.4rem) !important;
+    line-height: 1.4 !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__metric dd {
+    font-size: clamp(3.1rem, 5vw, 4.2rem) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-fixture']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 82svh !important;
+    left: 77% !important;
+    top: 50% !important;
+  }
+}
+
 /* Temperature animation focus is authored in Blender. Poster and video use
  * the same centered, unscaled frame so the native controller digits never
  * jump or soften when playback starts and ends. */
@@ -972,5 +1065,27 @@
     position: absolute !important;
     transform: none !important;
     width: calc(var(--pimm30-hero-copy-width) - clamp(2.4rem, 8vw, 6.8rem)) !important;
+  }
+}
+
+/* Keep the complete fixture assembly above its copy after all shared portrait
+ * chapter rules have resolved. This final guard intentionally sits last. */
+@media (orientation: portrait), (max-width: 539px) {
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 60svh) !important;
+  }
+}
+
+@media (max-width: 539px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 54svh) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-fixture']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 45svh !important;
+    top: calc(var(--pimm30-header-space) + 22svh) !important;
   }
 }
