@@ -1,0 +1,81 @@
+/*
+ * PIMM no-crop contract
+ *
+ * This stylesheet loads after every historical keynote rule. Transparent
+ * product media owns its complete authored canvas: no side mask, cover fit,
+ * or transform may remove an object edge or ground shadow.
+ */
+
+.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-overview']
+  :is(.pimm30-stage__poster, .pimm30-stage__poster picture, .pimm30-stage__poster img, .pimm30-stage__video),
+.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-capacity']
+  :is(.pimm30-stage__poster, .pimm30-stage__poster picture, .pimm30-stage__poster img, .pimm30-stage__video) {
+  -webkit-mask-image: none !important;
+  clip-path: none !important;
+  mask-image: none !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story .pimm30-stage > [data-pimm30-layer='pimm30-capacity'] {
+    height: clamp(16rem, 42svh, 38rem) !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-capacity']
+    :is(.pimm30-stage__poster, .pimm30-stage__poster picture, .pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 100% !important;
+    inset: 0 !important;
+    object-fit: contain !important;
+    object-position: 50% 50% !important;
+    transform: none !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story .pimm30-chapter--capacity {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-story .pimm30-chapter--capacity .pimm30-chapter__content {
+    align-content: start !important;
+    gap: clamp(0.55rem, 1.25svh, 1.2rem) !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + clamp(16rem, 42svh, 38rem))
+      clamp(1.8rem, 6vw, 3.2rem) max(1.2rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story .pimm30-chapter--capacity .pimm30-chapter__content > * {
+    margin-block: 0 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--capacity h2 {
+    font-size: clamp(2.8rem, 8vw, 4.6rem) !important;
+    line-height: 1.02 !important;
+  }
+
+  .pimm30-story .pimm30-chapter--capacity .pimm30-chapter__metric {
+    margin-top: clamp(0.4rem, 1svh, 1rem) !important;
+    padding-top: clamp(0.8rem, 1.5svh, 1.4rem) !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-overview']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: translateX(-50%) scale(1.16) !important;
+  }
+}

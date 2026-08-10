@@ -16,10 +16,10 @@
           "type": "chapter",
           "settings": {
             "role": "overview",
-            "desktop_video_asset": "maliev-pimm-30g-story-desktop-v11-alpha.webm",
-            "desktop_poster_asset": "pimm30-v11-hero-desktop-sharp.webp",
-            "mobile_video_asset": "maliev-pimm-30g-story-mobile-v12-alpha.webm",
-            "mobile_poster_asset": "pimm30-v12-hero-mobile-sharp.webp"
+            "desktop_video_asset": "pimm30-v13-hero-desktop-contained.webm",
+            "desktop_poster_asset": "pimm30-v13-hero-desktop-contained.webp",
+            "mobile_video_asset": "pimm30-v13-hero-mobile-contained.webm",
+            "mobile_poster_asset": "pimm30-v13-hero-mobile-contained.webp"
           }
         },
         "capacity": {
@@ -28,8 +28,8 @@
             "role": "capacity",
             "desktop_video_asset": "pimm30-capacity-three-cube-desktop.webm",
             "desktop_poster_asset": "pimm30-capacity-three-cube-desktop.webp",
-            "mobile_video_asset": "pimm30-capacity-three-cube-mobile.webm",
-            "mobile_poster_asset": "pimm30-capacity-three-cube-mobile.webp"
+            "mobile_video_asset": "pimm30-capacity-three-cube-desktop.webm",
+            "mobile_poster_asset": "pimm30-capacity-three-cube-desktop.webp"
           }
         },
         "temperature": {
