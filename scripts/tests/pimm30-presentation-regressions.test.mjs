@@ -169,6 +169,40 @@ test('direct-operation desktop art uses a tall uncropped source frame', () => {
   assert.ok(bounds.y1 > 0 && bounds.y2 < 1439, `operation alpha touches a vertical edge: ${JSON.stringify(bounds)}`);
 });
 
+test('M10 fixture art uses the responsive stage without cropping the assembly', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+
+  assert.match(
+    template,
+    /"fixture"[\s\S]*?"desktop_poster_asset": "pimm30-v15-fixture-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v15-fixture-mobile\.webp"/,
+  );
+  assert.doesNotMatch(template, /pimm30-v10-fixture-(?:desktop|mobile)\.webp/);
+
+  for (const [path, expectedWidth, expectedHeight, minimumOpaqueWidth] of [
+    ['assets/pimm30-v15-fixture-desktop.webp', 1200, 1440, 1080],
+    ['assets/pimm30-v15-fixture-mobile.webp', 1200, 800, 1080],
+  ]) {
+    const probe = JSON.parse(execFileSync(
+      'ffprobe',
+      [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height',
+        '-of', 'json',
+        join(root, path),
+      ],
+      { encoding: 'utf8' },
+    ));
+    assert.equal(probe.streams[0].width, expectedWidth);
+    assert.equal(probe.streams[0].height, expectedHeight);
+
+    const bounds = alphaBounds(path);
+    assert.ok(bounds.w >= minimumOpaqueWidth, `${path} leaves the fixture undersized: ${JSON.stringify(bounds)}`);
+    assert.ok(bounds.x1 > 0 && bounds.x2 < expectedWidth - 1, `${path} touches a horizontal edge: ${JSON.stringify(bounds)}`);
+    assert.ok(bounds.y1 > 0 && bounds.y2 < expectedHeight - 1, `${path} touches a vertical edge: ${JSON.stringify(bounds)}`);
+  }
+});
+
 test('hero uses a continuous aspect-aware layout with no backdrop wash layer', () => {
   const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
   const template = read('templates/product.injection-molding-machine.json');
