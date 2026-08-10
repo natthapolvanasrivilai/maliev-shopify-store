@@ -145,7 +145,7 @@ test('direct-operation desktop art uses a tall uncropped source frame', () => {
 
   assert.match(
     template,
-    /"operation"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v10-operation-mobile\.webp"/,
+    /"operation"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v12-operation-desktop\.webp"/,
   );
 
   const probe = JSON.parse(execFileSync(
@@ -167,6 +167,32 @@ test('direct-operation desktop art uses a tall uncropped source frame', () => {
   assert.ok(bounds.h >= 1280, `operation assembly does not fill the source height: ${JSON.stringify(bounds)}`);
   assert.ok(bounds.x1 > 0 && bounds.x2 < 1199, `operation alpha touches a horizontal edge: ${JSON.stringify(bounds)}`);
   assert.ok(bounds.y1 > 0 && bounds.y2 < 1439, `operation alpha touches a vertical edge: ${JSON.stringify(bounds)}`);
+});
+
+test('direct-operation slide keeps the complete pneumatic assembly in a top-focused frame', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    template,
+    /"operation"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v12-operation-desktop\.webp"/,
+  );
+  assert.match(
+    noCropCss,
+    /Pneumatic operation focus[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?mask-image:\s*linear-gradient\(to bottom, #000 0%, #000 66%, transparent 96%\) !important[\s\S]*?max-height:\s*none !important[\s\S]*?max-width:\s*none !important[\s\S]*?object-fit:\s*contain !important[\s\S]*?transform-origin:\s*62% 15% !important/,
+  );
+  assert.doesNotMatch(
+    noCropCss,
+    /Pneumatic operation focus[\s\S]*?linear-gradient\(to right/,
+  );
+  assert.match(
+    noCropCss,
+    /Pneumatic operation focus[\s\S]*?@media \(max-width: 899px\), \(orientation: portrait\)[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?mask-image:\s*linear-gradient\(to bottom, #000 0%, #000 54%, transparent 84%\) !important[\s\S]*?height:\s*175% !important[\s\S]*?left:\s*calc\(50% - 2rem\) !important[\s\S]*?width:\s*140% !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Short-landscape pneumatic split[\s\S]*?@media \(min-width: 540px\) and \(max-width: 899px\) and \(orientation: landscape\) and \(max-height: 540px\)[\s\S]*?pimm30-chapter--operation[\s\S]*?width:\s*41vw !important[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?height:\s*108svh !important[\s\S]*?right:\s*0 !important[\s\S]*?width:\s*auto !important/,
+  );
 });
 
 test('M10 fixture art uses the responsive stage without cropping the assembly', () => {
@@ -217,7 +243,10 @@ test('hero uses a continuous aspect-aware layout with no backdrop wash layer', (
   assert.match(noCropCss, /@media \(max-width: 539px\), \(max-aspect-ratio: 6\/5\)[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(noCropCss, /@media \(min-width: 540px\) and \(min-aspect-ratio: 6\/5\)[\s\S]*?grid-template-columns:\s*var\(--pimm30-hero-copy-width\) minmax\(0, 1fr\)/);
   assert.match(noCropCss, /data-pimm30-layer='pimm30-overview'\]::after[\s\S]*?content:\s*none !important/);
-  assert.doesNotMatch(noCropCss, /mask-image:\s*linear-gradient/);
+  assert.doesNotMatch(
+    noCropCss,
+    /data-pimm30-layer=['"]pimm30-overview['"][^{]*\{[^}]*mask-image:\s*linear-gradient/,
+  );
 
   assert.match(noCropCss, /Wide desktop hero presence[\s\S]*?--pimm30-hero-wide-canvas-height:[\s\S]*?100svh[\s\S]*?1\.16/);
 
@@ -492,7 +521,7 @@ test('presentation assets share the responsive hero revision token', () => {
   const revisions = [...liquid.matchAll(/pimm30rev=([\w-]+)/g)].map((match) => match[1]);
 
   assert.equal(revisions.length, 4);
-  assert.deepEqual([...new Set(revisions)], ['20260810-compact-labels']);
+  assert.deepEqual([...new Set(revisions)], ['20260810-operation-focus']);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {

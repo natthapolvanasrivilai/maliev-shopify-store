@@ -680,6 +680,97 @@
   display: none;
 }
 
+/* Pneumatic operation focus. The same complete alpha render serves every
+ * viewport so the regulator, gauge, toggle valve, hoses, and cylinder remain
+ * in one continuous view. Only the lower machine frame dissolves away. */
+.pimm30-story.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-operation']
+  :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, transparent 96%) !important;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 66%, transparent 96%) !important;
+  max-height: none !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  object-position: 62% 0% !important;
+  transform-origin: 62% 15% !important;
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-operation']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    bottom: auto !important;
+    height: 142svh !important;
+    left: auto !important;
+    right: clamp(-4.8rem, -3vw, -1.2rem) !important;
+    top: calc(var(--pimm30-header-space) - 5svh) !important;
+    transform: none !important;
+    width: auto !important;
+  }
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-operation']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 54%, transparent 84%) !important;
+    mask-image: linear-gradient(to bottom, #000 0%, #000 54%, transparent 84%) !important;
+    bottom: auto !important;
+    height: 175% !important;
+    left: calc(50% - 2rem) !important;
+    right: auto !important;
+    top: -2% !important;
+    transform: translateX(-50%) !important;
+    width: 140% !important;
+  }
+}
+
+/* Short-landscape pneumatic split. The compact portrait crop cannot share
+ * this shape: it would cover the copy. Keep the complete pneumatic assembly
+ * in a right-hand presentation field and reserve a readable left rail. */
+@media (min-width: 540px) and (max-width: 899px) and (orientation: landscape) and (max-height: 540px) {
+  .pimm30-story.pimm30-story .pimm30-chapter--operation .pimm30-chapter__content {
+    align-content: center !important;
+    display: grid !important;
+    gap: clamp(0.7rem, 1.8svh, 1.2rem) !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    padding: calc(var(--pimm30-header-space) + 0.4rem) 1.6rem 1.2rem !important;
+    position: relative !important;
+    width: 41vw !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--operation .pimm30-chapter__content > * {
+    max-width: none !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--operation h2 {
+    font-size: clamp(2.6rem, 4.3vw, 3.5rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--operation .pimm30-chapter__metric dd {
+    font-size: clamp(3.2rem, 5vw, 4.5rem) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-operation']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    bottom: auto !important;
+    height: 108svh !important;
+    left: auto !important;
+    right: 0 !important;
+    top: calc(var(--pimm30-header-space) - 1rem) !important;
+    transform: none !important;
+    width: auto !important;
+  }
+}
+
 /* Short-landscape keynote rail. The copy paragraph is intentionally removed
  * from this height-constrained mode, while the model, four highlights, and CTA
  * receive fixed non-overlapping lanes. Labels stay on one line at this scale. */
