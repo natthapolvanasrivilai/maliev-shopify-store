@@ -6,7 +6,7 @@
     // Portrait assets fill tall media regions; landscape windows use the wide
     // assets so the machine remains large without cropping. Keep this selector
     // in lockstep with the CSS art-direction and Liquid <picture> breakpoint.
-    const mobile = window.matchMedia('(max-width: 539px), (orientation: portrait)').matches;
+    const mobile = window.matchMedia('(max-width: 539px), (max-aspect-ratio: 6/5)').matches;
     const preferredSelector = mobile
       ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
       : '.pimm30-stage__video--desktop, .pimm30-stage__video--all-devices';

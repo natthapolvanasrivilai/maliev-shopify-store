@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const read = (path) => readFileSync(join(root, path), 'utf8');
 
-const alphaBounds = (path, seek = null) => {
+const alphaBounds = (path, seek = null, minVal = 8) => {
   const input = join(root, path);
   const decodeArgs = path.endsWith('.webm') ? ['-c:v', 'libvpx-vp9'] : [];
   const seekArgs = seek === null ? [] : ['-ss', String(seek)];
@@ -17,7 +17,7 @@ const alphaBounds = (path, seek = null) => {
     [
       '-hide_banner', '-loglevel', 'error',
       ...seekArgs, ...decodeArgs, '-i', input,
-      '-vf', 'alphaextract,bbox=min_val=8,metadata=print:file=-',
+      '-vf', `alphaextract,bbox=min_val=${minVal},metadata=print:file=-`,
       '-frames:v', '1',
       '-f', 'null', '-'
     ],
@@ -63,33 +63,61 @@ test('transparent presentation media is never hard-cropped by the stage', () => 
   assert.doesNotMatch(noCropCss, /mask-image:\s*linear-gradient\(to right/);
 });
 
-test('hero art has transparent side clearance before CSS presentation scaling', () => {
+test('hero art has clean alpha clearance before CSS presentation scaling', () => {
   const template = read('templates/product.injection-molding-machine.json');
 
-  assert.match(template, /pimm30-v13-hero-desktop-contained\.(?:webm|webp)/);
-  assert.match(template, /pimm30-v13-hero-mobile-contained\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v14-hero-desktop-clean\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v14-hero-mobile-clean\.(?:webm|webp)/);
 
-  const desktop = alphaBounds('assets/pimm30-v13-hero-desktop-contained.webp');
-  const mobile = alphaBounds('assets/pimm30-v13-hero-mobile-contained.webp');
-  const desktopFinalFrame = alphaBounds('assets/pimm30-v13-hero-desktop-contained.webm', 3.9);
-  const mobileFinalFrame = alphaBounds('assets/pimm30-v13-hero-mobile-contained.webm', 3.9);
+  const desktop = alphaBounds('assets/pimm30-v14-hero-desktop-clean.webp');
+  const mobile = alphaBounds('assets/pimm30-v14-hero-mobile-clean.webp');
+  const desktopFinalFrame = alphaBounds('assets/pimm30-v14-hero-desktop-clean.webm', 3.9);
+  const mobileFinalFrame = alphaBounds('assets/pimm30-v14-hero-mobile-clean.webm', 3.9);
   assert.ok(desktop.x1 > 0 && desktop.x2 < 1919, `desktop alpha touches a side: ${JSON.stringify(desktop)}`);
   assert.ok(mobile.x1 > 0 && mobile.x2 < 1079, `mobile alpha touches a side: ${JSON.stringify(mobile)}`);
   assert.ok(desktopFinalFrame.x1 > 0 && desktopFinalFrame.x2 < 1919, `desktop video alpha touches a side: ${JSON.stringify(desktopFinalFrame)}`);
   assert.ok(mobileFinalFrame.x1 > 0 && mobileFinalFrame.x2 < 1079, `mobile video alpha touches a side: ${JSON.stringify(mobileFinalFrame)}`);
 });
 
+test('hero uses a continuous aspect-aware layout with no backdrop wash layer', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+  const template = read('templates/product.injection-molding-machine.json');
+  const liquid = read('snippets/maliev-pimm-30g-chapter.liquid');
+  const script = read('assets/maliev-pimm-30g.js');
+
+  assert.match(template, /pimm30-v14-hero-desktop-clean\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v14-hero-mobile-clean\.(?:webm|webp)/);
+  assert.match(liquid, /\(max-width: 539px\), \(max-aspect-ratio: 6\/5\)/);
+  assert.match(script, /matchMedia\('\(max-width: 539px\), \(max-aspect-ratio: 6\/5\)'\)/);
+  assert.match(noCropCss, /Hero fluid composition[\s\S]*?--pimm30-hero-media-height:[\s\S]*?100svh/);
+  assert.match(noCropCss, /@media \(max-width: 539px\), \(max-aspect-ratio: 6\/5\)[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(noCropCss, /@media \(min-width: 540px\) and \(min-aspect-ratio: 6\/5\)[\s\S]*?grid-template-columns:\s*var\(--pimm30-hero-copy-width\) minmax\(0, 1fr\)/);
+  assert.match(noCropCss, /data-pimm30-layer='pimm30-overview'\]::after[\s\S]*?content:\s*none !important/);
+  assert.doesNotMatch(noCropCss, /mask-image:\s*linear-gradient/);
+
+  for (const [path, maxX] of [
+    ['assets/pimm30-v14-hero-desktop-clean.webp', 1919],
+    ['assets/pimm30-v14-hero-mobile-clean.webp', 1079],
+  ]) {
+    const faint = alphaBounds(path, null, 8);
+    const solid = alphaBounds(path, null, 200);
+    assert.ok(faint.x1 > 0 && faint.x2 < maxX, `${path} touches a horizontal edge`);
+    assert.ok(Math.abs(faint.w - solid.w) <= 4, `${path} still contains a wide translucent plane`);
+  }
+});
+
 test('hero art direction keeps wide media on landscape screens', () => {
   const liquid = read('snippets/maliev-pimm-30g-chapter.liquid');
   const section = read('sections/maliev-pimm-30g-story.liquid');
-  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
   const script = read('assets/maliev-pimm-30g.js');
 
   assert.match(section, /<\/div>\s*\{%- if role == 'overview' -%\}[\s\S]*?class="pimm30-scroll-cue"/);
   assert.match(liquid, /assign stage_poster_url = desktop_poster_url[\s\S]*?if stage_poster_url == blank[\s\S]*?assign stage_poster_url = mobile_poster_url/);
   assert.doesNotMatch(liquid, /when 'overview',[\s\S]*?assign stage_poster_url = mobile_poster_url/);
-  assert.match(keynoteCss, /@media \(min-width: 540px\) and \(orientation: landscape\)[\s\S]*?\.pimm30-stage__video--desktop[\s\S]*?display: block !important[\s\S]*?\.pimm30-stage__video--mobile[\s\S]*?display: none !important/);
-  assert.match(script, /matchMedia\('\(max-width: 539px\), \(orientation: portrait\)'\)/);
+  assert.match(noCropCss, /@media \(min-width: 540px\) and \(min-aspect-ratio: 6\/5\)/);
+  assert.match(liquid, /media="\(max-width: 539px\), \(max-aspect-ratio: 6\/5\)"/);
+  assert.match(script, /matchMedia\('\(max-width: 539px\), \(max-aspect-ratio: 6\/5\)'\)/);
   assert.doesNotMatch(script, /PORTRAIT_STAGE_ROLES/);
 });
 
@@ -418,11 +446,11 @@ test('portrait chapters contain media and keep all capacity content inside one v
   assert.match(template, /"capacity"[\s\S]*?"mobile_video_asset": "pimm30-capacity-three-cube-desktop\.webm"[\s\S]*?"mobile_poster_asset": "pimm30-capacity-three-cube-desktop\.webp"/);
   assert.match(
     noCropCss,
-    /PIMM no-crop contract[\s\S]*?pimm30-capacity['"]\][\s\S]*?height:\s*clamp\(16rem, 42svh, 38rem\) !important[\s\S]*?object-fit:\s*contain !important[\s\S]*?transform:\s*none !important/,
+    /PIMM final media contract[\s\S]*?pimm30-capacity['"]\][\s\S]*?height:\s*clamp\(15rem, 40svh, 36rem\) !important[\s\S]*?object-fit:\s*contain !important[\s\S]*?transform:\s*none !important/,
   );
   assert.match(
     noCropCss,
-    /pimm30-chapter--capacity \.pimm30-chapter__content[\s\S]*?height:\s*100svh !important[\s\S]*?padding:\s*calc\(var\(--pimm30-header-space\) \+ clamp\(16rem, 42svh, 38rem\)\)/,
+    /pimm30-chapter--capacity \.pimm30-chapter__content[\s\S]*?height:\s*100svh !important[\s\S]*?padding:\s*calc\(var\(--pimm30-header-space\) \+ clamp\(15rem, 40svh, 36rem\)\)/,
   );
   assert.match(keynoteCss, /pimm30-temperature[\s\S]*?mask-image:\s*linear-gradient\(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%\) !important/);
   assert.match(keynoteCss, /pimm30-regulator[\s\S]*?object-position:\s*50% 50% !important/);
