@@ -399,3 +399,20 @@ test('PIMM 50G finale removes the shared backdrop and strengthens the red stage 
     /data-active-chapter=['"]pimm30-next_model['"]\] \.pimm30-stage\s*\{[\s\S]*?radial-gradient\(circle at 62% 38%, rgba\(228, 30, 24, 0\.46\), transparent 42%\)/,
   );
 });
+
+test('PIMM 50G portrait finale shares one centered presentation axis', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(
+    keynoteCss,
+    /Final PIMM 50G alignment seal[\s\S]*?\.pimm30-chapter--next_model \.pimm30-chapter__content\s*\{[\s\S]*?max-width:\s*none !important[\s\S]*?width:\s*100% !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /Final PIMM 50G alignment seal[\s\S]*?\.pimm30-chapter__content > \*\s*\{[\s\S]*?margin-inline:\s*auto !important[\s\S]*?max-width:\s*min\(52rem, 100%\) !important[\s\S]*?width:\s*100% !important/,
+  );
+  assert.match(
+    keynoteCss,
+    /Final PIMM 50G alignment seal[\s\S]*?radial-gradient\(circle at 50% 38%, rgba\(228, 30, 24, 0\.46\), transparent 42%\)/,
+  );
+});

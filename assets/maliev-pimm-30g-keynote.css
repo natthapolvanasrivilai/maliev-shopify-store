@@ -787,6 +787,43 @@
     var(--pimm30-stage-dark) !important;
 }
 
+/* Final PIMM 50G alignment seal. The portrait stage, machine artwork and
+ * information stack must resolve to the same physical viewport centre. */
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story[data-active-chapter='pimm30-next_model'] .pimm30-stage {
+    background:
+      radial-gradient(circle at 50% 38%, rgba(228, 30, 24, 0.46), transparent 42%),
+      radial-gradient(circle at 50% 54%, rgba(121, 12, 10, 0.34), transparent 55%),
+      var(--pimm30-stage-dark) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--next_model
+    .pimm30-chapter__content {
+    box-sizing: border-box !important;
+    max-width: none !important;
+    padding-inline: clamp(1.2rem, 6vw, 3.2rem) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--next_model
+    .pimm30-chapter__content > * {
+    justify-self: center !important;
+    margin-inline: auto !important;
+    max-width: min(52rem, 100%) !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-next_model'] {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+}
+
 /* Specifications read as four independent instrument highlights at every
  * breakpoint; no full-width rule is allowed to masquerade as a section edge. */
 .pimm30-story .pimm30-chapter--hero .pimm30-spec-rail--hero {
