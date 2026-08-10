@@ -489,8 +489,10 @@ test('configuration pricing keeps the price dominant and wraps metadata as whole
 
 test('presentation assets share the responsive hero revision token', () => {
   const liquid = read('sections/maliev-pimm-30g-story.liquid');
+  const revisions = [...liquid.matchAll(/pimm30rev=([\w-]+)/g)].map((match) => match[1]);
 
-  assert.equal((liquid.match(/pimm30rev=20260810-hero-matrix/g) || []).length, 4);
+  assert.equal(revisions.length, 4);
+  assert.deepEqual([...new Set(revisions)], ['20260810-compact-labels']);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {
@@ -626,6 +628,33 @@ test('final hero geometry authority budgets every viewport lane without card or 
   assert.match(
     noCropCss,
     /Short-landscape keynote rail[\s\S]*?max-height:\s*540px[\s\S]*?white-space:\s*nowrap !important/,
+  );
+});
+
+test('short-landscape hero uses compact English spec labels without replacing full accessible copy', () => {
+  const section = read('sections/maliev-pimm-30g-story.liquid');
+  const localeSource = read('locales/en.default.json');
+  const locale = JSON.parse(localeSource.slice(localeSource.indexOf('{')));
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.equal(locale.products.pimm30_story.specs.temperature_label, 'Maximum temperature');
+  assert.doesNotMatch(localeSource, /_label_compact/);
+  assert.match(
+    section,
+    /pimm30-spec-label__compact[^>]*>[\s\S]*?replace:\s*'Maximum ',\s*'Max\. '/,
+  );
+
+  assert.match(
+    section,
+    /aria-label="\{\{ 'products\.pimm30_story\.specs\.temperature_label' \| t \| escape \}\}"[\s\S]*?pimm30-spec-label__full[\s\S]*?pimm30-spec-label__compact/,
+  );
+  assert.match(
+    noCropCss,
+    /\.pimm30-spec-label__compact\s*\{\s*display:\s*none;/,
+  );
+  assert.match(
+    noCropCss,
+    /Short-landscape keynote rail[\s\S]*?max-height:\s*540px[\s\S]*?pimm30-spec-label:has\(\.pimm30-spec-label__compact\)[\s\S]*?pimm30-spec-label__full[\s\S]*?display:\s*none !important[\s\S]*?pimm30-spec-label__compact[\s\S]*?display:\s*inline !important/,
   );
 });
 

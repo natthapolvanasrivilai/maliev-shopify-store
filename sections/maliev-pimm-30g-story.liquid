@@ -3,11 +3,11 @@
   hot-reloading. The static revision also gives deployed browsers a new URL
   whenever this responsive media contract changes.
 {%- endcomment -%}
-<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260810-hero-matrix" media="all">
-<link rel="stylesheet" href="{{ 'maliev-pimm-30g-keynote.css' | asset_url }}&pimm30rev=20260810-hero-matrix" media="all">
-<link rel="stylesheet" href="{{ 'maliev-pimm-30g-no-crop.css' | asset_url }}&pimm30rev=20260810-hero-matrix" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260810-compact-labels" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g-keynote.css' | asset_url }}&pimm30rev=20260810-compact-labels" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g-no-crop.css' | asset_url }}&pimm30rev=20260810-compact-labels" media="all">
 <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
-<script src="{{ 'maliev-pimm-30g.js' | asset_url }}&pimm30rev=20260810-hero-matrix" defer="defer"></script>
+<script src="{{ 'maliev-pimm-30g.js' | asset_url }}&pimm30rev=20260810-compact-labels" defer="defer"></script>
 
 {%- liquid
   assign next_product = section.settings.next_product
@@ -17,6 +17,10 @@
   assign is_thai = false
   if request.locale.iso_code contains 'th'
     assign is_thai = true
+  endif
+  assign is_english = false
+  if request.locale.iso_code contains 'en'
+    assign is_english = true
   endif
 -%}
 
@@ -109,7 +113,15 @@
                   ><span data-pimm30-spec-number aria-hidden="true">30</span><span aria-hidden="true">{% if is_thai %} กรัม{% else %} g{% endif %}</span></dd>
                 </div>
                 <div>
-                  <dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt>
+                  <dt
+                    class="pimm30-spec-label"
+                    aria-label="{{ 'products.pimm30_story.specs.temperature_label' | t | escape }}"
+                  >
+                    <span class="pimm30-spec-label__full" aria-hidden="true">{{ 'products.pimm30_story.specs.temperature_label' | t }}</span>
+                    {%- if is_english -%}
+                      <span class="pimm30-spec-label__compact" aria-hidden="true">{{ 'products.pimm30_story.specs.temperature_label' | t | replace: 'Maximum ', 'Max. ' }}</span>
+                    {%- endif -%}
+                  </dt>
                   <dd
                     data-pimm30-spec-count
                     data-pimm30-spec-final="300"
@@ -117,7 +129,15 @@
                   ><span data-pimm30-spec-number aria-hidden="true">300</span><span aria-hidden="true">°C</span></dd>
                 </div>
                 <div>
-                  <dt>{{ 'products.pimm30_story.specs.force_label' | t }}</dt>
+                  <dt
+                    class="pimm30-spec-label"
+                    aria-label="{{ 'products.pimm30_story.specs.force_label' | t | escape }}"
+                  >
+                    <span class="pimm30-spec-label__full" aria-hidden="true">{{ 'products.pimm30_story.specs.force_label' | t }}</span>
+                    {%- if is_english -%}
+                      <span class="pimm30-spec-label__compact" aria-hidden="true">{{ 'products.pimm30_story.specs.force_label' | t | replace: 'Maximum ', 'Max. ' }}</span>
+                    {%- endif -%}
+                  </dt>
                   <dd
                     data-pimm30-spec-count
                     data-pimm30-spec-final="876"
@@ -126,8 +146,11 @@
                 </div>
                 <div>
                   {%- assign pressure_label = 'products.pimm30_story.specs.pressure_label' | t -%}
-                  <dt class="pimm30-spec-label">
-                    {{ pressure_label | replace: 'air pressure', '<span class="pimm30-spec-label__nowrap">air pressure</span>' }}
+                  <dt class="pimm30-spec-label" aria-label="{{ pressure_label | escape }}">
+                    <span class="pimm30-spec-label__full" aria-hidden="true">{{ pressure_label | replace: 'air pressure', '<span class="pimm30-spec-label__nowrap">air pressure</span>' }}</span>
+                    {%- if is_english -%}
+                      <span class="pimm30-spec-label__compact" aria-hidden="true">{{ pressure_label | replace: 'Maximum ', 'Max. ' }}</span>
+                    {%- endif -%}
                   </dt>
                   <dd
                     data-pimm30-spec-count

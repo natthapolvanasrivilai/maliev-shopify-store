@@ -676,6 +676,10 @@
   }
 }
 
+.pimm30-spec-label__compact {
+  display: none;
+}
+
 /* Short-landscape keynote rail. The copy paragraph is intentionally removed
  * from this height-constrained mode, while the model, four highlights, and CTA
  * receive fixed non-overlapping lanes. Labels stay on one line at this scale. */
@@ -739,6 +743,19 @@
     line-height: 1.1 !important;
     min-height: 0 !important;
     white-space: nowrap !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-label:has(.pimm30-spec-label__compact)
+    .pimm30-spec-label__full {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-label__compact {
+    display: inline !important;
   }
 
   .pimm30-story.pimm30-story
