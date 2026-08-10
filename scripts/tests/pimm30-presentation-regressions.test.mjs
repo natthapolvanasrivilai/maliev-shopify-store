@@ -28,6 +28,35 @@ const alphaBounds = (path, seek = null, minVal = 8) => {
   );
 };
 
+const opaqueLumaPercentile = (path, width, height, yStartRatio, yEndRatio, percentile) => {
+  const rgba = execFileSync(
+    'ffmpeg',
+    [
+      '-hide_banner', '-loglevel', 'error',
+      '-i', join(root, path),
+      '-frames:v', '1',
+      '-f', 'rawvideo',
+      '-pix_fmt', 'rgba',
+      'pipe:1',
+    ],
+    { maxBuffer: (width * height * 4) + 1024 },
+  );
+  const values = [];
+  const yStart = Math.round(height * yStartRatio);
+  const yEnd = Math.round(height * yEndRatio);
+  for (let y = yStart; y < yEnd; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = ((y * width) + x) * 4;
+      if (rgba[offset + 3] < 200) continue;
+      values.push(Math.round(
+        (0.2126 * rgba[offset]) + (0.7152 * rgba[offset + 1]) + (0.0722 * rgba[offset + 2]),
+      ));
+    }
+  }
+  values.sort((a, b) => a - b);
+  return values[Math.floor(values.length * percentile)];
+};
+
 test('alpha videos replace their poster layer while playing', () => {
   const liquid = read('snippets/maliev-pimm-30g-chapter.liquid');
   const css = read('assets/maliev-pimm-30g.css');
@@ -504,7 +533,7 @@ test('final responsive contract removes side fades and presents each hero featur
   );
 });
 
-test('detail chapters use the approved close-up assets and animated heater sequence', () => {
+test('detail chapters use the animated heater sequence and fully framed pressure assets', () => {
   const template = read('templates/product.injection-molding-machine.json');
   const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
 
@@ -548,8 +577,34 @@ test('detail chapters use the approved close-up assets and animated heater seque
       assert.equal(width / height, 5 / 6, 'desktop controller media must fill the tall presentation stage');
     }
   }
-  assert.match(template, /"regulator"[\s\S]*?pimm30-v4-regulator-desktop\.webp[\s\S]*?pimm30-v4-regulator-mobile\.webp/);
-  assert.doesNotMatch(template, /pimm30-v10-regulator-(?:desktop|mobile)\.webp/);
+  assert.match(template, /"regulator"[\s\S]*?pimm30-v14-regulator-desktop\.webp[\s\S]*?pimm30-v14-regulator-mobile\.webp/);
+  assert.doesNotMatch(template, /pimm30-v4-regulator-(?:desktop|mobile)\.webp/);
+  for (const [asset, width, height] of [
+    ['pimm30-v14-regulator-desktop.webp', 1200, 1440],
+    ['pimm30-v14-regulator-mobile.webp', 1080, 1920],
+  ]) {
+    const probe = JSON.parse(execFileSync(
+      'ffprobe',
+      [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height',
+        '-of', 'json',
+        join(root, 'assets', asset),
+      ],
+      { encoding: 'utf8' },
+    ));
+    assert.equal(probe.streams[0].width, width);
+    assert.equal(probe.streams[0].height, height);
+
+    const bounds = alphaBounds(`assets/${asset}`);
+    assert.ok(bounds.x1 > 0 && bounds.x2 < width - 1, `${asset} touches a horizontal edge: ${JSON.stringify(bounds)}`);
+    assert.ok(bounds.y1 > 0 && bounds.y2 < height - 1, `${asset} touches a vertical edge: ${JSON.stringify(bounds)}`);
+    assert.ok(bounds.h >= height * 0.78, `${asset} leaves the machine too small for its vertical stage: ${JSON.stringify(bounds)}`);
+
+    const lowerLumaP10 = opaqueLumaPercentile(`assets/${asset}`, width, height, 0.5, 0.92, 0.1);
+    assert.ok(lowerLumaP10 >= 70, `${asset} reintroduced black reflections on the lower shafts: p10=${lowerLumaP10}`);
+  }
 });
 
 test('portrait chapters contain media and keep all capacity content inside one viewport', () => {
