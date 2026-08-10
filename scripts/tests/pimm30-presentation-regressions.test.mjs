@@ -168,33 +168,35 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-feature-rail:\s*6rem[\s\S]*?--pimm30-hero-media-height:\s*clamp\([\s\S]*?64rem/
+    /@media \(min-width: 600px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-feature-rail:\s*6rem[\s\S]*?--pimm30-hero-media-height:\s*clamp\([\s\S]*?64rem/
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(orientation: portrait\)[\s\S]*?transform:\s*translateX\(-50%\) !important[\s\S]*?transform-origin:\s*50% 50% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?inset:\s*60% 0 -42% !important[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
+    /@media \(min-width: 600px\) and \(orientation: portrait\)[\s\S]*?transform:\s*translateX\(-50%\) !important[\s\S]*?transform-origin:\s*50% 50% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?inset:\s*60% 0 -42% !important[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\) !important[\s\S]*?max-width:\s*min\(42rem, calc\(100% - 4\.8rem\)\) !important/
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-control-gap:\s*2\.4rem[\s\S]*?\.pimm30-stage__backdrop\s*\{[\s\S]*?font-size:\s*clamp\(6rem, 12vw, 9rem\) !important[\s\S]*?transform:\s*translateX\(-50%\) translateY\(-1rem\) scale\(1\.2\) !important[\s\S]*?transform-origin:\s*50% 58% !important[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?\:\:after\s*\{[\s\S]*?content:\s*none !important[\s\S]*?display:\s*none !important[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\) !important[\s\S]*?grid-column:\s*2 !important[\s\S]*?grid-column:\s*3 !important[\s\S]*?justify-self:\s*end !important/
+    /@media \(min-width: 600px\) and \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?--pimm30-mobile-control-gap:\s*2\.4rem[\s\S]*?\.pimm30-stage__backdrop\s*\{[\s\S]*?font-size:\s*clamp\(8\.4rem, 14vw, 9\.6rem\) !important[\s\S]*?height:\s*var\(--pimm30-hero-media-height\) !important[\s\S]*?mask-image:\s*none !important[\s\S]*?\.pimm30-stage__poster\s*\{[\s\S]*?height:\s*100% !important[\s\S]*?mask-composite:\s*intersect !important[\s\S]*?linear-gradient\(to bottom, #000 0%, #000 88%, transparent 100%\)[\s\S]*?transform:\s*translateX\(-50%\) scale\(1\.42\) !important[\s\S]*?transform-origin:\s*50% 50% !important[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\) !important[\s\S]*?grid-column:\s*2 !important[\s\S]*?grid-column:\s*3 !important[\s\S]*?justify-self:\s*end !important/
   );
   assert.match(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(max-width: 899px\) and \(orientation: portrait\) and \(min-height: 1100px\)[\s\S]*?transform:\s*translateX\(-50%\) translateY\(1\.4rem\) scale\(1\.3\) !important/
+    /@media \(min-width: 600px\) and \(max-width: 899px\) and \(orientation: portrait\) and \(min-height: 1100px\)[\s\S]*?transform:\s*translateX\(-50%\) translateY\(0\.8rem\) scale\(1\.36\) !important/
   );
   assert.doesNotMatch(
     keynoteCss,
-    /transform:\s*translateX\(-50%\) scale\(1\.(?:18|42)\) !important/
+    /transform:\s*translateX\(-50%\) scale\(1\.18\) !important/
   );
 });
 
-test('completed iPad hero replaces the opaque startup frame with transparent media', () => {
+test('completed tablet hero holds the animation frame without a poster swap', () => {
   const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+  const script = read('assets/maliev-pimm-30g.js');
 
-  assert.match(
+  assert.doesNotMatch(
     keynoteCss,
-    /@media \(min-width: 700px\) and \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?\.pimm30-stage__poster\s*\{[\s\S]*?height:\s*100% !important[\s\S]*?opacity:\s*1 !important[\s\S]*?visibility:\s*visible !important[\s\S]*?z-index:\s*2 !important[\s\S]*?\.pimm30-stage__video--mobile\s*\{[\s\S]*?opacity:\s*0 !important[\s\S]*?visibility:\s*hidden !important/
+    /\.is-hero-complete[\s\S]*?\.pimm30-stage__video--mobile\s*\{[\s\S]*?opacity:\s*0 !important/
   );
+  assert.match(script, /layer\.dataset\.pimm30Layer === 'pimm30-overview'[\s\S]*?video\.classList\.add\('is-paused'\)[\s\S]*?layer\.classList\.add\('has-active-video'\)/);
 });
 
 test('hero startup begins in a dark studio and turns light at the configured milestone', () => {
