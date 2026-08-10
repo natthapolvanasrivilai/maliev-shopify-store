@@ -188,6 +188,15 @@ test('mobile hero expands its media lane while reserving a bottom feature, CTA, 
   );
 });
 
+test('completed iPad hero replaces the opaque startup frame with transparent media', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 700px\) and \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?\.pimm30-story\.is-hero-complete[\s\S]*?\.pimm30-stage__poster\s*\{[\s\S]*?height:\s*100% !important[\s\S]*?opacity:\s*1 !important[\s\S]*?visibility:\s*visible !important[\s\S]*?z-index:\s*2 !important[\s\S]*?\.pimm30-stage__video--mobile\s*\{[\s\S]*?opacity:\s*0 !important[\s\S]*?visibility:\s*hidden !important/
+  );
+});
+
 test('hero startup begins in a dark studio and turns light at the configured milestone', () => {
   const section = read('sections/maliev-pimm-30g-story.liquid');
   const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');

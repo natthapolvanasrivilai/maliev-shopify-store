@@ -1164,6 +1164,32 @@
     display: none !important;
   }
 
+  /* The mobile startup WebM ends with an opaque studio plate baked into its
+   * final frame.  Leaving that paused frame in place produces a visible hard
+   * horizontal edge below the feet.  Once the sequence has completed, use the
+   * matching transparent portrait poster in this exact media lane instead.
+   * The poster and video share the same transforms above, so the machine does
+   * not jump while its alpha edge keeps the ground treatment continuous. */
+  .pimm30-story.is-hero-complete
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__poster {
+    display: block !important;
+    height: 100% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 2 !important;
+  }
+
+  .pimm30-story.is-hero-complete
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-overview']
+    .pimm30-stage__video--mobile {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+
   /* Keep the label geometrically centered, independent of the directional
    * arrow's visual weight at the right edge of the compact action. */
   .pimm30-story .pimm30-chapter--hero .pimm30-action--hero {
