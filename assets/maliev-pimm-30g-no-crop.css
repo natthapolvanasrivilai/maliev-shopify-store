@@ -466,7 +466,7 @@
   }
 }
 
-@media (min-width: 540px) and (max-width: 899px) and (orientation: landscape) and (max-height: 540px) {
+@media (min-width: 540px) and (max-width: 1023px) and (orientation: landscape) and (max-height: 540px) {
   .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__content {
     align-content: center !important;
     display: grid !important;
@@ -1087,5 +1087,295 @@
     :is(.pimm30-stage__poster img, .pimm30-stage__video) {
     height: 45svh !important;
     top: calc(var(--pimm30-header-space) + 22svh) !important;
+  }
+}
+
+/* Final mobile one-scroll chapter contract.
+ *
+ * The stage is fixed while the chapter rail moves behind it, so any late
+ * `height:auto` or `overflow:visible` override makes one keynote chapter
+ * consume multiple gestures. Every compact chapter therefore owns exactly
+ * one dynamic viewport. Its copy is contained inside that same presentation
+ * frame; individual chapter rules continue to budget media versus copy. */
+@media (min-width: 900px) and (max-width: 1023px) and (orientation: landscape) and (max-height: 540px) {
+  .pimm30-story.pimm30-story .pimm30-chapter {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    scroll-snap-align: start !important;
+    scroll-snap-stop: always !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter .pimm30-chapter__content {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+}
+
+@media (max-width: 899px) {
+  .pimm30-story.pimm30-story .pimm30-chapter {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    scroll-snap-align: start !important;
+    scroll-snap-stop: always !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter .pimm30-chapter__content {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+}
+
+@media (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-media-height: clamp(22rem, 45dvh, 42rem);
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(.pimm30-chapter--hero, .pimm30-chapter--configuration, .pimm30-chapter--next_model)
+    .pimm30-chapter__content {
+    gap: clamp(0.7rem, 1.25dvh, 1.2rem) !important;
+    padding: calc(var(--pimm30-header-space) + var(--pimm30-media-height) + 1.2rem)
+      clamp(1.8rem, 6vw, 3.2rem) max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(.pimm30-chapter--hero, .pimm30-chapter--configuration, .pimm30-chapter--next_model)
+    .pimm30-chapter__content
+    > * {
+    margin-block: 0 !important;
+  }
+}
+
+@media (max-width: 899px) and (orientation: portrait) and (max-height: 860px) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-configuration'] {
+    height: 40dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 40dvh + 0.5rem) !important;
+  }
+}
+
+@media (max-width: 899px) and (orientation: portrait) and (max-height: 760px) {
+  .pimm30-story {
+    --pimm30-media-height: 34dvh;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-configuration'] {
+    height: 34dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 34dvh + 0.4rem) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-next_model'] {
+    height: 44dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--next_model
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 42dvh) !important;
+  }
+}
+
+@media (max-width: 899px) and (orientation: portrait) and (max-height: 600px) {
+  .pimm30-story {
+    --pimm30-media-height: 29dvh;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-configuration'] {
+    height: 26dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 26dvh + 0.4rem) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-next_model'] {
+    height: 36dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--next_model
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 35dvh) !important;
+  }
+}
+
+@media (min-width: 540px) and (max-width: 1023px) and (orientation: landscape) and (max-height: 540px) {
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(
+      .pimm30-chapter--hero,
+      .pimm30-chapter--operation,
+      .pimm30-chapter--regulator,
+      .pimm30-chapter--fixture,
+      .pimm30-chapter--configuration,
+      .pimm30-chapter--next_model
+    )
+    .pimm30-chapter__content {
+    align-content: center !important;
+    display: grid !important;
+    gap: clamp(0.55rem, 1.5dvh, 0.9rem) !important;
+    padding: calc(var(--pimm30-header-space) + 0.4rem) 1.6rem 1rem !important;
+    width: 41vw !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(
+      .pimm30-chapter--hero,
+      .pimm30-chapter--operation,
+      .pimm30-chapter--regulator,
+      .pimm30-chapter--fixture,
+      .pimm30-chapter--configuration,
+      .pimm30-chapter--next_model
+    )
+    .pimm30-chapter__content
+    > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(
+      .pimm30-chapter--hero,
+      .pimm30-chapter--operation,
+      .pimm30-chapter--regulator,
+      .pimm30-chapter--fixture,
+      .pimm30-chapter--configuration,
+      .pimm30-chapter--next_model
+    )
+    h2 {
+    font-size: clamp(2.4rem, 4vw, 3.2rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .pimm30-story.pimm30-story
+    :is(
+      .pimm30-chapter--operation,
+      .pimm30-chapter--regulator,
+      .pimm30-chapter--fixture
+    )
+    .pimm30-chapter__content
+    > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > :is(
+      [data-pimm30-layer='pimm30-capacity'],
+      [data-pimm30-layer='pimm30-temperature'],
+      [data-pimm30-layer='pimm30-cylinder'],
+      [data-pimm30-layer='pimm30-materials']
+    ) {
+    height: calc(100dvh - var(--pimm30-header-space)) !important;
+    inset: var(--pimm30-header-space) 0 0 41vw !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > :is(
+      [data-pimm30-layer='pimm30-capacity'],
+      [data-pimm30-layer='pimm30-temperature'],
+      [data-pimm30-layer='pimm30-cylinder'],
+      [data-pimm30-layer='pimm30-materials']
+    )
+    :is(.pimm30-stage__poster, picture, img, .pimm30-stage__video) {
+    height: 100% !important;
+    inset: 0 !important;
+    object-fit: contain !important;
+    transform: none !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content {
+    align-content: center !important;
+    display: grid !important;
+    gap: 0.5rem !important;
+    padding: calc(var(--pimm30-header-space) + 0.4rem) 1.4rem 0.8rem !important;
+    width: 50vw !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration h2,
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content
+    > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce,
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce__actions {
+    gap: 0.5rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce__summary {
+    margin-bottom: 0.4rem !important;
+    padding: 0.5rem 0 !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-configuration'] {
+    height: calc(100dvh - var(--pimm30-header-space)) !important;
+    inset: var(--pimm30-header-space) 0 0 50vw !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--next_model .pimm30-chapter__content {
+    align-content: center !important;
+    display: grid !important;
+    gap: 0.5rem !important;
+    padding: calc(var(--pimm30-header-space) + 0.4rem) 1.4rem 0.8rem !important;
+    width: 50vw !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--next_model .pimm50-lockup__summary {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--next_model .pimm50-lockup__title {
+    font-size: clamp(3.6rem, 6vw, 5rem) !important;
+    line-height: 0.9 !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--next_model .pimm30-next-model__upgrades {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-next_model'] {
+    height: calc(100dvh - var(--pimm30-header-space)) !important;
+    inset: var(--pimm30-header-space) 0 0 50vw !important;
+    width: auto !important;
   }
 }

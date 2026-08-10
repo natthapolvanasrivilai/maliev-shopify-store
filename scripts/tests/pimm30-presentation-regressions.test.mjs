@@ -877,3 +877,37 @@ test('PIMM 50G portrait finale shares one centered presentation axis', () => {
     /Final PIMM 50G alignment seal[\s\S]*?radial-gradient\(circle at 50% 38%, rgba\(228, 30, 24, 0\.46\), transparent 42%\)/,
   );
 });
+
+test('mobile keynote chapters have one exact viewport of scroll travel', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final mobile one-scroll chapter contract[\s\S]*?@media \(max-width: 899px\)[\s\S]*?\.pimm30-story\.pimm30-story \.pimm30-chapter\s*\{[\s\S]*?height:\s*100dvh !important[\s\S]*?min-height:\s*100dvh !important[\s\S]*?max-height:\s*100dvh !important[\s\S]*?overflow:\s*hidden !important[\s\S]*?scroll-snap-align:\s*start !important[\s\S]*?scroll-snap-stop:\s*always !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final mobile one-scroll chapter contract[\s\S]*?\.pimm30-story\.pimm30-story \.pimm30-chapter \.pimm30-chapter__content\s*\{[\s\S]*?height:\s*100dvh !important[\s\S]*?min-height:\s*100dvh !important[\s\S]*?max-height:\s*100dvh !important[\s\S]*?overflow:\s*hidden !important/,
+  );
+});
+
+test('short mobile viewports fit chapter copy and actions inside the one-scroll frame', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final mobile one-scroll chapter contract[\s\S]*?@media \(max-width: 899px\) and \(orientation: portrait\) and \(max-height: 760px\)[\s\S]*?--pimm30-media-height:\s*34dvh[\s\S]*?pimm30-configuration['"]\][\s\S]*?height:\s*34dvh !important[\s\S]*?pimm30-chapter--configuration[\s\S]*?\.pimm30-chapter__content[\s\S]*?34dvh/,
+  );
+  assert.match(
+    noCropCss,
+    /Final mobile one-scroll chapter contract[\s\S]*?@media \(max-width: 899px\) and \(orientation: portrait\) and \(max-height: 600px\)[\s\S]*?--pimm30-media-height:\s*29dvh[\s\S]*?pimm30-configuration['"]\][\s\S]*?height:\s*26dvh !important[\s\S]*?pimm30-next_model['"]\][\s\S]*?height:\s*36dvh !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final mobile one-scroll chapter contract[\s\S]*?@media \(min-width: 540px\) and \(max-width: 1023px\) and \(orientation: landscape\) and \(max-height: 540px\)[\s\S]*?pimm30-chapter:not\([\s\S]*?pimm30-chapter--configuration[\s\S]*?width:\s*41vw !important[\s\S]*?pimm30-chapter__content[\s\S]*?> p:not\(\.pimm30-chapter__label\)[\s\S]*?display:\s*none !important[\s\S]*?pimm30-chapter--configuration[\s\S]*?\.pimm30-chapter__content[\s\S]*?width:\s*50vw !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final mobile one-scroll chapter contract[\s\S]*?@media \(min-width: 900px\) and \(max-width: 1023px\) and \(orientation: landscape\) and \(max-height: 540px\)[\s\S]*?\.pimm30-story\.pimm30-story \.pimm30-chapter\s*\{[\s\S]*?height:\s*100dvh !important[\s\S]*?max-height:\s*100dvh !important[\s\S]*?overflow:\s*hidden !important/,
+  );
+});
