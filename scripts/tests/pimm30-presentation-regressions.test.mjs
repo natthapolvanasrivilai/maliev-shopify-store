@@ -511,15 +511,22 @@ test('configuration dragging reverses horizontal pointer travel while coalescing
   assert.doesNotMatch(script, /const deltaX = event\.clientX - lastX/);
 });
 
-test('configuration previews left and right before enabling interaction on the front frame', () => {
+test('configuration previews left and right exactly once before enabling interaction on the front frame', () => {
   const script = read('assets/maliev-pimm-30g.js');
 
-  assert.match(script, /const turntablePreviewKeyframes = \[0\.5, 0, 1, 0\.5\]/);
+  assert.match(script, /const turntableSeekableSources = new WeakMap\(\)/);
+  assert.match(script, /function hasTurntableSeekRange\(video\)[\s\S]*?turntableRotationStart[\s\S]*?turntableRotationEnd/);
+  assert.match(script, /function prepareTurntableSeekable\(layer, video\)[\s\S]*?hasTurntableSeekRange\(video\)[\s\S]*?fetch\(sourceUrl, \{ cache: 'force-cache' \}\)[\s\S]*?URL\.createObjectURL\(blob\)/);
   assert.match(script, /layer\.classList\.add\('is-turntable-previewing'\)/);
-  assert.match(script, /function completeTurntablePreview\(layer, video\)[\s\S]*?is-turntable-ready[\s\S]*?layer\.tabIndex = 0/);
-  assert.match(script, /function playTurntablePreview\(layer, video\)[\s\S]*?requestAnimationFrame\(renderPreviewFrame\)/);
-  assert.match(script, /if \(reduced\)[\s\S]*?completeTurntablePreview\(layer, video\)/);
-  assert.match(script, /turntablePreviewKeyframes\[turntablePreviewKeyframes\.length - 1\]/);
+  assert.match(script, /function completeTurntablePreview\(layer, video\)[\s\S]*?pimm30PreviewComplete = 'true'[\s\S]*?is-turntable-ready[\s\S]*?layer\.tabIndex = 0/);
+  assert.match(script, /function playTurntablePreview\(layer, video\)[\s\S]*?video\.currentTime = 0[\s\S]*?video\.addEventListener\('ended', finishPreview, \{ once: true \}\)[\s\S]*?video\.play\(\)/);
+  assert.match(script, /const finishPreview = \(\) => \{[\s\S]*?prepareTurntableSeekable\(layer, video\)[\s\S]*?completeTurntablePreview\(layer, video\)/);
+  assert.match(script, /layer\.dataset\.pimm30PreviewComplete === 'true'\) \{[\s\S]*?finishPreview\(\)/);
+  assert.match(script, /if \(reduced \|\| layer\.dataset\.pimm30PreviewComplete === 'true'\)/);
+  assert.match(script, /video\.currentTime = turntableTime\(0\.5\)/);
+  assert.doesNotMatch(script, /requestAnimationFrame\(renderPreviewFrame\)/);
+  assert.match(script, /if \(layer\.dataset\.pimm30PreviewComplete === 'true'\)[\s\S]*?layer\.classList\.add\('is-turntable-ready'\)/);
+  assert.doesNotMatch(script, /let seekableSourcePromise = null/);
 });
 
 test('configuration pricing keeps the price dominant and wraps metadata as whole items', () => {
@@ -542,7 +549,7 @@ test('presentation assets share the responsive hero revision token', () => {
   const revisions = [...liquid.matchAll(/pimm30rev=([\w-]+)/g)].map((match) => match[1]);
 
   assert.equal(revisions.length, 4);
-  assert.deepEqual([...new Set(revisions)], ['20260810-fixture-complete']);
+  assert.deepEqual([...new Set(revisions)], ['20260810-turntable-preview']);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {

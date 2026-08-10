@@ -59,12 +59,11 @@
     let specCountHasPlayed = reduced || activeId !== 'pimm30-overview';
     let specCountFrame = 0;
     let responsiveVideoFrame = 0;
-    let turntablePreviewFrame = 0;
     let turntablePreviewLayer = null;
+    let turntablePreviewToken = 0;
+    const turntableSeekableSources = new WeakMap();
     const turntableRotationStart = 65 / 24;
     const turntableRotationEnd = 101 / 24;
-    const turntablePreviewKeyframes = [0.5, 0, 1, 0.5];
-    const turntablePreviewStops = [0, 0.25, 0.75, 1];
 
     story.classList.toggle('is-reduced-motion', reduced);
     // Theme-editor previews are intentionally static on the hosted storefront,
@@ -153,8 +152,7 @@
     }
 
     function cancelTurntablePreview(layer = turntablePreviewLayer) {
-      if (turntablePreviewFrame) window.cancelAnimationFrame(turntablePreviewFrame);
-      turntablePreviewFrame = 0;
+      turntablePreviewToken += 1;
       if (layer) layer.classList.remove('is-turntable-previewing');
       if (turntablePreviewLayer === layer) turntablePreviewLayer = null;
     }
@@ -163,12 +161,65 @@
       return turntableRotationStart + progress * (turntableRotationEnd - turntableRotationStart);
     }
 
+    function hasTurntableSeekRange(video) {
+      for (let index = 0; index < video.seekable.length; index += 1) {
+        if (
+          video.seekable.start(index) <= turntableRotationStart + 1 / 48 &&
+          video.seekable.end(index) >= turntableRotationEnd - 1 / 48
+        ) return true;
+      }
+      return false;
+    }
+
+    function prepareTurntableSeekable(layer, video) {
+      if (video.currentSrc.startsWith('blob:') || hasTurntableSeekRange(video)) {
+        layer.dataset.pimm30Seekable = 'true';
+        return Promise.resolve(true);
+      }
+
+      const pendingSource = turntableSeekableSources.get(video);
+      if (pendingSource) return pendingSource;
+
+      const sourceUrl = video.currentSrc || video.querySelector('source')?.src;
+      if (!sourceUrl) return Promise.resolve(false);
+
+      const seekableSource = fetch(sourceUrl, { cache: 'force-cache' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`Turntable media request failed: ${response.status}`);
+          return response.blob();
+        })
+        .then((blob) => URL.createObjectURL(blob))
+        .then((objectUrl) => new Promise((resolve) => {
+          const resumeTime = video.currentTime;
+          const handleMetadata = () => {
+            const finalFrameTime = Math.max(0, video.duration - 1 / 24);
+            video.currentTime = Math.min(resumeTime, finalFrameTime);
+            layer.dataset.pimm30Seekable = 'true';
+            resolve(true);
+          };
+
+          video.addEventListener('loadedmetadata', handleMetadata, { once: true });
+          video.src = objectUrl;
+          video.load();
+          window.addEventListener('pagehide', () => URL.revokeObjectURL(objectUrl), { once: true });
+        }))
+        .catch(() => {
+          turntableSeekableSources.delete(video);
+          layer.dataset.pimm30Seekable = 'false';
+          return false;
+        });
+
+      turntableSeekableSources.set(video, seekableSource);
+      return seekableSource;
+    }
+
     function completeTurntablePreview(layer, video) {
       cancelTurntablePreview(layer);
       video.pause();
-      video.currentTime = turntableTime(turntablePreviewKeyframes[turntablePreviewKeyframes.length - 1]);
+      video.currentTime = turntableTime(0.5);
       video.classList.remove('is-playing');
       video.classList.add('is-paused');
+      layer.dataset.pimm30PreviewComplete = 'true';
       layer.classList.add('has-active-video', 'is-turntable-ready');
       layer.removeAttribute('aria-disabled');
       if (layer.classList.contains('is-active')) layer.tabIndex = 0;
@@ -176,6 +227,7 @@
 
     function playTurntablePreview(layer, video) {
       cancelTurntablePreview();
+      const previewToken = ++turntablePreviewToken;
       turntablePreviewLayer = layer;
       layer.classList.remove('is-turntable-ready');
       layer.classList.add('is-turntable-previewing');
@@ -183,59 +235,42 @@
       layer.tabIndex = -1;
 
       const beginPreview = () => {
-        if (reduced) {
-          completeTurntablePreview(layer, video);
+        const previewIsCurrent = () => (
+          previewToken === turntablePreviewToken &&
+          activeVideo === video &&
+          layer.classList.contains('is-active')
+        );
+        const failPreview = () => {
+          if (!previewIsCurrent()) return;
+          cancelTurntablePreview(layer);
+          layer.classList.add('is-video-failed');
+        };
+        const finishPreview = () => {
+          if (!previewIsCurrent()) return;
+          prepareTurntableSeekable(layer, video).then((seekable) => {
+            if (!previewIsCurrent()) return;
+            if (!seekable) {
+              failPreview();
+              return;
+            }
+            completeTurntablePreview(layer, video);
+          });
+        };
+
+        if (reduced || layer.dataset.pimm30PreviewComplete === 'true') {
+          finishPreview();
           return;
         }
 
-        const frontFrame = turntableTime(turntablePreviewKeyframes[0]);
-        const revealAndAnimate = () => {
-          if (activeVideo !== video || !layer.classList.contains('is-active')) return;
-          video.pause();
-          video.classList.remove('is-playing');
-          video.classList.add('is-paused');
-          layer.classList.add('has-active-video');
-
-          const startedAt = performance.now();
-          const duration = 2800;
-          const renderPreviewFrame = (now) => {
-            if (activeVideo !== video || !layer.classList.contains('is-active')) {
-              cancelTurntablePreview(layer);
-              return;
-            }
-
-            const timelineProgress = Math.min(1, (now - startedAt) / duration);
-            let segment = turntablePreviewStops.length - 2;
-            for (let index = 0; index < turntablePreviewStops.length - 1; index += 1) {
-              if (timelineProgress <= turntablePreviewStops[index + 1]) {
-                segment = index;
-                break;
-              }
-            }
-            const segmentStart = turntablePreviewStops[segment];
-            const segmentEnd = turntablePreviewStops[segment + 1];
-            const segmentProgress = (timelineProgress - segmentStart) / (segmentEnd - segmentStart);
-            const eased = 0.5 - Math.cos(Math.PI * segmentProgress) / 2;
-            const from = turntablePreviewKeyframes[segment];
-            const to = turntablePreviewKeyframes[segment + 1];
-            video.currentTime = turntableTime(from + (to - from) * eased);
-
-            if (timelineProgress < 1) {
-              turntablePreviewFrame = window.requestAnimationFrame(renderPreviewFrame);
-            } else {
-              completeTurntablePreview(layer, video);
-            }
-          };
-
-          turntablePreviewFrame = window.requestAnimationFrame(renderPreviewFrame);
-        };
-
-        if (Math.abs(video.currentTime - frontFrame) < 1 / 48) {
-          window.requestAnimationFrame(revealAndAnimate);
-        } else {
-          video.addEventListener('seeked', revealAndAnimate, { once: true });
-          video.currentTime = frontFrame;
-        }
+        // The authored clip is one continuous front -> left -> front -> right ->
+        // front presentation. Playing it normally avoids unreliable pre-buffer
+        // seeking and guarantees that drag cannot unlock before both sides show.
+        video.currentTime = 0;
+        video.classList.add('is-playing');
+        video.classList.remove('is-paused');
+        layer.classList.add('has-active-video');
+        video.addEventListener('ended', finishPreview, { once: true });
+        video.play().catch(failPreview);
       };
 
       if (video.readyState >= 1) beginPreview();
@@ -369,7 +404,11 @@
           layer.classList.add('has-active-video');
           if (layer.matches('[data-pimm30-turntable]')) {
             video.currentTime = (65 / 24 + 101 / 24) / 2;
-            layer.classList.add('is-turntable-ready');
+            if (layer.dataset.pimm30PreviewComplete === 'true') {
+              layer.classList.add('is-turntable-ready');
+              layer.removeAttribute('aria-disabled');
+              if (layer.classList.contains('is-active')) layer.tabIndex = 0;
+            }
           }
         } else {
           video.classList.remove('is-playing', 'is-paused');
@@ -410,46 +449,8 @@
       let rotationProgress = 0.5;
       let pendingTime = null;
       let scrubFrame = 0;
-      let seekableSourcePromise = null;
       const rotationStartTime = 65 / 24;
       const rotationEndTime = 101 / 24;
-
-      const prepareSeekableVideo = () => {
-        if (video.currentSrc.startsWith('blob:')) return Promise.resolve(true);
-        if (seekableSourcePromise) return seekableSourcePromise;
-
-        const sourceUrl = video.currentSrc || video.querySelector('source')?.src;
-        if (!sourceUrl) return Promise.resolve(false);
-
-        seekableSourcePromise = fetch(sourceUrl, { cache: 'force-cache' })
-          .then((response) => {
-            if (!response.ok) throw new Error(`Turntable media request failed: ${response.status}`);
-            return response.blob();
-          })
-          .then((blob) => URL.createObjectURL(blob))
-          .then((objectUrl) => new Promise((resolve) => {
-            const resumeTime = video.currentTime;
-            const resumePlayback = !video.paused && !video.ended;
-            const handleMetadata = () => {
-              const finalFrameTime = Math.max(0, video.duration - 1 / 24);
-              video.currentTime = Math.min(resumeTime, finalFrameTime);
-              turntable.dataset.pimm30Seekable = 'true';
-              if (resumePlayback) video.play().catch(() => {});
-              resolve(true);
-            };
-
-            video.addEventListener('loadedmetadata', handleMetadata, { once: true });
-            video.src = objectUrl;
-            video.load();
-            window.addEventListener('pagehide', () => URL.revokeObjectURL(objectUrl), { once: true });
-          }))
-          .catch(() => {
-            turntable.dataset.pimm30Seekable = 'false';
-            return false;
-          });
-
-        return seekableSourcePromise;
-      };
 
       const progressPerPixel = () => 1 / Math.max(turntable.clientWidth, 720);
 
