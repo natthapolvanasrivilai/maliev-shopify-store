@@ -16,10 +16,10 @@
           "type": "chapter",
           "settings": {
             "role": "overview",
-            "desktop_video_asset": "pimm30-v14-hero-desktop-clean.webm",
-            "desktop_poster_asset": "pimm30-v14-hero-desktop-clean.webp",
-            "mobile_video_asset": "pimm30-v14-hero-mobile-clean.webm",
-            "mobile_poster_asset": "pimm30-v14-hero-mobile-clean.webp"
+            "desktop_video_asset": "pimm30-v13-hero-desktop-contained.webm",
+            "desktop_poster_asset": "pimm30-v13-hero-desktop-contained.webp",
+            "mobile_video_asset": "pimm30-v13-hero-mobile-contained.webm",
+            "mobile_poster_asset": "pimm30-v13-hero-mobile-contained.webp"
           }
         },
         "capacity": {

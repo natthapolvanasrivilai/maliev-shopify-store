@@ -63,20 +63,24 @@ test('transparent presentation media is never hard-cropped by the stage', () => 
   assert.doesNotMatch(noCropCss, /mask-image:\s*linear-gradient\(to right/);
 });
 
-test('hero art has clean alpha clearance before CSS presentation scaling', () => {
+test('hero art preserves alpha shadow clearance before CSS presentation scaling', () => {
   const template = read('templates/product.injection-molding-machine.json');
 
-  assert.match(template, /pimm30-v14-hero-desktop-clean\.(?:webm|webp)/);
-  assert.match(template, /pimm30-v14-hero-mobile-clean\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v13-hero-desktop-contained\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v13-hero-mobile-contained\.(?:webm|webp)/);
 
-  const desktop = alphaBounds('assets/pimm30-v14-hero-desktop-clean.webp');
-  const mobile = alphaBounds('assets/pimm30-v14-hero-mobile-clean.webp');
-  const desktopFinalFrame = alphaBounds('assets/pimm30-v14-hero-desktop-clean.webm', 3.9);
-  const mobileFinalFrame = alphaBounds('assets/pimm30-v14-hero-mobile-clean.webm', 3.9);
+  const desktop = alphaBounds('assets/pimm30-v13-hero-desktop-contained.webp');
+  const mobile = alphaBounds('assets/pimm30-v13-hero-mobile-contained.webp');
+  const desktopFinalFrame = alphaBounds('assets/pimm30-v13-hero-desktop-contained.webm', 3.9);
+  const mobileFinalFrame = alphaBounds('assets/pimm30-v13-hero-mobile-contained.webm', 3.9);
+  const desktopSolid = alphaBounds('assets/pimm30-v13-hero-desktop-contained.webp', null, 200);
+  const mobileSolid = alphaBounds('assets/pimm30-v13-hero-mobile-contained.webp', null, 200);
   assert.ok(desktop.x1 > 0 && desktop.x2 < 1919, `desktop alpha touches a side: ${JSON.stringify(desktop)}`);
   assert.ok(mobile.x1 > 0 && mobile.x2 < 1079, `mobile alpha touches a side: ${JSON.stringify(mobile)}`);
   assert.ok(desktopFinalFrame.x1 > 0 && desktopFinalFrame.x2 < 1919, `desktop video alpha touches a side: ${JSON.stringify(desktopFinalFrame)}`);
   assert.ok(mobileFinalFrame.x1 > 0 && mobileFinalFrame.x2 < 1079, `mobile video alpha touches a side: ${JSON.stringify(mobileFinalFrame)}`);
+  assert.ok(desktop.w - desktopSolid.w > 80, 'desktop ground shadow was stripped from the alpha render');
+  assert.ok(mobile.w - mobileSolid.w > 80, 'mobile ground shadow was stripped from the alpha render');
 });
 
 test('hero uses a continuous aspect-aware layout with no backdrop wash layer', () => {
@@ -85,8 +89,8 @@ test('hero uses a continuous aspect-aware layout with no backdrop wash layer', (
   const liquid = read('snippets/maliev-pimm-30g-chapter.liquid');
   const script = read('assets/maliev-pimm-30g.js');
 
-  assert.match(template, /pimm30-v14-hero-desktop-clean\.(?:webm|webp)/);
-  assert.match(template, /pimm30-v14-hero-mobile-clean\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v13-hero-desktop-contained\.(?:webm|webp)/);
+  assert.match(template, /pimm30-v13-hero-mobile-contained\.(?:webm|webp)/);
   assert.match(liquid, /\(max-width: 539px\), \(max-aspect-ratio: 6\/5\)/);
   assert.match(script, /matchMedia\('\(max-width: 539px\), \(max-aspect-ratio: 6\/5\)'\)/);
   assert.match(noCropCss, /Hero fluid composition[\s\S]*?--pimm30-hero-media-height:[\s\S]*?100svh/);
@@ -95,14 +99,29 @@ test('hero uses a continuous aspect-aware layout with no backdrop wash layer', (
   assert.match(noCropCss, /data-pimm30-layer='pimm30-overview'\]::after[\s\S]*?content:\s*none !important/);
   assert.doesNotMatch(noCropCss, /mask-image:\s*linear-gradient/);
 
+  assert.match(noCropCss, /Wide desktop hero presence[\s\S]*?--pimm30-hero-wide-canvas-height:[\s\S]*?100svh[\s\S]*?1\.16/);
+
+  // The supplied 1294 × 910 desktop reference should render the authored
+  // machine alpha at configuration-slide scale while retaining its shadow.
+  const referenceViewport = { width: 1294, height: 910 };
+  const headerSpace = 72;
+  const copyWidth = Math.min(928, Math.max(448, referenceViewport.width * 0.41));
+  const canvasHeight = Math.min(
+    referenceViewport.height - headerSpace - 16,
+    (referenceViewport.width - copyWidth) * 1.16,
+  );
+  const authoredMachineHeight = 853;
+  const renderedMachineHeight = canvasHeight * (authoredMachineHeight / 1080);
+  assert.ok(renderedMachineHeight >= 640, `wide desktop machine is undersized: ${renderedMachineHeight}px`);
+
   for (const [path, maxX] of [
-    ['assets/pimm30-v14-hero-desktop-clean.webp', 1919],
-    ['assets/pimm30-v14-hero-mobile-clean.webp', 1079],
+    ['assets/pimm30-v13-hero-desktop-contained.webp', 1919],
+    ['assets/pimm30-v13-hero-mobile-contained.webp', 1079],
   ]) {
     const faint = alphaBounds(path, null, 8);
     const solid = alphaBounds(path, null, 200);
     assert.ok(faint.x1 > 0 && faint.x2 < maxX, `${path} touches a horizontal edge`);
-    assert.ok(Math.abs(faint.w - solid.w) <= 4, `${path} still contains a wide translucent plane`);
+    assert.ok(faint.w - solid.w > 80, `${path} no longer contains its authored ground shadow`);
   }
 });
 

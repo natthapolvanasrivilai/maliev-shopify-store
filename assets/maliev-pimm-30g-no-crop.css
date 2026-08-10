@@ -374,6 +374,17 @@
   }
 }
 
+/* Wide desktop hero presence. Keep the entire contained alpha render visible
+ * while giving the machine the same presentation scale as configuration. */
+@media (min-width: 1200px) and (min-aspect-ratio: 6/5) {
+  .pimm30-story {
+    --pimm30-hero-wide-canvas-height: min(
+      calc(100svh - var(--pimm30-header-space) - 1rem),
+      calc((100vw - var(--pimm30-hero-copy-width)) * 1.16)
+    );
+  }
+}
+
 @media (min-width: 540px) and (min-aspect-ratio: 6/5) and (max-height: 540px) {
   .pimm30-story .pimm30-chapter--hero .pimm30-chapter__hero-heading,
   .pimm30-story .pimm30-chapter--hero .pimm30-chapter__lead {
