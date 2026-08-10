@@ -403,6 +403,32 @@
   }
 }
 
+/* Temperature animation focus. The source deliberately shows the whole
+ * machine so both heater zones stay spatially understandable; this final
+ * framing enlarges the controller assembly while the poster and video retain
+ * one identical transform, preventing a flash at playback boundaries. */
+@media (min-width: 540px) and (min-aspect-ratio: 6/5) {
+  .pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-temperature']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    object-position: 50% 50% !important;
+    transform: scale(2.55) !important;
+    transform-origin: 62% 48% !important;
+  }
+}
+
+@media (max-width: 539px), (max-aspect-ratio: 6/5) {
+  .pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-temperature']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    object-position: 50% 50% !important;
+    transform: scale(1.45) !important;
+    transform-origin: 58% 48% !important;
+  }
+}
+
 /* Capacity remains a one-frame chapter on compact canvases. Its alpha image
  * is contained and its metric is budgeted inside the viewport. */
 @media (max-width: 899px), (max-aspect-ratio: 6/5) {

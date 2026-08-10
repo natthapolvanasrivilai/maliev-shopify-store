@@ -428,11 +428,39 @@ test('final responsive contract removes side fades and presents each hero featur
   );
 });
 
-test('detail chapters use the approved close-up assets', () => {
+test('detail chapters use the approved close-up assets and animated heater sequence', () => {
   const template = read('templates/product.injection-molding-machine.json');
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
 
-  assert.match(template, /"temperature"[\s\S]*?pimm30-v10-temperature-desktop\.webp[\s\S]*?pimm30-v10-temperature-mobile\.webp/);
-  assert.doesNotMatch(template, /pimm30-temperature-controller-(?:desktop|mobile)\.webm/);
+  assert.match(
+    template,
+    /"temperature"[\s\S]*?pimm30-temperature-controller-desktop\.webm[\s\S]*?pimm30-temperature-controller-desktop\.webp[\s\S]*?pimm30-temperature-controller-mobile\.webm[\s\S]*?pimm30-temperature-controller-mobile\.webp/,
+  );
+  assert.match(
+    noCropCss,
+    /Temperature animation focus[\s\S]*?pimm30-temperature[\s\S]*?transform:\s*scale\(2\.55\) !important[\s\S]*?transform-origin:\s*62% 48% !important/,
+  );
+  for (const [asset, width, height] of [
+    ['pimm30-temperature-controller-desktop.webm', 1920, 1080],
+    ['pimm30-temperature-controller-mobile.webm', 1080, 1920],
+  ]) {
+    const probe = JSON.parse(execFileSync(
+      'ffprobe',
+      [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'format=duration:stream=width,height,avg_frame_rate:stream_tags=alpha_mode',
+        '-of', 'json',
+        join(root, 'assets', asset),
+      ],
+      { encoding: 'utf8' },
+    ));
+    assert.equal(probe.streams[0].width, width);
+    assert.equal(probe.streams[0].height, height);
+    assert.equal(probe.streams[0].avg_frame_rate, '24/1');
+    assert.equal(probe.streams[0].tags.alpha_mode ?? probe.streams[0].tags.ALPHA_MODE, '1');
+    assert.equal(Number(probe.format.duration), 10);
+  }
   assert.match(template, /"regulator"[\s\S]*?pimm30-v4-regulator-desktop\.webp[\s\S]*?pimm30-v4-regulator-mobile\.webp/);
   assert.doesNotMatch(template, /pimm30-v10-regulator-(?:desktop|mobile)\.webp/);
 });
