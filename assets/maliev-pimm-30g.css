@@ -1451,9 +1451,13 @@ html:not(.no-js) .pimm30-story.is-hero-pending
 }
 
 .pimm30-stage__layer[data-pimm30-turntable].is-active {
-  cursor: grab;
+  cursor: default;
   pointer-events: auto;
   touch-action: pan-y;
+}
+
+.pimm30-stage__layer[data-pimm30-turntable].is-turntable-ready {
+  cursor: grab;
 }
 
 .pimm30-stage__layer[data-pimm30-turntable].is-dragging {
@@ -1499,6 +1503,23 @@ html:not(.no-js) .pimm30-story.is-hero-pending
 .pimm30-stage__turntable-hint::before {
   content: '\2194';
   font-size: 1.6rem;
+}
+
+.pimm30-stage__turntable-ready-label {
+  display: none;
+}
+
+.pimm30-stage__layer[data-pimm30-turntable].is-turntable-previewing .pimm30-stage__turntable-hint {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.pimm30-stage__layer[data-pimm30-turntable].is-turntable-ready .pimm30-stage__turntable-preview-label {
+  display: none;
+}
+
+.pimm30-stage__layer[data-pimm30-turntable].is-turntable-ready .pimm30-stage__turntable-ready-label {
+  display: inline;
 }
 
 .pimm30-stage__layer[data-pimm30-turntable].is-turntable-ready:hover .pimm30-stage__turntable-hint,
@@ -1870,6 +1891,7 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 }
 
 .pimm30-commerce {
+  container-type: inline-size;
   margin-top: 2.4rem;
 }
 
@@ -1877,23 +1899,41 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   border-bottom: 0.1rem solid var(--pimm30-rule);
   border-top: 0.1rem solid var(--pimm30-rule);
   display: grid;
-  gap: 0.4rem;
+  gap: 0.65rem;
+  grid-template-areas:
+    'variant'
+    'price'
+    'meta';
   grid-template-columns: minmax(0, 1fr);
   margin-bottom: 1.8rem;
   padding: 1.6rem 0;
 }
 
-.pimm30-commerce__summary > * {
-  grid-column: 1;
+.pimm30-commerce__variant {
+  font-size: 1.5rem;
+  grid-area: variant;
+  line-height: 1.25;
 }
 
 .pimm30-commerce__price {
   font-family: var(--maliev-font-future);
-  font-size: clamp(2.2rem, 6vw, 3.8rem);
+  font-size: clamp(3rem, 8cqi, 3.8rem);
   font-variant-numeric: tabular-nums;
-  grid-column: 1;
-  grid-row: auto;
-  overflow-wrap: anywhere;
+  grid-area: price;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pimm30-commerce__meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  grid-area: meta;
+}
+
+.pimm30-commerce__meta > * {
+  white-space: nowrap;
 }
 
 .pimm30-chapter--configuration h2 {
@@ -1902,6 +1942,22 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
 
 .pimm30-commerce__availability {
   color: #9a5b00;
+  font-weight: 600;
+}
+
+.pimm30-commerce__availability::before {
+  background: currentColor;
+  border-radius: 50%;
+  content: '';
+  display: inline-block;
+  height: 0.55rem;
+  margin-right: 0.55rem;
+  vertical-align: 0.08em;
+  width: 0.55rem;
+}
+
+.pimm30-commerce__lead-time {
+  color: var(--pimm30-muted);
 }
 
 .pimm30-commerce__availability.is-unavailable,
@@ -2355,15 +2411,6 @@ html:not(.no-js) .pimm30-story.is-hero-bright .pimm30-chapter--hero .pimm30-chap
   .pimm30-stage__backdrop span {
     max-width: 100%;
     white-space: nowrap;
-  }
-
-  .pimm30-commerce__summary {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .pimm30-commerce__price {
-    grid-column: 2;
-    grid-row: 1 / span 2;
   }
 
   .pimm30-stage__video--desktop,

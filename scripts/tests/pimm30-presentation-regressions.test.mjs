@@ -442,7 +442,8 @@ test('configuration media supports pointer and keyboard scrubbing', () => {
   assert.match(css, /\.pimm30-story__chapters\s*{[\s\S]*?pointer-events: none/);
   assert.match(css, /\.pimm30-chapter__content\s*{[\s\S]*?pointer-events: auto/);
   assert.match(script, /addEventListener\('pointermove'/);
-  assert.match(script, /layer\.tabIndex = active \? 0 : -1/);
+  assert.match(script, /layer\.tabIndex = active && layer\.classList\.contains\('is-turntable-ready'\) \? 0 : -1/);
+  assert.match(script, /if \(!turntable\.classList\.contains\('is-turntable-ready'\)\) return;/);
   assert.match(script, /ArrowLeft/);
   assert.match(script, /video\.currentTime = nextTime/);
 });
@@ -460,17 +461,57 @@ test('configuration dragging reverses horizontal pointer travel while coalescing
   assert.doesNotMatch(script, /const deltaX = event\.clientX - lastX/);
 });
 
-test('configuration enters on a visible interactive frame instead of the transparent video tail', () => {
+test('configuration previews left and right before enabling interaction on the front frame', () => {
   const script = read('assets/maliev-pimm-30g.js');
 
+  assert.match(script, /const turntablePreviewKeyframes = \[0\.5, 0, 1, 0\.5\]/);
+  assert.match(script, /layer\.classList\.add\('is-turntable-previewing'\)/);
+  assert.match(script, /function completeTurntablePreview\(layer, video\)[\s\S]*?is-turntable-ready[\s\S]*?layer\.tabIndex = 0/);
+  assert.match(script, /function playTurntablePreview\(layer, video\)[\s\S]*?requestAnimationFrame\(renderPreviewFrame\)/);
+  assert.match(script, /if \(reduced\)[\s\S]*?completeTurntablePreview\(layer, video\)/);
+  assert.match(script, /turntablePreviewKeyframes\[turntablePreviewKeyframes\.length - 1\]/);
+});
+
+test('configuration pricing keeps the price dominant and wraps metadata as whole items', () => {
+  const liquid = read('sections/maliev-pimm-30g-story.liquid');
+  const css = read('assets/maliev-pimm-30g.css');
+  const summaryRule = css.match(/\.pimm30-commerce__summary\s*{([^}]*)}/)?.[1] || '';
+  const priceRule = css.match(/\.pimm30-commerce__price\s*{([^}]*)}/)?.[1] || '';
+
+  assert.match(liquid, /class="pimm30-commerce__variant" data-pimm30-variant-title/);
+  assert.match(liquid, /class="pimm30-commerce__meta"[\s\S]*?pimm30-commerce__availability[\s\S]*?pimm30-commerce__lead-time/);
+  assert.match(css, /\.pimm30-commerce__summary\s*{[\s\S]*?grid-template-areas:\s*'variant'\s*'price'\s*'meta'/);
+  assert.match(css, /\.pimm30-commerce__price\s*{[\s\S]*?white-space:\s*nowrap/);
+  assert.match(css, /\.pimm30-commerce__meta\s*{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*wrap/);
+  assert.doesNotMatch(priceRule, /overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(summaryRule, /grid-template-columns:\s*minmax\(0, 1fr\) auto/);
+});
+
+test('configuration presentation assets share the polished revision token', () => {
+  const liquid = read('sections/maliev-pimm-30g-story.liquid');
+
+  assert.equal((liquid.match(/pimm30rev=20260810-configuration-purchase/g) || []).length, 3);
+});
+
+test('phone configuration reserves enough height for both full-size purchase actions', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
   assert.match(
-    script,
-    /layer\.matches\('\[data-pimm30-turntable\]'\)[\s\S]*?video\.currentTime = \(65 \/ 24 \+ 101 \/ 24\) \/ 2[\s\S]*?is-turntable-ready[\s\S]*?video\.load\(\)/,
+    keynoteCss,
+    /@media \(max-width: 599px\) and \(orientation: portrait\)[\s\S]*?\.pimm30-story\.pimm30-story \.pimm30-chapter--configuration \.pimm30-commerce__summary[\s\S]*?margin-bottom:\s*0\.4rem !important[\s\S]*?padding:\s*0\.4rem 0 !important[\s\S]*?\.pimm30-commerce__actions[\s\S]*?gap:\s*0\.4rem !important[\s\S]*?margin-top:\s*0\.4rem !important/,
   );
-  assert.match(script, /video\.play\(\)[\s\S]*?requestAnimationFrame\(settleFrame\)/);
-  assert.doesNotMatch(
-    script,
-    /layer\.matches\('\[data-pimm30-turntable\]'\)[\s\S]{0,260}?video\.play\(\)/,
+  assert.match(
+    keynoteCss,
+    /@media \(max-width: 599px\) and \(orientation: portrait\) and \(max-height: 699px\)\s*{\s*\.pimm30-story\.pimm30-story\.pimm30-story \.pimm30-stage > \.pimm30-stage__layer\[data-pimm30-layer='pimm30-configuration'\][\s\S]*?height:\s*25svh !important[\s\S]*?\.pimm30-chapter--configuration \.pimm30-chapter__content[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) !important[\s\S]*?25svh[\s\S]*?\.pimm30-chapter--configuration h2[\s\S]*?display:\s*none !important/,
+  );
+});
+
+test('short landscape configuration keeps the purchase workflow in one slide', () => {
+  const keynoteCss = read('assets/maliev-pimm-30g-keynote.css');
+
+  assert.match(
+    keynoteCss,
+    /@media \(min-width: 900px\) and \(orientation: landscape\) and \(max-height: 699px\)\s*{\s*\.pimm30-story\.pimm30-story \.pimm30-chapter--configuration\s*{[\s\S]*?height:\s*100svh !important[\s\S]*?overflow:\s*hidden !important[\s\S]*?\.pimm30-chapter--configuration \.pimm30-chapter__content\s*{[\s\S]*?height:\s*100svh !important[\s\S]*?\.pimm30-chapter__content > p:not\(\.pimm30-chapter__label\)[\s\S]*?display:\s*none !important[\s\S]*?\.pimm30-commerce__actions\s*{[\s\S]*?grid-template-columns:\s*1fr !important/,
   );
 });
 

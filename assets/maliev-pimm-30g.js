@@ -59,6 +59,12 @@
     let specCountHasPlayed = reduced || activeId !== 'pimm30-overview';
     let specCountFrame = 0;
     let responsiveVideoFrame = 0;
+    let turntablePreviewFrame = 0;
+    let turntablePreviewLayer = null;
+    const turntableRotationStart = 65 / 24;
+    const turntableRotationEnd = 101 / 24;
+    const turntablePreviewKeyframes = [0.5, 0, 1, 0.5];
+    const turntablePreviewStops = [0, 0.25, 0.75, 1];
 
     story.classList.toggle('is-reduced-motion', reduced);
     // Theme-editor previews are intentionally static on the hosted storefront,
@@ -146,12 +152,112 @@
       }
     }
 
+    function cancelTurntablePreview(layer = turntablePreviewLayer) {
+      if (turntablePreviewFrame) window.cancelAnimationFrame(turntablePreviewFrame);
+      turntablePreviewFrame = 0;
+      if (layer) layer.classList.remove('is-turntable-previewing');
+      if (turntablePreviewLayer === layer) turntablePreviewLayer = null;
+    }
+
+    function turntableTime(progress) {
+      return turntableRotationStart + progress * (turntableRotationEnd - turntableRotationStart);
+    }
+
+    function completeTurntablePreview(layer, video) {
+      cancelTurntablePreview(layer);
+      video.pause();
+      video.currentTime = turntableTime(turntablePreviewKeyframes[turntablePreviewKeyframes.length - 1]);
+      video.classList.remove('is-playing');
+      video.classList.add('is-paused');
+      layer.classList.add('has-active-video', 'is-turntable-ready');
+      layer.removeAttribute('aria-disabled');
+      if (layer.classList.contains('is-active')) layer.tabIndex = 0;
+    }
+
+    function playTurntablePreview(layer, video) {
+      cancelTurntablePreview();
+      turntablePreviewLayer = layer;
+      layer.classList.remove('is-turntable-ready');
+      layer.classList.add('is-turntable-previewing');
+      layer.setAttribute('aria-disabled', 'true');
+      layer.tabIndex = -1;
+
+      const beginPreview = () => {
+        if (reduced) {
+          completeTurntablePreview(layer, video);
+          return;
+        }
+
+        const frontFrame = turntableTime(turntablePreviewKeyframes[0]);
+        const revealAndAnimate = () => {
+          if (activeVideo !== video || !layer.classList.contains('is-active')) return;
+          video.pause();
+          video.classList.remove('is-playing');
+          video.classList.add('is-paused');
+          layer.classList.add('has-active-video');
+
+          const startedAt = performance.now();
+          const duration = 2800;
+          const renderPreviewFrame = (now) => {
+            if (activeVideo !== video || !layer.classList.contains('is-active')) {
+              cancelTurntablePreview(layer);
+              return;
+            }
+
+            const timelineProgress = Math.min(1, (now - startedAt) / duration);
+            let segment = turntablePreviewStops.length - 2;
+            for (let index = 0; index < turntablePreviewStops.length - 1; index += 1) {
+              if (timelineProgress <= turntablePreviewStops[index + 1]) {
+                segment = index;
+                break;
+              }
+            }
+            const segmentStart = turntablePreviewStops[segment];
+            const segmentEnd = turntablePreviewStops[segment + 1];
+            const segmentProgress = (timelineProgress - segmentStart) / (segmentEnd - segmentStart);
+            const eased = 0.5 - Math.cos(Math.PI * segmentProgress) / 2;
+            const from = turntablePreviewKeyframes[segment];
+            const to = turntablePreviewKeyframes[segment + 1];
+            video.currentTime = turntableTime(from + (to - from) * eased);
+
+            if (timelineProgress < 1) {
+              turntablePreviewFrame = window.requestAnimationFrame(renderPreviewFrame);
+            } else {
+              completeTurntablePreview(layer, video);
+            }
+          };
+
+          turntablePreviewFrame = window.requestAnimationFrame(renderPreviewFrame);
+        };
+
+        if (Math.abs(video.currentTime - frontFrame) < 1 / 48) {
+          window.requestAnimationFrame(revealAndAnimate);
+        } else {
+          video.addEventListener('seeked', revealAndAnimate, { once: true });
+          video.currentTime = frontFrame;
+        }
+      };
+
+      if (video.readyState >= 1) beginPreview();
+      else {
+        video.addEventListener('loadedmetadata', beginPreview, { once: true });
+        video.load();
+      }
+    }
+
     function resetVideo(video) {
       if (!video) return;
       video.pause();
       video.classList.remove('is-playing', 'is-paused');
       const layer = video.closest('[data-pimm30-layer]');
-      if (layer) layer.classList.remove('has-active-video');
+      if (layer) {
+        cancelTurntablePreview(layer);
+        layer.classList.remove('has-active-video', 'is-turntable-ready');
+        if (layer.matches('[data-pimm30-turntable]')) {
+          layer.setAttribute('aria-disabled', 'true');
+          layer.tabIndex = -1;
+        }
+      }
       try {
         video.currentTime = 0;
       } catch (_error) {
@@ -163,46 +269,15 @@
       const layer = layers.get(activeId);
       const video = visibleVideo(layer);
       activeVideo = video;
-      if (!video || reduced) return;
+      if (!video) return;
 
       if (layer.matches('[data-pimm30-turntable]')) {
         if (restart) resetVideo(video);
-
-        const holdInteractiveFrame = () => {
-          const interactiveFrame = (65 / 24 + 101 / 24) / 2;
-          const revealFrame = () => {
-            const settleFrame = () => {
-              video.pause();
-              video.classList.remove('is-playing');
-              video.classList.add('is-paused');
-              layer.classList.add('has-active-video', 'is-turntable-ready');
-            };
-
-            // Chromium does not reliably paint a programmatically sought frame
-            // until the media pipeline has advanced once. Keep the poster in
-            // place during that single muted frame so the handoff cannot flash.
-            video.play()
-              .then(() => window.requestAnimationFrame(settleFrame))
-              .catch(settleFrame);
-          };
-
-          if (Math.abs(video.currentTime - interactiveFrame) < 1 / 48) {
-            revealFrame();
-            return;
-          }
-
-          video.addEventListener('seeked', revealFrame, { once: true });
-          video.currentTime = (65 / 24 + 101 / 24) / 2;
-        };
-
-        if (video.readyState >= 1) {
-          holdInteractiveFrame();
-        } else {
-          video.addEventListener('loadedmetadata', holdInteractiveFrame, { once: true });
-          video.load();
-        }
+        playTurntablePreview(layer, video);
         return;
       }
+
+      if (reduced) return;
 
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
@@ -268,7 +343,9 @@
         const active = id === chapterId;
         layer.classList.toggle('is-active', active);
         layer.setAttribute('aria-hidden', String(!active));
-        if (layer.matches('[data-pimm30-turntable]')) layer.tabIndex = active ? 0 : -1;
+        if (layer.matches('[data-pimm30-turntable]')) {
+          layer.tabIndex = active && layer.classList.contains('is-turntable-ready') ? 0 : -1;
+        }
         if (!active) {
           const video = visibleVideo(layer);
           if (video) resetVideo(video);
@@ -399,6 +476,7 @@
       };
 
       turntable.addEventListener('pointerdown', (event) => {
+        if (!turntable.classList.contains('is-turntable-ready')) return;
         if (event.pointerType === 'mouse' && event.button !== 0) return;
         dragging = true;
         dragStartX = event.clientX;
@@ -433,6 +511,7 @@
       turntable.addEventListener('pointercancel', stopDragging);
 
       turntable.addEventListener('keydown', (event) => {
+        if (!turntable.classList.contains('is-turntable-ready')) return;
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         event.preventDefault();
         showInteractiveFrame();

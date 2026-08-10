@@ -3,11 +3,11 @@
   hot-reloading. The static revision also gives deployed browsers a new URL
   whenever this responsive media contract changes.
 {%- endcomment -%}
-<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260808-keynote-stage" media="all">
-<link rel="stylesheet" href="{{ 'maliev-pimm-30g-keynote.css' | asset_url }}&pimm30rev=20260809-media-containment" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g.css' | asset_url }}&pimm30rev=20260810-configuration-purchase" media="all">
+<link rel="stylesheet" href="{{ 'maliev-pimm-30g-keynote.css' | asset_url }}&pimm30rev=20260810-configuration-purchase" media="all">
 <link rel="stylesheet" href="{{ 'maliev-pimm-30g-no-crop.css' | asset_url }}&pimm30rev=20260810-fluid-alpha" media="all">
 <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
-<script src="{{ 'maliev-pimm-30g.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'maliev-pimm-30g.js' | asset_url }}&pimm30rev=20260810-configuration-purchase" defer="defer"></script>
 
 {%- liquid
   assign next_product = section.settings.next_product
@@ -146,22 +146,24 @@
               <p>{% if is_thai %}ราคา ตัวเลือก และสถานะสินค้าด้านล่างดึงจาก Shopify โดยตรง การนัดชมเครื่องที่สำนักงานใหญ่ปากเกร็ดยังคงเป็นวิธีที่ดีที่สุดในการยืนยันแม่พิมพ์ วัสดุ และระบบลมก่อนสั่งซื้อ{% else %}Price, configuration and availability below come directly from Shopify. A demonstration at our Pak Kret headquarters is still the best way to confirm your mold, material and air-supply requirements before ordering.{% endif %}</p>
               <div class="pimm30-commerce" data-pimm30-commerce>
                 <div class="pimm30-commerce__summary">
-                  <strong data-pimm30-variant-title>{{ selected_variant.title | escape }}</strong>
+                  <strong class="pimm30-commerce__variant" data-pimm30-variant-title>{{ selected_variant.title | escape }}</strong>
                   <span class="pimm30-commerce__price" data-pimm30-price>{{ selected_variant.price | money_with_currency }}</span>
-                  <span
-                    class="pimm30-commerce__availability{% unless selected_variant.available %} is-unavailable{% endunless %}"
-                    data-pimm30-availability
-                    data-made-to-order="{% if is_thai %}ผลิตตามคำสั่งซื้อ{% else %}Made to order{% endif %}"
-                  >
-                    {%- if selected_variant.available -%}
-                      {%- if is_thai -%}ผลิตตามคำสั่งซื้อ{%- else -%}Made to order{%- endif -%}
-                    {%- else -%}
-                      {{- 'products.product.inventory_out_of_stock' | t -}}
+                  <div class="pimm30-commerce__meta">
+                    <span
+                      class="pimm30-commerce__availability{% unless selected_variant.available %} is-unavailable{% endunless %}"
+                      data-pimm30-availability
+                      data-made-to-order="{% if is_thai %}ผลิตตามคำสั่งซื้อ{% else %}Made to order{% endif %}"
+                    >
+                      {%- if selected_variant.available -%}
+                        {%- if is_thai -%}ผลิตตามคำสั่งซื้อ{%- else -%}Made to order{%- endif -%}
+                      {%- else -%}
+                        {{- 'products.product.inventory_out_of_stock' | t -}}
+                      {%- endif -%}
+                    </span>
+                    {%- if product.metafields.custom.lead_time != blank -%}
+                      <span class="pimm30-commerce__lead-time">{% if is_thai %}ระยะเวลาผลิต {{ product.metafields.custom.lead_time }} วัน{% else %}{{ product.metafields.custom.lead_time }}-day production lead time{% endif %}</span>
                     {%- endif -%}
-                  </span>
-                  {%- if product.metafields.custom.lead_time != blank -%}
-                    <span>{% if is_thai %}ระยะเวลาผลิต {{ product.metafields.custom.lead_time }} วัน{% else %}{{ product.metafields.custom.lead_time }}-day production lead time{% endif %}</span>
-                  {%- endif -%}
+                  </div>
                 </div>
                 {%- unless product.has_only_default_variant -%}
                   <label for="Pimm30Variant-{{ section.id }}">{{ 'products.product.choose_options' | t }}</label>

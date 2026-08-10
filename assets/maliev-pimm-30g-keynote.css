@@ -787,6 +787,38 @@
     var(--pimm30-stage-dark) !important;
 }
 
+/* Keep both 48px purchase actions inside common phone-height viewports without
+ * shrinking controls or stealing height from the turntable presentation. */
+@media (max-width: 599px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce__summary {
+    margin-bottom: 0.4rem !important;
+    padding: 0.4rem 0 !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce__actions {
+    gap: 0.4rem !important;
+    margin-top: 0.4rem !important;
+  }
+}
+
+/* Extremely short phones need a compact presentation mode: retain the
+ * turntable and complete purchase workflow, while removing the repeated long
+ * heading that cannot coexist with two full-size actions in 568px. */
+@media (max-width: 599px) and (orientation: portrait) and (max-height: 699px) {
+  .pimm30-story.pimm30-story.pimm30-story .pimm30-stage > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    height: 25svh !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding-top: calc(var(--pimm30-header-space) + 25svh + 0.4rem) !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration h2 {
+    display: none !important;
+  }
+}
+
 /* Final PIMM 50G alignment seal. The portrait stage, machine artwork and
  * information stack must resolve to the same physical viewport centre. */
 @media (max-width: 899px), (orientation: portrait) {
@@ -1782,6 +1814,52 @@
     display: flex !important;
     min-height: var(--pimm30-mobile-scroll-height) !important;
     z-index: 7 !important;
+  }
+}
+
+/* The commerce chapter still has desktop width on short landscape screens,
+ * but not desktop height. Keep the transactional controls and collapse only
+ * the supporting paragraph so the full workflow remains a single slide. */
+@media (min-width: 900px) and (orientation: landscape) and (max-height: 699px) {
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-chapter__content {
+    align-content: start !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    padding: calc(var(--pimm30-header-space) + 1rem) clamp(2.4rem, 4vw, 3.6rem) 1.2rem !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content > p:not(.pimm30-chapter__label) {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration h2 {
+    font-size: clamp(2.8rem, 5.2vh, 3.4rem) !important;
+    line-height: 1 !important;
+    margin-bottom: 0.4rem !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce {
+    margin-top: 0.6rem !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce__summary {
+    margin-bottom: 0.6rem !important;
+    padding: 0.6rem 0 !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--configuration .pimm30-commerce__actions {
+    gap: 0.6rem !important;
+    grid-template-columns: 1fr !important;
+    margin-top: 0.6rem !important;
   }
 }
 
