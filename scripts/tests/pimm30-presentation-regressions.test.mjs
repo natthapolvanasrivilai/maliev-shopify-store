@@ -111,6 +111,35 @@ test('air-cylinder desktop art fills its tall stage without cropping the product
   assert.ok(bounds.x1 > 0 && bounds.x2 < 899, `cylinder alpha touches a side: ${JSON.stringify(bounds)}`);
 });
 
+test('direct-operation desktop art uses a tall uncropped source frame', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+
+  assert.match(
+    template,
+    /"operation"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v10-operation-mobile\.webp"/,
+  );
+
+  const probe = JSON.parse(execFileSync(
+    'ffprobe',
+    [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height',
+      '-of', 'json',
+      join(root, 'assets', 'pimm30-v12-operation-desktop.webp'),
+    ],
+    { encoding: 'utf8' },
+  ));
+  assert.equal(probe.streams[0].width, 1200);
+  assert.equal(probe.streams[0].height, 1440);
+
+  const bounds = alphaBounds('assets/pimm30-v12-operation-desktop.webp');
+  assert.ok(bounds.w >= 620, `operation assembly is too narrow in its source canvas: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.h >= 1280, `operation assembly does not fill the source height: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.x1 > 0 && bounds.x2 < 1199, `operation alpha touches a horizontal edge: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.y1 > 0 && bounds.y2 < 1439, `operation alpha touches a vertical edge: ${JSON.stringify(bounds)}`);
+});
+
 test('hero uses a continuous aspect-aware layout with no backdrop wash layer', () => {
   const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
   const template = read('templates/product.injection-molding-machine.json');
