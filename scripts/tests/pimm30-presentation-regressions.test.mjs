@@ -457,7 +457,7 @@ test('detail chapters use the approved close-up assets and animated heater seque
   );
   assert.match(
     noCropCss,
-    /Temperature animation focus[\s\S]*?pimm30-temperature[\s\S]*?transform:\s*scale\(2\.55\) !important[\s\S]*?transform-origin:\s*62% 48% !important/,
+    /Temperature animation focus[\s\S]*?\.pimm30-story\.pimm30-story[\s\S]*?> \.pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-temperature['"]\][\s\S]*?object-fit:\s*contain !important[\s\S]*?transform:\s*none !important/,
   );
   for (const [asset, width, height] of [
     ['pimm30-temperature-controller-desktop.webm', 1920, 1080],
@@ -479,6 +479,12 @@ test('detail chapters use the approved close-up assets and animated heater seque
     assert.equal(probe.streams[0].avg_frame_rate, '24/1');
     assert.equal(probe.streams[0].tags.alpha_mode ?? probe.streams[0].tags.ALPHA_MODE, '1');
     assert.equal(Number(probe.format.duration), 10);
+
+    const start = alphaBounds(`assets/${asset}`, 0);
+    const end = alphaBounds(`assets/${asset}`, 9.9);
+    const minimumCloseupWidth = width === 1920 ? 1300 : 1000;
+    assert.ok(start.w >= minimumCloseupWidth, `${asset} starts too far from the controllers: ${JSON.stringify(start)}`);
+    assert.ok(end.w >= minimumCloseupWidth, `${asset} ends too far from the controllers: ${JSON.stringify(end)}`);
   }
   assert.match(template, /"regulator"[\s\S]*?pimm30-v4-regulator-desktop\.webp[\s\S]*?pimm30-v4-regulator-mobile\.webp/);
   assert.doesNotMatch(template, /pimm30-v10-regulator-(?:desktop|mobile)\.webp/);
