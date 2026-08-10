@@ -67,9 +67,9 @@
           "settings": {
             "role": "regulator",
             "desktop_video_asset": "",
-            "desktop_poster_asset": "pimm30-v14-regulator-desktop.webp",
+            "desktop_poster_asset": "pimm30-v10-regulator-desktop.webp",
             "mobile_video_asset": "",
-            "mobile_poster_asset": "pimm30-v14-regulator-mobile.webp"
+            "mobile_poster_asset": "pimm30-v10-regulator-desktop.webp"
           }
         },
         "fixture": {

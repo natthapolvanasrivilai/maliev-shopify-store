@@ -521,7 +521,7 @@ test('presentation assets share the responsive hero revision token', () => {
   const revisions = [...liquid.matchAll(/pimm30rev=([\w-]+)/g)].map((match) => match[1]);
 
   assert.equal(revisions.length, 4);
-  assert.deepEqual([...new Set(revisions)], ['20260810-operation-focus']);
+  assert.deepEqual([...new Set(revisions)], ['20260810-regulator-focus']);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {
@@ -731,34 +731,24 @@ test('detail chapters use the animated heater sequence and fully framed pressure
       assert.equal(width / height, 5 / 6, 'desktop controller media must fill the tall presentation stage');
     }
   }
-  assert.match(template, /"regulator"[\s\S]*?pimm30-v14-regulator-desktop\.webp[\s\S]*?pimm30-v14-regulator-mobile\.webp/);
-  assert.doesNotMatch(template, /pimm30-v4-regulator-(?:desktop|mobile)\.webp/);
-  for (const [asset, width, height] of [
-    ['pimm30-v14-regulator-desktop.webp', 1200, 1440],
-    ['pimm30-v14-regulator-mobile.webp', 1080, 1920],
-  ]) {
-    const probe = JSON.parse(execFileSync(
-      'ffprobe',
-      [
-        '-v', 'error',
-        '-select_streams', 'v:0',
-        '-show_entries', 'stream=width,height',
-        '-of', 'json',
-        join(root, 'assets', asset),
-      ],
-      { encoding: 'utf8' },
-    ));
-    assert.equal(probe.streams[0].width, width);
-    assert.equal(probe.streams[0].height, height);
-
-    const bounds = alphaBounds(`assets/${asset}`);
-    assert.ok(bounds.x1 > 0 && bounds.x2 < width - 1, `${asset} touches a horizontal edge: ${JSON.stringify(bounds)}`);
-    assert.ok(bounds.y1 > 0 && bounds.y2 < height - 1, `${asset} touches a vertical edge: ${JSON.stringify(bounds)}`);
-    assert.ok(bounds.h >= height * 0.78, `${asset} leaves the machine too small for its vertical stage: ${JSON.stringify(bounds)}`);
-
-    const lowerLumaP10 = opaqueLumaPercentile(`assets/${asset}`, width, height, 0.5, 0.92, 0.1);
-    assert.ok(lowerLumaP10 >= 70, `${asset} reintroduced black reflections on the lower shafts: p10=${lowerLumaP10}`);
-  }
+  assert.match(template, /"regulator"[\s\S]*?"desktop_poster_asset": "pimm30-v10-regulator-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v10-regulator-desktop\.webp"/);
+  const regulatorAsset = 'pimm30-v10-regulator-desktop.webp';
+  const regulatorProbe = JSON.parse(execFileSync(
+    'ffprobe',
+    [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height',
+      '-of', 'json',
+      join(root, 'assets', regulatorAsset),
+    ],
+    { encoding: 'utf8' },
+  ));
+  assert.equal(regulatorProbe.streams[0].width, 1920);
+  assert.equal(regulatorProbe.streams[0].height, 1080);
+  const regulatorBounds = alphaBounds(`assets/${regulatorAsset}`);
+  assert.ok(regulatorBounds.w >= 1400, `regulator close-up is not wide enough: ${JSON.stringify(regulatorBounds)}`);
+  assert.ok(regulatorBounds.h >= 1060, `regulator close-up is not tall enough: ${JSON.stringify(regulatorBounds)}`);
 });
 
 test('portrait chapters contain media and keep all capacity content inside one viewport', () => {
@@ -777,7 +767,14 @@ test('portrait chapters contain media and keep all capacity content inside one v
     /pimm30-chapter--capacity \.pimm30-chapter__content[\s\S]*?height:\s*100svh !important[\s\S]*?padding:\s*calc\(var\(--pimm30-header-space\) \+ clamp\(15rem, 40svh, 36rem\)\)/,
   );
   assert.match(keynoteCss, /pimm30-temperature[\s\S]*?mask-image:\s*linear-gradient\(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%\) !important/);
-  assert.match(keynoteCss, /pimm30-regulator[\s\S]*?object-position:\s*50% 50% !important/);
+  assert.match(
+    noCropCss,
+    /Pressure regulator focal close-up[\s\S]*?data-pimm30-layer=['"]pimm30-regulator['"][\s\S]*?mask-image:\s*none !important[\s\S]*?object-fit:\s*contain !important[\s\S]*?object-position:\s*60% 50% !important[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?width:\s*78vw !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Pressure regulator focal close-up[\s\S]*?@media \(min-width: 600px\) and \(max-width: 899px\) and \(orientation: portrait\)[\s\S]*?data-pimm30-layer=['"]pimm30-regulator['"][\s\S]*?height:\s*42svh !important[\s\S]*?top:\s*calc\(var\(--pimm30-header-space\) - 7rem\) !important/,
+  );
   assert.match(
     keynoteCss,
     /pimm30-configuration[\s\S]*?height:\s*46svh !important[\s\S]*?\.pimm30-chapter--configuration \.pimm30-chapter__content[\s\S]*?height:\s*100svh !important[\s\S]*?overflow:\s*hidden !important/,

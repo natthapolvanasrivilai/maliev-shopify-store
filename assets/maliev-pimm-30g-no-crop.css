@@ -771,6 +771,107 @@
   }
 }
 
+/* Pressure regulator focal close-up. The prior full-machine source was
+ * overexposed at render time, which made the entire chapter appear cloudy.
+ * Use the dedicated sharp alpha close-up without adding any CSS feathering. */
+.pimm30-story.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-regulator']
+  :is(.pimm30-stage__poster, picture, img, .pimm30-stage__video) {
+  -webkit-mask-image: none !important;
+  clip-path: none !important;
+  filter: none !important;
+  mask-image: none !important;
+  opacity: 1 !important;
+}
+
+.pimm30-story.pimm30-story
+  .pimm30-stage
+  > [data-pimm30-layer='pimm30-regulator']
+  :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+  max-height: none !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  object-position: 60% 50% !important;
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    bottom: auto !important;
+    height: auto !important;
+    left: auto !important;
+    right: -2vw !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    transform-origin: 60% 50% !important;
+    width: 78vw !important;
+  }
+}
+
+@media (max-width: 899px), (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    bottom: auto !important;
+    height: 48svh !important;
+    left: 50% !important;
+    right: auto !important;
+    top: calc(var(--pimm30-header-space) + 1.5rem) !important;
+    transform: translateX(-50%) !important;
+    transform-origin: 60% 50% !important;
+    width: auto !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 42svh !important;
+    top: calc(var(--pimm30-header-space) - 7rem) !important;
+  }
+}
+
+@media (min-width: 540px) and (max-width: 899px) and (orientation: landscape) and (max-height: 540px) {
+  .pimm30-story.pimm30-story .pimm30-chapter--regulator .pimm30-chapter__content {
+    align-content: center !important;
+    display: grid !important;
+    gap: clamp(0.7rem, 1.8svh, 1.2rem) !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+    padding: calc(var(--pimm30-header-space) + 0.4rem) 1.6rem 1.2rem !important;
+    position: relative !important;
+    width: 41vw !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--regulator .pimm30-chapter__content > * {
+    max-width: none !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story .pimm30-chapter--regulator h2 {
+    font-size: clamp(2.5rem, 4vw, 3.4rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: auto !important;
+    left: auto !important;
+    right: -6vw !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 72vw !important;
+  }
+}
+
 /* Short-landscape keynote rail. The copy paragraph is intentionally removed
  * from this height-constrained mode, while the model, four highlights, and CTA
  * receive fixed non-overlapping lanes. Labels stay on one line at this scale. */
