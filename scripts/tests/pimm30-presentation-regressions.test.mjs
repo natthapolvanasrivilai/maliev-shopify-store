@@ -194,6 +194,10 @@ test('direct-operation slide keeps the complete pneumatic assembly in a top-focu
   );
   assert.match(
     noCropCss,
+    /Desktop direct-operation optical balance[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?mask-image:\s*linear-gradient\(to bottom, #000 0%, #000 58%, transparent 72%\) !important[\s\S]*?right:\s*clamp\(-9rem, -7vw, -4rem\) !important[\s\S]*?top:\s*calc\(var\(--pimm30-header-space\) - 12svh\) !important/,
+  );
+  assert.match(
+    noCropCss,
     /Short-landscape pneumatic split[\s\S]*?@media \(min-width: 540px\) and \(max-width: 899px\) and \(orientation: landscape\) and \(max-height: 540px\)[\s\S]*?pimm30-chapter--operation[\s\S]*?width:\s*41vw !important[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?height:\s*108svh !important[\s\S]*?right:\s*0 !important[\s\S]*?width:\s*auto !important/,
   );
 });

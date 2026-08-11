@@ -790,15 +790,20 @@
 }
 
 @media (min-width: 900px) and (orientation: landscape) {
+  /* Desktop direct-operation optical balance. Keep the pneumatic controls in
+   * the right presentation field and finish the lower-frame dissolve before
+   * the stage edge, so overflow clipping never creates a hard baseline. */
   .pimm30-story.pimm30-story
     .pimm30-stage
     > [data-pimm30-layer='pimm30-operation']
     :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 72%) !important;
+    mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 72%) !important;
     bottom: auto !important;
     height: 142svh !important;
     left: auto !important;
-    right: clamp(-4.8rem, -3vw, -1.2rem) !important;
-    top: calc(var(--pimm30-header-space) - 5svh) !important;
+    right: clamp(-9rem, -7vw, -4rem) !important;
+    top: calc(var(--pimm30-header-space) - 12svh) !important;
     transform: none !important;
     width: auto !important;
   }
