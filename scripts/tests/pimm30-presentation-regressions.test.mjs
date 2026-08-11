@@ -992,6 +992,23 @@ test('mobile keynote chapters have one exact viewport of scroll travel', () => {
   );
 });
 
+test('scroll-driven media activation follows the document scroll-padding boundary', () => {
+  const script = read('assets/maliev-pimm-30g.js');
+
+  assert.match(
+    script,
+    /const chapterActivationLine = \(\) =>[\s\S]*?getComputedStyle\(document\.documentElement\)\.scrollPaddingTop[\s\S]*?Number\.isFinite\(scrollPaddingTop\) \? scrollPaddingTop : 0/,
+  );
+  assert.match(
+    script,
+    /const activationLine = chapterActivationLine\(\)[\s\S]*?rect\.top <= activationLine \+ 8 && rect\.bottom > activationLine \+ 8/,
+  );
+  assert.match(
+    script,
+    /const distanceFromActivationLine = Math\.abs\([\s\S]*?chapter\.getBoundingClientRect\(\)\.top - chapterActivationLine\(\)[\s\S]*?\)[\s\S]*?distanceFromActivationLine <= 8/,
+  );
+});
+
 test('short mobile viewports fit chapter copy and actions inside the one-scroll frame', () => {
   const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
 

@@ -530,16 +530,24 @@
       let pendingChapterId = '';
       let pendingChapterFrame = 0;
       let pendingChapterToken = 0;
+      const chapterActivationLine = () => {
+        const scrollPaddingTop = Number.parseFloat(
+          window.getComputedStyle(document.documentElement).scrollPaddingTop
+        );
+        return Number.isFinite(scrollPaddingTop) ? scrollPaddingTop : 0;
+      };
       const selectVisibleChapter = () => {
         chapterFrame = 0;
         if (pendingChapterId) return;
 
         // Keep the stage on the current chapter until the next chapter has
-        // reached the top of the viewport. Switching at the midpoint leaves
-        // the old chapter copy over the new media during a free scroll.
+        // reached the document's snap activation line below the fixed header.
+        // Switching at the midpoint leaves old copy over new media during a
+        // free scroll.
+        const activationLine = chapterActivationLine();
         const nextChapter = chapters.find((chapter) => {
           const rect = chapter.getBoundingClientRect();
-          return rect.top <= 8 && rect.bottom > 8;
+          return rect.top <= activationLine + 8 && rect.bottom > activationLine + 8;
         });
         const nextId = nextChapter && nextChapter.dataset.pimm30Chapter;
         if (nextId && nextId !== activeId) activate(nextId, true);
@@ -584,9 +592,11 @@
       const settleChapterTransition = (chapter, chapterId, token, startedAt) => {
         if (token !== pendingChapterToken || pendingChapterId !== chapterId) return;
 
-        const distanceFromTop = Math.abs(chapter.getBoundingClientRect().top);
+        const distanceFromActivationLine = Math.abs(
+          chapter.getBoundingClientRect().top - chapterActivationLine()
+        );
         const timedOut = performance.now() - startedAt >= 1400;
-        if (distanceFromTop <= 8 || timedOut) {
+        if (distanceFromActivationLine <= 8 || timedOut) {
           pendingChapterFrame = 0;
           pendingChapterId = '';
           gestureLocked = false;
@@ -594,7 +604,7 @@
           // If the browser interrupted smooth scrolling, let the regular
           // selector choose the chapter actually under the viewport instead
           // of switching the stage to a destination that was never reached.
-          if (distanceFromTop <= 8) activate(chapterId, true);
+          if (distanceFromActivationLine <= 8) activate(chapterId, true);
           queueChapterSelection();
           return;
         }
