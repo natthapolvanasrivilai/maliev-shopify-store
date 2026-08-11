@@ -89,7 +89,10 @@ test('transparent presentation media is never hard-cropped by the stage', () => 
   assert.match(keynoteCss, /\.pimm30-chapter--hero \.pimm30-scroll-cue[\s\S]*?transform:\s*translateX\(-50%\)\s*!important/);
   assert.match(keynoteCss, /data-active-chapter=['"]pimm30-overview['"][\s\S]*?\.pimm30-scroll-cue[\s\S]*?position:\s*fixed\s*!important/);
   assert.match(section, /maliev-pimm-30g-keynote\.css[\s\S]*?maliev-pimm-30g-no-crop\.css/);
-  assert.doesNotMatch(noCropCss, /mask-image:\s*linear-gradient\(to right/);
+  assert.doesNotMatch(
+    noCropCss,
+    /data-pimm30-layer=['"]pimm30-overview['"][^}]*mask-image:\s*linear-gradient\(to right/,
+  );
 });
 
 test('hero art preserves alpha shadow clearance before CSS presentation scaling', () => {
@@ -183,7 +186,7 @@ test('direct-operation slide keeps the complete pneumatic assembly in a top-focu
   );
   assert.doesNotMatch(
     noCropCss,
-    /Pneumatic operation focus[\s\S]*?linear-gradient\(to right/,
+    /data-pimm30-layer=['"]pimm30-operation['"][^}]*linear-gradient\(to right/,
   );
   assert.match(
     noCropCss,
@@ -721,7 +724,7 @@ test('detail chapters use the animated heater sequence and fully framed pressure
 
   assert.match(
     template,
-    /"temperature"[\s\S]*?pimm30-temperature-controller-desktop\.webm[\s\S]*?pimm30-temperature-controller-desktop\.webp[\s\S]*?pimm30-temperature-controller-mobile\.webm[\s\S]*?pimm30-temperature-controller-mobile\.webp/,
+    /"temperature"[\s\S]*?"desktop_video_asset": "pimm30-temperature-controller-desktop\.webm"[\s\S]*?"desktop_poster_asset": "pimm30-temperature-controller-desktop\.webp"[\s\S]*?"mobile_video_asset": "pimm30-temperature-controller-desktop\.webm"[\s\S]*?"mobile_poster_asset": "pimm30-temperature-controller-desktop\.webp"/,
   );
   assert.match(
     noCropCss,
@@ -729,7 +732,6 @@ test('detail chapters use the animated heater sequence and fully framed pressure
   );
   for (const [asset, width, height] of [
     ['pimm30-temperature-controller-desktop.webm', 1200, 1440],
-    ['pimm30-temperature-controller-mobile.webm', 1080, 1920],
   ]) {
     const probe = JSON.parse(execFileSync(
       'ffprobe',
@@ -976,5 +978,19 @@ test('small portrait hero centers highlights and uses compact English labels', (
   assert.match(
     noCropCss,
     /Final small-portrait feature highlight authority[\s\S]*?pimm30-spec-rail--hero dt[\s\S]*?display:\s*block !important[\s\S]*?text-align:\s*center !important[\s\S]*?white-space:\s*nowrap !important[\s\S]*?pimm30-spec-rail--hero dd[\s\S]*?display:\s*block !important[\s\S]*?text-align:\s*center !important/,
+  );
+});
+
+test('portrait temperature slide uses the wider heater animation with a left-edge dissolve', () => {
+  const template = read('templates/product.injection-molding-machine.json');
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    template,
+    /"temperature"[\s\S]*?"mobile_video_asset": "pimm30-temperature-controller-desktop\.webm"[\s\S]*?"mobile_poster_asset": "pimm30-temperature-controller-desktop\.webp"/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait temperature context framing[\s\S]*?@media \(max-width: 1024px\) and \(orientation: portrait\)[\s\S]*?> \.pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-temperature['"]\][\s\S]*?--pimm30-portrait-media-x:\s*-3%[\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?-webkit-mask-image:\s*linear-gradient\(to right, transparent 0%, #000 12%, #000 100%\) !important[\s\S]*?mask-image:\s*linear-gradient\(to right, transparent 0%, #000 12%, #000 100%\) !important/,
   );
 });

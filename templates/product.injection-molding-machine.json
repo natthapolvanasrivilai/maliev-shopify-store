@@ -38,8 +38,8 @@
             "role": "temperature",
             "desktop_video_asset": "pimm30-temperature-controller-desktop.webm",
             "desktop_poster_asset": "pimm30-temperature-controller-desktop.webp",
-            "mobile_video_asset": "pimm30-temperature-controller-mobile.webm",
-            "mobile_poster_asset": "pimm30-temperature-controller-mobile.webp"
+            "mobile_video_asset": "pimm30-temperature-controller-desktop.webm",
+            "mobile_poster_asset": "pimm30-temperature-controller-desktop.webp"
           }
         },
         "cylinder": {

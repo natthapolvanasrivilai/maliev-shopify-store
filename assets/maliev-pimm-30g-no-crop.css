@@ -1636,3 +1636,23 @@
       scale(var(--pimm30-portrait-media-scale, 1)) !important;
   }
 }
+
+/* Final portrait temperature context framing. The wider native heater render
+ * reveals the valve, hoses, support rail, and controller as one assembly. A
+ * short left dissolve lets that context exit the studio instead of stopping
+ * against a hard viewport edge; the controller remains fully opaque. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature'] {
+    --pimm30-portrait-media-x: -3%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 100%) !important;
+    mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 100%) !important;
+  }
+}
