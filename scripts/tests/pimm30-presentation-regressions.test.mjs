@@ -932,3 +932,32 @@ test('portrait phone and tablet chapters anchor copy below the media field', () 
     /Final portrait media-top copy-bottom authority[\s\S]*?pimm30-chapter__metric--pressure dd[\s\S]*?align-items:\s*flex-start !important[\s\S]*?pimm30-pressure__primary[\s\S]*?min-width:\s*0 !important[\s\S]*?pimm30-pressure__step[\s\S]*?text-align:\s*left !important/,
   );
 });
+
+test('portrait detail slides share one fully contained media field', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final portrait slide media field authority[\s\S]*?@media \(max-width: 1024px\) and \(orientation: portrait\)[\s\S]*?data-pimm30-layer\]:not\([\s\S]*?pimm30-overview[\s\S]*?pimm30-next_model[\s\S]*?height:\s*52dvh !important[\s\S]*?inset:\s*var\(--pimm30-header-space\) 0 auto !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait slide media field authority[\s\S]*?:is\(\.pimm30-stage__poster, picture\)[\s\S]*?height:\s*100% !important[\s\S]*?inset:\s*0 !important[\s\S]*?width:\s*100% !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait slide media field authority[\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?height:\s*100% !important[\s\S]*?max-height:\s*100% !important[\s\S]*?max-width:\s*100% !important[\s\S]*?object-fit:\s*contain !important[\s\S]*?transform:\s*none !important[\s\S]*?width:\s*100% !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait slide media field authority[\s\S]*?:is\(\.pimm30-stage__poster, picture, img, \.pimm30-stage__video\)[\s\S]*?-webkit-mask-image:\s*none !important[\s\S]*?mask-image:\s*none !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait optical alignment[\s\S]*?data-pimm30-layer=['"]pimm30-regulator['"]\]\s*\{[\s\S]*?--pimm30-portrait-media-x:\s*-12%[\s\S]*?data-pimm30-layer=['"]pimm30-capacity['"]\]\s*\{[\s\S]*?--pimm30-portrait-media-scale:\s*1\.15/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait optical alignment[\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?translate\(\s*var\(--pimm30-portrait-media-x, 0%\),\s*var\(--pimm30-portrait-media-y, 0%\)\s*\)[\s\S]*?scale\(var\(--pimm30-portrait-media-scale, 1\)\)/,
+  );
+});

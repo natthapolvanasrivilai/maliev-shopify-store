@@ -1454,3 +1454,131 @@
     text-align: left !important;
   }
 }
+
+/* Final portrait slide media field authority. Detail chapters share one
+ * centered contain box so transparent production renders keep every edge and
+ * sit on the same presentation axis. Overview and the 50G finale retain their
+ * purpose-built compositions. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer]:not(
+      [data-pimm30-layer='pimm30-overview'],
+      [data-pimm30-layer='pimm30-next_model']
+    ) {
+    height: 52dvh !important;
+    inset: var(--pimm30-header-space) 0 auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer]:not(
+      [data-pimm30-layer='pimm30-overview'],
+      [data-pimm30-layer='pimm30-next_model']
+    )
+    :is(.pimm30-stage__poster, picture) {
+    height: 100% !important;
+    inset: 0 !important;
+    overflow: visible !important;
+    position: absolute !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer]:not(
+      [data-pimm30-layer='pimm30-overview'],
+      [data-pimm30-layer='pimm30-next_model']
+    )
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    height: 100% !important;
+    inset: 0 !important;
+    max-height: 100% !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    object-position: 50% 50% !important;
+    position: absolute !important;
+    transform: none !important;
+    transform-origin: 50% 50% !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer]:not(
+      [data-pimm30-layer='pimm30-overview'],
+      [data-pimm30-layer='pimm30-next_model']
+    )
+    :is(.pimm30-stage__poster, picture, img, .pimm30-stage__video) {
+    -webkit-mask-image: none !important;
+    clip-path: none !important;
+    mask-image: none !important;
+  }
+}
+
+/* Final portrait optical alignment. These offsets center the visible alpha
+ * bounds rather than the raw source canvas, whose transparent margins vary by
+ * Blender camera. Values stay inside each source's authored alpha clearance. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-regulator'] {
+    --pimm30-portrait-media-x: -12%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-capacity'] {
+    --pimm30-portrait-media-scale: 1.15;
+    --pimm30-portrait-media-x: -8%;
+    --pimm30-portrait-media-y: -3%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-cylinder'] {
+    --pimm30-portrait-media-scale: 1.05;
+    --pimm30-portrait-media-x: -3%;
+    --pimm30-portrait-media-y: -6%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > :is(
+      [data-pimm30-layer='pimm30-operation'],
+      [data-pimm30-layer='pimm30-fixture']
+    ) {
+    --pimm30-portrait-media-scale: 1.02;
+    --pimm30-portrait-media-x: -8%;
+    --pimm30-portrait-media-y: -2%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-materials'] {
+    --pimm30-portrait-media-scale: 1.02;
+    --pimm30-portrait-media-y: -1%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-configuration'] {
+    --pimm30-portrait-media-scale: 1.06;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer]:not(
+      [data-pimm30-layer='pimm30-overview'],
+      [data-pimm30-layer='pimm30-next_model']
+    )
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    transform: translate(
+        var(--pimm30-portrait-media-x, 0%),
+        var(--pimm30-portrait-media-y, 0%)
+      )
+      scale(var(--pimm30-portrait-media-scale, 1)) !important;
+  }
+}
