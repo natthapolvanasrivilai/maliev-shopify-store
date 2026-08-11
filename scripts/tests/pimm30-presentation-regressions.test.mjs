@@ -143,12 +143,12 @@ test('air-cylinder desktop art fills its tall stage without cropping the product
   assert.ok(bounds.x1 > 0 && bounds.x2 < 899, `cylinder alpha touches a side: ${JSON.stringify(bounds)}`);
 });
 
-test('direct-operation desktop art uses a tall uncropped source frame', () => {
+test('direct-operation desktop art uses a tall top-focused source frame', () => {
   const template = read('templates/product.injection-molding-machine.json');
 
   assert.match(
     template,
-    /"operation"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v12-operation-desktop\.webp"/,
+    /"operation"[\s\S]*?"desktop_video_asset": "pimm30-direct-operation-desktop\.webm"[\s\S]*?"desktop_poster_asset": "pimm30-v16-operation-desktop\.webp"[\s\S]*?"mobile_video_asset": "pimm30-direct-operation-mobile\.webm"[\s\S]*?"mobile_poster_asset": "pimm30-v16-operation-mobile\.webp"/,
   );
 
   const probe = JSON.parse(execFileSync(
@@ -158,18 +158,18 @@ test('direct-operation desktop art uses a tall uncropped source frame', () => {
       '-select_streams', 'v:0',
       '-show_entries', 'stream=width,height',
       '-of', 'json',
-      join(root, 'assets', 'pimm30-v12-operation-desktop.webp'),
+      join(root, 'assets', 'pimm30-v16-operation-desktop.webp'),
     ],
     { encoding: 'utf8' },
   ));
   assert.equal(probe.streams[0].width, 1200);
   assert.equal(probe.streams[0].height, 1440);
 
-  const bounds = alphaBounds('assets/pimm30-v12-operation-desktop.webp');
+  const bounds = alphaBounds('assets/pimm30-v16-operation-desktop.webp');
   assert.ok(bounds.w >= 620, `operation assembly is too narrow in its source canvas: ${JSON.stringify(bounds)}`);
   assert.ok(bounds.h >= 1280, `operation assembly does not fill the source height: ${JSON.stringify(bounds)}`);
   assert.ok(bounds.x1 > 0 && bounds.x2 < 1199, `operation alpha touches a horizontal edge: ${JSON.stringify(bounds)}`);
-  assert.ok(bounds.y1 > 0 && bounds.y2 < 1439, `operation alpha touches a vertical edge: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.y1 > 0, `operation cylinder touches the top edge: ${JSON.stringify(bounds)}`);
 });
 
 test('direct-operation slide keeps the complete pneumatic assembly in a top-focused frame', () => {
@@ -178,7 +178,7 @@ test('direct-operation slide keeps the complete pneumatic assembly in a top-focu
 
   assert.match(
     template,
-    /"operation"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v12-operation-desktop\.webp"/,
+    /"operation"[\s\S]*?"desktop_video_asset": "pimm30-direct-operation-desktop\.webm"[\s\S]*?"desktop_poster_asset": "pimm30-v16-operation-desktop\.webp"[\s\S]*?"mobile_video_asset": "pimm30-direct-operation-mobile\.webm"[\s\S]*?"mobile_poster_asset": "pimm30-v16-operation-mobile\.webp"/,
   );
   assert.match(
     noCropCss,
@@ -200,6 +200,93 @@ test('direct-operation slide keeps the complete pneumatic assembly in a top-focu
     noCropCss,
     /Short-landscape pneumatic split[\s\S]*?@media \(min-width: 540px\) and \(max-width: 899px\) and \(orientation: landscape\) and \(max-height: 540px\)[\s\S]*?pimm30-chapter--operation[\s\S]*?width:\s*41vw !important[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?height:\s*108svh !important[\s\S]*?right:\s*0 !important[\s\S]*?width:\s*auto !important/,
   );
+});
+
+test('direct operation preserves the authentic valve decal and demonstrates the full 200 mm stroke', () => {
+  const builder = read('scripts/blender/create_pimm30_direct_operation_toggle.py');
+  const template = read('templates/product.injection-molding-machine.json');
+  const english = read('locales/en.default.json');
+
+  assert.match(builder, /STROKE_METERS\s*=\s*0\.20/);
+  assert.match(builder, /AIRTAC_DECAL_NAME\s*=\s*['"]AirTAC_Decal_30g['"]/);
+  assert.match(builder, /AIRTAC_DECAL_CAMERA_OFFSET_METERS\s*=\s*0\.00075/);
+  assert.match(builder, /def preserve_airtac_decal\(/);
+  assert.match(builder, /decal\s*=\s*require_clone\(objects_by_source_name, AIRTAC_DECAL_NAME\)/);
+  assert.match(builder, /clone\.matrix_parent_inverse\s*=\s*source_object\.matrix_parent_inverse\.copy\(\)/);
+  assert.match(builder, /decal_world\.translation\.y\s*-=/);
+  assert.match(builder, /decal\.matrix_world\s*=\s*decal_world/);
+  assert.match(builder, /SHADOW_CATCHER_NAME\s*=\s*['"]PIMM30_Hero_ShadowCatcher['"]/);
+  assert.match(builder, /shadow_catcher\.hide_render\s*=\s*True/);
+  assert.match(builder, /"desktop":\s*"PIMM30_Story_Desktop"/);
+  assert.match(builder, /"mobile":\s*"PIMM30_Story_Mobile"/);
+  assert.match(builder, /PIMM30_DIRECT_OPERATION_DESKTOP_SCENE/);
+  assert.match(builder, /PIMM30_DIRECT_OPERATION_MOBILE_SCENE/);
+  assert.match(builder, /def clone_scene\([\s\S]*?bpy\.data\.scenes\.new/);
+  assert.match(builder, /clone\["pimm30_direct_operation_source"\]\s*=\s*source_object\.name/);
+  assert.match(builder, /STUDIO_REFERENCE_FRAME\s*=\s*80/);
+  assert.match(builder, /source\.frame_set\(STUDIO_REFERENCE_FRAME\)/);
+  assert.match(builder, /clone\.animation_data_clear\(\)/);
+  assert.match(builder, /clone\.hide_render\s*=\s*source_object\.hide_render/);
+  assert.match(builder, /scene\.view_settings\.exposure\s*=\s*source\.view_settings\.exposure/);
+  assert.doesNotMatch(builder, /scene\.view_settings\.exposure\s*=\s*0\.45/);
+  assert.doesNotMatch(builder, /background\.inputs\["Strength"\]\.default_value/);
+  assert.match(builder, /def restore_source_mechanics\([\s\S]*?valve\.animation_data_clear\(\)/);
+  assert.doesNotMatch(builder, /"desktop":\s*"PIMM30_pneumatic-toggle_desktop"/);
+  assert.doesNotMatch(builder, /"mobile":\s*"PIMM30_pneumatic-toggle_mobile"/);
+  assert.match(builder, /VALVE_HANDLE_NAME\s*=\s*['"]30g_Body3_5_Opaque_50_50_50_0['"]/);
+  assert.match(builder, /VALVE_PIVOT\s*=\s*Vector\(\(0\.1,\s*-0\.12195,\s*0\.5355\)\)/);
+  assert.match(builder, /VALVE_ANGLE_DEGREES\s*=\s*15\.0/);
+  assert.match(builder, /def create_valve_pivot\(/);
+  assert.match(builder, /valve_pivot\.matrix_world\.translation\s*=\s*VALVE_PIVOT/);
+  assert.match(builder, /valve_handle\.parent\s*=\s*valve_pivot/);
+  assert.match(builder, /keyframe_vector\([\s\S]*?valve_pivot,[\s\S]*?["']rotation_euler["']/);
+  assert.doesNotMatch(builder, /keyframe_vector\(valve_handle,\s*["']location["']/);
+  for (const objectName of [
+    '30g_045_Body1_101',
+    '30g_046_Body1_102',
+    '30g_048_Body1_104',
+    '30g_050_Body1_106',
+  ]) {
+    assert.match(builder, new RegExp(objectName));
+  }
+  assert.match(builder, /EXTEND_COMMAND_FRAME\s*=\s*21/);
+  assert.match(builder, /EXTEND_PLUNGER_START_FRAME\s*=\s*25/);
+  assert.match(builder, /RETRACT_COMMAND_FRAME\s*=\s*59/);
+  assert.match(builder, /RETRACT_PLUNGER_START_FRAME\s*=\s*63/);
+  assert.match(builder, /\(EXTEND_COMMAND_FRAME, math\.radians\(VALVE_ANGLE_DEGREES\)\)/);
+  assert.match(builder, /\(EXTEND_PLUNGER_START_FRAME, retracted_z\)/);
+  assert.match(builder, /\(RETRACT_COMMAND_FRAME, math\.radians\(-VALVE_ANGLE_DEGREES\)\)/);
+  assert.match(builder, /\(RETRACT_PLUNGER_START_FRAME, extended_z\)/);
+  assert.match(builder, /frame_set\(EXTENDED_FRAME\)[\s\S]*?extended_z\s*=\s*retracted_z\s*-\s*STROKE_METERS/);
+  assert.match(builder, /frame_set\(RETRACTED_FRAME\)[\s\S]*?retracted_z/);
+  assert.match(
+    template,
+    /"operation"[\s\S]*?"desktop_video_asset": "pimm30-direct-operation-desktop\.webm"[\s\S]*?"desktop_poster_asset": "pimm30-v16-operation-desktop\.webp"[\s\S]*?"mobile_video_asset": "pimm30-direct-operation-mobile\.webm"[\s\S]*?"mobile_poster_asset": "pimm30-v16-operation-mobile\.webp"/,
+  );
+  assert.match(english, /"operation"[\s\S]*?"metric":\s*"200 mm"[\s\S]*?"metric_label":\s*"Injection stroke"/);
+
+  for (const [asset, width, height] of [
+    ['pimm30-direct-operation-desktop.webm', 1200, 1440],
+    ['pimm30-direct-operation-mobile.webm', 1080, 1920],
+  ]) {
+    const probe = JSON.parse(execFileSync(
+      'ffprobe',
+      [
+        '-v', 'error',
+        '-count_frames',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height,r_frame_rate,nb_read_frames:stream_tags=alpha_mode',
+        '-of', 'json',
+        join(root, 'assets', asset),
+      ],
+      { encoding: 'utf8' },
+    )).streams[0];
+    assert.equal(probe.width, width);
+    assert.equal(probe.height, height);
+    assert.equal(probe.r_frame_rate, '24/1');
+    assert.equal(probe.nb_read_frames, '80');
+    assert.equal(probe.tags.ALPHA_MODE ?? probe.tags.alpha_mode, '1');
+  }
 });
 
 test('M10 fixture chapter centers the threaded base plate as the visual subject', () => {
@@ -560,7 +647,7 @@ test('presentation assets share the responsive hero revision token', () => {
   const revisions = [...liquid.matchAll(/pimm30rev=([\w-]+)/g)].map((match) => match[1]);
 
   assert.equal(revisions.length, 4);
-  assert.deepEqual([...new Set(revisions)], ['20260810-turntable-preview']);
+  assert.deepEqual([...new Set(revisions)], ['20260811-direct-operation']);
 });
 
 test('phone configuration reserves enough height for both full-size purchase actions', () => {
