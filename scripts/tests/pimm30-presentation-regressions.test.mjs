@@ -1023,3 +1023,20 @@ test('narrow portrait configuration enlarges the turntable and keeps touch drag 
     /@media \(max-width: 599px\) and \(orientation: portrait\) and \(min-height: 761px\)[\s\S]*?pimm30-configuration['"]\][\s\S]*?height:\s*51dvh !important[\s\S]*?pimm30-chapter--configuration[\s\S]*?padding-top:\s*calc\(var\(--pimm30-header-space\) \+ 51dvh \+ 0\.4rem\) !important/,
   );
 });
+
+test('portrait configuration gives the machine a dominant media field and keeps both CTAs side by side', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final portrait configuration purchase balance[\s\S]*?@media \(max-width: 1024px\) and \(orientation: portrait\)[\s\S]*?data-pimm30-layer=['"]pimm30-configuration['"][\s\S]*?--pimm30-portrait-media-scale:\s*1\.24[\s\S]*?height:\s*56dvh !important[\s\S]*?pimm30-chapter--configuration[\s\S]*?padding-top:\s*calc\(var\(--pimm30-header-space\) \+ 56dvh \+ 0\.4rem\) !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait configuration purchase balance[\s\S]*?pimm30-commerce__actions\s*{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\) !important[\s\S]*?pimm30-product-form form[\s\S]*?width:\s*100% !important/,
+  );
+  assert.match(
+    noCropCss,
+    /@media \(max-width: 599px\) and \(orientation: portrait\)[\s\S]*?Final phone configuration emphasis[\s\S]*?--pimm30-portrait-media-scale:\s*1\.62/,
+  );
+});

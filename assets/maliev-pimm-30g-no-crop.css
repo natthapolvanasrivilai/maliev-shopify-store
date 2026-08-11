@@ -1747,3 +1747,85 @@
     padding-top: calc(var(--pimm30-header-space) + 51dvh + 0.4rem) !important;
   }
 }
+
+/* Final portrait configuration purchase balance. The turntable is the visual
+ * proof of the product, so it receives a dominant upper field; the two equal
+ * purchase actions share one row to return that vertical space to the media. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    --pimm30-portrait-media-scale: 1.24;
+    height: 56dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 56dvh + 0.4rem) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-commerce__actions {
+    align-items: stretch !important;
+    display: grid !important;
+    gap: clamp(0.6rem, 1.5vw, 0.9rem) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    :is(.pimm30-action, .pimm30-product-form, .pimm30-product-form form) {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-action {
+    justify-content: center !important;
+    min-height: 4.8rem !important;
+    padding-inline: clamp(0.8rem, 2vw, 1.4rem) !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 599px) and (orientation: portrait) {
+  /* Final phone configuration emphasis. */
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    --pimm30-portrait-media-scale: 1.62;
+  }
+}
+
+@media (max-width: 1024px) and (orientation: portrait) and (max-height: 760px) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    --pimm30-portrait-media-scale: 1.42;
+    height: 44dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 44dvh + 0.4rem) !important;
+  }
+}
+
+@media (max-width: 1024px) and (orientation: portrait) and (max-height: 600px) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    --pimm30-portrait-media-scale: 1.25;
+    height: 34dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 34dvh + 0.3rem) !important;
+  }
+}
