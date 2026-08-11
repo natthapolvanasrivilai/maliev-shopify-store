@@ -1455,6 +1455,60 @@
   }
 }
 
+/* Final small-portrait feature highlight authority. Compact English labels
+ * keep each specification on one intentional line while the full localized
+ * wording remains on the definition term for assistive technology. */
+@media (max-width: 599px) and (orientation: portrait) {
+  .pimm30-story {
+    --pimm30-hero-feature-height: 11.6rem;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-rail--hero > div,
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-rail--hero > div:first-child {
+    align-content: center !important;
+    justify-items: center !important;
+    padding: 0.65rem 0.8rem !important;
+    row-gap: 0.25rem !important;
+    text-align: center !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-label:has(.pimm30-spec-label__compact)
+    .pimm30-spec-label__full {
+    display: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-label__compact {
+    display: inline !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-rail--hero dt {
+    display: block !important;
+    min-width: 0 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--hero
+    .pimm30-spec-rail--hero dd {
+    display: block !important;
+    margin: 0 !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+}
+
 /* Final portrait slide media field authority. Detail chapters share one
  * centered contain box so transparent production renders keep every edge and
  * sit on the same presentation axis. Overview and the 50G finale retain their

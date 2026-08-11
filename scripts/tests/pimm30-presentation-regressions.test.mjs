@@ -961,3 +961,20 @@ test('portrait detail slides share one fully contained media field', () => {
     /Final portrait optical alignment[\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?translate\(\s*var\(--pimm30-portrait-media-x, 0%\),\s*var\(--pimm30-portrait-media-y, 0%\)\s*\)[\s\S]*?scale\(var\(--pimm30-portrait-media-scale, 1\)\)/,
   );
 });
+
+test('small portrait hero centers highlights and uses compact English labels', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final small-portrait feature highlight authority[\s\S]*?@media \(max-width: 599px\) and \(orientation: portrait\)[\s\S]*?--pimm30-hero-feature-height:\s*11\.6rem[\s\S]*?pimm30-spec-rail--hero > div[\s\S]*?justify-items:\s*center !important[\s\S]*?row-gap:\s*0\.25rem !important[\s\S]*?text-align:\s*center !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final small-portrait feature highlight authority[\s\S]*?pimm30-spec-label:has\(\.pimm30-spec-label__compact\)[\s\S]*?pimm30-spec-label__full[\s\S]*?display:\s*none !important[\s\S]*?pimm30-spec-label__compact[\s\S]*?display:\s*inline !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final small-portrait feature highlight authority[\s\S]*?pimm30-spec-rail--hero dt[\s\S]*?display:\s*block !important[\s\S]*?text-align:\s*center !important[\s\S]*?white-space:\s*nowrap !important[\s\S]*?pimm30-spec-rail--hero dd[\s\S]*?display:\s*block !important[\s\S]*?text-align:\s*center !important/,
+  );
+});
