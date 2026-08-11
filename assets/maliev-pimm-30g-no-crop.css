@@ -520,6 +520,19 @@
   transform-origin: 50% 50% !important;
 }
 
+/* Desktop temperature edge feather. The controller faces stay inside the
+ * fully opaque center while the surrounding machine context dissolves along
+ * every canvas edge, eliminating rectangular top, left, and bottom cuts. */
+@media (min-width: 900px) and (orientation: landscape) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-temperature']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    -webkit-mask-image: radial-gradient(ellipse 90% 66% at 68% 50%, #000 55%, transparent 78%) !important;
+    mask-image: radial-gradient(ellipse 90% 66% at 68% 50%, #000 55%, transparent 78%) !important;
+  }
+}
+
 /* Capacity remains a one-frame chapter on compact canvases. Its alpha image
  * is contained and its metric is budgeted inside the viewport. */
 @media (max-width: 899px), (max-aspect-ratio: 6/5) {

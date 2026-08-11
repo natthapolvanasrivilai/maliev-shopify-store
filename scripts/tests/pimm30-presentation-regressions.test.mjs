@@ -734,6 +734,10 @@ test('detail chapters use the animated heater sequence and fully framed pressure
     noCropCss,
     /Temperature animation focus[\s\S]*?\.pimm30-story\.pimm30-story[\s\S]*?> \.pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-temperature['"]\][\s\S]*?object-fit:\s*contain !important[\s\S]*?transform:\s*none !important/,
   );
+  assert.match(
+    noCropCss,
+    /Desktop temperature edge feather[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?data-pimm30-layer=['"]pimm30-temperature['"][\s\S]*?mask-image:\s*radial-gradient\(ellipse 90% 66% at 68% 50%, #000 55%, transparent 78%\) !important/,
+  );
   for (const [asset, width, height] of [
     ['pimm30-temperature-controller-desktop.webm', 1200, 1440],
   ]) {
