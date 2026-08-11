@@ -414,10 +414,9 @@
   }
 }
 
-/* Complete M10 fixture composition. The fixture close-up sources omit the
- * cylinder and controls, so this chapter uses the complete three-quarter
- * machine render and aligns its opaque machine bounds—not its transparent
- * canvas—to the center of the available presentation field. */
+/* Centered M10 base-plate focus. This chapter is about the threaded fixture
+ * grid, so its purpose-built alpha render owns the centre of the media field
+ * instead of repeating the full-machine silhouette used by operation. */
 .pimm30-story.pimm30-story
   .pimm30-stage
   > [data-pimm30-layer='pimm30-fixture']
@@ -428,6 +427,7 @@
   max-height: none !important;
   max-width: none !important;
   object-fit: contain !important;
+  object-position: 50% 50% !important;
   opacity: 1 !important;
 }
 
@@ -436,12 +436,11 @@
   > [data-pimm30-layer='pimm30-fixture']
   :is(.pimm30-stage__poster img, .pimm30-stage__video) {
   bottom: auto !important;
-  left: 74% !important;
+  left: 67% !important;
   right: auto !important;
   top: 50% !important;
-  transform: translate(-59.6%, -50%) !important;
-  transform-origin: 59.6% 50% !important;
-  width: auto !important;
+  transform: translate(-50%, -50%) !important;
+  transform-origin: 50% 50% !important;
 }
 
 @media (min-width: 900px) and (orientation: landscape) {
@@ -449,8 +448,10 @@
     .pimm30-stage
     > [data-pimm30-layer='pimm30-fixture']
     :is(.pimm30-stage__poster img, .pimm30-stage__video) {
-    height: 86svh !important;
-    transform: translate(-59.6%, -50%) !important;
+    height: min(74svh, 52vw) !important;
+    left: 67% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 50vw !important;
   }
 }
 
@@ -459,10 +460,11 @@
     .pimm30-stage
     > [data-pimm30-layer='pimm30-fixture']
     :is(.pimm30-stage__poster img, .pimm30-stage__video) {
-    height: 52svh !important;
+    height: 46svh !important;
     left: 50% !important;
     top: calc(var(--pimm30-header-space) + 26svh) !important;
-    transform: translate(-59.6%, -50%) !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(94vw, 46rem) !important;
   }
 }
 
@@ -501,9 +503,10 @@
     .pimm30-stage
     > [data-pimm30-layer='pimm30-fixture']
     :is(.pimm30-stage__poster img, .pimm30-stage__video) {
-    height: 82svh !important;
-    left: 77% !important;
+    height: 78svh !important;
+    left: 72% !important;
     top: 50% !important;
+    width: 52vw !important;
   }
 }
 
@@ -1086,7 +1089,7 @@
   }
 }
 
-/* Keep the complete fixture assembly above its copy after all shared portrait
+/* Keep the centered fixture detail above its copy after all shared portrait
  * chapter rules have resolved. This final guard intentionally sits last. */
 @media (orientation: portrait), (max-width: 539px) {
   .pimm30-story.pimm30-story .pimm30-chapter--fixture .pimm30-chapter__content {
@@ -1103,7 +1106,7 @@
     .pimm30-stage
     > [data-pimm30-layer='pimm30-fixture']
     :is(.pimm30-stage__poster img, .pimm30-stage__video) {
-    height: 45svh !important;
+    height: 42svh !important;
     top: calc(var(--pimm30-header-space) + 22svh) !important;
   }
 }
@@ -1618,12 +1621,17 @@
 
   .pimm30-story.pimm30-story
     .pimm30-stage
-    > :is(
-      [data-pimm30-layer='pimm30-operation'],
-      [data-pimm30-layer='pimm30-fixture']
-    ) {
+    > [data-pimm30-layer='pimm30-operation'] {
     --pimm30-portrait-media-scale: 1.02;
     --pimm30-portrait-media-x: -8%;
+    --pimm30-portrait-media-y: -2%;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-fixture'] {
+    --pimm30-portrait-media-scale: 1;
+    --pimm30-portrait-media-x: 0%;
     --pimm30-portrait-media-y: -2%;
   }
 

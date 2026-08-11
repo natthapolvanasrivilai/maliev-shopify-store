@@ -202,18 +202,18 @@ test('direct-operation slide keeps the complete pneumatic assembly in a top-focu
   );
 });
 
-test('M10 fixture chapter shows the complete machine without cropping the assembly', () => {
+test('M10 fixture chapter centers the threaded base plate as the visual subject', () => {
   const template = read('templates/product.injection-molding-machine.json');
   const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
 
   assert.match(
     template,
-    /"fixture"[\s\S]*?"desktop_poster_asset": "pimm30-v12-operation-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v12-operation-desktop\.webp"/,
+    /"fixture"[\s\S]*?"desktop_poster_asset": "pimm30-v15-fixture-desktop\.webp"[\s\S]*?"mobile_poster_asset": "pimm30-v15-fixture-mobile\.webp"/,
   );
-  assert.doesNotMatch(template, /pimm30-v(?:10|15)-fixture-(?:desktop|mobile)\.webp/);
 
-  for (const [path, expectedWidth, expectedHeight, minimumOpaqueHeight] of [
-    ['assets/pimm30-v12-operation-desktop.webp', 1200, 1440, 1280],
+  for (const [path, expectedWidth, expectedHeight, minimumOpaqueWidth] of [
+    ['assets/pimm30-v15-fixture-desktop.webp', 1200, 1440, 1080],
+    ['assets/pimm30-v15-fixture-mobile.webp', 1200, 800, 1080],
   ]) {
     const probe = JSON.parse(execFileSync(
       'ffprobe',
@@ -230,18 +230,22 @@ test('M10 fixture chapter shows the complete machine without cropping the assemb
     assert.equal(probe.streams[0].height, expectedHeight);
 
     const bounds = alphaBounds(path);
-    assert.ok(bounds.h >= minimumOpaqueHeight, `${path} omits part of the machine: ${JSON.stringify(bounds)}`);
+    assert.ok(bounds.w >= minimumOpaqueWidth, `${path} does not give the M10 grid enough visual width: ${JSON.stringify(bounds)}`);
     assert.ok(bounds.x1 > 0 && bounds.x2 < expectedWidth - 1, `${path} touches a horizontal edge: ${JSON.stringify(bounds)}`);
     assert.ok(bounds.y1 > 0 && bounds.y2 < expectedHeight - 1, `${path} touches a vertical edge: ${JSON.stringify(bounds)}`);
   }
 
   assert.match(
     noCropCss,
-    /Complete M10 fixture composition[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?mask-image:\s*none !important[\s\S]*?object-fit:\s*contain !important/,
+    /Centered M10 base-plate focus[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?object-fit:\s*contain !important[\s\S]*?object-position:\s*50% 50% !important/,
   );
   assert.match(
     noCropCss,
-    /Complete M10 fixture composition[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?height:\s*86svh !important[\s\S]*?transform:\s*translate\(-59\.6%, -50%\) !important/,
+    /Centered M10 base-plate focus[\s\S]*?@media \(min-width: 900px\) and \(orientation: landscape\)[\s\S]*?height:\s*min\(74svh, 52vw\) !important[\s\S]*?left:\s*67% !important[\s\S]*?transform:\s*translate\(-50%, -50%\) !important[\s\S]*?width:\s*50vw !important/,
+  );
+  assert.match(
+    noCropCss,
+    /data-pimm30-layer=['"]pimm30-fixture['"][^}]*--pimm30-portrait-media-scale:\s*1;[^}]*--pimm30-portrait-media-x:\s*0%;/,
   );
   assert.match(
     noCropCss,
@@ -249,11 +253,11 @@ test('M10 fixture chapter shows the complete machine without cropping the assemb
   );
   assert.match(
     noCropCss,
-    /max-width: 539px[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?54svh[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?height:\s*45svh !important/,
+    /max-width: 539px[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?54svh[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?height:\s*42svh !important/,
   );
   assert.match(
     noCropCss,
-    /max-height: 540px[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?width:\s*41vw !important[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?height:\s*82svh !important/,
+    /max-height: 540px[\s\S]*?pimm30-chapter--fixture \.pimm30-chapter__content[\s\S]*?width:\s*41vw !important[\s\S]*?data-pimm30-layer=['"]pimm30-fixture['"][\s\S]*?height:\s*78svh !important/,
   );
 });
 
