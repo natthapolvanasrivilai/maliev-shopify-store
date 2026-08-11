@@ -994,3 +994,20 @@ test('portrait temperature slide uses the wider heater animation with a left-edg
     /Final portrait temperature context framing[\s\S]*?@media \(max-width: 1024px\) and \(orientation: portrait\)[\s\S]*?> \.pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-temperature['"]\][\s\S]*?--pimm30-portrait-media-x:\s*-3%[\s\S]*?:is\(\.pimm30-stage__poster img, \.pimm30-stage__video\)[\s\S]*?-webkit-mask-image:\s*linear-gradient\(to right, transparent 0%, #000 12%, #000 100%\) !important[\s\S]*?mask-image:\s*linear-gradient\(to right, transparent 0%, #000 12%, #000 100%\) !important/,
   );
 });
+
+test('narrow portrait configuration enlarges the turntable and keeps touch drag reachable above two actions', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final narrow portrait configuration authority[\s\S]*?@media \(max-width: 599px\) and \(orientation: portrait\)[\s\S]*?pimm30-story__chapters\s*{[\s\S]*?pointer-events:\s*none !important[\s\S]*?pimm30-chapter--configuration[\s\S]*?\.pimm30-chapter__content\s*{[\s\S]*?pointer-events:\s*none !important[\s\S]*?pimm30-chapter__content[\s\S]*?> \*\s*{[\s\S]*?pointer-events:\s*auto !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final narrow portrait configuration authority[\s\S]*?pimm30-chapter--configuration[\s\S]*?\.pimm30-commerce__actions\s*{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\) !important[\s\S]*?pimm30-stage__layer\[data-pimm30-layer=['"]pimm30-configuration['"]\][\s\S]*?--pimm30-portrait-media-scale:\s*1\.48/,
+  );
+  assert.match(
+    noCropCss,
+    /@media \(max-width: 599px\) and \(orientation: portrait\) and \(min-height: 761px\)[\s\S]*?pimm30-configuration['"]\][\s\S]*?height:\s*51dvh !important[\s\S]*?pimm30-chapter--configuration[\s\S]*?padding-top:\s*calc\(var\(--pimm30-header-space\) \+ 51dvh \+ 0\.4rem\) !important/,
+  );
+});

@@ -1656,3 +1656,68 @@
     mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 100%) !important;
   }
 }
+
+/* Final narrow portrait configuration authority. The chapter content spans
+ * the viewport for layout, but it must not intercept horizontal drags in the
+ * media lane. Its real controls opt back into hit testing. A single two-column
+ * action row returns enough vertical budget to present the turntable at the
+ * same confident scale as the product hero. */
+@media (max-width: 599px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story .pimm30-story__chapters {
+    pointer-events: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    pointer-events: none !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content
+    > * {
+    pointer-events: auto !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-commerce__actions {
+    gap: 0.8rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    :is(.pimm30-action, .pimm30-product-form, .pimm30-product-form form) {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-action {
+    font-size: clamp(1.15rem, 3.2vw, 1.4rem) !important;
+    padding-inline: clamp(1rem, 3vw, 1.4rem) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    --pimm30-portrait-media-scale: 1.48;
+  }
+}
+
+@media (max-width: 599px) and (orientation: portrait) and (min-height: 761px) {
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > .pimm30-stage__layer[data-pimm30-layer='pimm30-configuration'] {
+    height: 51dvh !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--configuration
+    .pimm30-chapter__content {
+    padding-top: calc(var(--pimm30-header-space) + 51dvh + 0.4rem) !important;
+  }
+}
