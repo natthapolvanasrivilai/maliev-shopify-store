@@ -911,3 +911,24 @@ test('short mobile viewports fit chapter copy and actions inside the one-scroll 
     /Final mobile one-scroll chapter contract[\s\S]*?@media \(min-width: 900px\) and \(max-width: 1023px\) and \(orientation: landscape\) and \(max-height: 540px\)[\s\S]*?\.pimm30-story\.pimm30-story \.pimm30-chapter\s*\{[\s\S]*?height:\s*100dvh !important[\s\S]*?max-height:\s*100dvh !important[\s\S]*?overflow:\s*hidden !important/,
   );
 });
+
+test('portrait phone and tablet chapters anchor copy below the media field', () => {
+  const noCropCss = read('assets/maliev-pimm-30g-no-crop.css');
+
+  assert.match(
+    noCropCss,
+    /Final portrait media-top copy-bottom authority[\s\S]*?@media \(max-width: 1024px\) and \(orientation: portrait\)[\s\S]*?\.pimm30-chapter:not\(\.pimm30-chapter--hero\)[\s\S]*?\.pimm30-chapter__content[\s\S]*?align-content:\s*end !important[\s\S]*?height:\s*100dvh !important[\s\S]*?overflow:\s*hidden !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait media-top copy-bottom authority[\s\S]*?data-pimm30-layer=['"]pimm30-regulator['"][\s\S]*?height:\s*min\(44dvh, 36rem\) !important[\s\S]*?top:\s*0 !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait media-top copy-bottom authority[\s\S]*?data-pimm30-layer=['"]pimm30-operation['"][\s\S]*?height:\s*min\(54dvh, 34rem\) !important[\s\S]*?top:\s*0 !important/,
+  );
+  assert.match(
+    noCropCss,
+    /Final portrait media-top copy-bottom authority[\s\S]*?pimm30-chapter__metric--pressure dd[\s\S]*?align-items:\s*flex-start !important[\s\S]*?pimm30-pressure__primary[\s\S]*?min-width:\s*0 !important[\s\S]*?pimm30-pressure__step[\s\S]*?text-align:\s*left !important/,
+  );
+});

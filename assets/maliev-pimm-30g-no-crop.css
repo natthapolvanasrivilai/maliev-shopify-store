@@ -1379,3 +1379,78 @@
     width: auto !important;
   }
 }
+
+/* Final portrait media-top copy-bottom authority. This is the last responsive
+ * geometry rule by design, after every chapter-specific focal crop. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .pimm30-story.pimm30-story .pimm30-chapter {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(.pimm30-chapter--hero)
+    .pimm30-chapter__content {
+    align-content: end !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter:not(.pimm30-chapter--hero)
+    .pimm30-chapter__content
+    > * {
+    margin-block: 0 !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-operation']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    bottom: auto !important;
+    height: min(54dvh, 34rem) !important;
+    left: 50% !important;
+    right: auto !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-stage
+    > [data-pimm30-layer='pimm30-regulator']
+    :is(.pimm30-stage__poster img, .pimm30-stage__video) {
+    bottom: auto !important;
+    height: min(44dvh, 36rem) !important;
+    left: 50% !important;
+    right: auto !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--regulator
+    .pimm30-chapter__metric--pressure dd {
+    align-items: flex-start !important;
+    margin-top: 0.4rem !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--regulator
+    .pimm30-pressure__primary {
+    min-width: 0 !important;
+    width: max-content !important;
+  }
+
+  .pimm30-story.pimm30-story
+    .pimm30-chapter--regulator
+    .pimm30-pressure__step {
+    text-align: left !important;
+  }
+}
