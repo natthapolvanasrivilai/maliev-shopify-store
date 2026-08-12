@@ -183,6 +183,23 @@ test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   assert.doesNotMatch(css, /transition[^;]*(?:height|width|top|right|bottom|left|margin|padding)/);
 });
 
+test('product sections expose distinct engineering motion roles', () => {
+  const required = [
+    'hero-media', 'hero-copy', 'hero-facts', 'overview-facts',
+    'capacity-media', 'pneumatic-flow', 'melt-media', 'melt-proof',
+    'heating-media', 'heating-readouts', 'mold-media', 'mold-dimension',
+    'comparison-machines', 'comparison-facts', 'purchase-media', 'purchase-panel'
+  ];
+  const roles = [...section.matchAll(/data-pimm50-motion="([^"]+)"/g)].map((match) => match[1]).sort();
+
+  assert.deepEqual(roles, [...required].sort());
+  for (let index = 0; index < 4; index += 1) assert.match(section, new RegExp(`pimm50-hero__fact[^>]+--p50-index: ${index}`));
+  for (let index = 0; index < 2; index += 1) {
+    assert.match(section, new RegExp(`data-pimm50-readout[^>]+--p50-index: ${index}`));
+    assert.match(section, new RegExp(`data-pimm50-comparison-machine[^>]+--p50-index: ${index}`));
+  }
+});
+
 test('50G template remains a single custom product journey', () => {
   assert.deepEqual(template.order, ['launch']);
   assert.deepEqual(Object.keys(template.sections), ['launch']);

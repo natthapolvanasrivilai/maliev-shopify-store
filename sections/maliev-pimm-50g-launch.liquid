@@ -25,7 +25,7 @@
 <div class="pimm50-page" data-pimm50-page>
   <section class="pimm50-hero" id="pimm50-hero" aria-labelledby="pimm50-title">
     <div class="pimm50-page__content pimm50-hero__layout">
-      <div class="pimm50-hero__copy">
+      <div class="pimm50-hero__copy" data-pimm50-motion="hero-copy">
         <p class="pimm50-page__eyebrow">Pneumatic injection molding machine</p>
         <h1 id="pimm50-title">PIMM 50G</h1>
         <p class="pimm50-hero__lead">
@@ -35,20 +35,20 @@
             More shot headroom, a steel melt zone, and independent dual-zone heating in a machine sized for a working workshop.
           {% endif %}
         </p>
-        <dl class="pimm50-hero__facts" aria-label="{% if is_thai %}ข้อมูลสำคัญของเครื่อง{% else %}Key machine facts{% endif %}">
-          <div data-pimm50-hero-fact>
+        <dl class="pimm50-hero__facts" data-pimm50-motion="hero-facts" aria-label="{% if is_thai %}ข้อมูลสำคัญของเครื่อง{% else %}Key machine facts{% endif %}">
+          <div class="pimm50-hero__fact" data-pimm50-hero-fact style="--p50-index: 0">
             <dt>{% if is_thai %}น้ำหนักฉีดสูงสุด{% else %}Maximum shot{% endif %}</dt>
             <dd>50 g</dd>
           </div>
-          <div data-pimm50-hero-fact>
+          <div class="pimm50-hero__fact" data-pimm50-hero-fact style="--p50-index: 1">
             <dt>{% if is_thai %}ชุดหลอม{% else %}Melt zone{% endif %}</dt>
             <dd>{% if is_thai %}เหล็ก{% else %}Steel{% endif %}</dd>
           </div>
-          <div data-pimm50-hero-fact>
+          <div class="pimm50-hero__fact" data-pimm50-hero-fact style="--p50-index: 2">
             <dt>{% if is_thai %}ฮีตเตอร์{% else %}Heating{% endif %}</dt>
             <dd>2 × 350 W</dd>
           </div>
-          <div data-pimm50-hero-fact>
+          <div class="pimm50-hero__fact" data-pimm50-hero-fact style="--p50-index: 3">
             <dt>{% if is_thai %}ความสูงเครื่อง{% else %}Machine height{% endif %}</dt>
             <dd>1014.5 mm</dd>
           </div>
@@ -59,7 +59,7 @@
           <a class="pimm50-page__text-link" href="#pimm50-capacity">{% if is_thai %}ดูรายละเอียดวิศวกรรม{% else %}Explore the engineering{% endif %}</a>
         </div>
       </div>
-      <picture class="pimm50-page__media pimm50-authoritative-media pimm50-hero__media" data-pimm50-authoritative-media="hero" data-pimm50-alpha-bounds="506 250 895 1170 1400 1400" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-authoritative-media pimm50-hero__media" data-pimm50-authoritative-media="hero" data-pimm50-alpha-bounds="506 250 895 1170 1400 1400" data-pimm50-media data-pimm50-motion="hero-media">
         <img src="{{ 'pimm50-light-studio-hero.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่องฉีดพลาสติกระบบลม MALIEV PIMM 50G แบบเต็มเครื่อง{% else %}Complete MALIEV PIMM 50G pneumatic injection molding machine{% endif %}" loading="eager" fetchpriority="high">
       </picture>
     </div>
@@ -71,7 +71,7 @@
         <h2 id="pimm50-overview-title">{% if is_thai %}ข้อมูลที่ต้องยืนยันก่อนเลือกเครื่อง{% else %}The facts to qualify before you choose.{% endif %}</h2>
         <p>{% if is_thai %}เริ่มจากชิ้นงาน แม่พิมพ์ วัสดุ และระบบลมของคุณ ทีม MALIEV จะช่วยตรวจสอบความเหมาะสมก่อนเริ่มผลิตเครื่อง{% else %}Start with your part, mold, material, and air supply. MALIEV will qualify the setup with you before machine production begins.{% endif %}</p>
       </div>
-      <dl class="pimm50-overview__proof" aria-label="{% if is_thai %}ข้อมูลทางเทคนิคโดยสรุป{% else %}Technical overview{% endif %}">
+      <dl class="pimm50-overview__proof" data-pimm50-motion="overview-facts" aria-label="{% if is_thai %}ข้อมูลทางเทคนิคโดยสรุป{% else %}Technical overview{% endif %}">
         <div>
           <dt>{% if is_thai %}น้ำหนักฉีดสูงสุด{% else %}Maximum shot{% endif %}</dt>
           <dd>50 g</dd>
@@ -98,7 +98,7 @@
 
   <section class="pimm50-capacity" id="pimm50-capacity" aria-labelledby="pimm50-capacity-title">
     <div class="pimm50-page__content pimm50-capacity__layout">
-      <figure class="pimm50-capacity__figure" data-pimm50-motion>
+      <figure class="pimm50-capacity__figure" data-pimm50-motion="capacity-media">
         <picture class="pimm50-page__media pimm50-capacity__media" data-pimm50-media>
           <img src="{{ 'pimm50-light-studio-capacity.webp' | asset_url }}" width="1200" height="1200" alt="{% if is_thai %}กระบอกลมและชุดฉีดขนาดใหญ่ของ PIMM 50G{% else %}PIMM 50G large pneumatic cylinder and injection assembly{% endif %}" loading="lazy">
         </picture>
@@ -107,7 +107,7 @@
       <div class="pimm50-page__copy pimm50-capacity__copy">
         <h2 id="pimm50-capacity-title">{% if is_thai %}ความจุ 50 กรัม เพื่อเพิ่มพื้นที่ให้การออกแบบชิ้นงาน{% else %}50 grams of shot capacity gives the part more room.{% endif %}</h2>
         <p>{% if is_thai %}ความจุที่เพิ่มขึ้นรองรับชิ้นงานที่ใหญ่ขึ้นหรือผนังที่หนาขึ้น โดยยังคงรูปแบบเครื่องแนวตั้งที่เหมาะกับเวิร์กช็อป การเลือกจริงต้องยืนยันจากปริมาตรชิ้นงาน รันเนอร์ และวัสดุ{% else %}The added capacity supports larger parts or thicker sections while retaining a workshop-scale vertical machine. Final selection still depends on part volume, runner volume, and material.{% endif %}</p>
-        <div class="pimm50-capacity__flow" data-pimm50-flow data-pimm50-motion aria-label="{% if is_thai %}ลำดับการทำงานของระบบลม{% else %}Pneumatic drive sequence{% endif %}">
+        <div class="pimm50-capacity__flow" data-pimm50-flow data-pimm50-motion="pneumatic-flow" aria-label="{% if is_thai %}ลำดับการทำงานของระบบลม{% else %}Pneumatic drive sequence{% endif %}">
           <span>{% if is_thai %}ระบบลมโรงงาน{% else %}Workshop air{% endif %}</span>
           <i aria-hidden="true"></i>
           <span>{% if is_thai %}ปรับแรงดัน{% else %}Regulated{% endif %}</span>
@@ -124,10 +124,10 @@
         <h2 id="pimm50-melt-title">{% if is_thai %}แกนการทำงานเปลี่ยนเป็นเหล็ก{% else %}The working core changes to steel.{% endif %}</h2>
         <p>{% if is_thai %}PIMM 50G เปลี่ยนชุดหลอมอะลูมิเนียมของ 30G เป็นโครงสร้างเหล็ก เพื่อให้ส่วนที่รับความร้อนโดยตรงเหมาะกับรอบความร้อนซ้ำของงานที่ใหญ่ขึ้น{% else %}The 50G replaces the 30G aluminum melt zone with steel, giving the directly heated assembly construction suited to repeated thermal cycles in larger work.{% endif %}</p>
       </div>
-      <picture class="pimm50-page__media pimm50-melt-zone__media" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-melt-zone__media" data-pimm50-media data-pimm50-motion="melt-media">
         <img src="{{ 'pimm50-light-studio-melt-zone.webp' | asset_url }}" width="1200" height="1200" alt="{% if is_thai %}ภาพระยะใกล้ชุดหลอมเหล็กและพื้นที่แม่พิมพ์ของ PIMM 50G{% else %}Close view of the PIMM 50G steel melt-zone assembly above the mold area{% endif %}" loading="lazy">
       </picture>
-      <dl class="pimm50-melt-zone__proof">
+      <dl class="pimm50-melt-zone__proof" data-pimm50-motion="melt-proof">
         <div>
           <dt>30G</dt>
           <dd>{% if is_thai %}ชุดหลอมอะลูมิเนียม{% else %}Aluminum melt zone{% endif %}</dd>
@@ -150,15 +150,15 @@
         <h2 id="pimm50-heating-title">{% if is_thai %}สองโซนความร้อนที่ตรวจสอบแยกกันได้{% else %}Two heating zones, visible and adjustable independently.{% endif %}</h2>
         <p>{% if is_thai %}ฮีตเตอร์ Hot Runner ขนาด 350 วัตต์แต่ละตัวมี PID controller ของตัวเอง ผู้ปฏิบัติงานจึงตรวจสอบค่าและปรับแต่ละโซนได้จากแผงควบคุมจริง{% else %}Each 350W hot-runner heater has its own PID controller, so the operator can inspect and adjust each zone from the physical machine panel.{% endif %}</p>
       </div>
-      <picture class="pimm50-page__media pimm50-heating__media" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-heating__media" data-pimm50-media data-pimm50-motion="heating-media">
         <img src="{{ 'pimm50-light-studio-heating.webp' | asset_url }}" width="1200" height="1200" alt="{% if is_thai %}แผงควบคุมอุณหภูมิสองโซนของ PIMM 50G แสดง 350 องศาเซลเซียส{% else %}PIMM 50G dual-zone temperature controller panel displaying 350 degrees Celsius{% endif %}" loading="lazy">
       </picture>
-      <dl class="pimm50-heating__readouts" aria-label="{% if is_thai %}ค่าระบบทำความร้อน{% else %}Heating system readouts{% endif %}">
-        <div data-pimm50-readout>
+      <dl class="pimm50-heating__readouts" data-pimm50-motion="heating-readouts" aria-label="{% if is_thai %}ค่าระบบทำความร้อน{% else %}Heating system readouts{% endif %}">
+        <div data-pimm50-readout style="--p50-index: 0">
           <dt>{% if is_thai %}โซนบน{% else %}Upper zone{% endif %}</dt>
           <dd><strong>350 °C</strong><span>350 W</span></dd>
         </div>
-        <div data-pimm50-readout>
+        <div data-pimm50-readout style="--p50-index: 1">
           <dt>{% if is_thai %}โซนล่าง{% else %}Lower zone{% endif %}</dt>
           <dd><strong>350 °C</strong><span>350 W</span></dd>
         </div>
@@ -168,13 +168,13 @@
 
   <section class="pimm50-mold-space" id="pimm50-mold-space" aria-labelledby="pimm50-mold-title">
     <div class="pimm50-page__content pimm50-mold-space__layout">
-      <picture class="pimm50-page__media pimm50-mold-space__media" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-mold-space__media" data-pimm50-media data-pimm50-motion="mold-media">
         <img src="{{ 'pimm50-light-studio-mold-space.webp' | asset_url }}" width="1200" height="1200" alt="{% if is_thai %}พื้นที่ติดตั้งแม่พิมพ์และแผ่นฐานรู M10 ของ PIMM 50G{% else %}PIMM 50G mold workspace and M10 fixture-grid base plate{% endif %}" loading="lazy">
       </picture>
       <div class="pimm50-page__copy pimm50-mold-space__copy">
         <h2 id="pimm50-mold-title">{% if is_thai %}ตรวจสอบขนาดแม่พิมพ์ก่อนตรวจสอบราคา{% else %}Check the mold envelope before the price.{% endif %}</h2>
         <p>{% if is_thai %}พื้นที่เปิดด้านล่างและกริด M10 รองรับการติดตั้งแม่พิมพ์ จิ๊ก และอุปกรณ์เฉพาะงาน ขนาดภายนอกเพียงอย่างเดียวยังไม่พอ—ต้องตรวจสอบตำแหน่งทางเข้า ระยะหัวฉีด และการยึดแม่พิมพ์ด้วย{% else %}The open lower frame and M10 grid accept molds, jigs, and job-specific fixtures. Envelope alone is not enough—gate position, nozzle reach, and workholding also need qualification.{% endif %}</p>
-        <div class="pimm50-mold-space__dimension" data-pimm50-dimension data-pimm50-motion>
+        <div class="pimm50-mold-space__dimension" data-pimm50-dimension data-pimm50-motion="mold-dimension">
           <span>{% if is_thai %}ขนาดแม่พิมพ์สูงสุดที่รองรับ{% else %}Maximum supported mold{% endif %}</span>
           <strong>240 × 240 × 100</strong>
           <em>mm</em>
@@ -193,21 +193,21 @@
         <h2 id="pimm50-comparison-title">{% if is_thai %}เลือกจากชิ้นงาน ไม่ใช่เพียงตัวเลขรุ่น{% else %}Choose from the part, not the model number.{% endif %}</h2>
         <p>{% if is_thai %}ทั้งสองรุ่นใช้รูปแบบการทำงานด้วยระบบลมที่ตรงไปตรงมา รุ่นที่เหมาะสมขึ้นอยู่กับปริมาตรฉีด วัสดุ แม่พิมพ์ และระบบสาธารณูปโภคของเวิร์กช็อป{% else %}Both machines share a direct pneumatic workflow. The right platform depends on shot volume, material, mold, and the utilities available in your workshop.{% endif %}</p>
       </div>
-      <div class="pimm50-comparison__machines" data-pimm50-comparison-baseline aria-label="{% if is_thai %}เปรียบเทียบขนาด PIMM 30G และ PIMM 50G{% else %}PIMM 30G and PIMM 50G scale comparison{% endif %}">
-        <figure class="pimm50-comparison__machine pimm50-comparison__machine--30g" data-pimm50-comparison-machine="30g" data-pimm50-alpha-bounds="520 1602 1750">
+      <div class="pimm50-comparison__machines" data-pimm50-comparison-baseline data-pimm50-motion="comparison-machines" aria-label="{% if is_thai %}เปรียบเทียบขนาด PIMM 30G และ PIMM 50G{% else %}PIMM 30G and PIMM 50G scale comparison{% endif %}">
+        <figure class="pimm50-comparison__machine pimm50-comparison__machine--30g" data-pimm50-comparison-machine="30g" data-pimm50-alpha-bounds="520 1602 1750" style="--p50-index: 0">
           <div class="pimm50-comparison__stage">
             <picture><img src="{{ 'maliev-pimm-30g-alpha.webp' | asset_url }}" width="1400" height="1750" alt="{% if is_thai %}เครื่อง PIMM 30G แบบเต็มเครื่อง{% else %}Complete PIMM 30G machine{% endif %}" loading="lazy"></picture>
           </div>
           <figcaption><strong>30G</strong><span>{% if is_thai %}สำหรับงานฉีดขนาดกะทัดรัด{% else %}Compact-shot work{% endif %}</span></figcaption>
         </figure>
-        <figure class="pimm50-comparison__machine pimm50-comparison__machine--50g" data-pimm50-comparison-machine="50g" data-pimm50-alpha-bounds="250 1170 1400">
+        <figure class="pimm50-comparison__machine pimm50-comparison__machine--50g" data-pimm50-comparison-machine="50g" data-pimm50-alpha-bounds="250 1170 1400" style="--p50-index: 1">
           <div class="pimm50-comparison__stage">
             <picture><img src="{{ 'pimm50-light-studio-hero.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่อง PIMM 50G แบบเต็มเครื่อง{% else %}Complete PIMM 50G machine{% endif %}" loading="lazy"></picture>
           </div>
           <figcaption><strong>50G</strong><span>{% if is_thai %}เพิ่มพื้นที่ให้ปริมาตรฉีดและระบบความร้อน{% else %}Additional shot and thermal headroom{% endif %}</span></figcaption>
         </figure>
       </div>
-      <dl class="pimm50-comparison__facts">
+      <dl class="pimm50-comparison__facts" data-pimm50-motion="comparison-facts">
         <div><dt>{% if is_thai %}น้ำหนักฉีดสูงสุด{% else %}Maximum shot{% endif %}</dt><dd><span>30G · 30 g</span><span>50G · 50 g</span></dd></div>
         <div><dt>{% if is_thai %}ชุดหลอม{% else %}Melt zone{% endif %}</dt><dd><span>30G · {% if is_thai %}อะลูมิเนียม{% else %}Aluminum{% endif %}</span><span>50G · {% if is_thai %}เหล็ก{% else %}Steel{% endif %}</span></dd></div>
         <div><dt>{% if is_thai %}ความร้อน{% else %}Heating{% endif %}</dt><dd><span>30G · 2 × 300 W</span><span>50G · 2 × 350 W</span></dd></div>
@@ -224,11 +224,12 @@
 
   <section class="pimm50-purchase" id="pimm50-purchase" aria-labelledby="pimm50-purchase-title">
     <div class="pimm50-page__content pimm50-purchase__layout">
-      <picture class="pimm50-page__media pimm50-authoritative-media pimm50-purchase__media" data-pimm50-authoritative-media="purchase" data-pimm50-alpha-bounds="514 250 894 1167 1400 1400" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-authoritative-media pimm50-purchase__media" data-pimm50-authoritative-media="purchase" data-pimm50-alpha-bounds="514 250 894 1167 1400 1400" data-pimm50-media data-pimm50-motion="purchase-media">
         <img src="{{ 'pimm50-light-studio-purchase.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่อง PIMM 50G แบบเต็มเครื่องสำหรับขั้นตอนการเลือกชุดและสั่งซื้อ{% else %}Complete PIMM 50G for configuration and purchase{% endif %}" loading="lazy">
       </picture>
       <div
         class="pimm50-purchase__panel"
+        data-pimm50-motion="purchase-panel"
         data-pimm50-made-to-order-label="{{ made_to_order_label | escape }}"
         data-pimm50-sold-out-label="{{ sold_out_label | escape }}"
         data-pimm50-add-to-cart-label="{{ add_to_cart_label | escape }}"
