@@ -1,7 +1,9 @@
 # PIMM 50G Light Studio Product Page Design
 
-Date: 2026-08-12  
-Status: Approved visual direction; implementation pending  
+Date: 2026-08-12
+
+Status: Approved visual direction; implementation pending
+
 Route: `/products/pneumatic-injection-molding-machine-50g`
 
 ## Objective
@@ -18,7 +20,8 @@ This is not an imitation of an automotive brand. It adapts three useful patterns
 
 The primary audience is a Thai workshop owner, manufacturing engineer, educator, or small-production operator evaluating whether the 50G fits a specific mold, material, utility setup, and production workflow.
 
-Primary conversion: book a factory visit or qualification conversation.  
+Primary conversion: book a factory visit or qualification conversation.
+
 Secondary conversion: add the selected configuration to cart after qualification.
 
 The page must answer, in this order:
