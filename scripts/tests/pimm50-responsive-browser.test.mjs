@@ -88,8 +88,8 @@ class CdpSession {
     });
   }
 
-  close() {
-    this.socket.close();
+  async close() {
+    await this.socket.close();
   }
 }
 
@@ -121,11 +121,13 @@ function encodeClientFrame(value, opcode = 0x1) {
 
 class BuiltinWebSocket {
   #buffer = Buffer.alloc(0);
+  #closed;
   #fragments = [];
   #listeners = new Map();
 
   constructor(socket, initialData = Buffer.alloc(0)) {
     this.socket = socket;
+    this.#closed = new Promise((resolve) => socket.once('close', resolve));
     socket.on('data', (chunk) => this.#receive(chunk));
     socket.on('error', (error) => this.#emit('error', { error }));
     socket.on('close', () => this.#emit('close', {}));
@@ -201,10 +203,19 @@ class BuiltinWebSocket {
     this.socket.write(encodeClientFrame(value));
   }
 
-  close() {
-    if (this.socket.destroyed) return;
-    this.socket.write(encodeClientFrame(Buffer.alloc(0), 0x8));
-    this.socket.end();
+  async close() {
+    if (!this.socket.destroyed) {
+      this.socket.write(encodeClientFrame(Buffer.alloc(0), 0x8));
+      this.socket.end();
+    }
+    const closed = await Promise.race([
+      this.#closed.then(() => true),
+      delay(1_000).then(() => false),
+    ]);
+    if (!closed && !this.socket.destroyed) {
+      this.socket.destroy();
+      await Promise.race([this.#closed, delay(1_000)]);
+    }
   }
 }
 
@@ -251,11 +262,53 @@ async function connectSocket(url) {
   });
 }
 
+async function waitForBrowserExit(browser, timeout) {
+  if (browser.exitCode !== null || browser.signalCode !== null) return true;
+  return new Promise((resolve) => {
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      browser.off('exit', onExit);
+      resolve(false);
+    }, timeout);
+    browser.once('exit', onExit);
+  });
+}
+
 async function stopBrowser(browser) {
   if (browser.exitCode !== null || browser.signalCode !== null) return;
-  const exited = new Promise((resolve) => browser.once('exit', resolve));
   browser.kill();
-  await Promise.race([exited, delay(5_000)]);
+  if (await waitForBrowserExit(browser, 5_000)) return;
+  browser.kill('SIGKILL');
+  await waitForBrowserExit(browser, 2_000);
+}
+
+const transientProfileRemovalErrors = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM']);
+
+async function removeTemporaryProfile(path, {
+  initialDelay = 50,
+  maxAttempts = 10,
+  remove = rm,
+  wait = delay,
+} = {}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await remove(path, { force: true, recursive: true });
+      return;
+    } catch (error) {
+      if (!transientProfileRemovalErrors.has(error?.code) || attempt === maxAttempts) throw error;
+      await wait(Math.min(initialDelay * (2 ** (attempt - 1)), 1_000));
+    }
+  }
+}
+
+async function requestBrowserClose(session) {
+  await Promise.race([
+    session.send('Browser.close').catch(() => undefined),
+    delay(2_000),
+  ]);
 }
 
 async function launchBrowser() {
@@ -297,14 +350,26 @@ async function launchBrowser() {
     return {
       session,
       async close() {
-        session.close();
-        await stopBrowser(browser);
-        await rm(userDataDir, { force: true, recursive: true });
+        let cleanupError;
+        const cleanup = async (action) => {
+          try {
+            await action();
+          } catch (error) {
+            cleanupError ??= error;
+          }
+        };
+        await cleanup(() => requestBrowserClose(session));
+        await cleanup(() => session.close());
+        await cleanup(() => stopBrowser(browser));
+        await cleanup(() => removeTemporaryProfile(userDataDir));
+        if (cleanupError) {
+          throw cleanupError;
+        }
       },
     };
   } catch (error) {
     await stopBrowser(browser);
-    await rm(userDataDir, { force: true, recursive: true });
+    await removeTemporaryProfile(userDataDir);
     throw error;
   }
 }
@@ -619,6 +684,26 @@ const posterVisibilityProbe = `async () => {
   }
   return results;
 }`;
+
+test('temporary profile cleanup retries a transient Windows file lock', async () => {
+  let attempts = 0;
+  const waits = [];
+  const remove = async () => {
+    attempts += 1;
+    if (attempts < 3) {
+      const error = new Error('simulated cookie lock');
+      error.code = 'EBUSY';
+      throw error;
+    }
+  };
+
+  await assert.doesNotReject(() => removeTemporaryProfile('simulated-profile', {
+    remove,
+    wait: async (milliseconds) => waits.push(milliseconds),
+  }));
+  assert.equal(attempts, 3);
+  assert.deepEqual(waits, [50, 100]);
+});
 
 test('PIMM 50G browser matrix preserves normal flow and section geometry', { timeout: 240_000 }, async (t) => {
   const response = await fetch(route);
