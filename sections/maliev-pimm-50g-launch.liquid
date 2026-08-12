@@ -55,10 +55,11 @@
         </dl>
         <div class="pimm50-page__actions">
           <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}นัดชมเครื่องที่โรงงาน{% else %}Book a factory visit{% endif %}</a>
+          <a class="pimm50-page__text-link" href="#pimm50-purchase">{% if is_thai %}ดูรุ่นและราคา{% else %}View configuration &amp; price{% endif %}</a>
           <a class="pimm50-page__text-link" href="#pimm50-capacity">{% if is_thai %}ดูรายละเอียดวิศวกรรม{% else %}Explore the engineering{% endif %}</a>
         </div>
       </div>
-      <picture class="pimm50-page__media pimm50-hero__media" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-authoritative-media pimm50-hero__media" data-pimm50-authoritative-media="hero" data-pimm50-alpha-bounds="506 250 895 1170 1400 1400" data-pimm50-media data-pimm50-motion>
         <img src="{{ 'pimm50-light-studio-hero.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่องฉีดพลาสติกระบบลม MALIEV PIMM 50G แบบเต็มเครื่อง{% else %}Complete MALIEV PIMM 50G pneumatic injection molding machine{% endif %}" loading="eager" fetchpriority="high">
       </picture>
     </div>
@@ -223,7 +224,7 @@
 
   <section class="pimm50-purchase" id="pimm50-purchase" aria-labelledby="pimm50-purchase-title">
     <div class="pimm50-page__content pimm50-purchase__layout">
-      <picture class="pimm50-page__media pimm50-purchase__media" data-pimm50-media data-pimm50-motion>
+      <picture class="pimm50-page__media pimm50-authoritative-media pimm50-purchase__media" data-pimm50-authoritative-media="purchase" data-pimm50-alpha-bounds="514 250 894 1167 1400 1400" data-pimm50-media data-pimm50-motion>
         <img src="{{ 'pimm50-light-studio-purchase.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่อง PIMM 50G แบบเต็มเครื่องสำหรับขั้นตอนการเลือกชุดและสั่งซื้อ{% else %}Complete PIMM 50G for configuration and purchase{% endif %}" loading="lazy">
       </picture>
       <div
@@ -254,6 +255,7 @@
               <option value="{{ variant.id }}"{% if variant == selected_variant %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title | strip_html | escape }} — {{ variant.price | money_with_currency | strip_html | escape }}</option>
             {%- endfor -%}
           </select>
+          <p class="pimm50-purchase__status" data-pimm50-variant-status role="status" aria-live="polite" aria-atomic="true"></p>
           <div class="pimm50-page__actions">
             <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}นัดชมเครื่องที่โรงงาน{% else %}Book a factory visit{% endif %}</a>
             <button class="pimm50-page__button pimm50-page__button--secondary" type="submit" name="add" data-pimm50-add-button{% unless selected_variant.available %} disabled{% endunless %}>{% if selected_variant.available %}{{ add_to_cart_label }}{% else %}{{ sold_out_label }}{% endif %}</button>

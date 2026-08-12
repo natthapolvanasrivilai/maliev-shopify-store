@@ -48,6 +48,8 @@ test('hero and overview expose the complete decision proof in semantic HTML', ()
   assert.equal(hero.match(/data-pimm50-hero-fact/g)?.length, 4);
   assert.match(hero, /href="\{\{ visit_link \}\}"[^>]*>[^<]*(?:Book a factory visit|นัดชมเครื่อง)/);
   assert.match(hero, /href="#pimm50-capacity"/);
+  assert.match(hero, /href="#pimm50-purchase"/);
+  assert.ok(hero.indexOf('href="{{ visit_link }}"') < hero.indexOf('href="#pimm50-purchase"'), 'Factory visit must remain the first hero action');
 
   assert.equal(overview.match(/<dl\b/g)?.length, 1);
   assert.equal(overview.match(/<dt\b/g)?.length, 5);
@@ -126,6 +128,7 @@ test('variant changes progressively update sanitized commerce readouts', () => {
   for (const hook of ['data-pimm50-variant-title', 'data-pimm50-variant-price', 'data-pimm50-availability', 'data-pimm50-variant-data']) {
     assert.match(purchase, new RegExp(hook));
   }
+  assert.match(purchase, /data-pimm50-variant-status[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
   assert.match(purchase, /variant\.title \| strip_html \| escape/);
   assert.match(purchase, /variant\.price \| money_with_currency \| strip_html \| escape/);
   assert.match(purchase, /variant\.title \| strip_html \| json/);
@@ -136,6 +139,14 @@ test('variant changes progressively update sanitized commerce readouts', () => {
   assert.match(js, /availability\.textContent\s*=/);
   assert.match(js, /addButton\.disabled\s*=\s*!variant\.available/);
   assert.doesNotMatch(js, /innerHTML/);
+});
+
+test('hero and purchase expose alpha-aware authoritative-media hooks', () => {
+  const hero = sectionById('pimm50-hero');
+  const purchase = sectionById('pimm50-purchase');
+
+  assert.match(hero, /data-pimm50-authoritative-media="hero"[^>]*data-pimm50-alpha-bounds="506 250 895 1170 1400 1400"/);
+  assert.match(purchase, /data-pimm50-authoritative-media="purchase"[^>]*data-pimm50-alpha-bounds="514 250 894 1167 1400 1400"/);
 });
 
 test('motion is a visible-default, reduced-motion-safe enhancement', () => {

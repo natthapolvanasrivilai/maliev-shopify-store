@@ -8,6 +8,7 @@
     const variantTitle = panel?.querySelector('[data-pimm50-variant-title]');
     const variantPrice = panel?.querySelector('[data-pimm50-variant-price]');
     const availability = panel?.querySelector('[data-pimm50-availability]');
+    const status = panel?.querySelector('[data-pimm50-variant-status]');
     const addButton = panel?.querySelector('[data-pimm50-add-button]');
 
     if (!panel || !select || !variantData || !variantTitle || !variantPrice || !availability || !addButton) return;
@@ -20,19 +21,29 @@
     }
 
     const variantsById = new Map(variants.map((variant) => [String(variant.id), variant]));
-    const updateVariant = () => {
+    let renderedVariantId;
+    const updateVariant = ({ announce = false } = {}) => {
       const variant = variantsById.get(select.value);
       if (!variant) return;
 
+      const variantId = String(variant.id);
+      const changed = renderedVariantId !== variantId;
+      const availabilityLabel = variant.available ? panel.dataset.pimm50MadeToOrderLabel : panel.dataset.pimm50SoldOutLabel;
+
       variantTitle.textContent = variant.title;
       variantPrice.textContent = variant.price;
-      availability.textContent = variant.available ? panel.dataset.pimm50MadeToOrderLabel : panel.dataset.pimm50SoldOutLabel;
+      availability.textContent = availabilityLabel;
       availability.classList.toggle('is-unavailable', !variant.available);
       addButton.disabled = !variant.available;
       addButton.textContent = variant.available ? panel.dataset.pimm50AddToCartLabel : panel.dataset.pimm50SoldOutLabel;
+
+      if (announce && changed && status) {
+        status.textContent = `${variant.title}. ${variant.price}. ${availabilityLabel}`;
+      }
+      renderedVariantId = variantId;
     };
 
-    select.addEventListener('change', updateVariant);
+    select.addEventListener('change', () => updateVariant({ announce: true }));
     updateVariant();
   };
 

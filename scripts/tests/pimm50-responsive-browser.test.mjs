@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { connect as connectTcp } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,6 +24,8 @@ const viewports = [
   [720, 540],
   [852, 393],
 ];
+const screenshotDir = process.env.PIMM50_SCREENSHOT_DIR;
+const screenshotViewports = [[820, 1180], [3840, 2160], [390, 844], [852, 393]];
 
 const chromeCandidates = [
   process.env.PIMM50_CHROME_PATH,
@@ -556,6 +558,46 @@ const viewportProbe = `(() => {
   const alphaMedia = [...page.querySelectorAll('img')].filter((image) => /pimm50|maliev-pimm-30g-alpha/.test(image.currentSrc || image.src));
   const objectFitFailures = alphaMedia.filter((image) => getComputedStyle(image).objectFit !== 'contain').map((image) => image.currentSrc || image.src);
 
+  const authoritativeMedia = [
+    ['hero', page.querySelector('.pimm50-hero__media'), [506, 250, 895, 1170, 1400, 1400]],
+    ['purchase', page.querySelector('.pimm50-purchase__media'), [514, 250, 894, 1167, 1400, 1400]],
+  ].map(([kind, stage, fallbackBounds]) => {
+    const image = stage.querySelector('img');
+    const authoredBounds = stage.dataset.pimm50AlphaBounds;
+    const values = authoredBounds ? authoredBounds.split(/\\s+/).map(Number) : fallbackBounds;
+    const stageRect = rectOf(stage);
+    const imageRect = rectOf(image);
+    const [left, top, right, bottom, canvasWidth, canvasHeight] = values;
+    const opaque = {
+      bottom: imageRect.top + imageRect.height * bottom / canvasHeight,
+      left: imageRect.left + imageRect.width * left / canvasWidth,
+      right: imageRect.left + imageRect.width * right / canvasWidth,
+      top: imageRect.top + imageRect.height * top / canvasHeight,
+    };
+    const clipped = {
+      bottom: Math.min(opaque.bottom, stageRect.bottom),
+      left: Math.max(opaque.left, stageRect.left),
+      right: Math.min(opaque.right, stageRect.right),
+      top: Math.max(opaque.top, stageRect.top),
+    };
+    const opaqueArea = Math.max(0, opaque.right - opaque.left) * Math.max(0, opaque.bottom - opaque.top);
+    const visibleArea = Math.max(0, clipped.right - clipped.left) * Math.max(0, clipped.bottom - clipped.top);
+    const section = stage.closest('section');
+    const counterpart = section.querySelector(kind === 'hero' ? '.pimm50-hero__copy' : '.pimm50-purchase__panel');
+    const content = stage.closest('.pimm50-page__content');
+    return {
+      alphaHeight: opaque.bottom - opaque.top,
+      alphaWidth: opaque.right - opaque.left,
+      content: rectOf(content),
+      counterpart: rectOf(counterpart),
+      hasHook: stage.dataset.pimm50AuthoritativeMedia === kind,
+      kind,
+      stage: stageRect,
+      validBounds: Boolean(authoredBounds) && values.length === 6 && values.every(Number.isFinite),
+      visibleFraction: opaqueArea > 0 ? visibleArea / opaqueArea : 0,
+    };
+  });
+
   const purchase = document.querySelector('#pimm50-purchase');
   const purchaseControls = [...purchase.querySelectorAll('select, a, button')].filter(visible).map((element) => ({
     disabled: 'disabled' in element ? element.disabled : false,
@@ -590,6 +632,7 @@ const viewportProbe = `(() => {
 
   return {
     alphaCount: alphaMedia.length,
+    authoritativeMedia,
     availabilityFailures,
     chapterLayers,
     clientWidth: html.clientWidth,
@@ -814,6 +857,28 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
       assert.deepEqual(evidence.sections.filter((section) => !['none', 'auto'].includes(section.scrollSnapAlign)), [], `${width}x${height}: section has snap alignment`);
       assert.deepEqual(evidence.purchaseControls.filter((control) => control.height < 44), [], `${width}x${height}: purchase target is shorter than 44px`);
       assert.deepEqual(evidence.availabilityFailures, [], `${width}x${height}: selected variant availability and Add-to-cart state disagree`);
+      console.log(`PIMM50_AUTH_MEDIA=${JSON.stringify({ viewport: `${width}x${height}`, media: evidence.authoritativeMedia.map(({ alphaHeight, alphaWidth, content, counterpart, hasHook, kind, stage, validBounds, visibleFraction }) => ({ alphaHeight, alphaWidth, contentWidth: content.width, counterpartWidth: counterpart.width, hasHook, kind, stageHeight: stage.height, stageWidth: stage.width, validBounds, visibleFraction })) })}`);
+
+      assert.equal(evidence.authoritativeMedia.length, 2, `${width}x${height}: hero and purchase must expose authoritative-media geometry`);
+      assert.deepEqual(evidence.authoritativeMedia.filter((entry) => !entry.hasHook), [], `${width}x${height}: authoritative media hooks are missing`);
+      assert.deepEqual(evidence.authoritativeMedia.filter((entry) => !entry.validBounds), [], `${width}x${height}: authoritative alpha bounds must be valid`);
+      assert.deepEqual(evidence.authoritativeMedia.filter((entry) => entry.visibleFraction < .999), [], `${width}x${height}: opaque authoritative media is clipped`);
+
+      if ([768, 820].includes(width) && height > width) {
+        for (const media of evidence.authoritativeMedia) {
+          assert.ok(media.stage.bottom <= media.counterpart.top + 1, `${width}x${height}: ${media.kind} media must stack before its reading column`);
+          assert.ok(media.stage.width >= media.content.width * .9, `${width}x${height}: ${media.kind} media must use the tablet media field`);
+          assert.ok(media.alphaHeight >= width * .8, `${width}x${height}: ${media.kind} machine is not authoritative enough (${media.alphaHeight}px)`);
+        }
+      }
+
+      if (width === 3840 && height === 2160) {
+        for (const media of evidence.authoritativeMedia) {
+          assert.ok(media.content.width > 1440 && media.content.width <= 1920, `4K ${media.kind} field must expand beyond the 1440px reading grid in a controlled way`);
+          assert.ok(media.alphaHeight >= 900, `4K ${media.kind} machine is not authoritative enough (${media.alphaHeight}px)`);
+          assert.ok(media.counterpart.width >= 440 && media.counterpart.width <= 680, `4K ${media.kind} reading column must remain restrained and readable`);
+        }
+      }
 
       console.log(JSON.stringify({
         viewport: `${width}x${height}`,
@@ -1013,6 +1078,82 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     assert.equal(updated.price, updated.variant.price);
     assert.equal(updated.buttonDisabled, !updated.available);
   });
+
+  await t.test('variant changes announce one polite atomic commerce status', async () => {
+    await session.send('Page.reload', { ignoreCache: true });
+    await waitForPage(session);
+    await setViewport(session, 390, 844);
+    const initial = await evaluate(session, `(() => {
+      const status = document.querySelector('[data-pimm50-variant-status]');
+      return status && {
+        atomic: status.getAttribute('aria-atomic'),
+        display: getComputedStyle(status).display,
+        live: status.getAttribute('aria-live'),
+        role: status.getAttribute('role'),
+        text: status.textContent.trim(),
+        visibility: getComputedStyle(status).visibility,
+      };
+    })()`);
+
+    assert.ok(initial, 'Variant status region must exist without JavaScript-generated markup');
+    assert.equal(initial.role, 'status');
+    assert.equal(initial.live, 'polite');
+    assert.equal(initial.atomic, 'true');
+    assert.equal(initial.text, '', 'Initial page hydration must not announce unchanged commerce state');
+    assert.notEqual(initial.display, 'none');
+    assert.notEqual(initial.visibility, 'hidden');
+
+    const announcement = await evaluate(session, `(async () => {
+      const panel = document.querySelector('.pimm50-purchase__panel');
+      const select = panel.querySelector('[data-pimm50-variant-select]');
+      const status = panel.querySelector('[data-pimm50-variant-status]');
+      const variants = JSON.parse(panel.querySelector('[data-pimm50-variant-data]').textContent);
+      const target = variants.find((variant) => String(variant.id) !== select.value) ?? variants[0];
+      let mutations = 0;
+      const observer = new MutationObserver((records) => { mutations += records.length; });
+      observer.observe(status, { characterData: true, childList: true, subtree: true });
+      select.value = String(target.id);
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+      const firstMutationCount = mutations;
+      const firstText = status.textContent.trim();
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+      observer.disconnect();
+      return {
+        availability: target.available ? panel.dataset.pimm50MadeToOrderLabel : panel.dataset.pimm50SoldOutLabel,
+        duplicateMutationCount: mutations - firstMutationCount,
+        firstMutationCount,
+        firstText,
+        price: target.price,
+        title: target.title,
+      };
+    })()`);
+
+    assert.ok(announcement.firstMutationCount > 0, 'A real variant change must update the status region');
+    assert.match(announcement.firstText, new RegExp(announcement.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(announcement.firstText, new RegExp(announcement.price.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(announcement.firstText, new RegExp(announcement.availability.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.equal(announcement.duplicateMutationCount, 0, 'Redispatching the unchanged selection must not create a duplicate announcement');
+  });
+
+  if (screenshotDir) {
+    await t.test('capture final hero and purchase screenshots', async () => {
+      await mkdir(screenshotDir, { recursive: true });
+      for (const [width, height] of screenshotViewports) {
+        await setViewport(session, width, height);
+        for (const [name, scrollExpression] of [
+          ['hero', 'window.scrollTo(0, 0); true'],
+          ['purchase', "document.querySelector('#pimm50-purchase').scrollIntoView({ block: 'center' }); true"],
+        ]) {
+          await evaluate(session, scrollExpression);
+          await delay(150);
+          const capture = await session.send('Page.captureScreenshot', { captureBeyondViewport: false, format: 'png', fromSurface: true });
+          await writeFile(join(screenshotDir, `pimm50-final-${width}x${height}-${name}.png`), Buffer.from(capture.data, 'base64'));
+        }
+      }
+    });
+  }
 
   const pageOwned = (url = '', text = '') => /maliev-pimm-50g-story|pimm50/i.test(`${url} ${text}`);
   const pageExceptions = exceptions.filter((entry) => pageOwned(entry.url ?? entry.stackTrace?.callFrames?.[0]?.url, entry.exception?.description ?? entry.text));
