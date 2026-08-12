@@ -527,8 +527,7 @@
 
 [data-pimm50-motion="hero-copy"] {
   clip-path: inset(0 0 calc((1 - var(--p50-progress)) * 12%) 0);
-  opacity: calc(.86 + (var(--p50-progress) * .14));
-  transition: clip-path 680ms cubic-bezier(.22, 1, .36, 1), opacity 620ms cubic-bezier(.22, 1, .36, 1);
+  transition: clip-path 680ms cubic-bezier(.22, 1, .36, 1);
 }
 
 [data-pimm50-motion="hero-facts"] > div,
@@ -616,10 +615,9 @@
 [data-pimm50-motion="heating-readouts"] > div {
   border-inline-start: 1px solid;
   border-inline-start-color: rgba(0, 111, 214, calc(.18 + (var(--p50-progress) * .42)));
-  opacity: calc(.86 + (var(--p50-progress) * .14));
   padding-inline-start: 1.2rem;
   transform: translateY(calc((1 - var(--p50-progress)) * .5rem));
-  transition: border-inline-start-color 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), opacity 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), transform 620ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay);
+  transition: border-inline-start-color 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), transform 620ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay);
 }
 
 [data-pimm50-motion="heating-readouts"] dt,
