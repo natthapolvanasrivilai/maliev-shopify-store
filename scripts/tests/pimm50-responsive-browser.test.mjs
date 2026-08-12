@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { connect as connectTcp } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -91,13 +93,169 @@ class CdpSession {
   }
 }
 
+const websocketGuid = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+
+function encodeClientFrame(value, opcode = 0x1) {
+  const payload = Buffer.isBuffer(value) ? value : Buffer.from(String(value));
+  const mask = randomBytes(4);
+  let header;
+
+  if (payload.length < 126) {
+    header = Buffer.from([0x80 | opcode, 0x80 | payload.length]);
+  } else if (payload.length <= 0xffff) {
+    header = Buffer.alloc(4);
+    header[0] = 0x80 | opcode;
+    header[1] = 0x80 | 126;
+    header.writeUInt16BE(payload.length, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x80 | opcode;
+    header[1] = 0x80 | 127;
+    header.writeBigUInt64BE(BigInt(payload.length), 2);
+  }
+
+  const masked = Buffer.allocUnsafe(payload.length);
+  for (let index = 0; index < payload.length; index += 1) masked[index] = payload[index] ^ mask[index % 4];
+  return Buffer.concat([header, mask, masked]);
+}
+
+class BuiltinWebSocket {
+  #buffer = Buffer.alloc(0);
+  #fragments = [];
+  #listeners = new Map();
+
+  constructor(socket, initialData = Buffer.alloc(0)) {
+    this.socket = socket;
+    socket.on('data', (chunk) => this.#receive(chunk));
+    socket.on('error', (error) => this.#emit('error', { error }));
+    socket.on('close', () => this.#emit('close', {}));
+    if (initialData.length) this.#receive(initialData);
+  }
+
+  addEventListener(type, listener, options = {}) {
+    const listeners = this.#listeners.get(type) ?? [];
+    listeners.push({ listener, once: options.once === true });
+    this.#listeners.set(type, listeners);
+  }
+
+  #emit(type, event) {
+    const listeners = this.#listeners.get(type) ?? [];
+    for (const entry of [...listeners]) {
+      entry.listener(event);
+      if (entry.once) listeners.splice(listeners.indexOf(entry), 1);
+    }
+  }
+
+  #receive(chunk) {
+    this.#buffer = Buffer.concat([this.#buffer, chunk]);
+    while (this.#buffer.length >= 2) {
+      const first = this.#buffer[0];
+      const second = this.#buffer[1];
+      const final = Boolean(first & 0x80);
+      const opcode = first & 0x0f;
+      const masked = Boolean(second & 0x80);
+      let length = second & 0x7f;
+      let offset = 2;
+
+      if (length === 126) {
+        if (this.#buffer.length < 4) return;
+        length = this.#buffer.readUInt16BE(2);
+        offset = 4;
+      } else if (length === 127) {
+        if (this.#buffer.length < 10) return;
+        const extendedLength = this.#buffer.readBigUInt64BE(2);
+        assert.ok(extendedLength <= BigInt(Number.MAX_SAFE_INTEGER), 'WebSocket frame exceeds the supported size');
+        length = Number(extendedLength);
+        offset = 10;
+      }
+
+      const maskLength = masked ? 4 : 0;
+      if (this.#buffer.length < offset + maskLength + length) return;
+      const mask = masked ? this.#buffer.subarray(offset, offset + 4) : undefined;
+      offset += maskLength;
+      const payload = Buffer.from(this.#buffer.subarray(offset, offset + length));
+      this.#buffer = this.#buffer.subarray(offset + length);
+      if (mask) for (let index = 0; index < payload.length; index += 1) payload[index] ^= mask[index % 4];
+
+      if (opcode === 0x8) {
+        this.socket.end();
+        return;
+      }
+      if (opcode === 0x9) {
+        this.socket.write(encodeClientFrame(payload, 0xA));
+        continue;
+      }
+      if (opcode === 0xA) continue;
+      if (opcode === 0x1) this.#fragments = [payload];
+      else if (opcode === 0x0) this.#fragments.push(payload);
+      else continue;
+
+      if (final) {
+        this.#emit('message', { data: Buffer.concat(this.#fragments).toString('utf8') });
+        this.#fragments = [];
+      }
+    }
+  }
+
+  send(value) {
+    this.socket.write(encodeClientFrame(value));
+  }
+
+  close() {
+    if (this.socket.destroyed) return;
+    this.socket.write(encodeClientFrame(Buffer.alloc(0), 0x8));
+    this.socket.end();
+  }
+}
+
 async function connectSocket(url) {
-  const socket = new WebSocket(url);
+  const endpoint = new URL(url);
+  assert.equal(endpoint.protocol, 'ws:', 'The dependency-free CDP transport supports local ws:// endpoints');
+  const key = randomBytes(16).toString('base64');
+  const expectedAccept = createHash('sha1').update(`${key}${websocketGuid}`).digest('base64');
+  const socket = connectTcp({ host: endpoint.hostname, port: Number(endpoint.port || 80) });
   await new Promise((resolve, reject) => {
-    socket.addEventListener('open', resolve, { once: true });
-    socket.addEventListener('error', () => reject(new Error(`Unable to connect to ${url}`)), { once: true });
+    socket.once('connect', resolve);
+    socket.once('error', reject);
   });
-  return socket;
+  socket.write([
+    `GET ${endpoint.pathname}${endpoint.search} HTTP/1.1`,
+    `Host: ${endpoint.host}`,
+    'Connection: Upgrade',
+    'Upgrade: websocket',
+    'Sec-WebSocket-Version: 13',
+    `Sec-WebSocket-Key: ${key}`,
+    '\r\n',
+  ].join('\r\n'));
+
+  return new Promise((resolve, reject) => {
+    let response = Buffer.alloc(0);
+    const onError = (error) => reject(error);
+    const onData = (chunk) => {
+      response = Buffer.concat([response, chunk]);
+      const boundary = response.indexOf('\r\n\r\n');
+      if (boundary === -1) return;
+      socket.off('data', onData);
+      socket.off('error', onError);
+      const headers = response.subarray(0, boundary).toString('utf8');
+      const accept = headers.match(/^sec-websocket-accept:\s*(.+)$/im)?.[1]?.trim();
+      if (!/^HTTP\/1\.1 101\b/.test(headers) || accept !== expectedAccept) {
+        socket.destroy();
+        reject(new Error(`Chrome rejected the WebSocket upgrade for ${url}`));
+        return;
+      }
+      resolve(new BuiltinWebSocket(socket, response.subarray(boundary + 4)));
+    };
+    socket.on('data', onData);
+    socket.once('error', onError);
+  });
+}
+
+async function stopBrowser(browser) {
+  if (browser.exitCode !== null || browser.signalCode !== null) return;
+  const exited = new Promise((resolve) => browser.once('exit', resolve));
+  browser.kill();
+  await Promise.race([exited, delay(5_000)]);
 }
 
 async function launchBrowser() {
@@ -122,28 +280,33 @@ async function launchBrowser() {
     'about:blank',
   ], { stdio: 'ignore', windowsHide: true });
 
-  const activePortFile = join(userDataDir, 'DevToolsActivePort');
-  const port = await eventually(async () => {
-    const [value] = (await readFile(activePortFile, 'utf8')).trim().split(/\r?\n/);
-    return Number(value) || undefined;
-  });
+  try {
+    const activePortFile = join(userDataDir, 'DevToolsActivePort');
+    const port = await eventually(async () => {
+      const [value] = (await readFile(activePortFile, 'utf8')).trim().split(/\r?\n/);
+      return Number(value) || undefined;
+    });
 
-  const target = await eventually(async () => {
-    const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-    const targets = await response.json();
-    return targets.find((candidate) => candidate.type === 'page' && candidate.webSocketDebuggerUrl);
-  });
-  const session = new CdpSession(await connectSocket(target.webSocketDebuggerUrl));
+    const target = await eventually(async () => {
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+      const targets = await response.json();
+      return targets.find((candidate) => candidate.type === 'page' && candidate.webSocketDebuggerUrl);
+    });
+    const session = new CdpSession(await connectSocket(target.webSocketDebuggerUrl));
 
-  return {
-    session,
-    async close() {
-      session.close();
-      browser.kill();
-      await new Promise((resolve) => browser.once('exit', resolve));
-      await rm(userDataDir, { force: true, recursive: true });
-    },
-  };
+    return {
+      session,
+      async close() {
+        session.close();
+        await stopBrowser(browser);
+        await rm(userDataDir, { force: true, recursive: true });
+      },
+    };
+  } catch (error) {
+    await stopBrowser(browser);
+    await rm(userDataDir, { force: true, recursive: true });
+    throw error;
+  }
 }
 
 async function evaluate(session, expression) {
@@ -241,6 +404,77 @@ const viewportProbe = `(() => {
     });
   });
 
+  const flowElements = [...new Set([
+    page,
+    ...page.querySelectorAll('section, article, aside, div, figure, picture, [data-pimm50-motion], [data-pimm50-media]'),
+  ])];
+  const viewportProperties = new Map();
+  const viewportUnit = /(?:^|[^a-z])(?:-?\\d*\\.?\\d+)?(?:dvh|svh|lvh|vh)(?:[^a-z]|$)/i;
+  const properties = ['height', 'min-height', 'max-height'];
+  const rememberViewportProperty = (element, property) => {
+    const authored = viewportProperties.get(element) ?? new Set();
+    authored.add(property);
+    viewportProperties.set(element, authored);
+  };
+  const inspectRules = (rules) => {
+    for (const rule of rules) {
+      if (rule.selectorText && rule.style) {
+        const authored = properties.filter((property) => viewportUnit.test(rule.style.getPropertyValue(property)));
+        if (authored.length) {
+          for (const element of flowElements) {
+            try {
+              if (element.matches(rule.selectorText)) authored.forEach((property) => rememberViewportProperty(element, property));
+            } catch (_) {
+              // Pseudo-element and vendor selectors do not target a real chapter wrapper.
+            }
+          }
+        }
+      }
+      if (rule.cssRules) inspectRules(rule.cssRules);
+    }
+  };
+  for (const sheet of document.styleSheets) {
+    try {
+      inspectRules(sheet.cssRules);
+    } catch (_) {
+      // Cross-origin app styles are outside the PIMM page boundary.
+    }
+  }
+  for (const element of flowElements) {
+    properties.forEach((property) => {
+      if (viewportUnit.test(element.style.getPropertyValue(property))) rememberViewportProperty(element, property);
+    });
+  }
+
+  const approximatelyViewport = (value) => Number.isFinite(Number.parseFloat(value))
+    && Math.abs(Number.parseFloat(value) - innerHeight) <= Math.max(2, innerHeight * .005);
+  const chapterLayerElements = new Set();
+  const chapterLayers = flowElements.flatMap((element) => {
+    const style = getComputedStyle(element);
+    const rect = rectOf(element);
+    const authored = [...(viewportProperties.get(element) ?? [])];
+    const computedByProperty = {
+      height: style.height,
+      'max-height': style.maxHeight,
+      'min-height': style.minHeight,
+    };
+    const viewportSized = authored.filter((property) => approximatelyViewport(computedByProperty[property]));
+    const layerPosition = style.position === 'fixed'
+      || (style.position === 'sticky' && (rect.height >= innerHeight * .5 || viewportSized.length > 0));
+    const snapAligned = !['none', 'auto'].includes(style.scrollSnapAlign);
+    if (!layerPosition && !viewportSized.length && !snapAligned) return [];
+    chapterLayerElements.add(element);
+    return [{
+      authoredViewportProperties: viewportSized,
+      className: String(element.className).slice(0, 120),
+      height: rect.height,
+      id: element.id,
+      position: style.position,
+      scrollSnapAlign: style.scrollSnapAlign,
+      tag: element.tagName.toLowerCase(),
+    }];
+  });
+
   const sections = [...page.querySelectorAll(':scope > section')].map((section) => {
     const style = getComputedStyle(section);
     const rect = rectOf(section);
@@ -250,7 +484,7 @@ const viewportProbe = `(() => {
       minHeight: style.minHeight,
       position: style.position,
       scrollSnapAlign: style.scrollSnapAlign,
-      viewportFixedHeight: Math.abs(rect.height - innerHeight) < 0.5 && style.minHeight !== 'auto',
+      viewportFixedHeight: chapterLayerElements.has(section),
     };
   });
 
@@ -264,6 +498,23 @@ const viewportProbe = `(() => {
     label: (element.textContent || element.getAttribute('aria-label') || '').trim(),
     tag: element.tagName.toLowerCase(),
   }));
+  const select = purchase.querySelector('[data-pimm50-variant-select]');
+  const addButton = purchase.querySelector('[data-pimm50-add-button]');
+  const selectedOption = select.selectedOptions[0];
+  let variants = [];
+  try {
+    variants = JSON.parse(purchase.querySelector('[data-pimm50-variant-data]').textContent);
+  } catch (_) {
+    variants = [];
+  }
+  const selectedVariant = variants.find((variant) => String(variant.id) === select.value);
+  const availabilityFailures = [];
+  if (!selectedVariant) availabilityFailures.push('selected option is absent from serialized variants');
+  else {
+    if (selectedOption.disabled !== !selectedVariant.available) availabilityFailures.push('selected option disabled state disagrees with availability');
+    if (addButton.disabled !== !selectedVariant.available) availabilityFailures.push('Add to cart disabled state disagrees with availability');
+    if (select.form.elements.namedItem('id')?.value !== String(selectedVariant.id)) availabilityFailures.push('native id field disagrees with serialized variant');
+  }
 
   const fixedObstructions = [...document.querySelectorAll('body *')].filter((element) => {
     if (page.contains(element) || !visible(element)) return false;
@@ -274,6 +525,8 @@ const viewportProbe = `(() => {
 
   return {
     alphaCount: alphaMedia.length,
+    availabilityFailures,
+    chapterLayers,
     clientWidth: html.clientWidth,
     collisions,
     fixedObstructions,
@@ -286,9 +539,86 @@ const viewportProbe = `(() => {
       page: getComputedStyle(page).scrollSnapType,
     },
     scrollWidth: html.scrollWidth,
+    selectedAvailability: selectedVariant?.available,
     sections,
   };
 })()`;
+
+const posterVisibilityProbe = `async () => {
+  const page = document.querySelector('[data-pimm50-page]');
+  const pictures = [...page.querySelectorAll('picture')];
+  const intersect = (bounds, rect, axes = 'both') => ({
+    bottom: axes === 'x' ? bounds.bottom : Math.min(bounds.bottom, rect.bottom),
+    left: axes === 'y' ? bounds.left : Math.max(bounds.left, rect.left),
+    right: axes === 'y' ? bounds.right : Math.min(bounds.right, rect.right),
+    top: axes === 'x' ? bounds.top : Math.max(bounds.top, rect.top),
+  });
+  const widthOf = (bounds) => Math.max(0, bounds.right - bounds.left);
+  const heightOf = (bounds) => Math.max(0, bounds.bottom - bounds.top);
+
+  for (const image of page.querySelectorAll('picture img')) image.loading = 'eager';
+  await Promise.all([...page.querySelectorAll('picture img')].map((image) => image.decode().catch(() => undefined)));
+
+  const results = [];
+  for (const picture of pictures) {
+    const image = picture.querySelector('img');
+    image.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const imageRect = image.getBoundingClientRect();
+    let clipped = { bottom: imageRect.bottom, left: imageRect.left, right: imageRect.right, top: imageRect.top };
+    let effectiveOpacity = 1;
+    let effectivelyVisible = true;
+    const hiddenAncestors = [];
+
+    for (let ancestor = image; ancestor && page.contains(ancestor); ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const opacity = Number.parseFloat(style.opacity);
+      if (Number.isFinite(opacity)) effectiveOpacity *= opacity;
+      if (ancestor.hidden || style.display === 'none' || ['hidden', 'collapse'].includes(style.visibility) || style.contentVisibility === 'hidden') {
+        effectivelyVisible = false;
+        hiddenAncestors.push(ancestor.tagName.toLowerCase() + (ancestor.id ? '#' + ancestor.id : ''));
+      }
+      if (style.display === 'contents') continue;
+      const ancestorRect = ancestor.getBoundingClientRect();
+      if (/(?:hidden|clip|auto|scroll)/.test(style.overflowX)) clipped = intersect(clipped, ancestorRect, 'x');
+      if (/(?:hidden|clip|auto|scroll)/.test(style.overflowY)) clipped = intersect(clipped, ancestorRect, 'y');
+    }
+    effectivelyVisible = effectivelyVisible && effectiveOpacity > .01;
+    const hasVisibleGeometry = widthOf(clipped) > 2 && heightOf(clipped) > 2;
+
+    const viewportBounds = intersect(clipped, { bottom: innerHeight, left: 0, right: innerWidth, top: 0 });
+    const samplePoints = widthOf(viewportBounds) > 2 && heightOf(viewportBounds) > 2
+      ? [
+        [.5, .5],
+        [.25, .25],
+        [.75, .25],
+        [.25, .75],
+        [.75, .75],
+      ].map(([xRatio, yRatio]) => ({
+        x: viewportBounds.left + widthOf(viewportBounds) * xRatio,
+        y: viewportBounds.top + heightOf(viewportBounds) * yRatio,
+      }))
+      : [];
+    const unoccluded = samplePoints.some(({ x, y }) => {
+      const pageHit = document.elementsFromPoint(x, y).find((element) => page.contains(element));
+      return pageHit === image || pageHit?.contains(image) || image.contains(pageHit);
+    });
+
+    results.push({
+      complete: image.complete && image.naturalWidth > 0,
+      effectiveOpacity,
+      effectivelyVisible,
+      hasVisibleGeometry,
+      hiddenAncestors,
+      height: imageRect.height,
+      source: image.currentSrc || image.src,
+      unoccluded,
+      width: imageRect.width,
+    });
+  }
+  return results;
+}`;
 
 test('PIMM 50G browser matrix preserves normal flow and section geometry', { timeout: 240_000 }, async (t) => {
   const response = await fetch(route);
@@ -317,6 +647,58 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
   await session.send('Page.navigate', { url: route });
   await waitForPage(session);
 
+  await t.test('geometry probe rejects a descendant viewport chapter layer', async () => {
+    await setViewport(session, 390, 844);
+    await evaluate(session, `(() => {
+      const page = document.querySelector('[data-pimm50-page]');
+      const mutations = [
+        ['pimm50-test-height-layer', 'height: 100vh'],
+        ['pimm50-test-min-height-layer', 'min-height: 100svh'],
+        ['pimm50-test-max-height-layer', 'max-height: 100dvh'],
+      ];
+      for (const [id, size] of mutations) {
+        const mutation = document.createElement('div');
+        mutation.id = id;
+        mutation.style.cssText = 'position: fixed; inset: 0; pointer-events: none; ' + size;
+        page.append(mutation);
+      }
+      return true;
+    })()`);
+    try {
+      const evidence = await evaluate(session, viewportProbe);
+      const layers = new Map(evidence.chapterLayers.map((layer) => [layer.id, layer]));
+      assert.ok(layers.get('pimm50-test-height-layer')?.authoredViewportProperties.includes('height'));
+      assert.ok(layers.get('pimm50-test-min-height-layer')?.authoredViewportProperties.includes('min-height'));
+      assert.ok(layers.get('pimm50-test-max-height-layer')?.authoredViewportProperties.includes('max-height'));
+    } finally {
+      await evaluate(session, `(() => {
+        for (const id of ['pimm50-test-height-layer', 'pimm50-test-min-height-layer', 'pimm50-test-max-height-layer']) {
+          document.getElementById(id)?.remove();
+        }
+        return true;
+      })()`);
+    }
+  });
+
+  await t.test('availability probe rejects a selected-variant button mismatch', async () => {
+    await setViewport(session, 390, 844);
+    const originalDisabled = await evaluate(session, `(() => {
+      const add = document.querySelector('[data-pimm50-add-button]');
+      const select = document.querySelector('[data-pimm50-variant-select]');
+      const variants = JSON.parse(document.querySelector('[data-pimm50-variant-data]').textContent);
+      const selected = variants.find((variant) => String(variant.id) === select.value);
+      const original = add.disabled;
+      add.disabled = selected.available;
+      return original;
+    })()`);
+    try {
+      const evidence = await evaluate(session, viewportProbe);
+      assert.ok(evidence.availabilityFailures.includes('Add to cart disabled state disagrees with availability'));
+    } finally {
+      await evaluate(session, `document.querySelector('[data-pimm50-add-button]').disabled = ${JSON.stringify(originalDisabled)}; true`);
+    }
+  });
+
   for (const [width, height] of viewports) {
     await t.test(`${width}x${height}`, async () => {
       await setViewport(session, width, height);
@@ -342,9 +724,11 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
       assert.deepEqual(evidence.collisions, [], `${width}x${height}: page media obscures semantic copy`);
       assert.deepEqual(evidence.objectFitFailures, [], `${width}x${height}: transparent product media must use object-fit contain`);
       assert.ok(evidence.alphaCount >= 8, `${width}x${height}: expected all transparent product media`);
+      assert.deepEqual(evidence.chapterLayers, [], `${width}x${height}: descendant creates viewport-fixed chapter behavior`);
       assert.deepEqual(evidence.sections.filter((section) => section.position === 'fixed' || section.viewportFixedHeight), [], `${width}x${height}: section is viewport-fixed`);
       assert.deepEqual(evidence.sections.filter((section) => !['none', 'auto'].includes(section.scrollSnapAlign)), [], `${width}x${height}: section has snap alignment`);
       assert.deepEqual(evidence.purchaseControls.filter((control) => control.height < 44), [], `${width}x${height}: purchase target is shorter than 44px`);
+      assert.deepEqual(evidence.availabilityFailures, [], `${width}x${height}: selected variant availability and Add-to-cart state disagree`);
 
       console.log(JSON.stringify({
         viewport: `${width}x${height}`,
@@ -362,17 +746,9 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     await setViewport(session, 390, 844);
     const evidence = await evaluate(session, `(async () => {
       const page = document.querySelector('[data-pimm50-page]');
-      const pictures = [...page.querySelectorAll('picture')];
       const motion = [...page.querySelectorAll('[data-pimm50-motion]')];
-      for (const image of page.querySelectorAll('picture img')) image.loading = 'eager';
-      await Promise.all([...page.querySelectorAll('picture img')].map((image) => image.decode().catch(() => undefined)));
       return {
-        pictures: pictures.map((picture) => {
-          const image = picture.querySelector('img');
-          const rect = image.getBoundingClientRect();
-          const style = getComputedStyle(image);
-          return { complete: image.complete && image.naturalWidth > 0, display: style.display, height: rect.height, visibility: style.visibility };
-        }),
+        pictures: await (${posterVisibilityProbe})(),
         reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
         progress: motion.map((element) => ({
           className: element.className,
@@ -386,33 +762,105 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     assert.equal(evidence.reduced, true);
     assert.equal(evidence.videos, 0, 'Task 4 intentionally ships poster-only media; do not invent a video fallback');
     assert.ok(evidence.pictures.length >= 8);
-    assert.deepEqual(evidence.pictures.filter((poster) => !poster.complete || poster.display === 'none' || poster.visibility === 'hidden' || poster.height <= 0), []);
+    assert.deepEqual(evidence.pictures.filter((poster) => !poster.complete || !poster.effectivelyVisible || !poster.hasVisibleGeometry || !poster.unoccluded), [], 'Reduced-motion posters must remain effectively visible');
     assert.deepEqual(evidence.progress.filter((entry) => entry.value !== '1'), [], 'Reduced motion must reveal every motion target');
+  });
+
+  await t.test('poster probe rejects hidden ancestors and page-owned occlusion', async () => {
+    await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    await setViewport(session, 390, 844);
+    const originalStyle = await evaluate(session, `(() => {
+      const picture = document.querySelector('#pimm50-hero picture');
+      const original = picture.getAttribute('style');
+      picture.style.opacity = '0';
+      return original;
+    })()`);
+    try {
+      const hidden = await evaluate(session, `(${posterVisibilityProbe})()`);
+      assert.equal(hidden[0].effectivelyVisible, false);
+      assert.equal(hidden[0].effectiveOpacity, 0);
+    } finally {
+      await evaluate(session, `(() => {
+        const picture = document.querySelector('#pimm50-hero picture');
+        const original = ${JSON.stringify(originalStyle)};
+        if (original === null) picture.removeAttribute('style');
+        else picture.setAttribute('style', original);
+        return true;
+      })()`);
+    }
+
+    const originalOcclusionStyle = await evaluate(session, `(() => {
+      const picture = document.querySelector('#pimm50-hero picture');
+      const overlay = document.createElement('span');
+      overlay.id = 'pimm50-test-poster-occlusion';
+      overlay.style.cssText = 'background: #fff; inset: 0; position: absolute; z-index: 1';
+      const original = picture.getAttribute('style');
+      picture.style.position = 'relative';
+      picture.append(overlay);
+      return original;
+    })()`);
+    try {
+      const occluded = await evaluate(session, `(${posterVisibilityProbe})()`);
+      assert.equal(occluded[0].unoccluded, false);
+    } finally {
+      await evaluate(session, `(() => {
+        const overlay = document.querySelector('#pimm50-test-poster-occlusion');
+        const picture = overlay?.parentElement;
+        overlay?.remove();
+        const original = ${JSON.stringify(originalOcclusionStyle)};
+        if (picture && original === null) picture.removeAttribute('style');
+        else if (picture) picture.setAttribute('style', original);
+        return true;
+      })()`);
+    }
   });
 
   await t.test('keyboard order, yellow focus, and native variant submission stay aligned', async () => {
     await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
     await setViewport(session, 390, 844);
     const initial = await evaluate(session, `(() => {
+      const page = document.querySelector('[data-pimm50-page]');
       const select = document.querySelector('[data-pimm50-variant-select]');
       const form = select.form;
       const factory = form.querySelector('a[href]');
       const add = form.querySelector('[data-pimm50-add-button]');
       const variants = JSON.parse(document.querySelector('[data-pimm50-variant-data]').textContent);
       const current = variants.find((variant) => String(variant.id) === select.value);
-      const next = variants.find((variant) => variant.available && String(variant.id) !== select.value) ?? current;
-      select.focus();
+      const sequential = [...page.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')].filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return !element.disabled
+          && !element.hidden
+          && !element.closest('[inert]')
+          && element.tabIndex >= 0
+          && style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && rect.width > 0
+          && rect.height > 0;
+      });
+      const selectIndex = sequential.indexOf(select);
+      const prior = sequential[selectIndex - 1];
+      prior?.focus();
+      const identify = (element) => {
+        if (element === select) return 'select';
+        if (element === factory) return 'factory';
+        if (element === add) return 'add';
+        return 'other';
+      };
       return {
         action: form.action,
         addInsideForm: add.form === form,
         currentAvailable: current.available,
         currentButtonDisabled: add.disabled,
         factoryInsideForm: form.contains(factory),
-        focus: document.activeElement === select,
         name: select.name,
-        next,
+        priorFocused: document.activeElement === prior,
+        priorLabel: (prior?.textContent || prior?.getAttribute('aria-label') || '').trim(),
+        priorTabIndex: prior?.tabIndex,
+        selectTabIndex: select.tabIndex,
         selectedFormValue: new FormData(form).get('id'),
         selectedValue: select.value,
+        sequentialOrder: sequential.slice(selectIndex, selectIndex + 3).map(identify),
       };
     })()`);
 
@@ -422,9 +870,13 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     assert.match(initial.action, /\/cart\/add/);
     assert.equal(initial.selectedFormValue, initial.selectedValue);
     assert.equal(initial.currentButtonDisabled, !initial.currentAvailable);
-    assert.equal(initial.focus, true);
+    assert.equal(initial.priorFocused, true, 'Known prior sequential control must receive the starting focus');
+    assert.ok(initial.priorTabIndex >= 0);
+    assert.ok(initial.selectTabIndex >= 0);
+    assert.deepEqual(initial.sequentialOrder, ['select', 'factory', 'add']);
 
     const focusEvidence = [];
+    await dispatchTab(session);
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
