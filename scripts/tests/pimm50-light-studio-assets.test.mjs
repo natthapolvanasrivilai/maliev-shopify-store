@@ -23,7 +23,9 @@ entries = json.loads(sys.stdin.read())
 results = []
 for entry in entries:
     source = Image.open(entry['source']).convert('RGBA')
-    promoted = Image.open(entry['target']).convert('RGBA')
+    promoted_native = Image.open(entry['target'])
+    native_mode = promoted_native.mode
+    promoted = promoted_native.convert('RGBA')
     alpha_bbox = promoted.getchannel('A').getbbox()
     if alpha_bbox is None:
         clearance = 0
@@ -34,8 +36,9 @@ for entry in entries:
     max_channel_delta = max(channel[1] for channel in diff.getextrema())
     results.append({
         'name': entry['name'],
+        'requiresMachineClearance': entry['requiresMachineClearance'],
         'source_mode': source.mode,
-        'mode': promoted.mode,
+        'native_mode': native_mode,
         'source_dimensions': [source.width, source.height],
         'dimensions': [promoted.width, promoted.height],
         'alpha_bbox': alpha_bbox,
@@ -67,10 +70,11 @@ test('promoted PIMM 50G light-studio stills preserve approved transparent render
 
   for (const result of results) {
     assert.equal(result.source_mode, 'RGBA', `${result.name} source must be RGBA`);
-    assert.equal(result.mode, 'RGBA', `${result.name} must remain RGBA`);
+    assert.equal(result.native_mode, 'RGBA', `${result.name} must natively open as RGBA`);
     assert.deepEqual(result.dimensions, result.source_dimensions, `${result.name} dimensions changed`);
     assert.notEqual(result.alpha_bbox, null, `${result.name} lost alpha bounds`);
-    if (requiredStills.find(([name]) => name === result.name)[2]) {
+    assert.equal(typeof result.requiresMachineClearance, 'boolean', `${result.name} must declare its clearance requirement`);
+    if (result.requiresMachineClearance) {
       assert.ok(result.edge_clearance_ratio >= 0.08, `${result.name} needs 8% edge clearance; got ${result.edge_clearance_ratio}`);
     }
     assert.equal(result.max_channel_delta, 0, `${result.name} differs from its approved lossless source`);
