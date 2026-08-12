@@ -186,12 +186,19 @@ Rebuild the active bright-studio media referenced by `sections/maliev-pimm-50g-l
 - Mold space.
 - Purchase.
 
+Also replace the four active 50G next-model files referenced by `templates/product.injection-molding-machine.json` with newly named bright-studio derivatives:
+
+- Desktop animation and matching poster.
+- Mobile animation and matching poster.
+
+The 30G template references are updated only after these replacement files pass the same proof, alpha, endpoint-parity, and responsive presentation gates as the dedicated 50G page media.
+
 Also rebuild the dedicated 50G hero and heating Blender animation scenes and their proof frames so future animation exports remain consistent with the stills. These scenes use only the bright studio.
 
 ### Excluded assets
 
 - Unreferenced legacy 30G exports such as older `v2`, `v4`, and `v10` files are not rerendered solely because they remain in `assets/`.
-- Retired 50G keynote/red-stage media is not rerendered.
+- Unreferenced retired 50G keynote/red-stage media is not rerendered. The four currently referenced red-stage next-model files are replaced by new bright-studio derivatives before the old files are retired.
 - Original KeyShot references, CAD sources, and immutable Blender sources are never overwritten.
 - Storefront layout, copy, commerce behavior, localization, and interaction mechanics are outside this rendering-system change unless an asset-contract adjustment is unavoidable.
 
