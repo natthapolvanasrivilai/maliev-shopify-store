@@ -1,5 +1,10 @@
 (() => {
-  const revealAll = (elements) => elements.forEach((element) => element.classList.add('is-in-view'));
+  const revealMotionTarget = (element) => {
+    element.classList.add('is-in-view');
+    element.dataset.pimm50MotionState = 'complete';
+  };
+
+  const revealAll = (elements) => elements.forEach(revealMotionTarget);
 
   const initCommerce = (page) => {
     const panel = page.querySelector('.pimm50-purchase__panel');
@@ -63,7 +68,7 @@
     const observer = new IntersectionObserver((entries, activeObserver) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        entry.target.classList.add('is-in-view');
+        revealMotionTarget(entry.target);
         activeObserver.unobserve(entry.target);
       });
     }, { rootMargin: '0px 0px -8%', threshold: .12 });

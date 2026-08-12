@@ -186,8 +186,12 @@ test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   assert.doesNotMatch(css, /data-pimm50-motion[^}]*opacity:\s*0(?:[;}])/s);
   assert.doesNotMatch(section, /data-pimm50-(?:digit|display-overlay|counter)/);
   assert.match(reducedMotion, /\.pimm50-page \[data-pimm50-motion\][\s\S]*\.pimm50-page \[data-pimm50-motion\] \*[\s\S]*\{[^}]*--p50-progress:\s*1[^}]*animation:\s*none[^}]*transition:\s*none[^}]*transform:\s*none[^}]*filter:\s*none[^}]*clip-path:\s*none/s);
+  assert.match(js, /const revealMotionTarget = \(element\) => \{/);
   assert.match(js, /classList\.add\(['"]is-in-view['"]\)/);
+  assert.match(js, /element\.dataset\.pimm50MotionState = 'complete'/);
+  assert.match(js, /activeObserver\.unobserve\(entry\.target\)/);
   assert.doesNotMatch(js, /\.play\(|\.pause\(/);
+  assert.doesNotMatch(js, /scroll|wheel|setInterval|requestAnimationFrame|\.animate\(/);
   assert.doesNotMatch(css, /transition[^;]*(?:height|width|top|right|bottom|left|margin|padding)/);
 });
 
