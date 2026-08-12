@@ -771,6 +771,7 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     session.send('Page.enable'),
     session.send('Runtime.enable'),
   ]);
+  await session.send('Network.setCacheDisabled', { cacheDisabled: true });
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await session.send('Page.navigate', { url: route });
   await waitForPage(session);
@@ -1030,19 +1031,22 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
-      return { border: style.borderColor, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('[data-pimm50-variant-select]') ? 'select' : 'other', width: parseFloat(style.outlineWidth) };
+      const rect = element.getBoundingClientRect();
+      return { boxShadow: style.boxShadow, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), height: rect.height, selector: element.matches('[data-pimm50-variant-select]') ? 'select' : 'other', width: parseFloat(style.outlineWidth), elementWidth: rect.width };
     })()`));
     await dispatchTab(session);
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
-      return { border: style.borderColor, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('.pimm50-purchase__form a[href]') ? 'factory' : 'other', width: parseFloat(style.outlineWidth) };
+      const rect = element.getBoundingClientRect();
+      return { boxShadow: style.boxShadow, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), height: rect.height, selector: element.matches('.pimm50-purchase__form a[href]') ? 'factory' : 'other', width: parseFloat(style.outlineWidth), elementWidth: rect.width };
     })()`));
     await dispatchTab(session);
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
-      return { border: style.borderColor, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('[data-pimm50-add-button]') ? 'add' : 'other', width: parseFloat(style.outlineWidth) };
+      const rect = element.getBoundingClientRect();
+      return { boxShadow: style.boxShadow, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), height: rect.height, selector: element.matches('[data-pimm50-add-button]') ? 'add' : 'other', width: parseFloat(style.outlineWidth), elementWidth: rect.width };
     })()`));
 
     assert.deepEqual(focusEvidence.map((entry) => entry.selector), ['select', 'factory', 'add']);
@@ -1050,6 +1054,8 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
       assert.equal(entry.focusVisible, true, `${entry.selector} must expose :focus-visible`);
       assert.equal(entry.color, 'rgb(16, 24, 32)', `${entry.selector} must expose a dark indicator with 3:1 contrast on pale surfaces`);
       assert.ok(entry.width >= 3, `${entry.selector} focus outline must be at least 3px`);
+      assert.ok(entry.elementWidth > 6 && entry.height > 6, `${entry.selector} must have enough rendered geometry for an inset focus ring`);
+      assert.match(entry.boxShadow, /rgb\(255, 210, 28\).*3px inset/, `${entry.selector} must render a 3px Focus Yellow inset ring without shifting layout`);
     }
 
     const updated = await evaluate(session, `(() => {

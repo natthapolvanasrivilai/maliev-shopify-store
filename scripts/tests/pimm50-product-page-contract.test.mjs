@@ -34,7 +34,7 @@ test('product and commerce remain visible without JavaScript', () => {
 test('focus treatment preserves MALIEV yellow with a contrasting dark indicator', () => {
   const focusRule = css.match(/\.pimm50-page__button:focus-visible,[\s\S]*?\.pimm50-purchase__form select:focus-visible\s*\{([^}]*)\}/)?.[1] ?? '';
 
-  assert.match(focusRule, /border-color:\s*#ffd21c/i);
+  assert.match(focusRule, /box-shadow:\s*inset 0 0 0 \.3rem #ffd21c/i);
   assert.match(focusRule, /outline:\s*\.3rem solid #101820 !important/i);
 
   const channel = (value) => {
