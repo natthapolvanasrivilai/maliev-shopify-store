@@ -26,6 +26,12 @@ const viewports = [
 ];
 const screenshotDir = process.env.PIMM50_SCREENSHOT_DIR;
 const screenshotViewports = [[820, 1180], [3840, 2160], [390, 844], [852, 393]];
+const motionRoles = [
+  'hero-media', 'hero-copy', 'hero-facts', 'overview-facts',
+  'capacity-media', 'pneumatic-flow', 'melt-media', 'melt-proof',
+  'heating-media', 'heating-readouts', 'mold-media', 'mold-dimension',
+  'comparison-machines', 'comparison-facts', 'purchase-media', 'purchase-panel',
+];
 
 const chromeCandidates = [
   process.env.PIMM50_CHROME_PATH,
@@ -748,6 +754,130 @@ test('temporary profile cleanup retries a transient Windows file lock', async ()
   assert.deepEqual(waits, [50, 100]);
 });
 
+test('PIMM 50G content motion completes once from a visible initial state', { timeout: 60_000 }, async (t) => {
+  const browser = await launchBrowser();
+  t.after(() => browser.close());
+  const { session } = browser;
+
+  await Promise.all([
+    session.send('Network.enable'),
+    session.send('Page.enable'),
+    session.send('Runtime.enable'),
+  ]);
+  await session.send('Network.setCacheDisabled', { cacheDisabled: true });
+  await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+  await setViewport(session, 1440, 900);
+  await session.send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+    const evidence = window.__pimm50MotionEvidence = { initial: {}, stateChanges: {} };
+    const meaningfulSelector = 'a, button, dd, dt, em, h1, h2, h3, img, li, p, select, span, strong, [data-pimm50-comparison-machine]';
+    const describe = (element) => {
+      const className = typeof element.className === 'string' && element.className.trim()
+        ? '.' + element.className.trim().split(/\\s+/).join('.')
+        : '';
+      return element.tagName.toLowerCase() + className;
+    };
+    const captureInitial = (element) => {
+      if (!element.matches?.('[data-pimm50-motion]')) return;
+      const role = element.dataset.pimm50Motion;
+      if (evidence.initial[role]) return;
+      const style = getComputedStyle(element);
+      const meaningful = [element, ...element.querySelectorAll(meaningfulSelector)].map((target) => {
+        const targetStyle = getComputedStyle(target);
+        return {
+          label: describe(target),
+          opacity: Number.parseFloat(targetStyle.opacity),
+          pointerEvents: targetStyle.pointerEvents,
+        };
+      });
+      evidence.initial[role] = {
+        clipPath: style.clipPath,
+        height: element.offsetHeight,
+        meaningful,
+        progress: style.getPropertyValue('--p50-progress').trim(),
+        transform: style.transform,
+        width: element.offsetWidth,
+      };
+    };
+
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const role = record.target.dataset.pimm50Motion;
+        if (!role) continue;
+        evidence.stateChanges[role] = (evidence.stateChanges[role] ?? 0) + 1;
+      }
+    }).observe(document, { attributeFilter: ['data-pimm50-motion-state'], attributes: true, subtree: true });
+
+    const NativeIntersectionObserver = window.IntersectionObserver;
+    window.IntersectionObserver = class extends NativeIntersectionObserver {
+      constructor(callback, options) {
+        super((entries, observer) => {
+          for (const entry of entries) if (entry.isIntersecting) captureInitial(entry.target);
+          callback(entries, observer);
+        }, options);
+      }
+    };
+  })();` });
+  await session.send('Page.navigate', { url: route });
+  await waitForPage(session);
+
+  for (const role of motionRoles) {
+    await evaluate(session, `(() => {
+      const element = document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)});
+      element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+      return true;
+    })()`);
+    await eventually(async () => evaluate(session, `document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)}).dataset.pimm50MotionState === 'complete'`));
+  }
+  await delay(1_000);
+
+  const completed = await evaluate(session, `(() => {
+    const targets = [...document.querySelectorAll('[data-pimm50-motion]')];
+    return {
+      final: Object.fromEntries(targets.map((element) => {
+        const style = getComputedStyle(element);
+        return [element.dataset.pimm50Motion, {
+          clipPath: style.clipPath,
+          height: element.offsetHeight,
+          pointerEvents: style.pointerEvents,
+          state: element.dataset.pimm50MotionState,
+          transform: style.transform,
+          width: element.offsetWidth,
+        }];
+      })),
+      initial: window.__pimm50MotionEvidence.initial,
+      roles: targets.map((element) => element.dataset.pimm50Motion).sort(),
+      stateChanges: { ...window.__pimm50MotionEvidence.stateChanges },
+    };
+  })()`);
+
+  assert.deepEqual(completed.roles, [...motionRoles].sort(), 'Chromium must render the exact named motion contract');
+  assert.deepEqual(Object.keys(completed.initial).sort(), [...motionRoles].sort(), 'Every named role must expose a pre-completion sample');
+  for (const role of motionRoles) {
+    const initial = completed.initial[role];
+    const final = completed.final[role];
+    assert.equal(initial.progress, '0', `${role} must start from the authored motion state`);
+    assert.equal(final.state, 'complete', `${role} must report complete`);
+    assert.equal(completed.stateChanges[role], 1, `${role} must complete exactly once`);
+    assert.ok(Math.abs(initial.width - final.width) <= .5, `${role} reveal must preserve width geometry`);
+    assert.ok(Math.abs(initial.height - final.height) <= .5, `${role} reveal must preserve height geometry`);
+    assert.equal(final.pointerEvents, 'auto', `${role} must remain pointer-enabled after completion`);
+    assert.deepEqual(initial.meaningful.filter((target) => target.opacity < .82), [], `${role} meaningful targets must begin at opacity >= .82`);
+    assert.deepEqual(initial.meaningful.filter((target) => target.pointerEvents === 'none'), [], `${role} meaningful targets must remain pointer-enabled before completion`);
+  }
+
+  assert.notEqual(completed.initial['hero-media'].transform, completed.final['hero-media'].transform, 'Hero media must expose distinct initial and final transforms');
+  assert.equal(completed.final['hero-media'].transform, 'matrix(1, 0, 0, 1, 0, 0)', 'Hero media must settle at its identity transform');
+  assert.notEqual(completed.initial['hero-copy'].clipPath, completed.final['hero-copy'].clipPath, 'Hero copy must expose distinct initial and final clip paths');
+  assert.equal(completed.final['hero-copy'].clipPath, 'inset(0px 0px 0%)', 'Hero copy must finish with a fully open clip path');
+
+  for (const role of motionRoles) {
+    await evaluate(session, `document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)}).scrollIntoView({ behavior: 'instant', block: 'center' }); true`);
+  }
+  await delay(250);
+  const rescannedStateChanges = await evaluate(session, `({ ...window.__pimm50MotionEvidence.stateChanges })`);
+  assert.deepEqual(rescannedStateChanges, completed.stateChanges, 'Completed roles must remain unobserved during a second viewport pass');
+});
+
 test('PIMM 50G browser matrix preserves normal flow and section geometry', { timeout: 240_000 }, async (t) => {
   const response = await fetch(route);
   assert.equal(response.status, 200, `Local Shopify preview must serve ${route}`);
@@ -895,16 +1025,30 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
   await t.test('reduced motion keeps poster-only media complete and visible', async () => {
     await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     await setViewport(session, 390, 844);
+    await session.send('Network.setCacheDisabled', { cacheDisabled: true });
+    await session.send('Page.navigate', { url: route });
+    await waitForPage(session);
     const evidence = await evaluate(session, `(async () => {
       const page = document.querySelector('[data-pimm50-page]');
       const motion = [...page.querySelectorAll('[data-pimm50-motion]')];
+      const toSeconds = (duration) => duration.endsWith('ms') ? Number.parseFloat(duration) / 1_000 : Number.parseFloat(duration);
       return {
         pictures: await (${posterVisibilityProbe})(),
         reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
         progress: motion.map((element) => ({
+          activeAnimations: element.getAnimations({ subtree: true }).filter((animation) => animation.playState === 'running').length,
+          animationNames: [element, ...element.querySelectorAll('*')].map((target) => getComputedStyle(target).animationName),
           className: element.className,
+          height: element.getBoundingClientRect().height,
+          maxTransitionSeconds: Math.max(0, ...[element, ...element.querySelectorAll('*')].flatMap((target) => getComputedStyle(target).transitionDuration.split(',').map((duration) => toSeconds(duration.trim())))),
+          opacity: Number.parseFloat(getComputedStyle(element).opacity),
+          role: element.dataset.pimm50Motion,
           section: element.closest('section')?.id,
+          state: element.dataset.pimm50MotionState,
+          transforms: [element, ...element.querySelectorAll('*')].map((target) => getComputedStyle(target).transform),
           value: getComputedStyle(element).getPropertyValue('--p50-progress').trim(),
+          visibility: getComputedStyle(element).visibility,
+          width: element.getBoundingClientRect().width,
         })),
         videos: page.querySelectorAll('video').length,
       };
@@ -914,7 +1058,13 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     assert.equal(evidence.videos, 0, 'Task 4 intentionally ships poster-only media; do not invent a video fallback');
     assert.ok(evidence.pictures.length >= 8);
     assert.deepEqual(evidence.pictures.filter((poster) => !poster.complete || !poster.effectivelyVisible || !poster.hasVisibleGeometry || !poster.unoccluded), [], 'Reduced-motion posters must remain effectively visible');
+    assert.deepEqual(evidence.progress.map((entry) => entry.role).sort(), [...motionRoles].sort(), 'Reduced motion must cover the exact named role set');
     assert.deepEqual(evidence.progress.filter((entry) => entry.value !== '1'), [], 'Reduced motion must reveal every motion target');
+    assert.deepEqual(evidence.progress.filter((entry) => entry.state !== 'complete'), [], 'Reduced motion must mark every motion target complete during initialization');
+    assert.deepEqual(evidence.progress.filter((entry) => entry.transforms.some((transform) => transform !== 'none')), [], 'Reduced motion must remove transforms from targets and descendants');
+    assert.deepEqual(evidence.progress.filter((entry) => entry.animationNames.some((name) => name !== 'none') || entry.activeAnimations > 0), [], 'Reduced motion must leave no running animation');
+    assert.deepEqual(evidence.progress.filter((entry) => entry.maxTransitionSeconds > .001), [], 'Reduced motion transition duration must be effectively zero');
+    assert.deepEqual(evidence.progress.filter((entry) => entry.width <= 2 || entry.height <= 2 || entry.opacity <= .01 || ['hidden', 'collapse'].includes(entry.visibility)), [], 'Reduced-motion targets must retain visible geometry');
   });
 
   await t.test('poster probe rejects hidden ancestors and page-owned occlusion', async () => {
