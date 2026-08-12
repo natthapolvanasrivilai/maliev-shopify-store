@@ -191,6 +191,49 @@ test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   assert.doesNotMatch(css, /transition[^;]*(?:height|width|top|right|bottom|left|margin|padding)/);
 });
 
+test('motion choreography keeps fixed delays and total duration within budget', () => {
+  const motionRules = [...css.matchAll(/([^{}]*data-pimm50-motion[^{}]*)\{([^{}]*)\}/g)];
+  const transitionTimings = [];
+
+  for (const [, selector, body] of motionRules) {
+    for (const transitionDelay of body.matchAll(/transition-delay:\s*([^;]+)/g)) {
+      for (const delay of transitionDelay[1].matchAll(/(\d+)ms/g)) {
+        assert.ok(Number.parseInt(delay[1], 10) <= 250, `${selector.trim()} uses a ${delay[1]}ms transition-delay`);
+      }
+    }
+    for (const transition of body.matchAll(/transition:\s*([^;]+)/g)) {
+      const items = transition[1].replace(/cubic-bezier\([^)]*\)/g, '').split(',');
+      for (const item of items) {
+        const timings = [...item.matchAll(/(\d+)ms/g)].map((match) => Number.parseInt(match[1], 10));
+        if (timings.length > 1) {
+          assert.ok(timings[1] <= 250, `${selector.trim()} uses a ${timings[1]}ms fixed transition delay`);
+        }
+      }
+    }
+  }
+
+  const moldValues = css.match(/\[data-pimm50-motion="mold-dimension"\] > span,[\s\S]*?\[data-pimm50-motion="mold-dimension"\] > em\s*\{([^}]*)\}/)?.[1] ?? '';
+  const moldTransition = moldValues.match(/transition:\s*([^;]+)/)?.[1] ?? '';
+  for (const item of moldTransition.replace(/cubic-bezier\([^)]*\)/g, '').split(',')) {
+    transitionTimings.push([...item.matchAll(/(\d+)ms/g)].map((match) => Number.parseInt(match[1], 10)));
+  }
+
+  assert.deepEqual(transitionTimings, [[620, 250], [620, 250]]);
+  assert.ok(transitionTimings.every(([duration, delay]) => duration + delay <= 900));
+});
+
+test('heating readouts animate effective row rules and text opacity', () => {
+  const rowRule = css.match(/\[data-pimm50-motion="heating-readouts"\] > div\s*\{([^}]*)\}/)?.[1] ?? '';
+  const textRule = css.match(/\[data-pimm50-motion="heating-readouts"\] dt,[\s\S]*?\[data-pimm50-motion="heating-readouts"\] span\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.match(rowRule, /border-inline-start:\s*1px solid/);
+  assert.match(rowRule, /border-inline-start-color:\s*rgba\([^;]*var\(--p50-progress\)/);
+  assert.match(rowRule, /transition:\s*border-inline-start-color 220ms cubic-bezier\(\.22, 1, \.36, 1\) var\(--p50-delay\)/);
+  assert.match(textRule, /opacity:\s*calc\(\.84 \+ \(var\(--p50-progress\) \* \.16\)\)/);
+  assert.match(textRule, /transition:\s*opacity 220ms cubic-bezier\(\.22, 1, \.36, 1\) var\(--p50-delay\)/);
+  assert.doesNotMatch(textRule, /transition:[^;]*\bcolor\b/);
+});
+
 test('product sections expose distinct engineering motion roles', () => {
   const required = [
     'hero-media', 'hero-copy', 'hero-facts', 'overview-facts',

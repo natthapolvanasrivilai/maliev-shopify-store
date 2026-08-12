@@ -614,17 +614,19 @@
 }
 
 [data-pimm50-motion="heating-readouts"] > div {
-  border-color: rgba(174, 181, 188, calc(.35 + (var(--p50-progress) * .65)));
+  border-inline-start: 1px solid;
+  border-inline-start-color: rgba(0, 111, 214, calc(.18 + (var(--p50-progress) * .42)));
   opacity: calc(.86 + (var(--p50-progress) * .14));
+  padding-inline-start: 1.2rem;
   transform: translateY(calc((1 - var(--p50-progress)) * .5rem));
-  transition: border-color 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), opacity 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), transform 620ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay);
+  transition: border-inline-start-color 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), opacity 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), transform 620ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay);
 }
 
 [data-pimm50-motion="heating-readouts"] dt,
 [data-pimm50-motion="heating-readouts"] strong,
 [data-pimm50-motion="heating-readouts"] span {
   opacity: calc(.84 + (var(--p50-progress) * .16));
-  transition: color 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay), opacity 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay);
+  transition: opacity 220ms cubic-bezier(.22, 1, .36, 1) var(--p50-delay);
 }
 
 [data-pimm50-motion="mold-media"] img {
@@ -634,7 +636,7 @@
 }
 
 [data-pimm50-motion="mold-dimension"]::after {
-  transition: transform 620ms cubic-bezier(.22, 1, .36, 1);
+  transition: transform 250ms cubic-bezier(.22, 1, .36, 1);
 }
 
 [data-pimm50-motion="mold-dimension"] > span,
@@ -642,7 +644,7 @@
 [data-pimm50-motion="mold-dimension"] > em {
   opacity: calc(.84 + (var(--p50-progress) * .16));
   transform: translateY(calc((1 - var(--p50-progress)) * .45rem));
-  transition: opacity 520ms cubic-bezier(.22, 1, .36, 1) 620ms, transform 520ms cubic-bezier(.22, 1, .36, 1) 620ms;
+  transition: opacity 620ms cubic-bezier(.22, 1, .36, 1) 250ms, transform 620ms cubic-bezier(.22, 1, .36, 1) 250ms;
 }
 
 [data-pimm50-motion="comparison-machines"] > [data-pimm50-comparison-machine] {
