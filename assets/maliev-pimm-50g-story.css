@@ -570,7 +570,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pimm50-page [data-pimm50-motion] {
+  .js .pimm50-page [data-pimm50-motion] {
     --p50-progress: 1;
     transition: none;
   }
