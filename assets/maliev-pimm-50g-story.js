@@ -1,10 +1,101 @@
 (() => {
-  const revealMotionTarget = (element) => {
-    element.classList.add('is-in-view');
-    element.dataset.pimm50MotionState = 'complete';
+  const motionDependencies = {
+    'pneumatic-flow': 'capacity-media',
+    'melt-proof': 'melt-media',
+    'heating-readouts': 'heating-media',
+    'mold-dimension': 'mold-media',
+    'comparison-facts': 'comparison-machines',
+    'purchase-panel': 'purchase-media',
   };
 
-  const revealAll = (elements) => elements.forEach(revealMotionTarget);
+  const completeMotionTarget = (element) => {
+    if (element.dataset.pimm50MotionState === 'complete') return;
+    element.dataset.pimm50MotionState = 'complete';
+    element.dispatchEvent(new CustomEvent('pimm50:motioncomplete', {
+      bubbles: true,
+      detail: { role: element.dataset.pimm50Motion },
+    }));
+  };
+
+  const transitionMilliseconds = (style) => {
+    const parseTime = (value) => value.trim().endsWith('ms')
+      ? Number.parseFloat(value)
+      : Number.parseFloat(value) * 1_000;
+    const durations = style.transitionDuration.split(',').map(parseTime);
+    const delays = style.transitionDelay.split(',').map(parseTime);
+    return Math.max(0, ...durations.map((duration, index) => duration + delays[index % delays.length]));
+  };
+
+  const transitionPropertyMilliseconds = (style, propertyName) => {
+    const parseTime = (value) => value.trim().endsWith('ms')
+      ? Number.parseFloat(value)
+      : Number.parseFloat(value) * 1_000;
+    const properties = style.transitionProperty.split(',').map((value) => value.trim());
+    const durations = style.transitionDuration.split(',').map(parseTime);
+    const delays = style.transitionDelay.split(',').map(parseTime);
+    const propertyIndex = Math.max(0, properties.findIndex((property) => property === propertyName || property === 'all'));
+    return durations[propertyIndex % durations.length] + delays[propertyIndex % delays.length];
+  };
+
+  const maximumTransitionMilliseconds = (element) => Math.max(0, ...[element, ...element.querySelectorAll('*')].flatMap((target) => [
+    transitionMilliseconds(getComputedStyle(target)),
+    transitionMilliseconds(getComputedStyle(target, '::before')),
+    transitionMilliseconds(getComputedStyle(target, '::after')),
+  ]));
+
+  const revealMotionTarget = (element, { immediate = false } = {}) => {
+    if (element.dataset.pimm50MotionState) return;
+
+    if (immediate) {
+      element.classList.add('is-in-view');
+      completeMotionTarget(element);
+      return;
+    }
+
+    let fallbackTimer;
+    let expectedDuration = 0;
+    const cleanup = () => {
+      element.removeEventListener('transitionend', onTransitionEnd);
+      window.clearTimeout(fallbackTimer);
+    };
+    const finish = () => {
+      cleanup();
+      completeMotionTarget(element);
+    };
+    const onTransitionEnd = (event) => {
+      const style = getComputedStyle(event.target, event.pseudoElement || null);
+      if (transitionPropertyMilliseconds(style, event.propertyName) >= expectedDuration - 1) finish();
+    };
+
+    element.addEventListener('transitionend', onTransitionEnd);
+    element.dataset.pimm50MotionState = 'running';
+    element.classList.add('is-in-view');
+    expectedDuration = maximumTransitionMilliseconds(element);
+    if (expectedDuration <= 0) {
+      finish();
+      return;
+    }
+    fallbackTimer = window.setTimeout(finish, Math.min(expectedDuration + 100, 900));
+  };
+
+  const revealAll = (elements) => elements.forEach((element) => revealMotionTarget(element, { immediate: true }));
+
+  const revealWhenReady = (element, page) => {
+    const dependencyRole = motionDependencies[element.dataset.pimm50Motion];
+    if (!dependencyRole) {
+      revealMotionTarget(element);
+      return;
+    }
+
+    const dependency = page.querySelector(`[data-pimm50-motion="${dependencyRole}"]`);
+    if (!dependency || dependency.dataset.pimm50MotionState === 'complete') {
+      revealMotionTarget(element);
+      return;
+    }
+
+    dependency.addEventListener('pimm50:motioncomplete', () => revealMotionTarget(element), { once: true });
+    revealMotionTarget(dependency);
+  };
 
   const initCommerce = (page) => {
     const panel = page.querySelector('.pimm50-purchase__panel');
@@ -68,7 +159,7 @@
     const observer = new IntersectionObserver((entries, activeObserver) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        revealMotionTarget(entry.target);
+        revealWhenReady(entry.target, page);
         activeObserver.unobserve(entry.target);
       });
     }, { rootMargin: '0px 0px -8%', threshold: .12 });

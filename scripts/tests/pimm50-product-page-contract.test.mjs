@@ -173,9 +173,31 @@ test('hero and purchase expose alpha-aware authoritative-media hooks', () => {
   assert.match(purchase, /data-pimm50-authoritative-media="purchase"[^>]*data-pimm50-alpha-bounds="514 250 894 1167 1400 1400"/);
 });
 
+test('hero editorial clipping cannot contain facts or commerce actions', () => {
+  const hero = sectionById('pimm50-hero');
+  const editorial = hero.match(/<div class="pimm50-hero__editorial" data-pimm50-motion="hero-copy">([\s\S]*?)<\/div>/)?.[1] ?? '';
+
+  assert.match(editorial, /<h1 id="pimm50-title">PIMM 50G<\/h1>/);
+  assert.match(editorial, /pimm50-hero__lead/);
+  assert.doesNotMatch(editorial, /pimm50-hero__facts|pimm50-page__actions/);
+  assert.match(hero, /<\/div>\s*<dl class="pimm50-hero__facts" data-pimm50-motion="hero-facts"/);
+  assert.match(hero, /<\/dl>\s*<div class="pimm50-page__actions">/);
+});
+
+test('mold workspace exposes verified width-depth and height dimensions separately', () => {
+  const mold = sectionById('pimm50-mold-space');
+  const width = mold.match(/data-pimm50-dimension-axis="width"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
+  const height = mold.match(/data-pimm50-dimension-axis="height"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
+
+  assert.match(width, /240 × 240/);
+  assert.match(width, /<em>mm<\/em>/);
+  assert.match(height, />100<\/strong>/);
+  assert.match(height, /<em>mm<\/em>/);
+  assert.doesNotMatch(mold, /<strong>240 × 240 × 100<\/strong>/);
+});
+
 test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   const reducedMotion = css.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? '';
-  const revealHelper = js.match(/const revealMotionTarget = \(element\) => \{([\s\S]*?)\n  \};/)?.[1] ?? '';
 
   assert.match(css, /\[data-pimm50-motion\]\s*\{[^}]*--p50-progress:\s*1/s);
   assert.match(css, /\.js\s+\[data-pimm50-motion\]:not\(\.is-in-view\)\s*\{[^}]*--p50-progress:\s*0/s);
@@ -187,22 +209,36 @@ test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   assert.doesNotMatch(css, /data-pimm50-motion[^}]*opacity:\s*0(?:[;}])/s);
   assert.doesNotMatch(section, /data-pimm50-(?:digit|display-overlay|counter)/);
   assert.match(reducedMotion, /\.pimm50-page \[data-pimm50-motion\][\s\S]*\.pimm50-page \[data-pimm50-motion\] \*[\s\S]*\{[^}]*--p50-progress:\s*1[^}]*animation:\s*none[^}]*transition:\s*none[^}]*transform:\s*none[^}]*filter:\s*none[^}]*clip-path:\s*none/s);
-  assert.match(js, /const revealMotionTarget = \(element\) => \{/);
-  assert.match(js, /const revealAll = \(elements\) => elements\.forEach\(revealMotionTarget\)/);
-  assert.match(js, /revealMotionTarget\(entry\.target\)/);
-  assert.match(revealHelper, /element\.classList\.add\(['"]is-in-view['"]\)/);
+  assert.match(js, /const completeMotionTarget = \(element\) => \{/);
+  assert.match(js, /const revealMotionTarget = \(element, \{ immediate = false \} = \{\}\) => \{/);
+  assert.match(js, /const revealAll = \(elements\) => elements\.forEach\(\(element\) => revealMotionTarget\(element, \{ immediate: true \}\)\)/);
+  assert.match(js, /element\.dataset\.pimm50MotionState = 'running'/);
+  assert.match(js, /element\.addEventListener\('transitionend'/);
+  assert.match(js, /const maximumTransitionMilliseconds = \(element\) =>/);
+  assert.match(js, /const transitionPropertyMilliseconds = \(style, propertyName\) =>/);
+  assert.match(js, /transitionPropertyMilliseconds\(style, event\.propertyName\) >= expectedDuration - 1/);
+  assert.match(js, /window\.setTimeout\(finish, Math\.min\(expectedDuration \+ 100, 900\)\)/);
+  assert.match(js, /new CustomEvent\('pimm50:motioncomplete'/);
   assert.match(js, /element\.dataset\.pimm50MotionState = 'complete'/);
-  assert.equal([...js.matchAll(/\.classList\.add\(['"]is-in-view['"]\)/g)].length, 1);
   assert.equal([...js.matchAll(/\.dataset\.pimm50MotionState\s*=\s*'complete'/g)].length, 1);
   assert.match(js, /activeObserver\.unobserve\(entry\.target\)/);
   assert.doesNotMatch(js, /\.play\(|\.pause\(/);
-  assert.doesNotMatch(js, /scroll|wheel|setInterval|setTimeout|requestAnimationFrame|\.animate\(/);
+  assert.doesNotMatch(js, /scroll|wheel|setInterval|requestAnimationFrame|\.animate\(/);
   assert.doesNotMatch(css, /transition[^;]*(?:height|width|top|right|bottom|left|margin|padding)/);
 });
 
-test('motion choreography keeps fixed delays and total duration within budget', () => {
+test('motion choreography keeps every role duration and fixed delay within budget', () => {
+  const roles = [
+    'hero-media', 'hero-copy', 'hero-facts', 'overview-facts',
+    'capacity-media', 'pneumatic-flow', 'melt-media', 'melt-proof',
+    'heating-media', 'heating-readouts', 'mold-media', 'mold-dimension',
+    'comparison-machines', 'comparison-facts', 'purchase-media', 'purchase-panel',
+  ];
   const motionRules = [...css.matchAll(/([^{}]*data-pimm50-motion[^{}]*)\{([^{}]*)\}/g)];
-  const transitionTimings = [];
+
+  for (const role of roles) {
+    assert.ok(motionRules.some(([, selector]) => selector.includes(`data-pimm50-motion="${role}"`)), `${role} needs an authored motion rule`);
+  }
 
   for (const [, selector, body] of motionRules) {
     for (const transitionDelay of body.matchAll(/transition-delay:\s*([^;]+)/g)) {
@@ -214,21 +250,30 @@ test('motion choreography keeps fixed delays and total duration within budget', 
       const items = transition[1].replace(/cubic-bezier\([^)]*\)/g, '').split(',');
       for (const item of items) {
         const timings = [...item.matchAll(/(\d+)ms/g)].map((match) => Number.parseInt(match[1], 10));
+        if (timings.length > 0) {
+          assert.ok(timings[0] <= 800, `${selector.trim()} uses a ${timings[0]}ms transition duration`);
+        }
         if (timings.length > 1) {
           assert.ok(timings[1] <= 250, `${selector.trim()} uses a ${timings[1]}ms fixed transition delay`);
         }
       }
     }
   }
+});
 
-  const moldValues = css.match(/\[data-pimm50-motion="mold-dimension"\] > span,[\s\S]*?\[data-pimm50-motion="mold-dimension"\] > em\s*\{([^}]*)\}/)?.[1] ?? '';
-  const moldTransition = moldValues.match(/transition:\s*([^;]+)/)?.[1] ?? '';
-  for (const item of moldTransition.replace(/cubic-bezier\([^)]*\)/g, '').split(',')) {
-    transitionTimings.push([...item.matchAll(/(\d+)ms/g)].map((match) => Number.parseInt(match[1], 10)));
-  }
-
-  assert.deepEqual(transitionTimings, [[620, 250], [620, 250]]);
-  assert.ok(transitionTimings.every(([duration, delay]) => duration + delay <= 900));
+test('engineering choreography draws rules, crops media horizontally, and sequences dependent roles', () => {
+  assert.match(css, /data-pimm50-motion="overview-facts"\]::before[\s\S]*transform:\s*scaleX\(var\(--p50-progress\)\)/);
+  assert.match(css, /data-pimm50-pneumatic-segment="supply"[^}]*--p50-segment-delay:\s*0ms/);
+  assert.match(css, /data-pimm50-pneumatic-segment="stroke"[^}]*--p50-segment-delay:\s*240ms/);
+  assert.match(css, /data-pimm50-motion="melt-media"\][^{]*\{[^}]*clip-path:\s*inset\(0 calc\(\(1 - var\(--p50-progress\)\) \* 14%\) 0 0\)/s);
+  assert.match(css, /data-pimm50-dimension-axis="width"\]::after[\s\S]*transform:\s*scaleX\(var\(--p50-progress\)\)/);
+  assert.match(css, /data-pimm50-dimension-axis="height"\]::after[\s\S]*transform:\s*scaleY\(var\(--p50-progress\)\)/);
+  assert.match(css, /data-pimm50-motion="comparison-machines"\][\s\S]*pimm50-comparison__stage::after[\s\S]*transform:\s*scaleX\(var\(--p50-progress\)\)/);
+  assert.match(js, /'pneumatic-flow':\s*'capacity-media'/);
+  assert.match(js, /'heating-readouts':\s*'heating-media'/);
+  assert.match(js, /'mold-dimension':\s*'mold-media'/);
+  assert.match(js, /'comparison-facts':\s*'comparison-machines'/);
+  assert.match(js, /'purchase-panel':\s*'purchase-media'/);
 });
 
 test('heating readouts animate effective row rules and text opacity', () => {
@@ -238,7 +283,7 @@ test('heating readouts animate effective row rules and text opacity', () => {
   assert.match(rowRule, /border-inline-start:\s*1px solid/);
   assert.match(rowRule, /border-inline-start-color:\s*rgba\([^;]*var\(--p50-progress\)/);
   assert.match(rowRule, /transition:\s*border-inline-start-color 220ms cubic-bezier\(\.22, 1, \.36, 1\) var\(--p50-delay\)/);
-  assert.match(textRule, /opacity:\s*calc\(\.84 \+ \(var\(--p50-progress\) \* \.16\)\)/);
+  assert.match(textRule, /opacity:\s*calc\(\.88 \+ \(var\(--p50-progress\) \* \.12\)\)/);
   assert.match(textRule, /transition:\s*opacity 220ms cubic-bezier\(\.22, 1, \.36, 1\) var\(--p50-delay\)/);
   assert.doesNotMatch(textRule, /transition:[^;]*\bcolor\b/);
 });

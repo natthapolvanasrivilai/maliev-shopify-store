@@ -26,6 +26,7 @@ const viewports = [
 ];
 const screenshotDir = process.env.PIMM50_SCREENSHOT_DIR;
 const screenshotViewports = [[820, 1180], [3840, 2160], [390, 844], [852, 393]];
+const motionViewports = [[1440, 900], [820, 1180], [390, 844], [852, 393]];
 const motionRoles = [
   'hero-media', 'hero-copy', 'hero-facts', 'overview-facts',
   'capacity-media', 'pneumatic-flow', 'melt-media', 'melt-proof',
@@ -762,7 +763,7 @@ test('temporary profile cleanup retries a transient Windows file lock', async ()
   assert.deepEqual(waits, [50, 100]);
 });
 
-test('PIMM 50G content motion completes once from a visible initial state', { timeout: 60_000 }, async (t) => {
+test('PIMM 50G content motion proves authored states, ordering, hit testing, and elapsed completion', { timeout: 180_000 }, async (t) => {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const { session } = browser;
@@ -774,15 +775,67 @@ test('PIMM 50G content motion completes once from a visible initial state', { ti
   ]);
   await session.send('Network.setCacheDisabled', { cacheDisabled: true });
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-  await setViewport(session, 1440, 900);
   await session.send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
-    const evidence = window.__pimm50MotionEvidence = { initial: {}, stateChanges: {} };
+    const evidence = window.__pimm50MotionEvidence = { actions: [], initial: {}, states: {}, transitions: {} };
     const meaningfulSelector = 'a, button, dd, dt, em, h1, h2, h3, img, li, p, select, span, strong, [data-pimm50-comparison-machine]';
     const describe = (element) => {
+      const semanticOwner = element.closest?.('[data-pimm50-dimension-axis], [data-pimm50-pneumatic-segment], [data-pimm50-comparison-machine]');
+      const semantic = element.dataset?.pimm50DimensionAxis
+        || element.dataset?.pimm50PneumaticSegment
+        || element.dataset?.pimm50ComparisonMachine
+        || semanticOwner?.dataset.pimm50DimensionAxis
+        || semanticOwner?.dataset.pimm50PneumaticSegment
+        || semanticOwner?.dataset.pimm50ComparisonMachine;
       const className = typeof element.className === 'string' && element.className.trim()
         ? '.' + element.className.trim().split(/\\s+/).join('.')
         : '';
-      return element.tagName.toLowerCase() + className;
+      return element.tagName.toLowerCase() + className + (semantic ? '[' + semantic + ']' : '');
+    };
+    const styleRecord = (target, pseudo = null) => {
+      const style = getComputedStyle(target, pseudo);
+      return {
+        borderInlineStartColor: style.borderInlineStartColor,
+        clipPath: style.clipPath,
+        content: pseudo ? style.content : '',
+        opacity: style.opacity,
+        transform: style.transform,
+      };
+    };
+    const snapshot = (element) => {
+      const nodes = [element, ...element.querySelectorAll('*')];
+      return nodes.map((target) => ({
+        after: styleRecord(target, '::after'),
+        before: styleRecord(target, '::before'),
+        label: describe(target),
+        style: styleRecord(target),
+      }));
+    };
+    const probeHeroActions = () => {
+      const originalX = scrollX;
+      const originalY = scrollY;
+      const results = [...document.querySelectorAll('#pimm50-hero .pimm50-page__actions a')].map((action) => {
+        action.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = action.getBoundingClientRect();
+        const points = [
+          [rect.left + rect.width / 2, rect.top + rect.height / 2],
+          [rect.left + rect.width / 2, rect.bottom - 2],
+          [rect.left + 2, rect.bottom - 2],
+          [rect.right - 2, rect.bottom - 2],
+        ];
+        const hits = points.map(([x, y]) => {
+          const hit = document.elementFromPoint(x, y);
+          return Boolean(hit && (hit === action || action.contains(hit)));
+        });
+        return {
+          height: rect.height,
+          hits,
+          href: action.getAttribute('href'),
+          pointerEvents: getComputedStyle(action).pointerEvents,
+          width: rect.width,
+        };
+      });
+      scrollTo(originalX, originalY);
+      return results;
     };
     const captureInitial = (element) => {
       if (!element.matches?.('[data-pimm50-motion]')) return;
@@ -809,18 +862,38 @@ test('PIMM 50G content motion completes once from a visible initial state', { ti
         height: element.offsetHeight,
         meaningful,
         progress: style.getPropertyValue('--p50-progress').trim(),
+        snapshot: snapshot(element),
         transform: style.transform,
         width: element.offsetWidth,
       };
+      if (role === 'hero-copy' && evidence.actions.length === 0) evidence.actions = probeHeroActions();
     };
 
     new MutationObserver((records) => {
       for (const record of records) {
         const role = record.target.dataset.pimm50Motion;
         if (!role) continue;
-        evidence.stateChanges[role] = (evidence.stateChanges[role] ?? 0) + 1;
+        (evidence.states[role] ??= []).push({ state: record.target.dataset.pimm50MotionState, time: performance.now() });
       }
-    }).observe(document, { attributeFilter: ['data-pimm50-motion-state'], attributes: true, subtree: true });
+    }).observe(document, { attributeFilter: ['data-pimm50-motion-state'], attributeOldValue: true, attributes: true, subtree: true });
+
+    for (const type of ['transitionstart', 'transitionend']) {
+      document.addEventListener(type, (event) => {
+        const owner = event.target.closest?.('[data-pimm50-motion]');
+        if (!owner) return;
+        const role = owner.dataset.pimm50Motion;
+        const style = getComputedStyle(event.target, event.pseudoElement || null);
+        (evidence.transitions[role] ??= []).push({
+          delay: style.transitionDelay,
+          elapsedTime: event.elapsedTime,
+          label: describe(event.target),
+          property: event.propertyName,
+          pseudo: event.pseudoElement,
+          time: performance.now(),
+          type,
+        });
+      });
+    }
 
     const NativeIntersectionObserver = window.IntersectionObserver;
     window.IntersectionObserver = class extends NativeIntersectionObserver {
@@ -832,65 +905,143 @@ test('PIMM 50G content motion completes once from a visible initial state', { ti
       }
     };
   })();` });
-  await session.send('Page.navigate', { url: route });
-  await waitForPage(session);
 
-  for (const role of motionRoles) {
-    await evaluate(session, `(() => {
-      const element = document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)});
-      element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
-      return true;
-    })()`);
-    await eventually(async () => evaluate(session, `document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)}).dataset.pimm50MotionState === 'complete'`));
+  const roleGroups = [
+    ['hero-media', 'hero-copy', 'hero-facts'],
+    ['overview-facts'],
+    ['capacity-media', 'pneumatic-flow'],
+    ['melt-media', 'melt-proof'],
+    ['heating-media', 'heating-readouts'],
+    ['mold-media', 'mold-dimension'],
+    ['comparison-machines', 'comparison-facts'],
+    ['purchase-media', 'purchase-panel'],
+  ];
+  const dependencies = [
+    ['capacity-media', 'pneumatic-flow'],
+    ['melt-media', 'melt-proof'],
+    ['heating-media', 'heating-readouts'],
+    ['mold-media', 'mold-dimension'],
+    ['comparison-machines', 'comparison-facts'],
+    ['purchase-media', 'purchase-panel'],
+  ];
+
+  for (const [width, height] of motionViewports) {
+    await t.test(`${width}x${height}`, async () => {
+      await setViewport(session, width, height);
+      const separator = route.includes('?') ? '&' : '?';
+      await session.send('Page.navigate', { url: `${route}${separator}pimm50-motion-viewport=${width}x${height}` });
+      await waitForPage(session);
+
+      for (const roles of roleGroups) {
+        for (const role of roles) {
+          await evaluate(session, `(() => {
+            document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)}).scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+            return true;
+          })()`);
+          await eventually(async () => evaluate(session, `Boolean(window.__pimm50MotionEvidence.initial[${JSON.stringify(role)}]) && Boolean(document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)}).dataset.pimm50MotionState)`));
+        }
+        await eventually(async () => evaluate(session, `${JSON.stringify(roles)}.every((role) => document.querySelector('[data-pimm50-motion="' + role + '"]').dataset.pimm50MotionState === 'complete')`));
+      }
+
+      await eventually(async () => evaluate(session, `${JSON.stringify(motionRoles)}.every((role) => (window.__pimm50MotionEvidence.transitions[role] || []).some((event) => event.type === 'transitionend'))`));
+
+      const completed = await evaluate(session, `(() => {
+        const targets = [...document.querySelectorAll('[data-pimm50-motion]')];
+        const styleRecord = (target, pseudo = null) => {
+          const style = getComputedStyle(target, pseudo);
+          return { borderInlineStartColor: style.borderInlineStartColor, clipPath: style.clipPath, content: pseudo ? style.content : '', opacity: style.opacity, transform: style.transform };
+        };
+        const describe = (element) => {
+          const semanticOwner = element.closest?.('[data-pimm50-dimension-axis], [data-pimm50-pneumatic-segment], [data-pimm50-comparison-machine]');
+          const semantic = element.dataset?.pimm50DimensionAxis || element.dataset?.pimm50PneumaticSegment || element.dataset?.pimm50ComparisonMachine || semanticOwner?.dataset.pimm50DimensionAxis || semanticOwner?.dataset.pimm50PneumaticSegment || semanticOwner?.dataset.pimm50ComparisonMachine;
+          const className = typeof element.className === 'string' && element.className.trim() ? '.' + element.className.trim().split(/\\s+/).join('.') : '';
+          return element.tagName.toLowerCase() + className + (semantic ? '[' + semantic + ']' : '');
+        };
+        const snapshot = (element) => [element, ...element.querySelectorAll('*')].map((target) => ({ after: styleRecord(target, '::after'), before: styleRecord(target, '::before'), label: describe(target), style: styleRecord(target) }));
+        return {
+          actions: window.__pimm50MotionEvidence.actions,
+          final: Object.fromEntries(targets.map((element) => {
+            const style = getComputedStyle(element);
+            return [element.dataset.pimm50Motion, { clipPath: style.clipPath, height: element.offsetHeight, pointerEvents: style.pointerEvents, snapshot: snapshot(element), state: element.dataset.pimm50MotionState, transform: style.transform, width: element.offsetWidth }];
+          })),
+          initial: window.__pimm50MotionEvidence.initial,
+          roles: targets.map((element) => element.dataset.pimm50Motion).sort(),
+          states: window.__pimm50MotionEvidence.states,
+          transitions: window.__pimm50MotionEvidence.transitions,
+        };
+      })()`);
+
+      const viewportLabel = `${width}x${height}`;
+      assert.deepEqual(completed.roles, [...motionRoles].sort(), `${viewportLabel}: exact named motion contract`);
+      assert.deepEqual(Object.keys(completed.initial).sort(), [...motionRoles].sort(), `${viewportLabel}: every role needs a pre-completion sample`);
+      assert.equal(completed.actions.length, 3, `${viewportLabel}: all hero actions need hit-test evidence`);
+      for (const action of completed.actions) {
+        assert.ok(action.width > 0 && action.height >= 44, `${viewportLabel}: ${action.href} action geometry`);
+        assert.equal(action.pointerEvents, 'auto', `${viewportLabel}: ${action.href} remains pointer-enabled`);
+        assert.deepEqual(action.hits, [true, true, true, true], `${viewportLabel}: ${action.href} is not fully hit-testable during hero motion`);
+      }
+
+      for (const role of motionRoles) {
+        const initial = completed.initial[role];
+        const final = completed.final[role];
+        const states = completed.states[role] ?? [];
+        const transitions = completed.transitions[role] ?? [];
+        const starts = transitions.filter((event) => event.type === 'transitionstart');
+        const ends = transitions.filter((event) => event.type === 'transitionend');
+        assert.equal(initial.progress, '0', `${viewportLabel}: ${role} starts authored`);
+        assert.equal(final.state, 'complete', `${viewportLabel}: ${role} reports complete`);
+        assert.deepEqual(states.map((entry) => entry.state), ['running', 'complete'], `${viewportLabel}: ${role} must enter running once and complete once`);
+        assert.ok(starts.length > 0 && ends.length > 0, `${viewportLabel}: ${role} needs real transition events`);
+        const lastTransitionEnd = Math.max(...ends.map((event) => event.time));
+        assert.ok(states[1].time >= lastTransitionEnd - 20, `${viewportLabel}: ${role} completed ${(lastTransitionEnd - states[1].time).toFixed(1)}ms before its last CSS transitionend event`);
+        assert.ok(states[1].time - states[0].time <= 900, `${viewportLabel}: ${role} exceeds the 900ms role budget`);
+        const transitionWindow = Math.max(...starts.map((event) => event.time)) - Math.min(...starts.map((event) => event.time));
+        assert.ok(transitionWindow <= 350, `${viewportLabel}: ${role} transition-start window ${transitionWindow.toFixed(1)}ms exceeds the authored 250ms delay budget plus browser-event tolerance`);
+        assert.notDeepEqual(initial.snapshot, final.snapshot, `${viewportLabel}: ${role} needs a distinctive initial/final computed property`);
+        assert.ok(Math.abs(initial.width - final.width) <= .5, `${viewportLabel}: ${role} preserves width geometry`);
+        assert.ok(Math.abs(initial.height - final.height) <= .5, `${viewportLabel}: ${role} preserves height geometry`);
+        assert.equal(final.pointerEvents, 'auto', `${viewportLabel}: ${role} remains pointer-enabled`);
+        assert.deepEqual(initial.meaningful.filter((target) => target.leaf && target.effectiveOpacity < .82), [], `${viewportLabel}: ${role} visible leaves start at effective opacity >= .82`);
+        assert.deepEqual(initial.meaningful.filter((target) => target.pointerEvents === 'none'), [], `${viewportLabel}: ${role} meaningful targets remain pointer-enabled`);
+      }
+
+      for (const [first, second] of dependencies) {
+        const firstComplete = completed.states[first].find((entry) => entry.state === 'complete').time;
+        const secondRunning = completed.states[second].find((entry) => entry.state === 'running').time;
+        assert.ok(secondRunning >= firstComplete - 20, `${viewportLabel}: ${second} must follow ${first}`);
+        const sectionStart = completed.states[first].find((entry) => entry.state === 'running').time;
+        const sectionEnd = completed.states[second].find((entry) => entry.state === 'complete').time;
+        const animatedDuration = (firstComplete - sectionStart) + (sectionEnd - secondRunning);
+        assert.ok(animatedDuration <= 900, `${viewportLabel}: ${first} -> ${second} contains ${animatedDuration.toFixed(1)}ms of active animation and exceeds the 900ms section budget`);
+      }
+
+      const pneumaticStarts = completed.transitions['pneumatic-flow'].filter((event) => event.type === 'transitionstart' && event.property === 'transform' && ['supply', 'stroke'].some((segment) => event.label.includes('[' + segment + ']')));
+      const supply = pneumaticStarts.find((event) => event.label.includes('[supply]'));
+      const stroke = pneumaticStarts.find((event) => event.label.includes('[stroke]'));
+      const delaySeconds = (value) => value.trim().endsWith('ms') ? Number.parseFloat(value) / 1_000 : Number.parseFloat(value);
+      assert.ok(supply && stroke && stroke.time > supply.time, `${viewportLabel}: pneumatic stroke transition must start after the supply transition`);
+      assert.ok(delaySeconds(supply.delay) <= .01 && delaySeconds(stroke.delay) >= .24, `${viewportLabel}: pneumatic computed delays must preserve the 0ms -> 240ms engineering order`);
+
+      assert.ok(completed.transitions['overview-facts'].some((event) => event.pseudo === '::before' && event.property === 'transform'), `${viewportLabel}: overview rule must draw`);
+      assert.match(completed.initial['melt-media'].clipPath, /^inset\(0px? [1-9]/, `${viewportLabel}: melt media starts as a horizontal crop`);
+      assert.ok(fullyOpenInset(completed.final['melt-media'].clipPath), `${viewportLabel}: melt media finishes horizontally open`);
+      for (const axis of ['width', 'height']) {
+        const axisEvents = completed.transitions['mold-dimension'].filter((event) => event.label.includes('[' + axis + ']'));
+        assert.ok(axisEvents.some((event) => event.type === 'transitionstart' && event.pseudo === '::after' && event.property === 'transform'), `${viewportLabel}: ${axis} dimension line must draw`);
+        assert.ok(axisEvents.some((event) => event.type === 'transitionstart' && event.label.startsWith('strong') && event.property === 'opacity'), `${viewportLabel}: ${axis} semantic value must resolve`);
+      }
+      assert.ok(completed.transitions['comparison-machines'].some((event) => event.pseudo === '::after' && event.property === 'transform'), `${viewportLabel}: comparison baseline must draw`);
+
+      const stateCounts = Object.fromEntries(Object.entries(completed.states).map(([role, states]) => [role, states.length]));
+      await evaluate(session, `(async () => {
+        for (const element of document.querySelectorAll('[data-pimm50-motion]')) element.scrollIntoView({ behavior: 'instant', block: 'center' });
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return true;
+      })()`);
+      const rescannedStateCounts = await evaluate(session, `Object.fromEntries(Object.entries(window.__pimm50MotionEvidence.states).map(([role, states]) => [role, states.length]))`);
+      assert.deepEqual(rescannedStateCounts, stateCounts, `${viewportLabel}: completed roles remain one-shot after a second viewport pass`);
+    });
   }
-  await delay(1_000);
-
-  const completed = await evaluate(session, `(() => {
-    const targets = [...document.querySelectorAll('[data-pimm50-motion]')];
-    return {
-      final: Object.fromEntries(targets.map((element) => {
-        const style = getComputedStyle(element);
-        return [element.dataset.pimm50Motion, {
-          clipPath: style.clipPath,
-          height: element.offsetHeight,
-          pointerEvents: style.pointerEvents,
-          state: element.dataset.pimm50MotionState,
-          transform: style.transform,
-          width: element.offsetWidth,
-        }];
-      })),
-      initial: window.__pimm50MotionEvidence.initial,
-      roles: targets.map((element) => element.dataset.pimm50Motion).sort(),
-      stateChanges: { ...window.__pimm50MotionEvidence.stateChanges },
-    };
-  })()`);
-
-  assert.deepEqual(completed.roles, [...motionRoles].sort(), 'Chromium must render the exact named motion contract');
-  assert.deepEqual(Object.keys(completed.initial).sort(), [...motionRoles].sort(), 'Every named role must expose a pre-completion sample');
-  for (const role of motionRoles) {
-    const initial = completed.initial[role];
-    const final = completed.final[role];
-    assert.equal(initial.progress, '0', `${role} must start from the authored motion state`);
-    assert.equal(final.state, 'complete', `${role} must report complete`);
-    assert.equal(completed.stateChanges[role], 1, `${role} must complete exactly once`);
-    assert.ok(Math.abs(initial.width - final.width) <= .5, `${role} reveal must preserve width geometry`);
-    assert.ok(Math.abs(initial.height - final.height) <= .5, `${role} reveal must preserve height geometry`);
-    assert.equal(final.pointerEvents, 'auto', `${role} must remain pointer-enabled after completion`);
-    assert.deepEqual(initial.meaningful.filter((target) => target.leaf && target.effectiveOpacity < .82), [], `${role} meaningful visible leaves must begin at effective opacity >= .82`);
-    assert.deepEqual(initial.meaningful.filter((target) => target.pointerEvents === 'none'), [], `${role} meaningful targets must remain pointer-enabled before completion`);
-  }
-
-  assert.notEqual(completed.initial['hero-media'].transform, completed.final['hero-media'].transform, 'Hero media must expose distinct initial and final transforms');
-  assert.equal(completed.final['hero-media'].transform, 'matrix(1, 0, 0, 1, 0, 0)', 'Hero media must settle at its identity transform');
-  assert.notEqual(completed.initial['hero-copy'].clipPath, completed.final['hero-copy'].clipPath, 'Hero copy must expose distinct initial and final clip paths');
-  assert.ok(fullyOpenInset(completed.final['hero-copy'].clipPath), `Hero copy must finish with a fully open clip path, received ${completed.final['hero-copy'].clipPath}`);
-
-  for (const role of motionRoles) {
-    await evaluate(session, `document.querySelector(${JSON.stringify(`[data-pimm50-motion="${role}"]`)}).scrollIntoView({ behavior: 'instant', block: 'center' }); true`);
-  }
-  await delay(250);
-  const rescannedStateChanges = await evaluate(session, `({ ...window.__pimm50MotionEvidence.stateChanges })`);
-  assert.deepEqual(rescannedStateChanges, completed.stateChanges, 'Completed roles must remain unobserved during a second viewport pass');
 });
 
 test('PIMM 50G browser matrix preserves normal flow and section geometry', { timeout: 240_000 }, async (t) => {
@@ -1081,6 +1232,7 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
           return {
             animationName: style.animationName,
             content: style.content,
+            dimensionAxis: target.dataset.pimm50DimensionAxis ?? '',
             pseudo,
             role: element.dataset.pimm50Motion,
             tag: target.tagName.toLowerCase(),
@@ -1126,7 +1278,9 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     assert.deepEqual(evidence.progress.filter((entry) => entry.maxTransitionSeconds > .001), [], 'Reduced motion transition duration must be effectively zero');
     assert.deepEqual(evidence.progress.filter((entry) => entry.width <= 2 || entry.height <= 2 || entry.opacity <= .01 || ['hidden', 'collapse'].includes(entry.visibility)), [], 'Reduced-motion targets must retain visible geometry');
     assert.ok(Array.isArray(evidence.pseudoStyles), 'Reduced-motion evidence must inspect ::before and ::after computed styles');
-    assert.ok(evidence.pseudoStyles.some((entry) => entry.role === 'mold-dimension' && entry.pseudo === '::after' && !['none', 'normal'].includes(entry.content)), 'Mold dimension ::after must be present in reduced-motion evidence');
+    for (const axis of ['width', 'height']) {
+      assert.ok(evidence.pseudoStyles.some((entry) => entry.role === 'mold-dimension' && entry.dimensionAxis === axis && entry.pseudo === '::after' && !['none', 'normal'].includes(entry.content)), `Mold ${axis} dimension ::after must be present in reduced-motion evidence`);
+    }
     assert.ok(evidence.pseudoStyles.some((entry) => entry.role === 'melt-proof' && entry.tag === 'div' && entry.pseudo === '::before' && !['none', 'normal'].includes(entry.content)), 'Melt proof divider ::before must be present in reduced-motion evidence');
     assert.deepEqual(evidence.pseudoStyles.filter((entry) => entry.transform !== 'none'), [], 'Reduced motion must remove pseudo-element transforms');
     assert.deepEqual(evidence.pseudoStyles.filter((entry) => entry.transitionSeconds > .001), [], 'Reduced motion pseudo-element transition duration must be effectively zero');

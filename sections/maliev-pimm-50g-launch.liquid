@@ -25,16 +25,18 @@
 <div class="pimm50-page" data-pimm50-page>
   <section class="pimm50-hero" id="pimm50-hero" aria-labelledby="pimm50-title">
     <div class="pimm50-page__content pimm50-hero__layout">
-      <div class="pimm50-hero__copy" data-pimm50-motion="hero-copy">
-        <p class="pimm50-page__eyebrow">Pneumatic injection molding machine</p>
-        <h1 id="pimm50-title">PIMM 50G</h1>
-        <p class="pimm50-hero__lead">
-          {% if is_thai %}
-            พื้นที่การฉีดที่มากขึ้น พร้อมชุดหลอมเหล็กและระบบทำความร้อนสองโซน สำหรับงานผลิตจริงในเวิร์กช็อป
-          {% else %}
-            More shot headroom, a steel melt zone, and independent dual-zone heating in a machine sized for a working workshop.
-          {% endif %}
-        </p>
+      <div class="pimm50-hero__copy">
+        <div class="pimm50-hero__editorial" data-pimm50-motion="hero-copy">
+          <p class="pimm50-page__eyebrow">Pneumatic injection molding machine</p>
+          <h1 id="pimm50-title">PIMM 50G</h1>
+          <p class="pimm50-hero__lead">
+            {% if is_thai %}
+              พื้นที่การฉีดที่มากขึ้น พร้อมชุดหลอมเหล็กและระบบทำความร้อนสองโซน สำหรับงานผลิตจริงในเวิร์กช็อป
+            {% else %}
+              More shot headroom, a steel melt zone, and independent dual-zone heating in a machine sized for a working workshop.
+            {% endif %}
+          </p>
+        </div>
         <dl class="pimm50-hero__facts" data-pimm50-motion="hero-facts" aria-label="{% if is_thai %}ข้อมูลสำคัญของเครื่อง{% else %}Key machine facts{% endif %}">
           <div class="pimm50-hero__fact" data-pimm50-hero-fact style="--p50-index: 0">
             <dt>{% if is_thai %}น้ำหนักฉีดสูงสุด{% else %}Maximum shot{% endif %}</dt>
@@ -109,9 +111,9 @@
         <p>{% if is_thai %}ความจุที่เพิ่มขึ้นรองรับชิ้นงานที่ใหญ่ขึ้นหรือผนังที่หนาขึ้น โดยยังคงรูปแบบเครื่องแนวตั้งที่เหมาะกับเวิร์กช็อป การเลือกจริงต้องยืนยันจากปริมาตรชิ้นงาน รันเนอร์ และวัสดุ{% else %}The added capacity supports larger parts or thicker sections while retaining a workshop-scale vertical machine. Final selection still depends on part volume, runner volume, and material.{% endif %}</p>
         <div class="pimm50-capacity__flow" data-pimm50-flow data-pimm50-motion="pneumatic-flow" aria-label="{% if is_thai %}ลำดับการทำงานของระบบลม{% else %}Pneumatic drive sequence{% endif %}">
           <span>{% if is_thai %}ระบบลมโรงงาน{% else %}Workshop air{% endif %}</span>
-          <i aria-hidden="true"></i>
+          <i data-pimm50-pneumatic-segment="supply" aria-hidden="true"></i>
           <span>{% if is_thai %}ปรับแรงดัน{% else %}Regulated{% endif %}</span>
-          <i aria-hidden="true"></i>
+          <i data-pimm50-pneumatic-segment="stroke" aria-hidden="true"></i>
           <span>{% if is_thai %}ขับเคลื่อนการฉีด{% else %}Injection travel{% endif %}</span>
         </div>
       </div>
@@ -174,10 +176,17 @@
       <div class="pimm50-page__copy pimm50-mold-space__copy">
         <h2 id="pimm50-mold-title">{% if is_thai %}ตรวจสอบขนาดแม่พิมพ์ก่อนตรวจสอบราคา{% else %}Check the mold envelope before the price.{% endif %}</h2>
         <p>{% if is_thai %}พื้นที่เปิดด้านล่างและกริด M10 รองรับการติดตั้งแม่พิมพ์ จิ๊ก และอุปกรณ์เฉพาะงาน ขนาดภายนอกเพียงอย่างเดียวยังไม่พอ—ต้องตรวจสอบตำแหน่งทางเข้า ระยะหัวฉีด และการยึดแม่พิมพ์ด้วย{% else %}The open lower frame and M10 grid accept molds, jigs, and job-specific fixtures. Envelope alone is not enough—gate position, nozzle reach, and workholding also need qualification.{% endif %}</p>
-        <div class="pimm50-mold-space__dimension" data-pimm50-dimension data-pimm50-motion="mold-dimension">
-          <span>{% if is_thai %}ขนาดแม่พิมพ์สูงสุดที่รองรับ{% else %}Maximum supported mold{% endif %}</span>
-          <strong>240 × 240 × 100</strong>
-          <em>mm</em>
+        <div class="pimm50-mold-space__dimension" data-pimm50-dimension="240 × 240 × 100 mm" data-pimm50-motion="mold-dimension" aria-label="{% if is_thai %}ขนาดแม่พิมพ์สูงสุดที่รองรับ 240 คูณ 240 คูณ 100 มิลลิเมตร{% else %}Maximum supported mold 240 by 240 by 100 millimeters{% endif %}">
+          <div class="pimm50-mold-space__axis pimm50-mold-space__axis--width" data-pimm50-dimension-axis="width">
+            <span>{% if is_thai %}ความกว้าง × ความลึกสูงสุด{% else %}Maximum width × depth{% endif %}</span>
+            <strong>240 × 240</strong>
+            <em>mm</em>
+          </div>
+          <div class="pimm50-mold-space__axis pimm50-mold-space__axis--height" data-pimm50-dimension-axis="height">
+            <span>{% if is_thai %}ความสูงสูงสุด{% else %}Maximum height{% endif %}</span>
+            <strong>100</strong>
+            <em>mm</em>
+          </div>
         </div>
         <dl class="pimm50-mold-space__checks">
           <div><dt>M10</dt><dd>{% if is_thai %}กริดยึดอุปกรณ์{% else %}Fixture grid{% endif %}</dd></div>
