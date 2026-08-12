@@ -175,6 +175,7 @@ test('hero and purchase expose alpha-aware authoritative-media hooks', () => {
 
 test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   const reducedMotion = css.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? '';
+  const revealHelper = js.match(/const revealMotionTarget = \(element\) => \{([\s\S]*?)\n  \};/)?.[1] ?? '';
 
   assert.match(css, /\[data-pimm50-motion\]\s*\{[^}]*--p50-progress:\s*1/s);
   assert.match(css, /\.js\s+\[data-pimm50-motion\]:not\(\.is-in-view\)\s*\{[^}]*--p50-progress:\s*0/s);
@@ -187,11 +188,15 @@ test('motion is a visible-default, reduced-motion-safe enhancement', () => {
   assert.doesNotMatch(section, /data-pimm50-(?:digit|display-overlay|counter)/);
   assert.match(reducedMotion, /\.pimm50-page \[data-pimm50-motion\][\s\S]*\.pimm50-page \[data-pimm50-motion\] \*[\s\S]*\{[^}]*--p50-progress:\s*1[^}]*animation:\s*none[^}]*transition:\s*none[^}]*transform:\s*none[^}]*filter:\s*none[^}]*clip-path:\s*none/s);
   assert.match(js, /const revealMotionTarget = \(element\) => \{/);
-  assert.match(js, /classList\.add\(['"]is-in-view['"]\)/);
+  assert.match(js, /const revealAll = \(elements\) => elements\.forEach\(revealMotionTarget\)/);
+  assert.match(js, /revealMotionTarget\(entry\.target\)/);
+  assert.match(revealHelper, /element\.classList\.add\(['"]is-in-view['"]\)/);
   assert.match(js, /element\.dataset\.pimm50MotionState = 'complete'/);
+  assert.equal([...js.matchAll(/\.classList\.add\(['"]is-in-view['"]\)/g)].length, 1);
+  assert.equal([...js.matchAll(/\.dataset\.pimm50MotionState\s*=\s*'complete'/g)].length, 1);
   assert.match(js, /activeObserver\.unobserve\(entry\.target\)/);
   assert.doesNotMatch(js, /\.play\(|\.pause\(/);
-  assert.doesNotMatch(js, /scroll|wheel|setInterval|requestAnimationFrame|\.animate\(/);
+  assert.doesNotMatch(js, /scroll|wheel|setInterval|setTimeout|requestAnimationFrame|\.animate\(/);
   assert.doesNotMatch(css, /transition[^;]*(?:height|width|top|right|bottom|left|margin|padding)/);
 });
 
