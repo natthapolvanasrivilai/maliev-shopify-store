@@ -10,6 +10,16 @@
   assign visit_link = section.settings.visit_link | default: '/pages/contact'
   assign purchase_form_id = 'Pimm50PurchaseForm-' | append: section.id
   assign lead_time = product.metafields.custom.lead_time.value | default: 30
+  assign comparison_product = all_products['pneumatic-injection-molding-machine']
+  if is_thai
+    assign made_to_order_label = 'ผลิตตามคำสั่งซื้อ · ประมาณ ' | append: lead_time | append: ' วัน'
+    assign sold_out_label = 'สินค้าหมด'
+    assign add_to_cart_label = 'เพิ่มลงตะกร้า'
+  else
+    assign made_to_order_label = 'Made to order · approximately ' | append: lead_time | append: ' days'
+    assign sold_out_label = 'Sold out'
+    assign add_to_cart_label = 'Add to cart'
+  endif
 -%}
 
 <div class="pimm50-page" data-pimm50-page>
@@ -183,13 +193,13 @@
         <p>{% if is_thai %}ทั้งสองรุ่นใช้รูปแบบการทำงานด้วยระบบลมที่ตรงไปตรงมา รุ่นที่เหมาะสมขึ้นอยู่กับปริมาตรฉีด วัสดุ แม่พิมพ์ และระบบสาธารณูปโภคของเวิร์กช็อป{% else %}Both machines share a direct pneumatic workflow. The right platform depends on shot volume, material, mold, and the utilities available in your workshop.{% endif %}</p>
       </div>
       <div class="pimm50-comparison__machines" data-pimm50-comparison-baseline aria-label="{% if is_thai %}เปรียบเทียบขนาด PIMM 30G และ PIMM 50G{% else %}PIMM 30G and PIMM 50G scale comparison{% endif %}">
-        <figure class="pimm50-comparison__machine pimm50-comparison__machine--30g">
+        <figure class="pimm50-comparison__machine pimm50-comparison__machine--30g" data-pimm50-comparison-machine="30g" data-pimm50-alpha-bounds="520 1602 1750">
           <div class="pimm50-comparison__stage">
             <picture><img src="{{ 'maliev-pimm-30g-alpha.webp' | asset_url }}" width="1400" height="1750" alt="{% if is_thai %}เครื่อง PIMM 30G แบบเต็มเครื่อง{% else %}Complete PIMM 30G machine{% endif %}" loading="lazy"></picture>
           </div>
           <figcaption><strong>30G</strong><span>{% if is_thai %}สำหรับงานฉีดขนาดกะทัดรัด{% else %}Compact-shot work{% endif %}</span></figcaption>
         </figure>
-        <figure class="pimm50-comparison__machine pimm50-comparison__machine--50g">
+        <figure class="pimm50-comparison__machine pimm50-comparison__machine--50g" data-pimm50-comparison-machine="50g" data-pimm50-alpha-bounds="250 1170 1400">
           <div class="pimm50-comparison__stage">
             <picture><img src="{{ 'pimm50-light-studio-hero.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่อง PIMM 50G แบบเต็มเครื่อง{% else %}Complete PIMM 50G machine{% endif %}" loading="lazy"></picture>
           </div>
@@ -197,13 +207,15 @@
         </figure>
       </div>
       <dl class="pimm50-comparison__facts">
-        <div><dt>{% if is_thai %}การเลือกจากชิ้นงาน{% else %}Part decision{% endif %}</dt><dd><span>30G · {% if is_thai %}ปริมาตรฉีดขนาดกะทัดรัด{% else %}compact shot volume{% endif %}</span><span>50G · {% if is_thai %}พื้นที่เผื่อปริมาตรฉีดมากขึ้น{% else %}more shot headroom{% endif %}</span></dd></div>
-        <div><dt>{% if is_thai %}ชุดหลอม{% else %}Melt zone{% endif %}</dt><dd><span>30G · {% if is_thai %}อะลูมิเนียม{% else %}aluminum{% endif %}</span><span>50G · {% if is_thai %}เหล็ก{% else %}steel{% endif %}</span></dd></div>
-        <div><dt>{% if is_thai %}ความร้อน{% else %}Heating{% endif %}</dt><dd><span>30G · {% if is_thai %}ยืนยันตามรุ่นที่เลือก{% else %}qualify by configuration{% endif %}</span><span>50G · 2 × 350 W</span></dd></div>
-        <div><dt>{% if is_thai %}สิ่งที่ต้องยืนยัน{% else %}Qualification{% endif %}</dt><dd><span>{% if is_thai %}แม่พิมพ์และวัสดุ{% else %}Mold and material{% endif %}</span><span>{% if is_thai %}ระบบลมและไฟฟ้า{% else %}Air and electrical setup{% endif %}</span></dd></div>
+        <div><dt>{% if is_thai %}น้ำหนักฉีดสูงสุด{% else %}Maximum shot{% endif %}</dt><dd><span>30G · 30 g</span><span>50G · 50 g</span></dd></div>
+        <div><dt>{% if is_thai %}ชุดหลอม{% else %}Melt zone{% endif %}</dt><dd><span>30G · {% if is_thai %}อะลูมิเนียม{% else %}Aluminum{% endif %}</span><span>50G · {% if is_thai %}เหล็ก{% else %}Steel{% endif %}</span></dd></div>
+        <div><dt>{% if is_thai %}ความร้อน{% else %}Heating{% endif %}</dt><dd><span>30G · 2 × 300 W</span><span>50G · 2 × 350 W</span></dd></div>
+        <div><dt>{% if is_thai %}สิ่งที่ต้องยืนยัน{% else %}Qualification{% endif %}</dt><dd><span>30G · {% if is_thai %}ชิ้นงานและแม่พิมพ์สำหรับปริมาตร 30 กรัม พร้อมวัสดุและระบบลม{% else %}30 g part and mold fit, material, and workshop air{% endif %}</span><span>50G · {% if is_thai %}ชิ้นงานและแม่พิมพ์สำหรับปริมาตร 50 กรัม พร้อมวัสดุและระบบลม{% else %}50 g part and mold fit, material, and workshop air{% endif %}</span></dd></div>
       </dl>
       <div class="pimm50-page__actions pimm50-comparison__actions">
-        <a class="pimm50-page__button pimm50-page__button--secondary" href="/products/pneumatic-injection-molding-machine">{% if is_thai %}ดู PIMM 30G{% else %}View PIMM 30G{% endif %}</a>
+        {%- if comparison_product != blank -%}
+          <a class="pimm50-page__button pimm50-page__button--secondary" href="{{ comparison_product.url }}">{% if is_thai %}ดู PIMM 30G{% else %}View PIMM 30G{% endif %}</a>
+        {%- endif -%}
         <a class="pimm50-page__text-link" href="{{ visit_link }}">{% if is_thai %}ปรึกษาการเลือกเครื่องกับโรงงาน{% else %}Qualify your setup with the factory{% endif %}</a>
       </div>
     </div>
@@ -214,7 +226,12 @@
       <picture class="pimm50-page__media pimm50-purchase__media" data-pimm50-media data-pimm50-motion>
         <img src="{{ 'pimm50-light-studio-purchase.webp' | asset_url }}" width="1400" height="1400" alt="{% if is_thai %}เครื่อง PIMM 50G แบบเต็มเครื่องสำหรับขั้นตอนการเลือกชุดและสั่งซื้อ{% else %}Complete PIMM 50G for configuration and purchase{% endif %}" loading="lazy">
       </picture>
-      <div class="pimm50-purchase__panel">
+      <div
+        class="pimm50-purchase__panel"
+        data-pimm50-made-to-order-label="{{ made_to_order_label | escape }}"
+        data-pimm50-sold-out-label="{{ sold_out_label | escape }}"
+        data-pimm50-add-to-cart-label="{{ add_to_cart_label | escape }}"
+      >
         <div class="pimm50-page__copy">
           <h2 id="pimm50-purchase-title">{% if is_thai %}ยืนยันระบบของคุณก่อนเริ่มผลิตเครื่อง{% else %}Confirm your setup before production begins.{% endif %}</h2>
           <p>{% if is_thai %}การสาธิตที่โรงงานช่วยให้ทีมผู้ผลิตตรวจสอบแม่พิมพ์ วัสดุ ระบบลม และขั้นตอนการทำงานก่อนที่คุณจะเลือกรุ่นและสั่งผลิต{% else %}A factory demonstration lets the team that builds the machine check your mold, material, air supply, and workflow before you select a configuration and place the order.{% endif %}</p>
@@ -226,22 +243,34 @@
           <div><dt>{% if is_thai %}การสนับสนุน{% else %}Support{% endif %}</dt><dd>{% if is_thai %}สาธิตและแนะนำการติดตั้ง{% else %}Demonstration and setup guidance{% endif %}</dd></div>
         </dl>
         <div class="pimm50-purchase__commercial">
-          <span>{{ selected_variant.title | escape }}</span>
-          <strong>{{ selected_variant.price | money_with_currency }}</strong>
-          <small>{% if is_thai %}ผลิตตามคำสั่งซื้อ · ประมาณ {{ lead_time }} วัน{% else %}Made to order · approximately {{ lead_time }} days{% endif %}</small>
+          <span data-pimm50-variant-title>{{ selected_variant.title | strip_html | escape }}</span>
+          <strong data-pimm50-variant-price>{{ selected_variant.price | money_with_currency | strip_html | escape }}</strong>
+          <small data-pimm50-availability>{% if selected_variant.available %}{{ made_to_order_label }}{% else %}{{ sold_out_label }}{% endif %}</small>
         </div>
         {%- form 'product', product, id: purchase_form_id, class: 'pimm50-purchase__form' -%}
           <label for="Pimm50Variant-{{ section.id }}">{% if is_thai %}เลือกรุ่นเครื่อง{% else %}Machine configuration{% endif %}</label>
-          <select id="Pimm50Variant-{{ section.id }}" name="id">
+          <select id="Pimm50Variant-{{ section.id }}" name="id" data-pimm50-variant-select>
             {%- for variant in product.variants -%}
-              <option value="{{ variant.id }}"{% if variant == selected_variant %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title }} — {{ variant.price | money_with_currency }}</option>
+              <option value="{{ variant.id }}"{% if variant == selected_variant %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title | strip_html | escape }} — {{ variant.price | money_with_currency | strip_html | escape }}</option>
             {%- endfor -%}
           </select>
           <div class="pimm50-page__actions">
             <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}นัดชมเครื่องที่โรงงาน{% else %}Book a factory visit{% endif %}</a>
-            <button class="pimm50-page__button pimm50-page__button--secondary" type="submit" name="add"{% unless selected_variant.available %} disabled{% endunless %}>{% if selected_variant.available %}{% if is_thai %}เพิ่มลงตะกร้า{% else %}Add to cart{% endif %}{% else %}{% if is_thai %}สินค้าหมด{% else %}Sold out{% endif %}{% endif %}</button>
+            <button class="pimm50-page__button pimm50-page__button--secondary" type="submit" name="add" data-pimm50-add-button{% unless selected_variant.available %} disabled{% endunless %}>{% if selected_variant.available %}{{ add_to_cart_label }}{% else %}{{ sold_out_label }}{% endif %}</button>
           </div>
         {%- endform -%}
+        <script type="application/json" data-pimm50-variant-data>
+          [
+            {%- for variant in product.variants -%}
+              {
+                "id": {{ variant.id | json }},
+                "title": {{ variant.title | strip_html | json }},
+                "price": {{ variant.price | money_with_currency | strip_html | json }},
+                "available": {{ variant.available | json }}
+              }{% unless forloop.last %},{% endunless %}
+            {%- endfor -%}
+          ]
+        </script>
       </div>
     </div>
   </section>

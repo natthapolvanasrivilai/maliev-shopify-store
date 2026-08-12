@@ -370,7 +370,7 @@
 .pimm50-comparison__heading { margin: 0 auto; max-width: 78rem; text-align: center; }
 
 .pimm50-comparison__machines {
-  align-items: end;
+  align-items: start;
   display: grid;
   gap: clamp(2rem, 6vw, 9rem);
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -379,18 +379,40 @@
 }
 
 .pimm50-comparison__machine { display: grid; grid-template-rows: auto auto; margin: 0; min-width: 0; }
+.pimm50-comparison__machine--30g { --p50-comparison-canvas-height: .889556; --p50-comparison-canvas-bottom: .074769; }
+.pimm50-comparison__machine--50g { --p50-comparison-canvas-height: .836957; --p50-comparison-canvas-bottom: .0125; }
 
 .pimm50-comparison__stage {
   align-items: end;
-  border-bottom: 1px solid var(--p50-ink);
   display: flex;
   height: clamp(36rem, 42vw, 60rem);
   justify-content: center;
+  position: relative;
 }
 
-.pimm50-comparison__stage picture { align-items: end; display: flex; height: 100%; justify-content: center; width: 100%; }
-.pimm50-comparison__stage img { display: block; height: 100%; max-height: 100%; max-width: 100%; object-fit: contain; object-position: center bottom; width: 100%; }
-.pimm50-comparison__machine--30g .pimm50-comparison__stage picture { height: 92%; }
+.pimm50-comparison__stage::after {
+  background: var(--p50-ink);
+  bottom: 15%;
+  content: '';
+  height: 1px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.pimm50-comparison__stage picture { display: contents; }
+.pimm50-comparison__stage img {
+  bottom: calc(var(--p50-comparison-canvas-bottom) * 100%);
+  display: block;
+  height: calc(var(--p50-comparison-canvas-height) * 100%);
+  left: 50%;
+  max-height: none;
+  max-width: none;
+  object-fit: contain;
+  position: absolute;
+  transform: translateX(-50%);
+  width: auto;
+}
 
 .pimm50-comparison__machine figcaption {
   align-items: baseline;

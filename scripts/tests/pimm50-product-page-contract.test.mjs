@@ -8,6 +8,7 @@ const js = await readFile(new URL('../../assets/maliev-pimm-50g-story.js', impor
 const template = JSON.parse(await readFile(new URL('../../templates/product.pimm-50g.json', import.meta.url), 'utf8').then((value) => value.replace(/^\/\*[\s\S]*?\*\/\s*/, '')));
 
 const sectionById = (id) => section.match(new RegExp(`<section[^>]+id="${id}"[\\s\\S]*?<\\/section>`))?.[0] ?? '';
+const cssRule = (selector) => css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`))?.[1] ?? '';
 
 test('50G is a normally scrolling product narrative', () => {
   assert.match(section, /data-pimm50-page/);
@@ -77,12 +78,64 @@ test('comparison and purchase keep evaluation ahead of checkout', () => {
   assert.match(comparison, /maliev-pimm-30g-alpha\.webp/);
   assert.match(comparison, /pimm50-light-studio-hero\.webp/);
   assert.match(comparison, /<dl[^>]+pimm50-comparison__facts/);
-  assert.match(comparison, /href="\/products\/pneumatic-injection-molding-machine"/);
+  for (const fact of ['30 g', '50 g', '2 × 300 W', '2 × 350 W', 'Aluminum', 'Steel']) {
+    assert.match(comparison, new RegExp(fact));
+  }
+  assert.match(section, /assign comparison_product = all_products\['pneumatic-injection-molding-machine'\]/);
+  assert.match(comparison, /href="\{\{ comparison_product\.url \}\}"/);
+  assert.doesNotMatch(comparison, /href="\/products\//);
   assert.match(comparison, /href="\{\{ visit_link \}\}"/);
 
   assert.match(purchase, /pimm50-light-studio-purchase\.webp/);
   assert.ok(purchase.indexOf('href="{{ visit_link }}"') < purchase.indexOf('name="add"'));
   assert.doesNotMatch(purchase, /drag|rotat(?:e|or)|360/i);
+});
+
+test('comparison calibration matches visible alpha height and baseline', () => {
+  const comparison = sectionById('pimm50-comparison');
+  const assets = [
+    { model: '30g', bounds: [520, 1602, 1750] },
+    { model: '50g', bounds: [250, 1170, 1400] },
+  ];
+  const calibrated = [];
+
+  for (const { model, bounds } of assets) {
+    assert.match(comparison, new RegExp(`data-pimm50-comparison-machine="${model}"[\\s\\S]*?data-pimm50-alpha-bounds="${bounds.join(' ')}"`));
+    const rule = cssRule(`.pimm50-comparison__machine--${model}`);
+    const canvasHeight = Number(rule.match(/--p50-comparison-canvas-height:\s*([\d.]+)/)?.[1]);
+    const canvasBottom = Number(rule.match(/--p50-comparison-canvas-bottom:\s*([\d.]+)/)?.[1]);
+    assert.ok(Number.isFinite(canvasHeight), `${model} canvas-height calibration is missing`);
+    assert.ok(Number.isFinite(canvasBottom), `${model} canvas-bottom calibration is missing`);
+
+    const [alphaTop, alphaBottom, canvasSize] = bounds;
+    calibrated.push({
+      visibleHeight: canvasHeight * ((alphaBottom - alphaTop) / canvasSize),
+      visibleBottom: canvasBottom + canvasHeight * ((canvasSize - alphaBottom) / canvasSize),
+    });
+  }
+
+  assert.ok(Math.abs(calibrated[0].visibleHeight - calibrated[1].visibleHeight) < .0005);
+  assert.ok(Math.abs(calibrated[0].visibleBottom - calibrated[1].visibleBottom) < .0005);
+  assert.match(cssRule('.pimm50-comparison__machines'), /align-items:\s*start/);
+  assert.match(css, /\.pimm50-comparison__stage img\s*\{[^}]*bottom:\s*calc\(var\(--p50-comparison-canvas-bottom\)\s*\*\s*100%\)[^}]*height:\s*calc\(var\(--p50-comparison-canvas-height\)\s*\*\s*100%\)/s);
+});
+
+test('variant changes progressively update sanitized commerce readouts', () => {
+  const purchase = sectionById('pimm50-purchase');
+
+  for (const hook of ['data-pimm50-variant-title', 'data-pimm50-variant-price', 'data-pimm50-availability', 'data-pimm50-variant-data']) {
+    assert.match(purchase, new RegExp(hook));
+  }
+  assert.match(purchase, /variant\.title \| strip_html \| escape/);
+  assert.match(purchase, /variant\.price \| money_with_currency \| strip_html \| escape/);
+  assert.match(purchase, /variant\.title \| strip_html \| json/);
+  assert.match(purchase, /variant\.price \| money_with_currency \| strip_html \| json/);
+  assert.match(js, /addEventListener\(['"]change['"]/);
+  assert.match(js, /variantTitle\.textContent\s*=\s*variant\.title/);
+  assert.match(js, /variantPrice\.textContent\s*=\s*variant\.price/);
+  assert.match(js, /availability\.textContent\s*=/);
+  assert.match(js, /addButton\.disabled\s*=\s*!variant\.available/);
+  assert.doesNotMatch(js, /innerHTML/);
 });
 
 test('motion is a visible-default, reduced-motion-safe enhancement', () => {
