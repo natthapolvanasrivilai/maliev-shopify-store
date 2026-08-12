@@ -45,6 +45,13 @@ RENDER_SAMPLES = 48
 COMPLETE_MACHINE_ALPHA_MARGIN = 0.08
 ALPHA_THRESHOLD = 1.0 / 255.0
 CONTACT_SHADOW_MAX_ALPHA = 0.18
+CONTACT_SHADOW_RADIUS_X = 0.34
+CONTACT_SHADOW_RADIUS_Y = 0.25
+
+HERO_ANIMATION_SCENE = "PIMM50_LIGHT_HERO_ANIMATION"
+HEATING_ANIMATION_SCENE = "PIMM50_LIGHT_HEATING_ANIMATION"
+HEATING_POSTER_COLLECTION = "PIMM50_LIGHT_HEATING_POSTER_MACHINE"
+HEATING_ANIMATION_COLLECTION = "PIMM50_LIGHT_HEATING_ANIMATION_MACHINE"
 
 DISPLAY_MATERIALS = (
     "MAT_Display_LED_Red",
@@ -122,8 +129,8 @@ SCENE_SPECS = {
 
 STILL_SCENES = tuple(f"{PREFIX}{name}" for name in SCENE_SPECS)
 ANIMATION_SCENES = (
-    f"{PREFIX}HERO_ANIMATION",
-    f"{PREFIX}HEATING_ANIMATION",
+    HERO_ANIMATION_SCENE,
+    HEATING_ANIMATION_SCENE,
 )
 EXPECTED_SCENES = STILL_SCENES + ANIMATION_SCENES
 
@@ -131,6 +138,7 @@ EXPECTED_SCENES = STILL_SCENES + ANIMATION_SCENES
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--render-proofs", action="store_true")
+    parser.add_argument("--inspect-target", action="store_true")
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
@@ -412,8 +420,8 @@ def create_shadow_catcher(
     segments = 64
     vertices = [(0.0, 0.015, -0.004)] + [
         (
-            math.cos((index / segments) * math.tau) * 0.34,
-            0.015 + math.sin((index / segments) * math.tau) * 0.25,
+            math.cos((index / segments) * math.tau) * CONTACT_SHADOW_RADIUS_X,
+            0.015 + math.sin((index / segments) * math.tau) * CONTACT_SHADOW_RADIUS_Y,
             -0.004,
         )
         for index in range(segments)
@@ -493,20 +501,26 @@ def create_scene(
 
 def create_heating_product_copy(
     source_collection: bpy.types.Collection,
+    variant: str,
 ) -> tuple[bpy.types.Collection, dict[str, bpy.types.Material], list[str]]:
-    collection = bpy.data.collections.new(f"{PREFIX}HEATING_MACHINE")
-    animated_materials = {
+    collection_name = {
+        "POSTER": HEATING_POSTER_COLLECTION,
+        "ANIMATION": HEATING_ANIMATION_COLLECTION,
+    }[variant]
+    collection = bpy.data.collections.new(collection_name)
+    display_materials = {
         source_name: bpy.data.materials[source_name].copy() for source_name in DISPLAY_MATERIALS
     }
-    for source_name, material in animated_materials.items():
+    for source_name, material in display_materials.items():
         suffix = source_name.removeprefix("MAT_Display_").upper()
-        material.name = f"{PREFIX}DISPLAY_{suffix}"
+        material.name = f"{PREFIX}HEATING_{variant}_DISPLAY_{suffix}"
 
     copies: dict[bpy.types.Object, bpy.types.Object] = {}
     display_geometry: list[str] = []
     for source_obj in sorted(source_collection.all_objects, key=lambda obj: obj.name):
         duplicate = source_obj.copy()
-        duplicate.name = f"{PREFIX}HEATING_MACHINE_{source_obj.name}"
+        duplicate.name = f"{collection_name}_{source_obj.name}"
+        duplicate["pimm50_light_source_object"] = source_obj.name
         collection.objects.link(duplicate)
         copies[source_obj] = duplicate
         if source_obj.type != "MESH":
@@ -517,8 +531,8 @@ def create_heating_product_copy(
         duplicate.data = source_obj.data.copy()
         duplicate.data.name = f"{duplicate.name}_MESH"
         for index, material in enumerate(duplicate.data.materials):
-            if material and material.name in animated_materials:
-                duplicate.data.materials[index] = animated_materials[material.name]
+            if material and material.name in display_materials:
+                duplicate.data.materials[index] = display_materials[material.name]
         display_geometry.append(source_obj.name)
 
     for source_obj, duplicate in copies.items():
@@ -526,7 +540,7 @@ def create_heating_product_copy(
             duplicate.parent = copies[source_obj.parent]
     if not display_geometry:
         raise RuntimeError("No authentic controller display geometry was copied")
-    return collection, animated_materials, display_geometry
+    return collection, display_materials, display_geometry
 
 
 def animate_controller_materials(materials: dict[str, bpy.types.Material]) -> None:
@@ -573,42 +587,358 @@ def animate_hero_lighting(animation: dict[str, object], poster: dict[str, object
     animation["scene"].frame_set(FRAME_END)
 
 
-def collection_transform_snapshot(collection: bpy.types.Collection) -> dict[str, tuple[float, ...]]:
+def snapshot_value(value: object) -> object:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    try:
+        return tuple(snapshot_value(item) for item in value)
+    except TypeError:
+        return str(value)
+
+
+def rna_scalar_snapshot(value: object, exclude: set[str] | None = None) -> dict[str, object]:
+    excluded = {
+        "rna_type",
+        "name",
+        "name_full",
+        "id_type",
+        "session_uid",
+        "is_evaluated",
+        "users",
+        "use_fake_user",
+        "use_extra_user",
+        "is_embedded_data",
+        "is_linked_packed",
+        "is_missing",
+        "is_runtime_data",
+        "is_editable",
+        "tag",
+        "is_library_indirect",
+        "is_updated",
+        "is_updated_data",
+        "use_nodes",
+    }
+    if exclude:
+        excluded.update(exclude)
+    snapshot: dict[str, object] = {}
+    for prop in value.bl_rna.properties:
+        if prop.identifier in excluded or prop.type not in {
+            "BOOLEAN",
+            "INT",
+            "FLOAT",
+            "ENUM",
+            "STRING",
+        }:
+            continue
+        try:
+            snapshot[prop.identifier] = snapshot_value(getattr(value, prop.identifier))
+        except (AttributeError, RuntimeError, TypeError):
+            continue
+    return snapshot
+
+
+def node_tree_snapshot(node_tree: bpy.types.NodeTree | None) -> dict[str, object] | None:
+    if node_tree is None:
+        return None
     return {
-        obj.name.removeprefix(f"{PREFIX}HEATING_MACHINE_"): matrix_values(obj)
+        f"{node.bl_idname}:{node.name}": {
+            socket.name: snapshot_value(socket.default_value)
+            for socket in node.inputs
+            if hasattr(socket, "default_value")
+        }
+        for node in sorted(node_tree.nodes, key=lambda item: (item.bl_idname, item.name))
+    }
+
+
+def evaluate_scene(scene: bpy.types.Scene, frame: int) -> bpy.types.Depsgraph:
+    bpy.context.window.scene = scene
+    scene.frame_set(frame)
+    bpy.context.view_layer.update()
+    return bpy.context.evaluated_depsgraph_get()
+
+
+def collection_transform_snapshot(
+    collection: bpy.types.Collection,
+    depsgraph: bpy.types.Depsgraph,
+) -> dict[str, object]:
+    return {
+        str(obj.get("pimm50_light_source_object", obj.name)): {
+            "matrix": matrix_values(obj.evaluated_get(depsgraph)),
+            "hide_render": bool(obj.hide_render),
+            "visible_camera": bool(obj.visible_camera),
+            "visible_diffuse": bool(obj.visible_diffuse),
+            "visible_glossy": bool(obj.visible_glossy),
+            "visible_shadow": bool(obj.visible_shadow),
+            "visible_transmission": bool(obj.visible_transmission),
+            "visible_volume_scatter": bool(obj.visible_volume_scatter),
+        }
         for obj in collection.all_objects
     }
 
 
-def light_energy_snapshot(build: dict[str, object]) -> dict[str, float]:
-    return {role: float(light.data.energy) for role, light in build["lights"].items()}
+def camera_projection_snapshot(
+    build: dict[str, object],
+    depsgraph: bpy.types.Depsgraph,
+) -> dict[str, object]:
+    camera = build["camera"].evaluated_get(depsgraph)
+    return {
+        "matrix": matrix_values(camera),
+        "projection": rna_scalar_snapshot(camera.data),
+        "dof": rna_scalar_snapshot(camera.data.dof),
+        "stereo": rna_scalar_snapshot(camera.data.stereo),
+        "hide_render": bool(camera.hide_render),
+        "visible_camera": bool(camera.visible_camera),
+        "visible_shadow": bool(camera.visible_shadow),
+    }
+
+
+def render_output_snapshot(scene: bpy.types.Scene) -> dict[str, object]:
+    render = scene.render
+    cycles = scene.cycles
+    return {
+        "engine": render.engine,
+        "resolution": (
+            render.resolution_x,
+            render.resolution_y,
+            render.resolution_percentage,
+        ),
+        "pixel_aspect": (render.pixel_aspect_x, render.pixel_aspect_y),
+        "border": (
+            render.use_border,
+            render.use_crop_to_border,
+            render.border_min_x,
+            render.border_min_y,
+            render.border_max_x,
+            render.border_max_y,
+        ),
+        "film": (
+            render.film_transparent,
+            cycles.film_transparent_glass,
+            cycles.film_transparent_roughness,
+        ),
+        "image_settings": rna_scalar_snapshot(render.image_settings),
+        "fps": (render.fps, render.fps_base),
+        "cycles": {
+            "device": cycles.device,
+            "samples": cycles.samples,
+            "use_denoising": cycles.use_denoising,
+            "use_adaptive_sampling": cycles.use_adaptive_sampling,
+            "adaptive_threshold": cycles.adaptive_threshold,
+            "use_light_tree": cycles.use_light_tree,
+        },
+    }
+
+
+def lighting_snapshot(
+    build: dict[str, object],
+    depsgraph: bpy.types.Depsgraph,
+) -> dict[str, object]:
+    snapshot: dict[str, object] = {}
+    for role, source_light in build["lights"].items():
+        light = source_light.evaluated_get(depsgraph)
+        snapshot[role] = {
+            "matrix": matrix_values(light),
+            "data": rna_scalar_snapshot(light.data),
+            "cycles": rna_scalar_snapshot(light.data.cycles),
+            "hide_render": bool(light.hide_render),
+            "visible_camera": bool(light.visible_camera),
+            "visible_diffuse": bool(light.visible_diffuse),
+            "visible_glossy": bool(light.visible_glossy),
+            "visible_shadow": bool(light.visible_shadow),
+            "visible_transmission": bool(light.visible_transmission),
+            "visible_volume_scatter": bool(light.visible_volume_scatter),
+        }
+    return snapshot
+
+
+def world_snapshot(scene: bpy.types.Scene) -> dict[str, object]:
+    world = scene.world
+    if world is None:
+        return {"world": None}
+    return {
+        "settings": rna_scalar_snapshot(world),
+        "cycles": rna_scalar_snapshot(world.cycles),
+        "uses_nodes": world.node_tree is not None,
+        "nodes": node_tree_snapshot(world.node_tree),
+    }
+
+
+def shadow_snapshot(
+    build: dict[str, object],
+    depsgraph: bpy.types.Depsgraph,
+) -> dict[str, object]:
+    ground = build["ground"].evaluated_get(depsgraph)
+    material = ground.data.materials[0]
+    return {
+        "matrix": matrix_values(ground),
+        "hide_render": bool(ground.hide_render),
+        "visible_camera": bool(ground.visible_camera),
+        "visible_diffuse": bool(ground.visible_diffuse),
+        "visible_glossy": bool(ground.visible_glossy),
+        "visible_shadow": bool(ground.visible_shadow),
+        "visible_transmission": bool(ground.visible_transmission),
+        "visible_volume_scatter": bool(ground.visible_volume_scatter),
+        "material_settings": rna_scalar_snapshot(material),
+        "material_nodes": node_tree_snapshot(material.node_tree),
+    }
+
+
+def color_management_snapshot(scene: bpy.types.Scene) -> dict[str, object]:
+    curve_mapping = scene.view_settings.curve_mapping
+    curve_snapshot = None
+    if scene.view_settings.use_curve_mapping and curve_mapping is not None:
+        curve_snapshot = {
+            "settings": rna_scalar_snapshot(curve_mapping),
+            "curves": tuple(
+                tuple(
+                    (
+                        float(point.location.x),
+                        float(point.location.y),
+                        point.handle_type,
+                    )
+                    for point in curve.points
+                )
+                for curve in curve_mapping.curves
+            ),
+        }
+    linear_colorspace = getattr(
+        scene.render.image_settings, "linear_colorspace_settings", None
+    )
+    return {
+        "view": rna_scalar_snapshot(scene.view_settings),
+        "display": rna_scalar_snapshot(scene.display_settings),
+        "sequencer": rna_scalar_snapshot(scene.sequencer_colorspace_settings),
+        "sequencer_colorspace_name": scene.sequencer_colorspace_settings.name,
+        "image": rna_scalar_snapshot(scene.render.image_settings),
+        "linear_colorspace_name": (
+            linear_colorspace.name if linear_colorspace is not None else None
+        ),
+        "curve_mapping": curve_snapshot,
+    }
+
+
+def scene_parity_snapshot(build: dict[str, object], frame: int) -> dict[str, object]:
+    scene = build["scene"]
+    depsgraph = evaluate_scene(scene, frame)
+    return {
+        "camera": camera_projection_snapshot(build, depsgraph),
+        "render": render_output_snapshot(scene),
+        "lighting": lighting_snapshot(build, depsgraph),
+        "world": world_snapshot(scene),
+        "shadow": shadow_snapshot(build, depsgraph),
+        "color_management": color_management_snapshot(scene),
+        "product": collection_transform_snapshot(build["product_collection"], depsgraph),
+    }
 
 
 def assert_animation_poster_parity(
-    animation: bpy.types.Scene,
-    poster: bpy.types.Scene,
+    animation: dict[str, object],
+    poster: dict[str, object],
 ) -> None:
-    animation.frame_set(FRAME_END)
-    poster.frame_set(FRAME_END)
-    assert tuple(animation.camera.matrix_world) == tuple(poster.camera.matrix_world)
-    assert animation.render.resolution_x == poster.render.resolution_x
-    assert animation.render.resolution_y == poster.render.resolution_y
-    assert animation.view_settings.look == poster.view_settings.look
-    assert animation.view_settings.exposure == poster.view_settings.exposure
-    assert animation.render.image_settings.color_mode == poster.render.image_settings.color_mode
-    assert animation.render.film_transparent == poster.render.film_transparent
+    animation_snapshot = scene_parity_snapshot(animation, FRAME_END)
+    poster_snapshot = scene_parity_snapshot(poster, FRAME_START)
+    if animation_snapshot != poster_snapshot:
+        differing = [
+            key
+            for key in animation_snapshot
+            if animation_snapshot[key] != poster_snapshot[key]
+        ]
+        raise RuntimeError(
+            f"{animation['scene'].name} final parity drifted from "
+            f"{poster['scene'].name}: {differing}"
+        )
 
-    animation_collection = bpy.data.collections[animation["pimm50_light_product_collection"]]
-    poster_collection = bpy.data.collections[poster["pimm50_light_product_collection"]]
-    assert collection_transform_snapshot(animation_collection) == collection_transform_snapshot(
-        poster_collection
+
+def assert_poster_materials_unanimated(
+    build: dict[str, object],
+    materials: dict[str, bpy.types.Material],
+) -> None:
+    collection = build["product_collection"]
+    used_materials = {
+        material.name: material
+        for obj in collection.all_objects
+        if getattr(obj, "data", None) is not None
+        and hasattr(obj.data, "materials")
+        for material in obj.data.materials
+        if material is not None
+    }
+    used_materials.update({material.name: material for material in materials.values()})
+    scene = build["scene"]
+    scene_objects = [
+        build["camera"],
+        build["ground"],
+        *build["lights"].values(),
+    ]
+    datablocks: list[object] = [
+        scene,
+        scene.world,
+        collection,
+        *scene_objects,
+        *(obj.data for obj in scene_objects),
+        *collection.all_objects,
+        *used_materials.values(),
+    ]
+    datablocks.extend(
+        obj.data for obj in collection.all_objects if getattr(obj, "data", None) is not None
     )
+    datablocks.extend(
+        material.node_tree
+        for material in used_materials.values()
+        if material.node_tree is not None
+    )
+    animated = [
+        getattr(datablock, "name", type(datablock).__name__)
+        for datablock in datablocks
+        if getattr(datablock, "animation_data", None) is not None
+    ]
+    if animated:
+        raise RuntimeError(f"Heating poster contains animation data: {animated}")
+
+
+def display_material_snapshot(
+    materials: dict[str, bpy.types.Material],
+) -> dict[str, object]:
+    return {
+        source_name: {
+            "settings": rna_scalar_snapshot(material),
+            "nodes": node_tree_snapshot(material.node_tree),
+        }
+        for source_name, material in sorted(materials.items())
+    }
+
+
+def assert_heating_material_parity_at_final(
+    animation_scene: bpy.types.Scene,
+    poster_materials: dict[str, bpy.types.Material],
+    animation_materials: dict[str, bpy.types.Material],
+) -> None:
+    evaluate_scene(animation_scene, FRAME_END)
+    poster_snapshot = display_material_snapshot(poster_materials)
+    animation_snapshot = display_material_snapshot(animation_materials)
+    if poster_snapshot != animation_snapshot:
+        differing = {
+            source_name: {
+                key: (
+                    poster_snapshot[source_name][key],
+                    animation_snapshot[source_name][key],
+                )
+                for key in poster_snapshot[source_name]
+                if poster_snapshot[source_name][key] != animation_snapshot[source_name][key]
+            }
+            for source_name in poster_snapshot
+            if poster_snapshot[source_name] != animation_snapshot[source_name]
+        }
+        raise RuntimeError(
+            f"Heating poster materials drifted from animation frame 48: {differing}"
+        )
 
 
 def assert_scene_contract(
     builds: dict[str, dict[str, object]],
     original_collection: bpy.types.Collection,
     original_snapshot: dict[str, object],
+    poster_materials: dict[str, bpy.types.Material],
+    animation_materials: dict[str, bpy.types.Material],
 ) -> None:
     actual_scenes = sorted(scene.name for scene in bpy.data.scenes if scene.name.startswith(PREFIX))
     if actual_scenes != sorted(EXPECTED_SCENES):
@@ -628,18 +958,18 @@ def assert_scene_contract(
     if machine_contract_snapshot(original_collection) != original_snapshot:
         raise RuntimeError("Original Machine_50g transforms or material slots changed in memory")
 
-    assert_animation_poster_parity(builds["HERO_ANIMATION"]["scene"], builds["HERO"]["scene"])
-    assert_animation_poster_parity(
-        builds["HEATING_ANIMATION"]["scene"], builds["HEATING"]["scene"]
+    if builds["HEATING"]["product_collection"] is builds["HEATING_ANIMATION"]["product_collection"]:
+        raise RuntimeError("Heating poster and animation must use isolated product collections")
+    if {
+        material.as_pointer() for material in poster_materials.values()
+    }.intersection(material.as_pointer() for material in animation_materials.values()):
+        raise RuntimeError("Heating poster and animation must use isolated display materials")
+    assert_poster_materials_unanimated(builds["HEATING"], poster_materials)
+    assert_heating_material_parity_at_final(
+        builds["HEATING_ANIMATION"]["scene"], poster_materials, animation_materials
     )
-    for animation_name, poster_name in (
-        ("HERO_ANIMATION", "HERO"),
-        ("HEATING_ANIMATION", "HEATING"),
-    ):
-        animation = builds[animation_name]
-        poster = builds[poster_name]
-        if light_energy_snapshot(animation) != light_energy_snapshot(poster):
-            raise RuntimeError(f"{animation_name} final light energy drifted from {poster_name}")
+    assert_animation_poster_parity(builds["HERO_ANIMATION"], builds["HERO"])
+    assert_animation_poster_parity(builds["HEATING_ANIMATION"], builds["HEATING"])
 
 
 def alpha_bounds(path: Path) -> dict[str, object]:
@@ -702,6 +1032,21 @@ def assert_complete_machine_margin(scene_name: str, bounds: dict[str, object]) -
         )
 
 
+def assert_finite_alpha_bounds(
+    scene_name: str,
+    bounds: dict[str, object],
+    complete_machine: bool,
+) -> None:
+    if bounds["rectangular_alpha"]:
+        raise RuntimeError(f"{scene_name} proof has rectangular alpha")
+    if not 0.0 < bounds["alpha_pixel_fraction"] < 1.0:
+        raise RuntimeError(
+            f"{scene_name} proof alpha is not finite: {bounds['alpha_pixel_fraction']}"
+        )
+    if complete_machine:
+        assert_complete_machine_margin(scene_name, bounds)
+
+
 def render_one(
     scene: bpy.types.Scene,
     output: Path,
@@ -718,10 +1063,7 @@ def render_one(
     if not output.is_file() or output.stat().st_size == 0:
         raise RuntimeError(f"Proof render missing: {output}")
     bounds = alpha_bounds(output)
-    if bounds["rectangular_alpha"]:
-        raise RuntimeError(f"Proof has rectangular alpha: {output}")
-    if complete_machine:
-        assert_complete_machine_margin(scene.name, bounds)
+    assert_finite_alpha_bounds(scene.name, bounds, complete_machine)
     return {
         "scene": scene.name,
         "frame": frame,
@@ -735,7 +1077,7 @@ def render_proofs(builds: dict[str, dict[str, object]]) -> list[dict[str, object
     proofs: list[dict[str, object]] = []
     for name in SCENE_SPECS:
         build = builds[name]
-        frame = FRAME_END if name in {"HERO", "HEATING"} else FRAME_START
+        frame = FRAME_START
         output = OUTPUT_DIR / "proofs" / f"pimm50-light-{name.lower().replace('_', '-')}.png"
         proofs.append(
             render_one(
@@ -765,7 +1107,10 @@ def build_summary(
     source_hash: str,
     source_mtime: int,
     device: dict[str, object],
-    display_geometry: list[str],
+    poster_display_geometry: list[str],
+    animation_display_geometry: list[str],
+    poster_materials: dict[str, bpy.types.Material],
+    animation_materials: dict[str, bpy.types.Material],
     proofs: list[dict[str, object]],
 ) -> dict[str, object]:
     return {
@@ -811,29 +1156,140 @@ def build_summary(
                 "frames": [FRAME_START, FRAME_END],
                 "channels": "emission strength on copied actual display-geometry materials",
                 "poster_parity": True,
-                "source_display_geometry": display_geometry,
+                "poster_collection": builds["HEATING"]["product_collection"].name,
+                "animation_collection": builds["HEATING_ANIMATION"]["product_collection"].name,
+                "collections_isolated": (
+                    builds["HEATING"]["product_collection"]
+                    is not builds["HEATING_ANIMATION"]["product_collection"]
+                ),
+                "poster_materials_unanimated": all(
+                    material.animation_data is None
+                    and (
+                        material.node_tree is None
+                        or material.node_tree.animation_data is None
+                    )
+                    for material in poster_materials.values()
+                ),
+                "poster_source_display_geometry": poster_display_geometry,
+                "animation_source_display_geometry": animation_display_geometry,
                 "source_display_materials": list(DISPLAY_MATERIALS),
+                "poster_material_names": sorted(
+                    material.name for material in poster_materials.values()
+                ),
+                "animation_material_names": sorted(
+                    material.name for material in animation_materials.values()
+                ),
             },
         },
         "proofs": proofs,
     }
 
 
+def rehydrate_persisted_builds() -> dict[str, dict[str, object]]:
+    scene_by_key = {
+        name: bpy.data.scenes[f"{PREFIX}{name}"] for name in SCENE_SPECS
+    }
+    scene_by_key["HERO_ANIMATION"] = bpy.data.scenes[HERO_ANIMATION_SCENE]
+    scene_by_key["HEATING_ANIMATION"] = bpy.data.scenes[HEATING_ANIMATION_SCENE]
+    builds: dict[str, dict[str, object]] = {}
+    for name, scene in scene_by_key.items():
+        builds[name] = {
+            "scene": scene,
+            "camera": scene.camera,
+            "lights": {
+                role: bpy.data.objects[f"{scene.name}_{role.upper()}"]
+                for role in ("key", "fill", "rim")
+            },
+            "ground": bpy.data.objects[f"{scene.name}_SHADOW_CATCHER"],
+            "product_collection": bpy.data.collections[
+                scene["pimm50_light_product_collection"]
+            ],
+        }
+    return builds
+
+
+def persisted_heating_materials(variant: str) -> dict[str, bpy.types.Material]:
+    return {
+        source_name: bpy.data.materials[
+            f"{PREFIX}HEATING_{variant}_DISPLAY_"
+            f"{source_name.removeprefix('MAT_Display_').upper()}"
+        ]
+        for source_name in DISPLAY_MATERIALS
+    }
+
+
+def inspect_persisted_target() -> None:
+    if Path(bpy.data.filepath).resolve() != TARGET_BLEND.resolve():
+        raise RuntimeError(f"Open the persisted target blend, not {bpy.data.filepath}")
+    builds = rehydrate_persisted_builds()
+    source_collection = bpy.data.collections[PRODUCT_COLLECTION]
+    poster_materials = persisted_heating_materials("POSTER")
+    animation_materials = persisted_heating_materials("ANIMATION")
+    assert_scene_contract(
+        builds,
+        source_collection,
+        machine_contract_snapshot(source_collection),
+        poster_materials,
+        animation_materials,
+    )
+    print("PIMM50_LIGHT_STUDIO_PERSISTED_INSPECTION_BEGIN")
+    print(
+        json.dumps(
+            {
+                "target": str(TARGET_BLEND),
+                "scenes": sorted(build["scene"].name for build in builds.values()),
+                "poster_collection": builds["HEATING"]["product_collection"].name,
+                "animation_collection": builds["HEATING_ANIMATION"][
+                    "product_collection"
+                ].name,
+                "collections_isolated": (
+                    builds["HEATING"]["product_collection"]
+                    is not builds["HEATING_ANIMATION"]["product_collection"]
+                ),
+                "poster_materials_unanimated": all(
+                    material.animation_data is None
+                    and material.node_tree.animation_data is None
+                    for material in poster_materials.values()
+                ),
+                "animation_materials_animated": all(
+                    material.node_tree.animation_data is not None
+                    for material in animation_materials.values()
+                ),
+                "frame_48_comprehensive_parity": True,
+            },
+            indent=2,
+        )
+    )
+    print("PIMM50_LIGHT_STUDIO_PERSISTED_INSPECTION_END")
+
+
 def main() -> None:
     args = parse_args()
+    if args.inspect_target:
+        inspect_persisted_target()
+        return
     source_hash, source_mtime, source_collection, source_snapshot = assert_source_immutable()
     remove_owned_data()
     device = configure_cycles_device()
     world = create_world()
     shadow_material = create_shadow_material()
     machine_points = product_corners(source_collection)
-    heating_collection, display_materials, display_geometry = create_heating_product_copy(
-        source_collection
+    (
+        heating_poster_collection,
+        poster_display_materials,
+        poster_display_geometry,
+    ) = create_heating_product_copy(source_collection, "POSTER")
+    (
+        heating_animation_collection,
+        animation_display_materials,
+        animation_display_geometry,
+    ) = create_heating_product_copy(
+        source_collection, "ANIMATION"
     )
 
     builds: dict[str, dict[str, object]] = {}
     for name, spec in SCENE_SPECS.items():
-        product = heating_collection if name == "HEATING" else source_collection
+        product = heating_poster_collection if name == "HEATING" else source_collection
         builds[name] = create_scene(
             f"{PREFIX}{name}",
             spec,
@@ -845,7 +1301,7 @@ def main() -> None:
         )
 
     builds["HERO_ANIMATION"] = create_scene(
-        f"{PREFIX}HERO_ANIMATION",
+        HERO_ANIMATION_SCENE,
         SCENE_SPECS["HERO"],
         source_collection,
         world,
@@ -854,17 +1310,23 @@ def main() -> None:
         machine_points,
     )
     builds["HEATING_ANIMATION"] = create_scene(
-        f"{PREFIX}HEATING_ANIMATION",
+        HEATING_ANIMATION_SCENE,
         SCENE_SPECS["HEATING"],
-        heating_collection,
+        heating_animation_collection,
         world,
         shadow_material,
         device["mode"],
         machine_points,
     )
     animate_hero_lighting(builds["HERO_ANIMATION"], builds["HERO"])
-    animate_controller_materials(display_materials)
-    assert_scene_contract(builds, source_collection, source_snapshot)
+    animate_controller_materials(animation_display_materials)
+    assert_scene_contract(
+        builds,
+        source_collection,
+        source_snapshot,
+        poster_display_materials,
+        animation_display_materials,
+    )
 
     TARGET_BLEND.parent.mkdir(parents=True, exist_ok=True)
     bpy.context.preferences.filepaths.save_version = 0
@@ -879,7 +1341,10 @@ def main() -> None:
         source_hash,
         source_mtime,
         device,
-        display_geometry,
+        poster_display_geometry,
+        animation_display_geometry,
+        poster_display_materials,
+        animation_display_materials,
         proofs,
     )
     print("PIMM50_LIGHT_STUDIO_SUMMARY_BEGIN")

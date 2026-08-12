@@ -22,3 +22,36 @@ test('builder owns transparent light studio scenes', async () => {
   assert.doesNotMatch(script, /save_as_mainfile\(filepath=str\(SOURCE_BLEND\)/);
   assert.doesNotMatch(script, /CompositorNodeImage|bpy\.data\.curves\.new/);
 });
+
+test('builder names finite poster and animation outputs explicitly', async () => {
+  const script = await readFile(builderUrl, 'utf8');
+
+  assert.match(script, /PIMM50_LIGHT_HERO_ANIMATION/);
+  assert.match(script, /PIMM50_LIGHT_HEATING_ANIMATION/);
+  assert.match(script, /CONTACT_SHADOW_RADIUS_X\s*=\s*0\.34/);
+  assert.match(script, /CONTACT_SHADOW_RADIUS_Y\s*=\s*0\.25/);
+  assert.match(script, /assert_finite_alpha_bounds/);
+});
+
+test('heating poster is isolated from animated display materials', async () => {
+  const script = await readFile(builderUrl, 'utf8');
+
+  assert.match(script, /PIMM50_LIGHT_HEATING_POSTER_MACHINE/);
+  assert.match(script, /PIMM50_LIGHT_HEATING_ANIMATION_MACHINE/);
+  assert.match(script, /assert_poster_materials_unanimated/);
+  assert.match(script, /assert_heating_material_parity_at_final/);
+});
+
+test('poster parity uses comprehensive evaluated scene snapshots', async () => {
+  const script = await readFile(builderUrl, 'utf8');
+
+  for (const snapshot of [
+    'camera_projection_snapshot',
+    'render_output_snapshot',
+    'lighting_snapshot',
+    'world_snapshot',
+    'color_management_snapshot',
+  ]) {
+    assert.match(script, new RegExp(snapshot));
+  }
+});
