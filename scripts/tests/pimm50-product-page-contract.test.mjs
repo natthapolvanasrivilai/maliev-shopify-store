@@ -174,10 +174,18 @@ test('hero and purchase expose alpha-aware authoritative-media hooks', () => {
 });
 
 test('motion is a visible-default, reduced-motion-safe enhancement', () => {
+  const reducedMotion = css.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? '';
+
   assert.match(css, /\[data-pimm50-motion\]\s*\{[^}]*--p50-progress:\s*1/s);
   assert.match(css, /\.js\s+\[data-pimm50-motion\]:not\(\.is-in-view\)\s*\{[^}]*--p50-progress:\s*0/s);
-  assert.match(css, /translateY\(calc\(\(1 - var\(--p50-progress\)\) \* 2%\)\)/);
-  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*--p50-progress:\s*1/);
+  assert.match(css, /--p50-delay:\s*calc\(min\(var\(--p50-index, 0\), 5\) \* 45ms\)/);
+  assert.match(css, /data-pimm50-motion="hero-copy"/);
+  assert.match(css, /data-pimm50-motion="pneumatic-flow"/);
+  assert.match(css, /data-pimm50-motion="heating-readouts"/);
+  assert.match(css, /data-pimm50-motion="comparison-machines"/);
+  assert.doesNotMatch(css, /data-pimm50-motion[^}]*opacity:\s*0(?:[;}])/s);
+  assert.doesNotMatch(section, /data-pimm50-(?:digit|display-overlay|counter)/);
+  assert.match(reducedMotion, /\.pimm50-page \[data-pimm50-motion\][\s\S]*\.pimm50-page \[data-pimm50-motion\] \*[\s\S]*\{[^}]*--p50-progress:\s*1[^}]*animation:\s*none[^}]*transition:\s*none[^}]*transform:\s*none[^}]*filter:\s*none[^}]*clip-path:\s*none/s);
   assert.match(js, /classList\.add\(['"]is-in-view['"]\)/);
   assert.doesNotMatch(js, /\.play\(|\.pause\(/);
   assert.doesNotMatch(css, /transition[^;]*(?:height|width|top|right|bottom|left|margin|padding)/);
@@ -193,10 +201,10 @@ test('product sections expose distinct engineering motion roles', () => {
   const roles = [...section.matchAll(/data-pimm50-motion="([^"]+)"/g)].map((match) => match[1]).sort();
 
   assert.deepEqual(roles, [...required].sort());
-  for (let index = 0; index < 4; index += 1) assert.match(section, new RegExp(`pimm50-hero__fact[^>]+--p50-index: ${index}`));
+  for (let index = 0; index < 4; index += 1) assert.match(section, new RegExp(`pimm50-hero__fact[^>]+style="[^"]*--p50-index: ${index}[^"]*"`));
   for (let index = 0; index < 2; index += 1) {
-    assert.match(section, new RegExp(`data-pimm50-readout[^>]+--p50-index: ${index}`));
-    assert.match(section, new RegExp(`data-pimm50-comparison-machine[^>]+--p50-index: ${index}`));
+    assert.match(section, new RegExp(`data-pimm50-readout[^>]+style="[^"]*--p50-index: ${index}[^"]*"`));
+    assert.match(section, new RegExp(`data-pimm50-comparison-machine[^>]+style="[^"]*--p50-index: ${index}[^"]*"`));
   }
 });
 
