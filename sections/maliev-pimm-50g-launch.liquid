@@ -7,80 +7,112 @@
 {%- assign visit_link = section.settings.visit_link | default: '/pages/contact' -%}
 {%- assign purchase_form_id = 'Pimm50PurchaseForm-' | append: section.id -%}
 
-<div class="pimm50-story" data-pimm50-story>
-  <nav class="pimm50-story__rail" aria-label="PIMM 50G presentation">
-    <a href="#pimm50-reveal" aria-label="Introduction"><span>50G</span></a>
-    <a href="#pimm50-overview" aria-label="Machine overview"><span>Overview</span></a>
-    <a href="#pimm50-capacity" aria-label="Shot capacity"><span>Capacity</span></a>
-    <a href="#pimm50-melt-zone" aria-label="Melt zone"><span>Steel</span></a>
-    <a href="#pimm50-heating" aria-label="Heating system"><span>Heating</span></a>
-    <a href="#pimm50-mold-space" aria-label="Mold workspace"><span>Mold space</span></a>
-    <a href="#pimm50-comparison" aria-label="Model comparison"><span>Compare</span></a>
-    <a href="#pimm50-purchase" aria-label="Configuration and purchase"><span>Configure</span></a>
-  </nav>
-
-  <section class="pimm50-story__chapter pimm50-story__chapter--reveal" id="pimm50-reveal" data-pimm50-chapter aria-labelledby="pimm50-reveal-title">
-    <video class="pimm50-story__reveal-video" autoplay muted playsinline preload="metadata" poster="{{ 'pimm50-red-stage-desktop.webp' | asset_url }}" data-pimm50-reveal-video>
+<div class="pimm50-page" data-pimm50-page>
+  <section class="pimm50-hero" id="pimm50-hero" aria-labelledby="pimm50-title">
+    <div class="pimm50-page__content pimm50-hero__copy">
+      <p class="pimm50-page__eyebrow">Pneumatic injection molding machine</p>
+      <h1 id="pimm50-title">PIMM 50G</h1>
+      <p>{% if is_thai %}ความจุ 50 กรัม โซนหลอมเหล็ก และฮีตเตอร์ 350 วัตต์สองโซน สำหรับงานผลิตในเวิร์กช็อป{% else %}A 50-gram workshop machine with a steel melt zone and two independently controlled 350W heaters.{% endif %}</p>
+      <div class="pimm50-page__actions">
+        <a class="pimm50-page__button" href="#pimm50-overview">Explore the machine</a>
+        <a class="pimm50-page__text-link" href="{{ visit_link }}">Book a factory visit</a>
+      </div>
+    </div>
+    <video class="pimm50-page__hero-media" muted playsinline preload="metadata" poster="{{ 'pimm50-red-stage-desktop.webp' | asset_url }}" data-pimm50-media data-pimm50-motion>
       <source media="(max-width: 749px)" src="{{ 'pimm50-red-stage-mobile.webm' | asset_url }}" type="video/webm">
       <source src="{{ 'pimm50-red-stage-desktop.webm' | asset_url }}" type="video/webm">
     </video>
-    <div class="pimm50-story__reveal-copy">
-      <span class="pimm50-story__family">Pneumatic injection molding machine</span>
-      <h1 id="pimm50-reveal-title">PIMM <strong>50G</strong></h1>
-      <p>{% if is_thai %}ความจุ 50 กรัม โซนหลอมเหล็ก และฮีตเตอร์ 350 วัตต์สองโซน สำหรับงานผลิตในเวิร์กช็อป{% else %}A 50-gram workshop machine with a steel melt zone and two independently controlled 350W heaters.{% endif %}</p>
-      <div class="pimm50-story__reveal-actions"><a class="pimm50-story__button" href="#pimm50-overview">Explore the machine</a><a class="pimm50-story__text-link" href="{{ visit_link }}">Book a factory demonstration →</a></div>
-    </div>
-    <span class="pimm50-story__scroll-cue" aria-hidden="true">SCROLL ↓</span>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--overview" id="pimm50-overview" data-pimm50-chapter aria-labelledby="pimm50-overview-title">
-    <span class="pimm50-story__model-mark" aria-hidden="true">50G</span>
-    <picture class="pimm50-story__media pimm50-story__media--full"><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-overview-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-overview-desktop.webp' | asset_url }}" width="1800" height="1600" alt="Complete PIMM 50G pneumatic injection molding machine" loading="eager"></picture>
-    <div class="pimm50-story__copy pimm50-story__copy--overview">
-      <p class="pimm50-story__section-name">Machine overview</p>
-      <h2 id="pimm50-overview-title">More working headroom. Same direct workflow.</h2>
-      <p>The 50G keeps the compact pneumatic architecture of the 30G, then enlarges the shot system and strengthens the thermal hardware for larger work.</p>
-      <dl class="pimm50-story__spec-strip"><div><dt>Shot</dt><dd>50 g</dd></div><div><dt>Melt zone</dt><dd>Steel</dd></div><div><dt>Heating</dt><dd>2 × 350 W</dd></div><div><dt>Machine height</dt><dd>1014.5 mm</dd></div></dl>
+  <section class="pimm50-overview" id="pimm50-overview" aria-labelledby="pimm50-overview-title">
+    <div class="pimm50-page__content pimm50-page__split">
+      <div class="pimm50-page__copy" data-pimm50-motion>
+        <p class="pimm50-page__eyebrow">Machine overview</p>
+        <h2 id="pimm50-overview-title">More working headroom. Same direct workflow.</h2>
+        <p>The 50G keeps the compact pneumatic architecture of the 30G, then enlarges the shot system and strengthens the thermal hardware for larger work.</p>
+        <dl class="pimm50-page__spec-strip"><div><dt>Shot</dt><dd>50 g</dd></div><div><dt>Melt zone</dt><dd>Steel</dd></div><div><dt>Heating</dt><dd>2 × 350 W</dd></div><div><dt>Machine height</dt><dd>1014.5 mm</dd></div></dl>
+      </div>
+      <picture class="pimm50-page__media" data-pimm50-media><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-overview-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-overview-desktop.webp' | asset_url }}" width="1800" height="1600" alt="Complete PIMM 50G pneumatic injection molding machine" loading="eager"></picture>
     </div>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--capacity" id="pimm50-capacity" data-pimm50-chapter aria-labelledby="pimm50-capacity-title">
-    <picture class="pimm50-story__media pimm50-story__media--full"><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-capacity-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-capacity-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G large pneumatic cylinder and complete machine frame" loading="lazy"></picture>
-    <div class="pimm50-story__copy pimm50-story__copy--capacity"><p class="pimm50-story__section-name">Larger pneumatic cylinder</p><h2 id="pimm50-capacity-title"><strong>50 grams</strong> per shot.</h2><p>Extra material capacity gives larger parts and thicker sections practical room to run—without turning the machine into a factory-floor giant.</p></div>
-    <div class="pimm50-story__proof pimm50-story__proof--capacity" aria-label="Capacity proof"><span>MAXIMUM SHOT</span><strong>50 g</strong><small>Choose the 30G when compact molds and smaller shots are the priority.</small></div>
+  <section class="pimm50-capacity" id="pimm50-capacity" aria-labelledby="pimm50-capacity-title">
+    <div class="pimm50-page__content pimm50-page__split pimm50-page__split--media-start">
+      <picture class="pimm50-page__media" data-pimm50-media><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-capacity-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-capacity-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G large pneumatic cylinder and complete machine frame" loading="lazy"></picture>
+      <div class="pimm50-page__copy" data-pimm50-motion>
+        <p class="pimm50-page__eyebrow">Larger pneumatic cylinder</p>
+        <h2 id="pimm50-capacity-title">50 grams per shot.</h2>
+        <p>Extra material capacity gives larger parts and thicker sections practical room to run—without turning the machine into a factory-floor giant.</p>
+        <dl class="pimm50-page__fact-list"><div><dt>Maximum shot</dt><dd>50 g</dd></div><div><dt>Best for</dt><dd>Larger parts and thicker sections</dd></div></dl>
+      </div>
+    </div>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--steel" id="pimm50-melt-zone" data-pimm50-chapter aria-labelledby="pimm50-melt-title">
-    <div class="pimm50-story__steel-field" aria-hidden="true"><span>STEEL</span></div>
-    <picture class="pimm50-story__media pimm50-story__media--full"><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-melt-zone-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-melt-zone-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G steel melt zone assembly" loading="lazy"></picture>
-    <div class="pimm50-story__copy pimm50-story__copy--steel"><p class="pimm50-story__section-name">Material upgrade</p><h2 id="pimm50-melt-title">The working core is steel.</h2><p>The 50G replaces the 30G aluminum melt zone with steel where repeated high-temperature cycles demand greater durability.</p><dl class="pimm50-story__fact-pair"><div><dt>Construction</dt><dd>Steel melt zone</dd></div><div><dt>Decision</dt><dd>Built for higher-duty thermal work</dd></div></dl></div>
+  <section class="pimm50-melt-zone" id="pimm50-melt-zone" aria-labelledby="pimm50-melt-title">
+    <div class="pimm50-page__content pimm50-page__split">
+      <div class="pimm50-page__copy" data-pimm50-motion>
+        <p class="pimm50-page__eyebrow">Material upgrade</p>
+        <h2 id="pimm50-melt-title">The working core is steel.</h2>
+        <p>The 50G replaces the 30G aluminum melt zone with steel where repeated high-temperature cycles demand greater durability.</p>
+        <dl class="pimm50-page__fact-list"><div><dt>Construction</dt><dd>Steel melt zone</dd></div><div><dt>Decision</dt><dd>Built for higher-duty thermal work</dd></div></dl>
+      </div>
+      <picture class="pimm50-page__media" data-pimm50-media><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-melt-zone-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-melt-zone-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G steel melt zone assembly" loading="lazy"></picture>
+    </div>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--heating" id="pimm50-heating" data-pimm50-chapter aria-labelledby="pimm50-heating-title">
-    <picture class="pimm50-story__media pimm50-story__media--full"><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-heating-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-heating-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G dual temperature controllers and heating system" loading="lazy"></picture>
-    <div class="pimm50-story__copy pimm50-story__copy--heating"><p class="pimm50-story__section-name">Independent thermal control</p><h2 id="pimm50-heating-title">Two zones. Two controllers. <strong>700W total.</strong></h2><p>Each 350W hot-runner band has its own PID controller, keeping both zones visible and independently adjustable at the machine.</p><div class="pimm50-story__controller-readout" aria-label="Heating specification"><span>UPPER ZONE</span><strong>350 W</strong><span>LOWER ZONE</span><strong>350 W</strong></div></div>
+  <section class="pimm50-heating" id="pimm50-heating" aria-labelledby="pimm50-heating-title">
+    <div class="pimm50-page__content pimm50-page__split pimm50-page__split--media-start">
+      <picture class="pimm50-page__media" data-pimm50-media><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-heating-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-heating-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G dual temperature controllers and heating system" loading="lazy"></picture>
+      <div class="pimm50-page__copy" data-pimm50-motion>
+        <p class="pimm50-page__eyebrow">Independent thermal control</p>
+        <h2 id="pimm50-heating-title">Two zones. Two controllers. 700W total.</h2>
+        <p>Each 350W hot-runner band has its own PID controller, keeping both zones visible and independently adjustable at the machine.</p>
+        <dl class="pimm50-page__readout"><div><dt>Upper zone</dt><dd>350 W</dd></div><div><dt>Lower zone</dt><dd>350 W</dd></div></dl>
+      </div>
+    </div>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--mold" id="pimm50-mold-space" data-pimm50-chapter aria-labelledby="pimm50-mold-title">
-    <picture class="pimm50-story__media pimm50-story__media--full"><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-mold-space-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-mold-space-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G lower mold workspace and M10 fixture grid" loading="lazy"></picture>
-    <div class="pimm50-story__copy pimm50-story__copy--mold"><p class="pimm50-story__section-name">Mold workspace</p><h2 id="pimm50-mold-title">A fixture space made to be used.</h2><p>The open lower frame and M10 grid accept custom molds, jigs, and workshop-specific supporting hardware.</p><div class="pimm50-story__dimension"><span>Maximum supported mold</span><strong>240 × 240 × 100</strong><em>mm</em></div></div>
+  <section class="pimm50-mold-space" id="pimm50-mold-space" aria-labelledby="pimm50-mold-title">
+    <div class="pimm50-page__content pimm50-page__split">
+      <div class="pimm50-page__copy" data-pimm50-motion>
+        <p class="pimm50-page__eyebrow">Mold workspace</p>
+        <h2 id="pimm50-mold-title">A fixture space made to be used.</h2>
+        <p>The open lower frame and M10 grid accept custom molds, jigs, and workshop-specific supporting hardware.</p>
+        <div class="pimm50-page__dimension"><span>Maximum supported mold</span><strong>240 × 240 × 100</strong><em>mm</em></div>
+      </div>
+      <picture class="pimm50-page__media" data-pimm50-media><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-mold-space-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-mold-space-desktop.webp' | asset_url }}" width="1800" height="1600" alt="PIMM 50G lower mold workspace and M10 fixture grid" loading="lazy"></picture>
+    </div>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--compare" id="pimm50-comparison" data-pimm50-chapter aria-labelledby="pimm50-comparison-title">
-    <div class="pimm50-story__copy pimm50-story__copy--compare"><p class="pimm50-story__section-name">Choose by the part</p><h2 id="pimm50-comparison-title">30G agility.<br>50G headroom.</h2><p>The machines share a direct pneumatic workflow. The right model is determined by your mold, material, shot volume, and utility setup.</p><a class="pimm50-story__button pimm50-story__button--secondary" href="/products/pneumatic-injection-molding-machine">View PIMM 30G</a></div>
-    <div class="pimm50-story__comparison-media" aria-label="PIMM 30G and PIMM 50G comparison"><figure><img src="{{ 'maliev-pimm-30g-alpha.webp' | asset_url }}" width="1400" height="1750" alt="PIMM 30G"><figcaption><strong>30G</strong><span>Compact-shot work</span></figcaption></figure><figure><img src="{{ 'maliev-pimm-50g-alpha.webp' | asset_url }}" width="1400" height="1750" alt="PIMM 50G"><figcaption><strong>50G</strong><span>More capacity and heat</span></figcaption></figure></div>
+  <section class="pimm50-comparison" id="pimm50-comparison" aria-labelledby="pimm50-comparison-title">
+    <div class="pimm50-page__content pimm50-comparison__layout">
+      <div class="pimm50-page__copy" data-pimm50-motion>
+        <p class="pimm50-page__eyebrow">Choose by the part</p>
+        <h2 id="pimm50-comparison-title">30G agility. 50G headroom.</h2>
+        <p>The machines share a direct pneumatic workflow. The right model is determined by your mold, material, shot volume, and utility setup.</p>
+        <a class="pimm50-page__button pimm50-page__button--secondary" href="/products/pneumatic-injection-molding-machine">View PIMM 30G</a>
+      </div>
+      <div class="pimm50-comparison__media" aria-label="PIMM 30G and PIMM 50G comparison" data-pimm50-media><figure><img src="{{ 'maliev-pimm-30g-alpha.webp' | asset_url }}" width="1400" height="1750" alt="PIMM 30G" loading="lazy"><figcaption><strong>30G</strong><span>Compact-shot work</span></figcaption></figure><figure><img src="{{ 'maliev-pimm-50g-alpha.webp' | asset_url }}" width="1400" height="1750" alt="PIMM 50G" loading="lazy"><figcaption><strong>50G</strong><span>More capacity and heat</span></figcaption></figure></div>
+    </div>
   </section>
 
-  <section class="pimm50-story__chapter pimm50-story__chapter--purchase" id="pimm50-purchase" data-pimm50-chapter aria-labelledby="pimm50-purchase-title">
-    <picture class="pimm50-story__media pimm50-story__media--purchase"><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-purchase-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-purchase-desktop.webp' | asset_url }}" width="1800" height="1600" alt="Complete PIMM 50G configured for purchase" loading="lazy"></picture>
-    <div class="pimm50-story__purchase-panel">
-      <div class="pimm50-story__copy pimm50-story__copy--purchase"><p class="pimm50-story__section-name">Made in Thailand · made to order</p><h2 id="pimm50-purchase-title">Confirm the setup before production.</h2><p>A factory demonstration is the fastest way to verify your mold, material, compressed-air supply, and production workflow with the team that builds the machine.</p></div>
-      <dl class="pimm50-story__qualification"><div><dt>Air</dt><dd>Suitable compressed-air supply required</dd></div><div><dt>Mold envelope</dt><dd>Up to 240 × 240 × 100 mm</dd></div><div><dt>Heating</dt><dd>220V · 2 × 350W</dd></div><div><dt>Support</dt><dd>Demonstration and setup guidance available</dd></div></dl>
-      <div class="pimm50-story__commercial"><span>Starting configuration</span><strong>{{ selected_variant.price | money_without_trailing_zeros }}</strong><small>Made to order · approximately 30 days</small></div>
-      {%- form 'product', product, id: purchase_form_id, class: 'pimm50-story__form' -%}
-        <label for="Pimm50Variant-{{ section.id }}">Machine configuration</label><select id="Pimm50Variant-{{ section.id }}" name="id">{%- for variant in product.variants -%}<option value="{{ variant.id }}"{% if variant == selected_variant %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title }} — {{ variant.price | money_without_trailing_zeros }}</option>{%- endfor -%}</select>
-        <div class="pimm50-story__actions"><a class="pimm50-story__button" href="{{ visit_link }}">Book a factory visit</a><button class="pimm50-story__button pimm50-story__button--secondary" type="submit" name="add"{% unless selected_variant.available %} disabled{% endunless %}>{% if selected_variant.available %}Add to cart{% else %}Sold out{% endif %}</button></div>
-      {%- endform -%}
+  <section class="pimm50-purchase" id="pimm50-purchase" aria-labelledby="pimm50-purchase-title">
+    <div class="pimm50-page__content pimm50-purchase__layout">
+      <picture class="pimm50-page__media" data-pimm50-media><source media="(max-width: 899px)" srcset="{{ 'pimm50-story-purchase-mobile.webp' | asset_url }}"><img src="{{ 'pimm50-story-purchase-desktop.webp' | asset_url }}" width="1800" height="1600" alt="Complete PIMM 50G configured for purchase" loading="lazy"></picture>
+      <div class="pimm50-purchase__panel">
+        <div class="pimm50-page__copy" data-pimm50-motion>
+          <p class="pimm50-page__eyebrow">Made in Thailand · made to order</p>
+          <h2 id="pimm50-purchase-title">Confirm the setup before production.</h2>
+          <p>A factory demonstration is the fastest way to verify your mold, material, compressed-air supply, and production workflow with the team that builds the machine.</p>
+        </div>
+        <dl class="pimm50-purchase__qualification"><div><dt>Air</dt><dd>Suitable compressed-air supply required</dd></div><div><dt>Mold envelope</dt><dd>Up to 240 × 240 × 100 mm</dd></div><div><dt>Heating</dt><dd>220V · 2 × 350W</dd></div><div><dt>Support</dt><dd>Demonstration and setup guidance available</dd></div></dl>
+        <div class="pimm50-purchase__commercial"><span>Starting configuration</span><strong>{{ selected_variant.price | money_without_trailing_zeros }}</strong><small>Made to order · approximately 30 days</small></div>
+        {%- form 'product', product, id: purchase_form_id, class: 'pimm50-purchase__form' -%}
+          <label for="Pimm50Variant-{{ section.id }}">Machine configuration</label>
+          <select id="Pimm50Variant-{{ section.id }}" name="id">{%- for variant in product.variants -%}<option value="{{ variant.id }}"{% if variant == selected_variant %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title }} — {{ variant.price | money_without_trailing_zeros }}</option>{%- endfor -%}</select>
+          <div class="pimm50-page__actions"><a class="pimm50-page__button" href="{{ visit_link }}">Book a factory visit</a><button class="pimm50-page__button pimm50-page__button--secondary" type="submit" name="add"{% unless selected_variant.available %} disabled{% endunless %}>{% if selected_variant.available %}Add to cart{% else %}Sold out{% endif %}</button></div>
+        {%- endform -%}
+      </div>
     </div>
   </section>
 </div>
