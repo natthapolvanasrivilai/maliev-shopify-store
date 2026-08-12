@@ -149,7 +149,8 @@
 .pimm50-page__button:focus-visible,
 .pimm50-page__text-link:focus-visible,
 .pimm50-purchase__form select:focus-visible {
-  outline: .3rem solid #ffd21c;
+  border-color: #ffd21c;
+  outline: .3rem solid #101820 !important;
   outline-offset: .3rem;
 }
 

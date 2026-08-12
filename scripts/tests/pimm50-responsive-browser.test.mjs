@@ -1030,25 +1030,25 @@ test('PIMM 50G browser matrix preserves normal flow and section geometry', { tim
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
-      return { color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('[data-pimm50-variant-select]') ? 'select' : 'other', width: parseFloat(style.outlineWidth) };
+      return { border: style.borderColor, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('[data-pimm50-variant-select]') ? 'select' : 'other', width: parseFloat(style.outlineWidth) };
     })()`));
     await dispatchTab(session);
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
-      return { color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('.pimm50-purchase__form a[href]') ? 'factory' : 'other', width: parseFloat(style.outlineWidth) };
+      return { border: style.borderColor, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('.pimm50-purchase__form a[href]') ? 'factory' : 'other', width: parseFloat(style.outlineWidth) };
     })()`));
     await dispatchTab(session);
     focusEvidence.push(await evaluate(session, `(() => {
       const element = document.activeElement;
       const style = getComputedStyle(element);
-      return { color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('[data-pimm50-add-button]') ? 'add' : 'other', width: parseFloat(style.outlineWidth) };
+      return { border: style.borderColor, color: style.outlineColor, focusVisible: element.matches(':focus-visible'), selector: element.matches('[data-pimm50-add-button]') ? 'add' : 'other', width: parseFloat(style.outlineWidth) };
     })()`));
 
     assert.deepEqual(focusEvidence.map((entry) => entry.selector), ['select', 'factory', 'add']);
     for (const entry of focusEvidence) {
       assert.equal(entry.focusVisible, true, `${entry.selector} must expose :focus-visible`);
-      assert.equal(entry.color, 'rgb(255, 210, 28)', `${entry.selector} must use MALIEV focus yellow`);
+      assert.equal(entry.color, 'rgb(16, 24, 32)', `${entry.selector} must expose a dark indicator with 3:1 contrast on pale surfaces`);
       assert.ok(entry.width >= 3, `${entry.selector} focus outline must be at least 3px`);
     }
 

@@ -31,6 +31,30 @@ test('product and commerce remain visible without JavaScript', () => {
   assert.match(css, /\.pimm50-page__text-link\s*\{[^}]*align-items:\s*center[^}]*display:\s*inline-flex[^}]*min-height:\s*4\.8rem[^}]*padding:\s*0\s+2rem/s);
 });
 
+test('focus treatment preserves MALIEV yellow with a contrasting dark indicator', () => {
+  const focusRule = css.match(/\.pimm50-page__button:focus-visible,[\s\S]*?\.pimm50-purchase__form select:focus-visible\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.match(focusRule, /border-color:\s*#ffd21c/i);
+  assert.match(focusRule, /outline:\s*\.3rem solid #101820 !important/i);
+
+  const channel = (value) => {
+    const normalized = value / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = (hex) => {
+    const rgb = hex.match(/[a-f\d]{2}/gi).map((value) => Number.parseInt(value, 16));
+    return 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2]);
+  };
+  const contrast = (left, right) => {
+    const [lighter, darker] = [luminance(left), luminance(right)].sort((a, b) => b - a);
+    return (lighter + 0.05) / (darker + 0.05);
+  };
+
+  assert.ok(contrast('101820', 'ffffff') >= 3);
+  assert.ok(contrast('101820', 'f3f5f6') >= 3);
+  assert.ok(contrast('ffd21c', '101820') >= 3);
+});
+
 test('approved transparent media replaces every superseded story asset', () => {
   for (const name of ['hero', 'capacity', 'melt-zone', 'heating', 'mold-space', 'purchase']) {
     assert.match(section, new RegExp(`<picture[^>]*>[\\s\\S]*?pimm50-light-studio-${name}\\.webp[\\s\\S]*?<\\/picture>`));
