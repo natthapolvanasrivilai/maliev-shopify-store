@@ -80,3 +80,17 @@ Reports are written to the `manifests` folder. Auditing is read-only and verifie
 ## Publishing boundary
 
 `PIMM_PUBLISHED` remains empty until the publish audit passes and the owner approves the material work. Render-scene migration and storefront asset replacement must wait for that approval. Legacy Blender projects remain untouched and recoverable during this manual phase.
+
+## Initial validated handoff
+
+The initial 2026-08-14 handoff is intentionally ready for manual assignment, not publication:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `PIMM-30G-MASTER.blend` | 102,991,397 | `3D019F62463724E1B598124F1E1A42ED208BAA3D0ACBCEC47AB5390B0A2BD4D4` |
+| `PIMM-50G-MASTER.blend` | 104,115,932 | `56BEA2CEE95E7A09CFFA67DD6A96DA75205167719821C9B155294A57CF448992` |
+| `PIMM-MATERIAL-LIBRARY.blend` | 229,871 | `F466ED9D12708DEF20449F5F41E0B0958C86025C5B42360E58B57F6658BF4E59` |
+
+Both masters contain 472 unique occurrence-solid objects, four explicitly accounted empty CAD placeholders, zero unexplained disconnected objects, and 472 `PIMM_UNASSIGNED` material states. Their working audits contain zero integrity errors and correctly report `publishable=false`.
+
+The legacy inventory covers 77 Blender projects totaling 13,498,586,358 bytes. Proposed dispositions are 3 `keep-authoritative`, 15 `migrate-scene`, 23 `archive-after-validation`, and 36 `review`. These are recommendations only; the inventory performed no moves or deletions.
