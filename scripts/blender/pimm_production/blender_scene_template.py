@@ -4,14 +4,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any, Sequence
+import uuid
 
 try:
     from .io_contract import sha256_file
     from .paths import ASSET_ROOT, require_within
-    from .scene_contract import SceneContract, validate_scene_contract
+    from .scene_contract import (
+        SceneContract,
+        load_authoritative_product_ids,
+        validate_scene_contract,
+    )
 except ImportError:  # Blender may execute this checked-in script directly.
     repository_root = Path(__file__).resolve().parents[3]
     if str(repository_root) not in sys.path:
@@ -20,6 +27,7 @@ except ImportError:  # Blender may execute this checked-in script directly.
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.scene_contract import (
         SceneContract,
+        load_authoritative_product_ids,
         validate_scene_contract,
     )
 
@@ -27,6 +35,8 @@ except ImportError:  # Blender may execute this checked-in script directly.
 STATUS_BLOCKED = "blocked_manual_material_approval"
 AUDIT_MARKER = "PIMM_SCENE_PUBLISH_AUDIT_JSON="
 BUILD_MARKER = "PIMM_SCENE_BUILD_JSON="
+VALIDATION_MARKER = "PIMM_SCENE_VALIDATION_JSON="
+_CANONICAL_ASSET_ROOT = ASSET_ROOT
 
 
 def _material_gate_errors(objects: list[object]) -> tuple[list[str], list[str]]:
@@ -84,6 +94,23 @@ def audit_master_publication(
         errors.append("master is missing PIMM_PUBLISHED")
     elif not published_objects:
         errors.append("PIMM_PUBLISHED is empty")
+    expected_ids, manifest_errors = load_authoritative_product_ids(
+        ASSET_ROOT, contract.machine
+    )
+    errors.extend(manifest_errors)
+    published_id_rows = [
+        str(obj.get("pimm_stable_id"))
+        for obj in published_objects
+        if getattr(obj, "type", None) == "MESH" and obj.get("pimm_stable_id")
+    ]
+    published_ids = set(published_id_rows)
+    if len(published_id_rows) != len(published_ids):
+        errors.append("PIMM_PUBLISHED contains duplicate stable IDs")
+    if published is not None and not manifest_errors and published_ids != expected_ids:
+        errors.append(
+            "PIMM_PUBLISHED does not match authoritative import manifest "
+            f"(missing={sorted(expected_ids - published_ids)}, extra={sorted(published_ids - expected_ids)})"
+        )
 
     all_products = [obj for obj in bpy.data.objects if obj.get("pimm_stable_id")]
     material_errors, unassigned = _material_gate_errors(all_products)
@@ -134,6 +161,56 @@ def audit_master_publication(
         if material_audit
         else not material_errors and not unassigned,
     }
+
+
+def _run_fresh_validation(scene_path: Path, contract_path: Path) -> list[str]:
+    """Open the temporary scene in a new Blender and return checked-in validator errors."""
+
+    import bpy
+
+    validator = Path(__file__).resolve().with_name("blender_scene_validator.py")
+    command = [
+        str(Path(bpy.app.binary_path).resolve()),
+        "--factory-startup",
+        "-b",
+        str(scene_path),
+        "--python-exit-code",
+        "1",
+        "-P",
+        str(validator),
+        "--",
+        "--contract",
+        str(contract_path.resolve()),
+    ]
+    if ASSET_ROOT.resolve() != _CANONICAL_ASSET_ROOT.resolve():
+        command.extend(["--fixture-asset-root", str(ASSET_ROOT.resolve())])
+    completed = subprocess.run(
+        command,
+        cwd=Path(__file__).resolve().parents[3],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    if completed.returncode:
+        return [
+            "fresh Blender validation process failed "
+            f"(exit={completed.returncode}, stderr={completed.stderr.strip()})"
+        ]
+    emitted = [
+        line.removeprefix(VALIDATION_MARKER)
+        for line in completed.stdout.splitlines()
+        if line.startswith(VALIDATION_MARKER)
+    ]
+    if len(emitted) != 1:
+        return ["fresh Blender validation did not emit exactly one result"]
+    try:
+        result = json.loads(emitted[0])
+    except json.JSONDecodeError as error:
+        return [f"fresh Blender validation emitted invalid JSON: {error}"]
+    if not isinstance(result, list) or not all(isinstance(item, str) for item in result):
+        return ["fresh Blender validation result must be a list of errors"]
+    return result
 
 
 def build_linked_scene(
@@ -199,6 +276,7 @@ def build_linked_scene(
     scene.unit_settings.scale_length = 0.001
     scene.render.resolution_x = int(contract.output_contract["width"])
     scene.render.resolution_y = int(contract.output_contract["height"])
+    scene.render.resolution_percentage = 100
     scene.render.film_transparent = bool(contract.output_contract["alpha"])
     scene.render.filepath = str(
         (ASSET_ROOT / "renders" / "proofs" / "unapproved" / contract.scene_id).resolve()
@@ -207,12 +285,36 @@ def build_linked_scene(
         contract.to_mapping(), sort_keys=True
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(destination), check_existing=False)
-
-    master_after = sha256_file(master_path)
-    material_after = sha256_file(material_path)
-    if master_after != master_before or material_after != material_before:
-        raise RuntimeError("linked scene build changed a protected library fingerprint")
+    temporary = destination.with_name(
+        f".{destination.stem}.{uuid.uuid4().hex}.tmp.blend"
+    )
+    try:
+        bpy.ops.wm.save_as_mainfile(filepath=str(temporary), check_existing=False)
+        validation_errors = _run_fresh_validation(temporary, contract_path)
+        master_after = sha256_file(master_path)
+        material_after = sha256_file(material_path)
+        if master_after != master_before or material_after != material_before:
+            validation_errors.append(
+                "linked scene build changed a protected library fingerprint"
+            )
+        if validation_errors:
+            return {
+                "status": "blocked_reopen_validation",
+                "errors": validation_errors,
+                "output_created": False,
+                "output_path": str(destination),
+            }
+        if destination.exists():
+            return {
+                "status": "blocked_output_exists",
+                "errors": [f"linked scene output appeared during validation: {destination}"],
+                "output_created": False,
+                "output_path": str(destination),
+            }
+        os.rename(temporary, destination)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
     return {
         "status": "created",
         "errors": [],
@@ -220,6 +322,7 @@ def build_linked_scene(
         "output_path": str(destination),
         "master_sha256": master_after,
         "material_library_sha256": material_after,
+        "fresh_validation": True,
     }
 
 

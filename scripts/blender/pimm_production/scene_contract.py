@@ -168,3 +168,35 @@ def validate_scene_contract(contract: SceneContract) -> list[str]:
     if not isinstance(alpha, bool):
         errors.append("scene contract output_contract alpha must be boolean")
     return errors
+
+
+def load_authoritative_product_ids(
+    asset_root: Path, machine: str
+) -> tuple[set[str], list[str]]:
+    """Load exact solid IDs from the authoritative import manifest."""
+
+    path = asset_root / "manifests" / f"PIMM-{machine}-import-manifest.json"
+    if not path.is_file():
+        return set(), [f"authoritative import manifest is missing: {path}"]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return set(), [f"authoritative import manifest cannot be read: {path}: {error}"]
+    if not isinstance(payload, Mapping) or payload.get("schema_version") != 1:
+        return set(), [f"authoritative import manifest schema_version must be 1: {path}"]
+    solids = payload.get("solids")
+    if not isinstance(solids, list) or not solids:
+        return set(), [f"authoritative import manifest solids must be a nonempty list: {path}"]
+    identifiers: list[str] = []
+    errors: list[str] = []
+    for index, solid in enumerate(solids):
+        stable_id = solid.get("stable_id") if isinstance(solid, Mapping) else None
+        if not isinstance(stable_id, str) or not stable_id.strip():
+            errors.append(
+                f"authoritative import manifest solids[{index}] lacks stable_id: {path}"
+            )
+        else:
+            identifiers.append(stable_id)
+    if len(set(identifiers)) != len(identifiers):
+        errors.append(f"authoritative import manifest contains duplicate stable IDs: {path}")
+    return set(identifiers), errors

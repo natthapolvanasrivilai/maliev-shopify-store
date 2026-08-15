@@ -47,9 +47,11 @@ def _write_fixture_builder(path: Path) -> None:
             kind = sys.argv[sys.argv.index("--") + 1]
             root = Path(sys.argv[sys.argv.index("--") + 2])
             masters = root / "masters"
+            manifests = root / "manifests"
             scenes = root / "scenes" / "fixtures"
             renders = root / "renders" / "proofs" / "fixture"
             masters.mkdir(parents=True, exist_ok=True)
+            manifests.mkdir(parents=True, exist_ok=True)
             scenes.mkdir(parents=True, exist_ok=True)
             renders.mkdir(parents=True, exist_ok=True)
             material_path = masters / "PIMM-MATERIAL-LIBRARY.blend"
@@ -70,25 +72,40 @@ def _write_fixture_builder(path: Path) -> None:
             published_name = "PIMM_WORKING" if kind == "unpublished-master" else "PIMM_PUBLISHED"
             published = bpy.data.collections.new(published_name)
             bpy.context.scene.collection.children.link(published)
-            mesh = bpy.data.meshes.new("PIMM_TEST_PRODUCT_MESH")
-            mesh.from_pydata(
-                [(-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (0.0, 1.0, 0.0)],
-                [],
-                [(0, 1, 2)],
-            )
-            mesh.materials.append(linked_material)
-            product = bpy.data.objects.new("PIMM_TEST_PRODUCT", mesh)
-            product["pimm_stable_id"] = "30G-fixture-product"
-            product["pimm_material_state"] = "approved"
-            published.objects.link(product)
+            withheld = None
+            if kind == "partial-published":
+                withheld = bpy.data.collections.new("PIMM_WITHHELD")
+                bpy.context.scene.collection.children.link(withheld)
+            stable_ids = ["30G-fixture-product-1", "30G-fixture-product-2"]
+            for index, stable_id in enumerate(stable_ids, start=1):
+                mesh = bpy.data.meshes.new(f"PIMM_TEST_PRODUCT_MESH_{index}")
+                mesh.from_pydata(
+                    [(-1.0, -1.0, float(index)), (1.0, -1.0, float(index)), (0.0, 1.0, float(index))],
+                    [],
+                    [(0, 1, 2)],
+                )
+                mesh.materials.append(linked_material)
+                product = bpy.data.objects.new(f"PIMM_TEST_PRODUCT_{index}", mesh)
+                product["pimm_stable_id"] = stable_id
+                product["pimm_material_state"] = "approved"
+                target = withheld if index == 2 and withheld is not None else published
+                target.objects.link(product)
             bpy.context.scene["pimm_master_machine"] = "30G"
             bpy.ops.wm.save_as_mainfile(filepath=str(master_path), check_existing=False)
+            (manifests / "PIMM-30G-import-manifest.json").write_text(
+                json.dumps({"schema_version": 1, "solids": [{"stable_id": value} for value in stable_ids]}, sort_keys=True),
+                encoding="utf-8",
+            )
 
             bpy.ops.wm.read_factory_settings(use_empty=True)
             if kind not in {"missing-link", "unpublished-master"}:
                 with bpy.data.libraries.load(str(master_path), link=True, relative=True) as (available, requested):
                     requested.collections = ["PIMM_PUBLISHED"]
-                bpy.context.scene.collection.children.link(bpy.data.collections["PIMM_PUBLISHED"])
+                if kind == "orphaned-linked-collection":
+                    orphan_scene = bpy.data.scenes.new("ORPHAN_SCENE")
+                    orphan_scene.collection.children.link(bpy.data.collections["PIMM_PUBLISHED"])
+                else:
+                    bpy.context.scene.collection.children.link(bpy.data.collections["PIMM_PUBLISHED"])
 
             camera_data = bpy.data.cameras.new("CAM_HERO")
             camera = bpy.data.objects.new("CAM_HERO", camera_data)
@@ -97,7 +114,12 @@ def _write_fixture_builder(path: Path) -> None:
             if kind == "missing-camera":
                 bpy.data.objects.remove(camera, do_unlink=True)
 
-            if kind in {"private-product-copy", "localized-shared-material", "overridden-product-material"}:
+            if kind in {
+                "private-product-copy",
+                "localized-shared-material",
+                "overridden-product-material",
+                "untagged-local-mesh",
+            }:
                 private_mesh = bpy.data.meshes.new("PIMM_PRIVATE_PRODUCT_MESH")
                 private_mesh.from_pydata(
                     [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)],
@@ -105,8 +127,9 @@ def _write_fixture_builder(path: Path) -> None:
                     [(0, 1, 2)],
                 )
                 private = bpy.data.objects.new("PIMM_PRIVATE_PRODUCT", private_mesh)
-                private["pimm_stable_id"] = "30G-fixture-private"
-                private["pimm_product_material_override"] = kind == "overridden-product-material"
+                if kind != "untagged-local-mesh":
+                    private["pimm_stable_id"] = "30G-fixture-private"
+                    private["pimm_product_material_override"] = kind == "overridden-product-material"
                 bpy.context.scene.collection.objects.link(private)
                 if kind != "private-product-copy":
                     local_material = bpy.data.materials.new("PIMM_TEST_SHARED_LOCAL")
@@ -114,12 +137,36 @@ def _write_fixture_builder(path: Path) -> None:
                     local_material["pimm_material_scope"] = "shared"
                     private_mesh.materials.append(local_material)
 
+            if kind == "stripped-provenance-copy":
+                source = bpy.data.objects["PIMM_TEST_PRODUCT_1"]
+                stripped = bpy.data.objects.new("PIMM_STRIPPED_COPY", source.data.copy())
+                bpy.context.scene.collection.objects.link(stripped)
+
+            if kind == "real-library-override":
+                linked_collection = bpy.data.collections["PIMM_PUBLISHED"]
+                linked_collection.override_hierarchy_create(
+                    bpy.context.scene,
+                    bpy.context.view_layer,
+                    do_fully_editable=True,
+                )
+                overrides = [obj for obj in bpy.data.objects if obj.override_library is not None]
+                if not overrides:
+                    raise RuntimeError("Blender override_hierarchy_create produced no object override")
+                override = overrides[0]
+                override.name = "PIMM_TEST_PRODUCT_OVERRIDE"
+                override_material = bpy.data.materials.new("PIMM_TEST_SHARED_OVERRIDE")
+                override_material["pimm_material_id"] = "TEST_SHARED"
+                override_material["pimm_material_scope"] = "shared"
+                override.data.materials.clear()
+                override.data.materials.append(override_material)
+
             output = renders / "fixture.png"
             if kind == "output-escape":
                 output = root.parent / "escaped-output.png"
             bpy.context.scene.render.filepath = str(output)
             bpy.context.scene.render.resolution_x = 1200
             bpy.context.scene.render.resolution_y = 1200
+            bpy.context.scene.render.resolution_percentage = 50 if kind == "resolution-50-percent" else 100
             bpy.context.scene.render.film_transparent = True
             bpy.context.scene.unit_settings.system = "METRIC"
             bpy.context.scene.unit_settings.length_unit = "MILLIMETERS"
@@ -162,6 +209,12 @@ def build_scene_fixture(kind: str, root: Path) -> tuple[Path, SceneContract]:
         "private-product-copy",
         "localized-shared-material",
         "overridden-product-material",
+        "real-library-override",
+        "untagged-local-mesh",
+        "stripped-provenance-copy",
+        "partial-published",
+        "orphaned-linked-collection",
+        "resolution-50-percent",
         "missing-link",
         "missing-camera",
         "output-escape",
@@ -257,7 +310,11 @@ def run_scene_fixture_validation(path: Path, contract: SceneContract) -> list[st
 
 
 def run_scene_fixture_build(
-    master_path: Path, contract: SceneContract, output_path: Path
+    master_path: Path,
+    contract: SceneContract,
+    output_path: Path,
+    *,
+    mutate_temporary_before_reopen: bool = False,
 ) -> dict[str, object]:
     root = master_path.parents[1]
     contract_path = root / "scene-contract-build.json"
@@ -269,10 +326,19 @@ def run_scene_fixture_build(
             import json
             from pathlib import Path
             import sys
+            import bpy
             sys.path.insert(0, {str(REPO_ROOT)!r})
             import scripts.blender.pimm_production.blender_scene_template as template
 
             template.ASSET_ROOT = Path({str(root)!r})
+            if {mutate_temporary_before_reopen!r}:
+                original_validation = template._run_fresh_validation
+                def mutate_then_validate(scene_path, contract_path):
+                    camera = bpy.data.objects.get("CAM_HERO")
+                    bpy.data.objects.remove(camera, do_unlink=True)
+                    bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), check_existing=False)
+                    return original_validation(scene_path, contract_path)
+                template._run_fresh_validation = mutate_then_validate
             result = template.build_linked_scene(Path({str(contract_path)!r}), Path({str(output_path)!r}))
             print({BUILD_MARKER!r} + json.dumps(result, sort_keys=True))
             """
@@ -361,6 +427,52 @@ class SceneContractTests(unittest.TestCase):
             )
 
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_untagged_and_stripped_scene_local_meshes_fail(self):
+        expected = {
+            "untagged-local-mesh": "scene-local MESH object is forbidden",
+            "stripped-provenance-copy": "scene-local MESH datablock is forbidden",
+        }
+        for kind, message in expected.items():
+            with self.subTest(kind=kind), TemporaryDirectory() as root:
+                path, contract = build_scene_fixture(kind, Path(root))
+                self.assertIn(
+                    message,
+                    "\n".join(run_scene_fixture_validation(path, contract)),
+                )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_complete_product_requires_reachable_full_published_collection(self):
+        expected = {
+            "partial-published": "does not match authoritative import manifest",
+            "orphaned-linked-collection": "not reachable from the active scene",
+        }
+        for kind, message in expected.items():
+            with self.subTest(kind=kind), TemporaryDirectory() as root:
+                path, contract = build_scene_fixture(kind, Path(root))
+                self.assertIn(
+                    message,
+                    "\n".join(run_scene_fixture_validation(path, contract)),
+                )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_resolution_percentage_must_be_native(self):
+        with TemporaryDirectory() as root:
+            path, contract = build_scene_fixture("resolution-50-percent", Path(root))
+            self.assertIn(
+                "resolution_percentage must equal 100",
+                "\n".join(run_scene_fixture_validation(path, contract)),
+            )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_real_library_override_is_rejected_when_blender_can_create_it(self):
+        with TemporaryDirectory() as root:
+            path, contract = build_scene_fixture("real-library-override", Path(root))
+            self.assertIn(
+                "approved product material override",
+                "\n".join(run_scene_fixture_validation(path, contract)),
+            )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
     def test_override_missing_link_camera_and_output_escape_fail(self):
         expected = {
             "overridden-product-material": "approved product material override",
@@ -419,8 +531,33 @@ class SceneContractTests(unittest.TestCase):
             result = run_scene_fixture_build(master, contract, output)
 
             self.assertEqual(result["status"], "created")
+            self.assertIs(result["fresh_validation"], True)
             self.assertTrue(output.is_file())
             self.assertEqual(run_scene_fixture_validation(output, contract), [])
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_reopen_validation_failure_never_publishes_and_cleans_temporary_scene(self):
+        with TemporaryDirectory() as root:
+            _, contract = build_scene_fixture("valid", Path(root))
+            master = Path(root) / "masters" / "PIMM-30G-MASTER.blend"
+            output = (
+                Path(root)
+                / "scenes"
+                / "shared-templates"
+                / "pimm-linked-studio-template.blend"
+            )
+
+            result = run_scene_fixture_build(
+                master,
+                contract,
+                output,
+                mutate_temporary_before_reopen=True,
+            )
+
+            self.assertEqual(result["status"], "blocked_reopen_validation")
+            self.assertIn("required camera", "\n".join(result["errors"]))
+            self.assertFalse(output.exists())
+            self.assertEqual(list(output.parent.glob("*.tmp.blend")), [])
 
 
 if __name__ == "__main__":

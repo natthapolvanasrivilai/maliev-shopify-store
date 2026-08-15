@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
-from typing import Any
+import sys
+import tempfile
+from typing import Any, Sequence
 
 try:
     from .io_contract import sha256_file
     from .machine_contract import load_machine_contract, validate_controller_scene
     from .paths import ASSET_ROOT, require_within
-    from .scene_contract import SceneContract, validate_scene_contract
+    from .scene_contract import (
+        SceneContract,
+        load_authoritative_product_ids,
+        validate_scene_contract,
+    )
 except ImportError:  # Blender may execute this checked-in script directly.
-    import sys
-
     repository_root = Path(__file__).resolve().parents[3]
     if str(repository_root) not in sys.path:
         sys.path.insert(0, str(repository_root))
@@ -24,8 +30,12 @@ except ImportError:  # Blender may execute this checked-in script directly.
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.scene_contract import (
         SceneContract,
+        load_authoritative_product_ids,
         validate_scene_contract,
     )
+
+
+VALIDATION_MARKER = "PIMM_SCENE_VALIDATION_JSON="
 
 
 def _library_path(bpy: Any, library: object | None) -> Path | None:
@@ -60,15 +70,53 @@ def _property(datablock: object, name: str, default: object = None) -> object:
     return getter(name, default) if callable(getter) else default
 
 
-def _product_objects(bpy: Any, published: object | None) -> list[object]:
-    tagged = {
+def _reachable_collections(scene: object) -> set[object]:
+    reachable: set[object] = set()
+    stack = list(getattr(getattr(scene, "collection", None), "children", ()))
+    while stack:
+        collection = stack.pop()
+        if collection in reachable:
+            continue
+        reachable.add(collection)
+        stack.extend(getattr(collection, "children", ()))
+    return reachable
+
+
+def _validate_complete_product(
+    published: object | None, contract: SceneContract
+) -> list[str]:
+    expected_ids, errors = load_authoritative_product_ids(ASSET_ROOT, contract.machine)
+    if published is None or errors:
+        return errors
+    published_meshes = [
         obj
-        for obj in bpy.data.objects
-        if _property(obj, "pimm_stable_id") or _property(obj, "pimm_product_object") is True
-    }
-    if published is not None:
-        tagged.update(getattr(published, "all_objects", ()))
-    return sorted(tagged, key=lambda obj: str(getattr(obj, "name", "")))
+        for obj in getattr(published, "all_objects", ())
+        if getattr(obj, "type", None) == "MESH"
+    ]
+    identifier_rows: list[str] = []
+    missing_provenance: list[str] = []
+    for product in published_meshes:
+        stable_id = _property(product, "pimm_stable_id")
+        if not isinstance(stable_id, str) or not stable_id:
+            missing_provenance.append(str(getattr(product, "name", "")))
+        else:
+            identifier_rows.append(stable_id)
+    actual_ids = set(identifier_rows)
+    if missing_provenance:
+        errors.append(
+            "PIMM_PUBLISHED contains MESH objects without stable provenance: "
+            + ", ".join(sorted(missing_provenance))
+        )
+    if len(identifier_rows) != len(actual_ids):
+        errors.append("PIMM_PUBLISHED contains duplicate stable IDs")
+    if actual_ids != expected_ids:
+        missing = sorted(expected_ids - actual_ids)
+        extra = sorted(actual_ids - expected_ids)
+        errors.append(
+            "PIMM_PUBLISHED does not match authoritative import manifest "
+            f"(missing={missing}, extra={extra})"
+        )
+    return errors
 
 
 def _validate_materials(
@@ -167,23 +215,46 @@ def validate_open_render_scene(bpy: Any, contract: SceneContract) -> list[str]:
         )
     elif not list(getattr(published, "all_objects", ())):
         errors.append("linked PIMM_PUBLISHED collection is empty")
+    if published is not None and published not in _reachable_collections(
+        bpy.context.scene
+    ):
+        errors.append(
+            "linked PIMM_PUBLISHED is not reachable from the active scene hierarchy"
+        )
+    errors.extend(_validate_complete_product(published, contract))
 
-    products = _product_objects(bpy, published)
+    products = sorted(
+        (obj for obj in bpy.data.objects if getattr(obj, "type", None) == "MESH"),
+        key=lambda obj: str(getattr(obj, "name", "")),
+    )
     expected_products = set(getattr(published, "all_objects", ())) if published else set()
     for product in products:
         name = str(getattr(product, "name", ""))
         object_library = _datablock_library_path(bpy, product)
         mesh = getattr(product, "data", None)
         mesh_library = _datablock_library_path(bpy, mesh)
-        if product not in expected_products or object_library != expected_master:
-            errors.append(f"private machine mesh is forbidden in render scene: {name}")
-        if getattr(product, "type", None) == "MESH" and mesh_library != expected_master:
-            errors.append(f"private machine mesh datablock is forbidden: {name}")
+        if object_library != expected_master:
+            errors.append(
+                f"scene-local MESH object is forbidden; private machine mesh: {name}"
+            )
+        elif product not in expected_products:
+            errors.append(f"master MESH is outside PIMM_PUBLISHED: {name}")
+        if mesh_library != expected_master:
+            errors.append(
+                f"scene-local MESH datablock is forbidden; private machine mesh: {name}"
+            )
         errors.extend(
             _validate_materials(
                 bpy, product, expected_master, expected_material_library
             )
         )
+
+    for mesh in bpy.data.meshes:
+        if _datablock_library_path(bpy, mesh) != expected_master:
+            name = str(getattr(mesh, "name", ""))
+            message = f"scene-local MESH datablock is forbidden: {name}"
+            if message not in errors:
+                errors.append(message)
 
     camera = bpy.data.objects.get(contract.camera_name)
     if camera is None or getattr(camera, "type", None) != "CAMERA":
@@ -206,6 +277,8 @@ def validate_open_render_scene(bpy: Any, contract: SceneContract) -> list[str]:
         errors.append("render width does not match output_contract")
     if render.resolution_y != contract.output_contract["height"]:
         errors.append("render height does not match output_contract")
+    if render.resolution_percentage != 100:
+        errors.append("render resolution_percentage must equal 100")
     if render.film_transparent is not contract.output_contract["alpha"]:
         errors.append("render alpha does not match output_contract")
 
@@ -215,3 +288,47 @@ def validate_open_render_scene(bpy: Any, contract: SceneContract) -> list[str]:
     if abs(float(units.scale_length) - 0.001) > 1e-7:
         errors.append("render scene scale_length must equal 0.001")
     return errors
+
+
+def _fixture_asset_root(path: Path) -> Path:
+    resolved = path.resolve()
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    if resolved == temporary_root:
+        raise ValueError("fixture asset root cannot equal the system temporary root")
+    try:
+        resolved.relative_to(temporary_root)
+    except ValueError as error:
+        raise ValueError(
+            "fixture asset root must be beneath the system temporary root"
+        ) from error
+    return resolved
+
+
+def _arguments(argv: Sequence[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--contract", type=Path, required=True)
+    parser.add_argument("--fixture-asset-root", type=Path)
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    global ASSET_ROOT
+
+    arguments = _arguments(
+        list(argv)
+        if argv is not None
+        else sys.argv[sys.argv.index("--") + 1 :]
+        if "--" in sys.argv
+        else []
+    )
+    if arguments.fixture_asset_root is not None:
+        ASSET_ROOT = _fixture_asset_root(arguments.fixture_asset_root)
+    contract = SceneContract.from_json(arguments.contract)
+    import bpy
+
+    errors = validate_open_render_scene(bpy, contract)
+    print(VALIDATION_MARKER + json.dumps(errors, sort_keys=True), flush=True)
+
+
+if __name__ == "__main__":
+    main()
