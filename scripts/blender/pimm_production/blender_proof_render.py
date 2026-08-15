@@ -25,6 +25,7 @@ from scripts.blender.pimm_production.paths import require_within
 from scripts.blender.pimm_production.proof_contract import (
     ProofContract,
     analyze_mask_metrics,
+    effective_dimensions,
     validate_proof_contract,
     write_proof_manifest,
 )
@@ -33,6 +34,11 @@ from scripts.blender.pimm_production.tool_policy import validate_tool_lock
 
 
 RESULT_MARKER = "PIMM_PROOF_RENDER_JSON="
+_PENDING_TO_PUBLISHED = {
+    ".contact-sheet.pending.png": "contact-sheet.png",
+    ".contact-sheet.pending.json": "contact-sheet.json",
+    ".manifest.pending.json": "manifest.json",
+}
 
 
 def _fingerprint(path: Path) -> dict[str, object]:
@@ -93,6 +99,41 @@ def _validate_tools(lock_path: Path) -> tuple[dict[str, object], Path]:
         raise ValueError("free tool lock validation failed: " + "; ".join(errors))
     python_record = records["python"]
     return dict(payload), Path(str(python_record["path"])).resolve()
+
+
+def _validate_executing_blender(
+    bpy: Any, lock: Mapping[str, object]
+) -> dict[str, str]:
+    """Prove the process itself is the exact Blender executable in the lock."""
+
+    tools = lock.get("tools")
+    records = [
+        item
+        for item in (tools if isinstance(tools, list) else [])
+        if isinstance(item, Mapping)
+        and item.get("id") == "blender"
+    ]
+    if len(records) != 1:
+        raise ValueError("free tool lock must contain exactly one Blender record")
+    record = records[0]
+    locked = Path(str(record.get("path", ""))).resolve()
+    executing = Path(str(bpy.app.binary_path)).resolve()
+    if executing != locked:
+        raise ValueError(
+            f"executing Blender path does not match lock: {executing} != {locked}"
+        )
+    locked_hash = str(record.get("sha256", "")).upper()
+    actual_hash = sha256_file(executing)
+    if actual_hash != locked_hash:
+        raise ValueError("executing Blender SHA-256 does not match lock")
+    version = str(record.get("version", ""))
+    if not version or not str(bpy.app.version_string).startswith(version):
+        raise ValueError("executing Blender version does not match lock")
+    return {
+        "binary_path": str(executing),
+        "binary_sha256": actual_hash,
+        "version": version,
+    }
 
 
 def _fixture_asset_root(path: Path) -> Path:
@@ -230,26 +271,150 @@ def _frame_fixture_scene(bpy: Any, camera: object) -> tuple[list[object], list[o
     return lights, [catcher]
 
 
+def _prepare_render_environment(
+    bpy: Any, camera: object, *, fixture_mode: bool
+) -> tuple[list[object], list[object]]:
+    """Add synthetic framing and environment only in explicit fixture mode."""
+
+    if fixture_mode:
+        return _frame_fixture_scene(bpy, camera)
+    fixture_roles = [
+        obj.name
+        for obj in bpy.data.objects
+        if getattr(obj, "library", None) is None
+        and getattr(obj, "type", None) == "MESH"
+        and obj.get("pimm_proof_environment_role") is not None
+    ]
+    if fixture_roles:
+        raise ValueError(
+            "canonical proof contains fixture-only environment roles: "
+            + ", ".join(sorted(fixture_roles))
+        )
+    return [], []
+
+
+def _capture_authored_settings(bpy: Any) -> dict[str, object]:
+    """Capture authored camera, lights, world, and compositor without mutation."""
+
+    scene = bpy.context.scene
+    camera = scene.camera
+    camera_record: dict[str, object] | None = None
+    if camera is not None:
+        camera_record = {
+            "name": camera.name,
+            "location": [float(value) for value in camera.location],
+            "rotation_euler": [float(value) for value in camera.rotation_euler],
+            "lens": float(camera.data.lens),
+        }
+    lights = sorted(
+        (
+            {
+                "name": obj.name,
+                "type": obj.data.type,
+                "energy": float(obj.data.energy),
+                "location": [float(value) for value in obj.location],
+                "rotation_euler": [float(value) for value in obj.rotation_euler],
+            }
+            for obj in bpy.data.objects
+            if getattr(obj, "type", None) == "LIGHT"
+        ),
+        key=lambda item: str(item["name"]),
+    )
+    world = scene.world
+    world_record = None
+    if world is not None:
+        world_record = {
+            "name": world.name,
+            "use_nodes": bool(world.use_nodes),
+            "color": [float(value) for value in world.color],
+        }
+    tree = getattr(scene, "node_tree", None) if scene.use_nodes else None
+    compositor = {
+        "use_nodes": bool(scene.use_nodes),
+        "nodes": sorted(node.name for node in tree.nodes) if tree else [],
+        "links": sorted(
+            f"{link.from_node.name}:{link.from_socket.name}->{link.to_node.name}:{link.to_socket.name}"
+            for link in tree.links
+        )
+        if tree
+        else [],
+    }
+    return {
+        "camera": camera_record,
+        "lights": lights,
+        "world": world_record,
+        "compositor": compositor,
+    }
+
+
+def _expected_product_rgba_path(output_root: Path, shot_id: str) -> Path:
+    return output_root / f".{shot_id}--product-only.tmp.png"
+
+
+def _validate_product_rgba_path(
+    output_root: Path, shot_id: str, product_rgba_path: Path
+) -> Path:
+    """Allow cleanup of only the exact hidden file created for this generation."""
+
+    output_root = Path(output_root)
+    supplied = Path(product_rgba_path)
+    expected = _expected_product_rgba_path(output_root, shot_id)
+    contracted = {
+        output_root / "manifest.json",
+        output_root / "contact-sheet.png",
+        output_root / "contact-sheet.json",
+        output_root / "render-metadata.json",
+        output_root / "proof-contract.json",
+        output_root / "scene-contract.json",
+    }
+    if (
+        not supplied.is_absolute()
+        or supplied != expected
+        or expected in contracted
+        or output_root.is_symlink()
+        or supplied.is_symlink()
+    ):
+        raise ValueError("product-only temporary path is not the exact contained generation file")
+    try:
+        resolved_root = output_root.resolve(strict=True)
+        resolved = supplied.resolve(strict=True)
+        resolved.relative_to(resolved_root)
+    except (OSError, ValueError) as error:
+        raise ValueError("product-only temporary path is not a readable contained file") from error
+    if (
+        resolved != expected.resolve()
+        or not resolved.is_file()
+        or resolved.stat().st_nlink != 1
+    ):
+        raise ValueError("product-only temporary path is not the exact readable generation file")
+    return resolved
+
+
 def _render_rgba(
     bpy: Any,
     contract: ProofContract,
     destination: Path,
+    *,
+    fixture_mode: bool,
 ) -> tuple[dict[str, object], list[object], list[object], Path | None]:
     scene = bpy.context.scene
     camera = scene.camera
     if camera is None:
         raise ValueError("proof scene has no active camera")
-    lights, environment = _frame_fixture_scene(bpy, camera)
+    lights, environment = _prepare_render_environment(
+        bpy, camera, fixture_mode=fixture_mode
+    )
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = contract.samples
     scene.cycles.use_denoising = contract.denoise
-    scene.render.resolution_percentage = round(float(contract.resolution_percentage))
-    if float(contract.resolution_percentage) == 12.5:
-        # Blender's integer setting cannot represent 12.5%; preserve exact output dimensions.
-        scene.render.resolution_percentage = 100
-        scene.render.resolution_x = round(int(scene.render.resolution_x) * 0.125)
-        scene.render.resolution_y = round(int(scene.render.resolution_y) * 0.125)
+    width, height = effective_dimensions(
+        SceneContract.from_json(destination.parent / "scene-contract.json"),
+        contract.resolution_percentage,
+    )
+    scene.render.resolution_percentage = 100
+    scene.render.resolution_x = width
+    scene.render.resolution_y = height
     scene.render.film_transparent = True
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
@@ -265,6 +430,8 @@ def _render_rgba(
         if look in available_looks:
             scene.view_settings.look = look
             break
+    scene.view_settings.exposure = 0.0
+    scene.view_settings.gamma = 1.0
     started = time.perf_counter()
     bpy.ops.render.render(write_still=True)
     elapsed = time.perf_counter() - started
@@ -273,24 +440,36 @@ def _render_rgba(
         os.replace(actual, destination)
     if not destination.is_file():
         raise ValueError(f"Cycles did not create the contracted RGBA proof: {destination}")
-    actual_dimensions = [
-        round(scene.render.resolution_x * scene.render.resolution_percentage / 100),
-        round(scene.render.resolution_y * scene.render.resolution_percentage / 100),
-    ]
-    product_rgba = destination.with_name(f".{destination.stem}.product-only.png")
-    for obj in environment:
-        obj.hide_render = True
-    scene.render.filepath = str(product_rgba)
-    bpy.ops.render.render(write_still=True)
-    if not product_rgba.is_file():
-        raise ValueError("Cycles did not create the product-only mask source")
+    actual_dimensions = [width, height]
+    product_rgba = None
+    if fixture_mode:
+        product_rgba = _expected_product_rgba_path(destination.parent, destination.stem.removesuffix("--rgba"))
+        for obj in environment:
+            obj.hide_render = True
+        scene.render.filepath = str(product_rgba)
+        bpy.ops.render.render(write_still=True)
+        if not product_rgba.is_file():
+            raise ValueError("Cycles did not create the product-only mask source")
+    elif contract.object_masks:
+        raise ValueError("canonical object masks require authored passes; fixture-only product render is forbidden")
     metadata = {
         "schema": "pimm-proof-render-metadata/v1",
         "engine": scene.render.engine,
         "device": scene.cycles.device,
         "samples": contract.samples,
         "resolution_percentage": contract.resolution_percentage,
+        "base_dimensions": [
+            SceneContract.from_json(destination.parent / "scene-contract.json").output_contract["width"],
+            SceneContract.from_json(destination.parent / "scene-contract.json").output_contract["height"],
+        ],
         "actual_dimensions": actual_dimensions,
+        "image_settings": {
+            "film_transparent": scene.render.film_transparent,
+            "file_format": scene.render.image_settings.file_format,
+            "color_mode": scene.render.image_settings.color_mode,
+            "color_depth": scene.render.image_settings.color_depth,
+            "use_file_extension": scene.render.use_file_extension,
+        },
         "denoise": scene.cycles.use_denoising,
         "cycles": {
             "device": scene.cycles.device,
@@ -305,10 +484,10 @@ def _render_rgba(
             "exposure": scene.view_settings.exposure,
             "gamma": scene.view_settings.gamma,
         },
-        "blender_version": bpy.app.version_string,
         "render_seconds": round(elapsed, 6),
         "named_shaft_regions": _project_named_shafts(bpy, camera),
-        "shadow_pass_available": True,
+        "shadow_pass_available": fixture_mode,
+        "fixture_mode": fixture_mode,
     }
     return metadata, lights, environment, product_rgba
 
@@ -342,13 +521,29 @@ def finalize_proof(
     ).resolve()
     if output_root.resolve() != expected_root:
         raise ValueError("finalizer output root does not match proof contract")
+    scene_contract = SceneContract.from_json(output_root / "scene-contract.json")
+    shot_id = scene_contract.scene_id
+    expected_rgba = output_root / f"{shot_id}--rgba.png"
+    if not rgba_path.is_absolute() or rgba_path != expected_rgba or rgba_path.is_symlink():
+        raise ValueError("RGBA path is not the exact contracted generation output")
+    metadata_path = output_root / "render-metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    fixture_mode = metadata.get("fixture_mode") is True
+    validated_product = None
+    if product_rgba_path is not None:
+        if not fixture_mode:
+            raise ValueError("product-only temporary path is fixture-only")
+        validated_product = _validate_product_rgba_path(
+            output_root, shot_id, product_rgba_path
+        )
+    elif fixture_mode:
+        raise ValueError("fixture proof QA requires the exact product-only temporary path")
     with Image.open(rgba_path) as loaded:
         source = loaded.convert("RGBA")
         source.load()
     if source.getchannel("A").getextrema()[1] == 0:
         raise ValueError("proof RGBA contains no visible subject pixels")
 
-    shot_id = SceneContract.from_json(output_root / "scene-contract.json").scene_id
     outputs = [rgba_path]
     for background in contract.backgrounds:
         if background == "white":
@@ -370,18 +565,18 @@ def finalize_proof(
         destination = output_root / f"{shot_id}--{background}.png"
         _save_png_once(composite, destination)
         outputs.append(destination)
-    if product_rgba_path is None or not product_rgba_path.is_file():
-        raise ValueError("proof QA requires a product-only Cycles render")
-    with Image.open(product_rgba_path) as loaded_product:
-        product_alpha = loaded_product.convert("RGBA").getchannel("A")
-        product_alpha.load()
-    from PIL import ImageChops
+    if validated_product is not None:
+        with Image.open(validated_product) as loaded_product:
+            product_alpha = loaded_product.convert("RGBA").getchannel("A")
+            product_alpha.load()
+        from PIL import ImageChops
 
-    shadow_alpha = ImageChops.subtract(source.getchannel("A"), product_alpha).point(
-        lambda value: value if value >= 16 else 0
-    )
-    metadata_path = output_root / "render-metadata.json"
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        shadow_alpha = ImageChops.subtract(source.getchannel("A"), product_alpha).point(
+            lambda value: value if value >= 16 else 0
+        )
+    else:
+        product_alpha = source.getchannel("A")
+        shadow_alpha = Image.new("L", source.size, 0)
     metadata["intended_subject_metrics"] = analyze_mask_metrics(product_alpha)
     metadata["physical_shadow_metrics"] = analyze_mask_metrics(shadow_alpha)
     atomic_write_json(metadata_path, metadata)
@@ -395,17 +590,112 @@ def finalize_proof(
             destination = output_root / f"{shot_id}--{name}.png"
             _save_png_once(mask, destination, mode="L")
             outputs.append(destination)
-    product_rgba_path.unlink()
+    if validated_product is not None:
+        validated_product.unlink()
 
-    manifest_path = write_proof_manifest(contract, outputs)
-    contact_path = build_contact_sheet(manifest_path, output_root / "contact-sheet.png")
+    manifest_path = write_proof_manifest(
+        contract, outputs, destination=output_root / ".manifest.pending.json"
+    )
+    contact_path = build_contact_sheet(
+        manifest_path,
+        output_root / ".contact-sheet.pending.png",
+        evidence_path=output_root / ".contact-sheet.pending.json",
+        published_manifest_name="manifest.json",
+        published_output_name="contact-sheet.png",
+    )
     return {
-        "manifest_path": str(manifest_path),
+        "manifest_pending_path": str(manifest_path),
         "manifest_sha256": sha256_file(manifest_path),
-        "contact_sheet_path": str(contact_path),
+        "contact_sheet_pending_path": str(contact_path),
         "contact_sheet_sha256": sha256_file(contact_path),
         "outputs": [str(path) for path in outputs],
     }
+
+
+def _pending_artifact_paths(output_root: Path) -> dict[Path, Path]:
+    return {
+        output_root / pending: output_root / published
+        for pending, published in _PENDING_TO_PUBLISHED.items()
+    }
+
+
+def _cleanup_pending_artifacts(output_root: Path) -> None:
+    for pending in _pending_artifact_paths(output_root):
+        if pending.exists() and pending.is_file() and not pending.is_symlink():
+            pending.unlink()
+
+
+def _publish_pending_artifacts(output_root: Path) -> None:
+    paths = _pending_artifact_paths(output_root)
+    for pending, published in paths.items():
+        if (
+            not pending.is_file()
+            or pending.is_symlink()
+            or pending.parent.resolve() != output_root.resolve()
+            or published.exists()
+        ):
+            raise ValueError("pending proof artifact set is incomplete or unsafe")
+    published_now: list[Path] = []
+    try:
+        # The manifest is the pass marker and is deliberately published last.
+        order = (
+            output_root / ".contact-sheet.pending.png",
+            output_root / ".contact-sheet.pending.json",
+            output_root / ".manifest.pending.json",
+        )
+        for pending in order:
+            published = paths[pending]
+            os.replace(pending, published)
+            published_now.append(published)
+    except Exception:
+        for path in published_now:
+            if path.is_file() and not path.is_symlink():
+                path.unlink()
+        _cleanup_pending_artifacts(output_root)
+        raise
+
+
+def _run_pillow_finalizer(
+    pillow_python: Path,
+    proof_snapshot: Path,
+    asset_root: Path,
+    output_root: Path,
+    rgba_path: Path,
+    product_rgba_path: Path | None,
+) -> dict[str, object]:
+    command = [
+        str(pillow_python),
+        "-m",
+        "scripts.blender.pimm_production.blender_proof_render",
+        "--finalize",
+        "--proof-contract",
+        str(proof_snapshot),
+        "--asset-root",
+        str(asset_root),
+        "--output-root",
+        str(output_root),
+        "--rgba",
+        str(rgba_path),
+    ]
+    if product_rgba_path is not None:
+        command.extend(["--product-rgba", str(product_rgba_path)])
+    result = subprocess.run(
+        command,
+        cwd=Path(__file__).resolve().parents[3],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode:
+        raise ValueError(result.stderr.strip() or result.stdout.strip())
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+    except (IndexError, json.JSONDecodeError) as error:
+        raise ValueError("Pillow finalizer did not return one JSON result") from error
+    if not isinstance(payload, Mapping):
+        raise ValueError("Pillow finalizer result must be an object")
+    return dict(payload)
 
 
 def _run_one(
@@ -413,9 +703,13 @@ def _run_one(
     proof_path: Path,
     asset_root: Path,
     tool_lock: Path,
+    *,
+    fixture_mode: bool,
 ) -> dict[str, object]:
+    output_root: Path | None = None
     try:
         lock, pillow_python = _validate_tools(tool_lock)
+        blender_identity = _validate_executing_blender(bpy, lock)
         contract_bytes = proof_path.read_bytes()
         contract = ProofContract.from_mapping(json.loads(contract_bytes.decode("utf-8")))
         scene_contract_path = (
@@ -452,11 +746,16 @@ def _run_one(
         output_root.mkdir(parents=True, exist_ok=False)
         proof_snapshot = output_root / "proof-contract.json"
         scene_snapshot = output_root / "scene-contract.json"
+        tool_snapshot = output_root / "tool-lock.json"
         proof_snapshot.write_bytes(contract_bytes)
         scene_snapshot.write_bytes(scene_contract_path.read_bytes())
+        tool_snapshot.write_bytes(tool_lock.read_bytes())
 
         scene_context = bpy.context.scene
         camera = scene_context.camera
+        if camera is None:
+            raise ValueError("proof scene has no active camera")
+        authored_before = _capture_authored_settings(bpy)
         camera_location = camera.location.copy()
         camera_rotation = camera.rotation_euler.copy()
         camera_lens = camera.data.lens
@@ -470,8 +769,14 @@ def _run_one(
             "file_format": scene_context.render.image_settings.file_format,
             "color_mode": scene_context.render.image_settings.color_mode,
             "color_depth": scene_context.render.image_settings.color_depth,
+            "use_file_extension": scene_context.render.use_file_extension,
             "view_transform": scene_context.view_settings.view_transform,
             "look": scene_context.view_settings.look,
+            "exposure": scene_context.view_settings.exposure,
+            "gamma": scene_context.view_settings.gamma,
+            "cycles_device": scene_context.cycles.device,
+            "cycles_samples": scene_context.cycles.samples,
+            "cycles_use_denoising": scene_context.cycles.use_denoising,
         }
         lights: list[object] = []
         environment: list[object] = []
@@ -479,7 +784,7 @@ def _run_one(
         try:
             rgba_path = output_root / f"{scene.scene_id}--rgba.png"
             metadata, lights, environment, product_rgba_path = _render_rgba(
-                bpy, contract, rgba_path
+                bpy, contract, rgba_path, fixture_mode=fixture_mode
             )
         finally:
             for obj in environment:
@@ -506,64 +811,78 @@ def _run_one(
             scene_context.render.image_settings.file_format = saved["file_format"]
             scene_context.render.image_settings.color_mode = saved["color_mode"]
             scene_context.render.image_settings.color_depth = saved["color_depth"]
+            scene_context.render.use_file_extension = saved["use_file_extension"]
             scene_context.view_settings.view_transform = saved["view_transform"]
             scene_context.view_settings.look = saved["look"]
+            scene_context.view_settings.exposure = saved["exposure"]
+            scene_context.view_settings.gamma = saved["gamma"]
+            scene_context.cycles.device = saved["cycles_device"]
+            scene_context.cycles.samples = saved["cycles_samples"]
+            scene_context.cycles.use_denoising = saved["cycles_use_denoising"]
         after_render = _snapshot(paths)
+        authored_after = _capture_authored_settings(bpy)
         if before != after_render:
             return {
                 "status": "blocked_fingerprint_drift",
                 "generation_id": contract.generation_id,
                 "errors": ["source/master/material/scene fingerprints changed during render"],
             }
+        if authored_before != authored_after:
+            return {
+                "status": "blocked_settings_drift",
+                "generation_id": contract.generation_id,
+                "errors": ["authored camera/light/world/compositor settings changed during render"],
+            }
         metadata.update(
             {
+                "blender": blender_identity,
                 "proof_contract_sha256": sha256_file(proof_snapshot),
                 "scene_contract_sha256": sha256_file(scene_snapshot),
-                "tool_lock_sha256": sha256_file(tool_lock),
-                "tool_lock": lock,
+                "tool_lock_sha256": sha256_file(tool_snapshot),
                 "fingerprints": {"before": before, "after": after_render},
+                "authored_settings": {
+                    "before": authored_before,
+                    "after": authored_after,
+                },
+                "intended_subject_metrics": {},
+                "physical_shadow_metrics": {},
             }
         )
         atomic_write_json(output_root / "render-metadata.json", metadata)
-        finalizer = subprocess.run(
-            [
-                str(pillow_python),
-                "-m",
-                "scripts.blender.pimm_production.blender_proof_render",
-                "--finalize",
-                "--proof-contract",
-                str(proof_snapshot),
-                "--asset-root",
-                str(asset_root),
-                "--output-root",
-                str(output_root),
-                "--rgba",
-                str(rgba_path),
-                *(
-                    ["--product-rgba", str(product_rgba_path)]
-                    if product_rgba_path is not None
-                    else []
-                ),
-            ],
-            cwd=Path(__file__).resolve().parents[3],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if finalizer.returncode:
+        try:
+            _run_pillow_finalizer(
+                pillow_python,
+                proof_snapshot,
+                asset_root,
+                output_root,
+                rgba_path,
+                product_rgba_path,
+            )
+        except Exception as error:
+            _cleanup_pending_artifacts(output_root)
             return {
                 "status": "failed_finalize",
                 "generation_id": contract.generation_id,
-                "errors": [finalizer.stderr.strip() or finalizer.stdout.strip()],
+                "errors": [f"{type(error).__name__}: {error}"],
             }
-        after_finalize = _snapshot(paths)
-        if before != after_finalize:
+        # This is the final gate. No pass-labelled artifact exists before it.
+        after_prepare = _snapshot(paths)
+        authored_after_prepare = _capture_authored_settings(bpy)
+        if before != after_prepare:
+            _cleanup_pending_artifacts(output_root)
             return {
                 "status": "blocked_fingerprint_drift",
                 "generation_id": contract.generation_id,
                 "errors": ["source/master/material/scene fingerprints changed during proof finalization"],
             }
+        if authored_before != authored_after_prepare:
+            _cleanup_pending_artifacts(output_root)
+            return {
+                "status": "blocked_settings_drift",
+                "generation_id": contract.generation_id,
+                "errors": ["authored camera/light/world/compositor settings changed during proof finalization"],
+            }
+        _publish_pending_artifacts(output_root)
         manifest_path = output_root / "manifest.json"
         contact_path = output_root / "contact-sheet.png"
         return {
@@ -575,6 +894,8 @@ def _run_one(
             "fingerprints_unchanged": True,
         }
     except Exception as error:  # Fail closed and stop the batch after one emitted result.
+        if output_root is not None:
+            _cleanup_pending_artifacts(output_root)
         return {
             "status": "failed",
             "generation_id": getattr(locals().get("contract"), "generation_id", None),
@@ -627,7 +948,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     tool_lock = arguments.tool_lock or asset_root / "manifests" / "free-tools-lock.json"
     exit_code = 0
     for proof_path in arguments.proof_contract:
-        result = _run_one(bpy, proof_path.resolve(), asset_root, tool_lock.resolve())
+        result = _run_one(
+            bpy,
+            proof_path.resolve(),
+            asset_root,
+            tool_lock.resolve(),
+            fixture_mode=arguments.fixture_asset_root is not None,
+        )
         print(RESULT_MARKER + json.dumps(result, sort_keys=True), flush=True)
         if result["status"] != "pass":
             exit_code = 1

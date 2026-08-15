@@ -23,7 +23,14 @@ def _short_hash(value: object) -> str:
     return str(value)[:12]
 
 
-def build_contact_sheet(manifest_path: Path, output_path: Path) -> Path:
+def build_contact_sheet(
+    manifest_path: Path,
+    output_path: Path,
+    *,
+    evidence_path: Path | None = None,
+    published_manifest_name: str | None = None,
+    published_output_name: str | None = None,
+) -> Path:
     """Verify proof hashes, label every cell, and save one contact sheet."""
 
     from PIL import Image, ImageDraw, ImageFont
@@ -31,7 +38,11 @@ def build_contact_sheet(manifest_path: Path, output_path: Path) -> Path:
     manifest_path = Path(manifest_path).resolve()
     output_root = manifest_path.parent
     output_path = require_within(Path(output_path), output_root)
-    evidence_path = output_path.with_name("contact-sheet.json")
+    evidence_path = (
+        output_path.with_name("contact-sheet.json")
+        if evidence_path is None
+        else require_within(Path(evidence_path), output_root)
+    )
     if output_path.exists() or evidence_path.exists():
         raise ValueError("contact sheet output and evidence paths must not preexist")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -135,11 +146,13 @@ def build_contact_sheet(manifest_path: Path, output_path: Path) -> Path:
         "schema": "pimm-proof-contact-sheet/v1",
         "generation_id": manifest["generation_id"],
         "status": manifest["status"],
-        "manifest_path": manifest_path.name,
+        "manifest_path": published_manifest_name or manifest_path.name,
         "manifest_sha256": sha256_file(manifest_path),
-        "contact_sheet_path": output_path.name,
+        "contact_sheet_path": published_output_name or output_path.name,
         "contact_sheet_sha256": sha256_file(output_path),
         "header": {
+            "stage": manifest["stage"],
+            "denoise": manifest["denoise"],
             "scene_sha256": manifest["scene_sha256"],
             "master_sha256": manifest["master_sha256"],
             "material_library_sha256": manifest["material_library_sha256"],

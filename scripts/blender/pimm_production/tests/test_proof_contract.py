@@ -1,13 +1,16 @@
 import dataclasses
 import json
+import os
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from PIL import Image
 
+import scripts.blender.pimm_production.blender_proof_render as render_module
 import scripts.blender.pimm_production.proof_contract as proof_module
 from scripts.blender.pimm_production.contact_sheet import build_contact_sheet
 from scripts.blender.pimm_production.io_contract import sha256_file
@@ -102,7 +105,31 @@ def _run_fixture_proofs(
     scene_path: Path,
     proof_paths: list[Path],
     root: Path,
+    *,
+    inject_drift_after_prepare: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
+    runner = PROOF_RUNNER
+    if inject_drift_after_prepare:
+        runner = root / "inject_proof_drift.py"
+        runner.write_text(
+            "\n".join(
+                [
+                    "from pathlib import Path",
+                    "import sys",
+                    f"sys.path.insert(0, {str(REPO_ROOT)!r})",
+                    "import scripts.blender.pimm_production.blender_proof_render as proof_render",
+                    "original = proof_render._run_pillow_finalizer",
+                    "def injected(*args, **kwargs):",
+                    "    result = original(*args, **kwargs)",
+                    f"    source = Path({str(root / 'sources' / 'PIMM-30G-authoritative-source.step')!r})",
+                    "    source.write_bytes(source.read_bytes() + b'INJECTED-DRIFT')",
+                    "    return result",
+                    "proof_render._run_pillow_finalizer = injected",
+                    "raise SystemExit(proof_render.main())",
+                ]
+            ),
+            encoding="utf-8",
+        )
     command = [
         str(BLENDER),
         "--factory-startup",
@@ -111,7 +138,7 @@ def _run_fixture_proofs(
         "--python-exit-code",
         "1",
         "-P",
-        str(PROOF_RUNNER),
+        str(runner),
         "--",
         "--fixture-asset-root",
         str(root),
@@ -134,6 +161,135 @@ def _run_fixture_proofs(
         if line.startswith(RESULT_MARKER)
     ]
     return result, rows
+
+
+def _fingerprint_record(path: str, sha256: str) -> dict[str, object]:
+    return {"path": path, "bytes": 1, "mtime_ns": 1, "sha256": sha256}
+
+
+def _valid_render_metadata(
+    contract: ProofContract,
+    *,
+    actual_dimensions: list[int] | None = None,
+    named_shaft_regions: dict[str, object] | None = None,
+) -> dict[str, object]:
+    fingerprints = {
+        "source": _fingerprint_record("C:/fixture/source.step", "1" * 64),
+        "master": _fingerprint_record("C:/fixture/master.blend", "2" * 64),
+        "material_library": _fingerprint_record("C:/fixture/material.blend", "3" * 64),
+        "scene": _fingerprint_record("C:/fixture/scene.blend", contract.scene_sha256.upper()),
+    }
+    authored_settings = {
+        "camera": {
+            "name": "CAM_HERO",
+            "location": [4.0, -6.0, 3.0],
+            "rotation_euler": [1.0, 0.0, 0.5],
+            "lens": 50.0,
+        },
+        "lights": [],
+        "world": None,
+        "compositor": {"use_nodes": False, "nodes": [], "links": []},
+    }
+    return {
+        "schema": "pimm-proof-render-metadata/v1",
+        "engine": "CYCLES",
+        "device": "CPU",
+        "blender": {
+            "binary_path": "D:/Blender 5.2/blender.exe",
+            "binary_sha256": "4" * 64,
+            "version": "5.2.0",
+        },
+        "resolution_percentage": contract.resolution_percentage,
+        "base_dimensions": [1200, 1200],
+        "actual_dimensions": actual_dimensions or [300, 300],
+        "image_settings": {
+            "film_transparent": True,
+            "file_format": "PNG",
+            "color_mode": "RGBA",
+            "color_depth": "8",
+            "use_file_extension": True,
+        },
+        "samples": contract.samples,
+        "denoise": contract.denoise,
+        "cycles": {
+            "device": "CPU",
+            "samples": contract.samples,
+            "use_denoising": contract.denoise,
+            "max_bounces": 12,
+            "transparent_max_bounces": 8,
+        },
+        "agx": {
+            "view_transform": "AgX",
+            "look": "Medium High Contrast",
+            "exposure": 0.0,
+            "gamma": 1.0,
+        },
+        "render_seconds": 0.25,
+        "named_shaft_regions": named_shaft_regions or {},
+        "shadow_pass_available": True,
+        "fixture_mode": True,
+        "proof_contract_sha256": "5" * 64,
+        "scene_contract_sha256": "6" * 64,
+        "tool_lock_sha256": "7" * 64,
+        "fingerprints": {"before": fingerprints, "after": fingerprints},
+        "authored_settings": {
+            "before": authored_settings,
+            "after": authored_settings,
+        },
+        "intended_subject_metrics": {
+            "bounds": {"left": 1, "top": 1, "right": 20, "bottom": 14},
+            "nonzero_fraction": 0.5,
+            "unique_values": [0, 255],
+            "unique_value_count": 2,
+        },
+        "physical_shadow_metrics": {
+            "bounds": {"left": 2, "top": 2, "right": 21, "bottom": 15},
+            "nonzero_fraction": 0.25,
+            "unique_values": [0, 255],
+            "unique_value_count": 2,
+        },
+    }
+
+
+def _write_manifest_evidence(
+    root: Path,
+    output_root: Path,
+    contract: ProofContract,
+    scene: SceneContract,
+    metadata: dict[str, object],
+) -> None:
+    del root
+    proof_snapshot = output_root / "proof-contract.json"
+    scene_snapshot = output_root / "scene-contract.json"
+    tool_snapshot = output_root / "tool-lock.json"
+    proof_snapshot.write_text(
+        json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+    )
+    scene_snapshot.write_text(
+        json.dumps(scene.to_mapping(), sort_keys=True), encoding="utf-8"
+    )
+    tool_snapshot.write_text(
+        json.dumps(
+            {
+                "tools": [
+                    {
+                        "id": "blender",
+                        "path": metadata["blender"]["binary_path"],
+                        "sha256": metadata["blender"]["binary_sha256"],
+                        "version": metadata["blender"]["version"],
+                    }
+                ]
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    metadata["proof_contract_sha256"] = sha256_file(proof_snapshot)
+    metadata["scene_contract_sha256"] = sha256_file(scene_snapshot)
+    metadata["tool_lock_sha256"] = sha256_file(tool_snapshot)
+    (output_root / "render-metadata.json").write_text(
+        json.dumps(metadata), encoding="utf-8"
+    )
 
 
 class ProofContractTests(unittest.TestCase):
@@ -201,6 +357,215 @@ class ProofContractTests(unittest.TestCase):
                 errors = validate_proof_contract(contract, scene)
         self.assertIn("generation ID is already in use", "\n".join(errors))
 
+    def test_effective_dimensions_are_exact_and_fractional_rounding_is_rejected(self):
+        scene = scene_contract_fixture()
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            for percentage, expected in ((12.5, (150, 150)), (25, (300, 300))):
+                with self.subTest(percentage=percentage):
+                    contract = dataclasses.replace(
+                        composition_contract(),
+                        resolution_percentage=percentage,
+                    )
+                    _write_scene_contract(root, scene, contract.scene_contract_path)
+                    with patch.object(proof_module, "ASSET_ROOT", root):
+                        errors = validate_proof_contract(contract, scene)
+                    self.assertEqual(errors, [])
+                    self.assertEqual(
+                        proof_module.effective_dimensions(scene, percentage), expected
+                    )
+
+            rounded = dataclasses.replace(
+                composition_contract(), resolution_percentage=12.6
+            )
+            with patch.object(proof_module, "ASSET_ROOT", root):
+                errors = validate_proof_contract(rounded, scene)
+            self.assertIn("non-integral effective dimensions", "\n".join(errors))
+
+    def test_manifest_rejects_incomplete_mixed_or_drifted_evidence(self):
+        mutations = {
+            "missing-engine": "metadata",
+            "fingerprint-drift": "metadata",
+            "settings-mismatch": "metadata",
+            "blender-lock-mismatch": "metadata",
+            "wrong-dimensions": "image",
+            "mixed-shot": "filename",
+            "missing-output": "output",
+        }
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                contract = composition_contract()
+                scene = scene_contract_fixture()
+                _write_scene_contract(root, scene, contract.scene_contract_path)
+                output_root = root / contract.output_root
+                output_root.mkdir(parents=True)
+                outputs: list[Path] = []
+                for background in ("rgba", "white", "checker", "dark"):
+                    if mutation == "missing-output" and background == "dark":
+                        continue
+                    shot_id = (
+                        "pimm-30g--detail--mixed"
+                        if mutation == "mixed-shot" and background == "dark"
+                        else scene.scene_id
+                    )
+                    dimensions = (
+                        (299, 300)
+                        if mutation == "wrong-dimensions" and background == "white"
+                        else (300, 300)
+                    )
+                    path = output_root / f"{shot_id}--{background}.png"
+                    Image.new("RGBA", dimensions, (100, 120, 140, 255)).save(path)
+                    outputs.append(path)
+                metadata = _valid_render_metadata(contract)
+                if mutation == "missing-engine":
+                    metadata.pop("engine")
+                elif mutation == "fingerprint-drift":
+                    metadata["fingerprints"] = json.loads(
+                        json.dumps(metadata["fingerprints"])
+                    )
+                    metadata["fingerprints"]["after"]["source"]["sha256"] = "9" * 64
+                elif mutation == "settings-mismatch":
+                    metadata["samples"] = contract.samples - 1
+                _write_manifest_evidence(root, output_root, contract, scene, metadata)
+                if mutation == "blender-lock-mismatch":
+                    metadata["blender"]["binary_sha256"] = "8" * 64
+                    (output_root / "render-metadata.json").write_text(
+                        json.dumps(metadata), encoding="utf-8"
+                    )
+
+                with patch.object(proof_module, "ASSET_ROOT", root):
+                    with self.assertRaises(ValueError):
+                        write_proof_manifest(contract, outputs)
+
+    def test_standalone_finalizer_rejects_external_product_temp_and_preserves_it(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene = scene_contract_fixture()
+            contract = material_contract(["white", "checker", "dark"], True)
+            output_root = root / contract.output_root
+            output_root.mkdir(parents=True)
+            proof_path = output_root / "proof-contract.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+            _write_scene_contract(root, scene, contract.scene_contract_path)
+            (output_root / "scene-contract.json").write_text(
+                json.dumps(scene.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+            rgba = output_root / f"{scene.scene_id}--rgba.png"
+            Image.new("RGBA", (300, 300), (90, 110, 130, 255)).save(rgba)
+            (output_root / "render-metadata.json").write_text(
+                json.dumps(_valid_render_metadata(contract)), encoding="utf-8"
+            )
+            external = root / f".{scene.scene_id}--product-only.tmp.png"
+            Image.new("RGBA", (300, 300), (90, 110, 130, 255)).save(external)
+            before = sha256_file(external)
+
+            with self.assertRaisesRegex(ValueError, "product-only temporary path"):
+                render_module.finalize_proof(
+                    proof_path, output_root, rgba, root, external
+                )
+
+            self.assertTrue(external.is_file())
+            self.assertEqual(sha256_file(external), before)
+            rgba_before = sha256_file(rgba)
+            with self.assertRaisesRegex(ValueError, "product-only temporary path"):
+                render_module.finalize_proof(proof_path, output_root, rgba, root, rgba)
+            self.assertEqual(sha256_file(rgba), rgba_before)
+
+            exact_hidden = output_root / f".{scene.scene_id}--product-only.tmp.png"
+            os.link(external, exact_hidden)
+            with self.assertRaisesRegex(ValueError, "product-only temporary path"):
+                render_module.finalize_proof(
+                    proof_path, output_root, rgba, root, exact_hidden
+                )
+            self.assertTrue(exact_hidden.is_file())
+            self.assertEqual(sha256_file(external), before)
+            self.assertFalse((output_root / "manifest.json").exists())
+
+    def test_canonical_mode_never_calls_fixture_setup_and_rejects_fixture_roles(self):
+        clean_bpy = SimpleNamespace(data=SimpleNamespace(objects=[]))
+        with patch.object(
+            render_module,
+            "_frame_fixture_scene",
+            side_effect=AssertionError("fixture setup called"),
+        ) as fixture_setup:
+            self.assertEqual(
+                render_module._prepare_render_environment(
+                    clean_bpy, object(), fixture_mode=False
+                ),
+                ([], []),
+            )
+            fixture_setup.assert_not_called()
+
+        fixture_object = SimpleNamespace(
+            type="MESH",
+            library=None,
+            name="PIMM_ENV_SHADOW_CATCHER",
+            get=lambda name, default=None: (
+                "shadow-catcher"
+                if name == "pimm_proof_environment_role"
+                else default
+            ),
+        )
+        dirty_bpy = SimpleNamespace(data=SimpleNamespace(objects=[fixture_object]))
+        with self.assertRaisesRegex(ValueError, "fixture-only"):
+            render_module._prepare_render_environment(
+                dirty_bpy, object(), fixture_mode=False
+            )
+
+    def test_executing_blender_must_match_exact_locked_path_hash_and_version(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            locked_binary = root / "blender.exe"
+            locked_binary.write_bytes(b"PINNED-BLENDER")
+            lock = {
+                "tools": [
+                    {
+                        "id": "blender",
+                        "path": str(locked_binary),
+                        "sha256": sha256_file(locked_binary),
+                        "version": "5.2.0",
+                    }
+                ]
+            }
+            exact = SimpleNamespace(
+                app=SimpleNamespace(
+                    binary_path=str(locked_binary), version_string="5.2.0 LTS"
+                )
+            )
+            self.assertEqual(
+                render_module._validate_executing_blender(exact, lock),
+                {
+                    "binary_path": str(locked_binary.resolve()),
+                    "binary_sha256": sha256_file(locked_binary),
+                    "version": "5.2.0",
+                },
+            )
+
+            other_binary = root / "other-blender.exe"
+            other_binary.write_bytes(b"PINNED-BLENDER")
+            mutations = {
+                "path": SimpleNamespace(
+                    app=SimpleNamespace(
+                        binary_path=str(other_binary), version_string="5.2.0 LTS"
+                    )
+                ),
+                "version": SimpleNamespace(
+                    app=SimpleNamespace(
+                        binary_path=str(locked_binary), version_string="5.1.0"
+                    )
+                ),
+            }
+            for name, fake_bpy in mutations.items():
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    render_module._validate_executing_blender(fake_bpy, lock)
+            drifted_lock = json.loads(json.dumps(lock))
+            drifted_lock["tools"][0]["sha256"] = "0" * 64
+            with self.assertRaises(ValueError):
+                render_module._validate_executing_blender(exact, drifted_lock)
+
     def test_manifest_and_contact_sheet_are_hash_verified_and_do_not_mutate_sources(self):
         contract = composition_contract()
         with TemporaryDirectory() as root_text:
@@ -215,19 +580,20 @@ class ProofContractTests(unittest.TestCase):
                 "dark": (24, 24, 24, 255),
             }.items():
                 path = output_root / f"{scene_contract_fixture().scene_id}--{background}.png"
-                Image.new("RGBA", (24, 16), color).save(path)
+                Image.new("RGBA", (300, 300), color).save(path)
                 outputs.append(path)
-            (output_root / "render-metadata.json").write_text(
-                json.dumps(
-                    {
-                        "engine": "CYCLES",
-                        "resolution_percentage": contract.resolution_percentage,
-                        "samples": contract.samples,
-                        "denoise": contract.denoise,
-                        "named_shaft_regions": {"SHAFT_FIXTURE": [0.25, 0.25, 0.75, 0.75]},
-                    }
+            _write_scene_contract(root, scene_contract_fixture(), contract.scene_contract_path)
+            _write_manifest_evidence(
+                root,
+                output_root,
+                contract,
+                scene_contract_fixture(),
+                _valid_render_metadata(
+                    contract,
+                    named_shaft_regions={
+                        "SHAFT_FIXTURE": [0.25, 0.25, 0.75, 0.75]
+                    },
                 ),
-                encoding="utf-8",
             )
             before = {path: sha256_file(path) for path in outputs}
             with patch.object(proof_module, "ASSET_ROOT", root):
@@ -242,13 +608,15 @@ class ProofContractTests(unittest.TestCase):
             self.assertEqual(evidence["generation_id"], contract.generation_id)
             self.assertEqual(evidence["manifest_sha256"], sha256_file(manifest_path))
             self.assertEqual(evidence["contact_sheet_sha256"], sha256_file(sheet_path))
+            self.assertEqual(evidence["header"]["stage"], contract.stage)
+            self.assertIs(evidence["header"]["denoise"], True)
             self.assertEqual(len(evidence["cells"]), 4)
             self.assertTrue(
                 manifest["qa"]["named_shaft_reflection"]["white"]["present"]
             )
             with Image.open(sheet_path) as sheet:
-                self.assertGreater(sheet.width, 24)
-                self.assertGreater(sheet.height, 16)
+                self.assertGreater(sheet.width, 300)
+                self.assertGreater(sheet.height, 300)
 
             manifest["outputs"][0]["sha256"] = "0" * 64
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -343,6 +711,13 @@ class ProofContractTests(unittest.TestCase):
                     self.assertIsNotNone(manifest["qa"]["intended_subject"]["bounds"])
                 self.assertTrue((output_root / "contact-sheet.png").is_file())
                 self.assertTrue((output_root / "contact-sheet.json").is_file())
+                evidence = json.loads(
+                    (output_root / "contact-sheet.json").read_text(encoding="utf-8")
+                )
+                self.assertEqual(evidence["header"]["stage"], contract.stage)
+                self.assertEqual(evidence["header"]["denoise"], contract.denoise)
+                for pending_name in render_module._PENDING_TO_PUBLISHED:
+                    self.assertFalse((output_root / pending_name).exists())
                 for entry in manifest["outputs"]:
                     path = output_root / entry["path"]
                     self.assertEqual(entry["sha256"], sha256_file(path))
@@ -400,6 +775,52 @@ class ProofContractTests(unittest.TestCase):
             self.assertEqual(rows[0]["status"], "blocked_scene_drift")
             self.assertFalse((root / first.output_root).exists())
             self.assertFalse((root / second.output_root).exists())
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_injected_drift_after_prepare_publishes_no_pass_artifacts(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, scene = build_scene_fixture("valid", root)
+            source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+            scene_contract_path = _write_scene_contract(
+                root, scene, "scenes/fixtures/scene.json"
+            )
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                scene_sha256=sha256_file(scene_path),
+                master_sha256=scene.master_sha256,
+                material_library_sha256=scene.material_library_sha256,
+                resolution_percentage=12.5,
+                samples=16,
+            )
+            proof_path = root / "scenes" / "fixtures" / "drift-proof.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_drift_after_prepare=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
+            self.assertEqual(rows[0]["status"], "blocked_fingerprint_drift")
+            output_root = root / contract.output_root
+            for name in (
+                "manifest.json",
+                "contact-sheet.png",
+                "contact-sheet.json",
+                ".manifest.pending.json",
+                ".contact-sheet.pending.png",
+                ".contact-sheet.pending.json",
+            ):
+                self.assertFalse((output_root / name).exists(), msg=name)
 
 
 if __name__ == "__main__":
