@@ -312,6 +312,16 @@ def _stable_value(value: object) -> object:
         return value
     if isinstance(value, float):
         return round(value, 12)
+    if isinstance(value, Mapping):
+        serialized = {
+            str(key): _stable_value(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+        return (
+            serialized
+            if all(item is not _UNSUPPORTED for item in serialized.values())
+            else _UNSUPPORTED
+        )
     if isinstance(value, (list, tuple)):
         serialized = [_stable_value(item) for item in value]
         return serialized if all(item is not _UNSUPPORTED for item in serialized) else _UNSUPPORTED
@@ -693,7 +703,104 @@ def _pointer_property_records(owner: object) -> dict[str, object]:
     return dict(sorted(result.items()))
 
 
-def _modifier_record(modifier: object) -> dict[str, object]:
+def _dependency_value_record(
+    value: object,
+    image_cache: dict[str, dict[str, object]],
+    *,
+    ancestry: frozenset[str] = frozenset(),
+) -> dict[str, object]:
+    rna_identifier = str(getattr(getattr(value, "bl_rna", None), "identifier", ""))
+    if rna_identifier == "Image":
+        return {"kind": "image", "value": _image_identity(value, image_cache)}
+    if "NodeTree" in rna_identifier or hasattr(value, "nodes") and hasattr(value, "links"):
+        return {
+            "kind": "node_tree",
+            "value": _node_tree_record(
+                value, ancestry=ancestry, image_cache=image_cache
+            ),
+        }
+    if rna_identifier and hasattr(value, "name"):
+        return {"kind": "identity", "value": _data_identity(value)}
+    stable = _stable_value(value)
+    if stable is _UNSUPPORTED:
+        raise ValueError(
+            f"unsupported render-affecting modifier dependency: {type(value).__name__}"
+        )
+    return {"kind": "value", "value": stable}
+
+
+def _modifier_id_property_records(
+    modifier: object,
+    image_cache: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    try:
+        keys = sorted(str(key) for key in modifier.keys() if str(key) != "_RNA_UI")
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        keys = []
+    records: list[dict[str, object]] = []
+    for key in keys:
+        try:
+            value = modifier[key]
+        except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as error:
+            raise ValueError(f"modifier ID-property is unreadable: {modifier.name}.{key}") from error
+        records.append(
+            {"name": key, "dependency": _dependency_value_record(value, image_cache)}
+        )
+    return records
+
+
+def _modifier_interface_input_records(
+    modifier: object,
+    image_cache: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    node_group = getattr(modifier, "node_group", None)
+    interface = getattr(node_group, "interface", None)
+    items = getattr(interface, "items_tree", ())
+    inputs = getattr(getattr(modifier, "properties", None), "inputs", None)
+    records: list[dict[str, object]] = []
+    for index, item in enumerate(items):
+        if str(getattr(item, "item_type", "")) != "SOCKET" or str(
+            getattr(item, "in_out", "")
+        ) != "INPUT":
+            continue
+        identifier = str(getattr(item, "identifier", ""))
+        if not identifier:
+            raise ValueError(f"Geometry Nodes modifier input lacks an identifier: {modifier.name}")
+        binding = getattr(inputs, identifier, None) if inputs is not None else None
+        if binding is None:
+            raise ValueError(
+                f"Geometry Nodes modifier input is unavailable: {modifier.name}.{identifier}"
+            )
+        references: dict[str, object] = {}
+        for prop in getattr(getattr(binding, "bl_rna", None), "properties", ()):
+            if getattr(prop, "type", None) != "POINTER" or prop.identifier == "rna_type":
+                continue
+            try:
+                pointer = getattr(binding, prop.identifier)
+            except (AttributeError, RuntimeError, TypeError, ValueError) as error:
+                raise ValueError(
+                    f"Geometry Nodes modifier pointer is unreadable: {modifier.name}.{identifier}.{prop.identifier}"
+                ) from error
+            references[str(prop.identifier)] = _dependency_value_record(
+                pointer, image_cache
+            )
+        records.append(
+            {
+                "index": index,
+                "identifier": identifier,
+                "name": str(getattr(item, "name", "")),
+                "socket_type": str(getattr(item, "socket_type", "")),
+                "properties": _rna_scalar_properties(binding),
+                "references": dict(sorted(references.items())),
+            }
+        )
+    return records
+
+
+def _modifier_record(
+    modifier: object,
+    image_cache: dict[str, dict[str, object]],
+) -> dict[str, object]:
     return {
         "name": modifier.name,
         "type": modifier.type,
@@ -701,6 +808,11 @@ def _modifier_record(modifier: object) -> dict[str, object]:
             modifier, exclude=frozenset({"name", "type"})
         ),
         "references": _pointer_property_records(modifier),
+        "id_properties": _modifier_id_property_records(modifier, image_cache),
+        "interface_inputs": _modifier_interface_input_records(modifier, image_cache),
+        "node_group": _node_tree_record(
+            getattr(modifier, "node_group", None), image_cache=image_cache
+        ),
     }
 
 
@@ -718,7 +830,10 @@ def _material_record(
     }
 
 
-def _object_record(obj: object) -> dict[str, object]:
+def _object_record(
+    obj: object,
+    image_cache: dict[str, dict[str, object]],
+) -> dict[str, object]:
     data = getattr(obj, "data", None)
     data_record: dict[str, object] | None = None
     if data is not None:
@@ -750,8 +865,96 @@ def _object_record(obj: object) -> dict[str, object]:
             key=lambda item: json.dumps(item, sort_keys=True),
         ),
         "material_slots": material_slots,
-        "modifiers": [_modifier_record(modifier) for modifier in obj.modifiers],
+        "modifiers": [
+            _modifier_record(modifier, image_cache) for modifier in obj.modifiers
+        ],
     }
+
+
+def _collection_tree_record(
+    collection: object,
+    *,
+    path: tuple[str, ...],
+    ancestry: frozenset[str] = frozenset(),
+) -> dict[str, object]:
+    identity = _data_identity(collection)
+    key = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    if key in ancestry:
+        return {
+            "identity": identity,
+            "path": list(path),
+            "recursive_reference": True,
+        }
+    children = sorted(
+        collection.children,
+        key=lambda child: json.dumps(
+            _data_identity(child), sort_keys=True, separators=(",", ":")
+        ),
+    )
+    return {
+        "identity": identity,
+        "path": list(path),
+        "hide_render": bool(getattr(collection, "hide_render", False)),
+        "hide_viewport": bool(getattr(collection, "hide_viewport", False)),
+        "properties": _rna_scalar_properties(collection),
+        "objects": sorted(
+            (_data_identity(obj) for obj in collection.objects),
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+        ),
+        "children": [
+            _collection_tree_record(
+                child,
+                path=path + (str(child.name),),
+                ancestry=ancestry | {key},
+            )
+            for child in children
+        ],
+    }
+
+
+def _layer_collection_record(
+    layer_collection: object,
+    *,
+    path: tuple[str, ...],
+) -> dict[str, object]:
+    collection = layer_collection.collection
+    children = sorted(
+        layer_collection.children,
+        key=lambda child: json.dumps(
+            _data_identity(child.collection), sort_keys=True, separators=(",", ":")
+        ),
+    )
+    return {
+        "path": list(path),
+        "collection": _data_identity(collection),
+        "exclude": bool(layer_collection.exclude),
+        "holdout": bool(layer_collection.holdout),
+        "indirect_only": bool(layer_collection.indirect_only),
+        "hide_viewport": bool(layer_collection.hide_viewport),
+        "children": [
+            _layer_collection_record(
+                child, path=path + (str(child.collection.name),)
+            )
+            for child in children
+        ],
+    }
+
+
+def _dependency_sha256(settings: Mapping[str, object]) -> str:
+    payload = {
+        field: settings[field]
+        for field in (
+            "objects",
+            "materials",
+            "images",
+            "collection_tree",
+            "view_layers",
+        )
+    }
+    encoded = json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest().upper()
 
 
 def _capture_authored_settings(bpy: Any) -> dict[str, object]:
@@ -838,11 +1041,15 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
             "name": layer.name,
             "properties": _rna_scalar_properties(layer, exclude=frozenset({"name"})),
             "material_override": _data_identity(layer.material_override),
+            "layer_collection": _layer_collection_record(
+                layer.layer_collection,
+                path=(str(layer.layer_collection.collection.name),),
+            ),
         }
         for layer in sorted(scene.view_layers, key=lambda item: item.name)
     ]
     objects = [
-        _object_record(obj)
+        _object_record(obj, image_cache)
         for obj in sorted(
             scene.objects,
             key=lambda item: (
@@ -863,7 +1070,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
         _material_record(used_materials[key], image_cache)
         for key in sorted(used_materials)
     ]
-    return {
+    settings: dict[str, object] = {
         "camera": camera_record,
         "lights": lights,
         "world": world_record,
@@ -883,7 +1090,12 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
         "objects": objects,
         "materials": materials,
         "images": [image_cache[key] for key in sorted(image_cache)],
+        "collection_tree": _collection_tree_record(
+            scene.collection, path=(str(scene.collection.name),)
+        ),
     }
+    settings["dependency_sha256"] = _dependency_sha256(settings)
+    return settings
 
 
 def _expected_product_rgba_path(output_root: Path, shot_id: str) -> Path:

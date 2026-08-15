@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
+import hashlib
 import json
+import math
+import os
 from pathlib import Path, PurePosixPath
 import re
 from statistics import fmean, pstdev
@@ -92,6 +95,8 @@ _AUTHORED_SETTINGS_FIELDS = {
     "objects",
     "materials",
     "images",
+    "collection_tree",
+    "dependency_sha256",
 }
 _CAMERA_SETTINGS_FIELDS = {
     "identity",
@@ -109,6 +114,124 @@ _CAMERA_SETTINGS_FIELDS = {
 }
 _COMPOSITOR_SETTINGS_FIELDS = {"enabled", "node_tree"}
 _MASK_METRIC_FIELDS = {"bounds", "nonzero_fraction", "unique_values", "unique_value_count"}
+_IDENTITY_FIELDS = {"name", "type", "library"}
+_TRANSFORM_FIELDS = {
+    "location",
+    "rotation_mode",
+    "rotation_euler",
+    "scale",
+    "matrix_world",
+    "parent",
+}
+_NODE_TREE_FIELDS = {"identity", "nodes", "links"}
+_NODE_TREE_REFERENCE_FIELDS = {"identity", "recursive_reference"}
+_NODE_FIELDS = {"name", "type", "mute", "properties", "inputs", "outputs", "data"}
+_SOCKET_FIELDS = {"name", "identifier", "type", "enabled", "is_linked", "default"}
+_LINK_FIELDS = {"from_node", "from_socket", "to_node", "to_socket"}
+_GEOMETRY_FIELDS = {"sha256", "vertices", "edges", "loops", "polygons"}
+_OBJECT_FIELDS = {
+    "identity",
+    "object_type",
+    "data",
+    "transform",
+    "hide_render",
+    "hide_viewport",
+    "properties",
+    "collections",
+    "material_slots",
+    "modifiers",
+}
+_OBJECT_DATA_FIELDS = {"identity", "properties"}
+_MATERIAL_SLOT_FIELDS = {"index", "name", "link", "material"}
+_MODIFIER_FIELDS = {
+    "name",
+    "type",
+    "properties",
+    "references",
+    "id_properties",
+    "interface_inputs",
+    "node_group",
+}
+_ID_PROPERTY_FIELDS = {"name", "dependency"}
+_DEPENDENCY_VALUE_FIELDS = {"kind", "value"}
+_INTERFACE_INPUT_FIELDS = {
+    "index",
+    "identifier",
+    "name",
+    "socket_type",
+    "properties",
+    "references",
+}
+_MATERIAL_FIELDS = {"identity", "properties", "node_tree"}
+_IMAGE_FIELDS = {
+    "filepath",
+    "source",
+    "size",
+    "channels",
+    "depth",
+    "is_float",
+    "file_format",
+    "alpha_mode",
+    "colorspace",
+    "external_files",
+    "packed_files",
+    "pixels",
+}
+_EXTERNAL_IMAGE_FIELDS = {
+    "path",
+    "resolved_path",
+    "bytes",
+    "mtime_ns",
+    "ctime_ns",
+    "device",
+    "inode",
+    "links",
+    "sha256",
+}
+_PACKED_IMAGE_FIELDS = {"index", "filepath", "view", "tile_number", "bytes", "sha256"}
+_PIXEL_FIELDS = {"encoding", "values", "sha256"}
+_COLLECTION_FIELDS = {
+    "identity",
+    "path",
+    "hide_render",
+    "hide_viewport",
+    "properties",
+    "objects",
+    "children",
+}
+_COLLECTION_REFERENCE_FIELDS = {"identity", "path", "recursive_reference"}
+_VIEW_LAYER_FIELDS = {"name", "properties", "material_override", "layer_collection"}
+_LAYER_COLLECTION_FIELDS = {
+    "path",
+    "collection",
+    "exclude",
+    "holdout",
+    "indirect_only",
+    "hide_viewport",
+    "children",
+}
+_OBJECT_TYPES = frozenset(
+    {
+        "MESH",
+        "CURVE",
+        "SURFACE",
+        "META",
+        "FONT",
+        "CURVES",
+        "POINTCLOUD",
+        "VOLUME",
+        "GREASEPENCIL",
+        "ARMATURE",
+        "LATTICE",
+        "EMPTY",
+        "LIGHT",
+        "LIGHT_PROBE",
+        "CAMERA",
+        "SPEAKER",
+    }
+)
+_IMAGE_SOURCES = frozenset({"FILE", "SEQUENCE", "MOVIE", "GENERATED", "VIEWER", "TILED"})
+_DEPENDENCY_KINDS = frozenset({"value", "identity", "image", "node_tree"})
 
 
 @dataclass(frozen=True)
@@ -478,6 +601,663 @@ def _validate_sha256(value: object, label: str) -> str:
     return value.upper()
 
 
+def _require_string(value: object, label: str, *, allow_empty: bool = False) -> str:
+    if not isinstance(value, str) or (not allow_empty and not value):
+        raise ValueError(f"{label} must be a {'string' if allow_empty else 'nonempty string'}")
+    return value
+
+
+def _require_integer(value: object, label: str, *, minimum: int = 0) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+        raise ValueError(f"{label} must be an integer >= {minimum}")
+    return value
+
+
+def _require_number(value: object, label: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(float(value))
+    ):
+        raise ValueError(f"{label} must be a finite number")
+    return float(value)
+
+
+def _validate_json_value(value: object, label: str) -> None:
+    if value is None or isinstance(value, (bool, int, str)):
+        return
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"{label} contains a non-finite number")
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_json_value(item, f"{label}[{index}]")
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _require_string(key, f"{label} key")
+            _validate_json_value(item, f"{label}.{key}")
+        return
+    raise ValueError(f"{label} contains an unsupported value type")
+
+
+def _validate_properties(value: object, label: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be an object")
+    for key, item in value.items():
+        _require_string(key, f"{label} key")
+        _validate_json_value(item, f"{label}.{key}")
+    return value
+
+
+def _canonical_key(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _validate_sorted_unique(
+    values: object,
+    label: str,
+    key,
+) -> list[object]:
+    if not isinstance(values, list):
+        raise ValueError(f"{label} must be a list")
+    keys = [key(item) for item in values]
+    if keys != sorted(keys) or len(keys) != len(set(keys)):
+        raise ValueError(f"{label} must be deterministically sorted with unique identities")
+    return values
+
+
+def _validate_absolute_safe_path(value: object, label: str) -> str:
+    path_text = _require_string(value, label)
+    path = Path(path_text)
+    if not path.is_absolute() or path != Path(os.path.abspath(path_text)):
+        raise ValueError(f"{label} must be one absolute lexical canonical path")
+    return path_text
+
+
+def _identity_fields(value: Mapping[str, object]) -> set[str]:
+    return _IDENTITY_FIELDS | ({"pimm_stable_id"} if "pimm_stable_id" in value else set())
+
+
+def _validate_identity(
+    value: object,
+    label: str,
+    *,
+    allow_none: bool = False,
+    allow_empty_name: bool = False,
+) -> Mapping[str, object] | None:
+    if value is None and allow_none:
+        return None
+    if not isinstance(value, Mapping) or set(value) != _identity_fields(value):
+        raise ValueError(f"{label} must be an exact data-block identity")
+    _require_string(value["name"], f"{label} name", allow_empty=allow_empty_name)
+    _require_string(value["type"], f"{label} type")
+    library = value["library"]
+    if library is not None:
+        _validate_absolute_safe_path(library, f"{label} library")
+    if "pimm_stable_id" in value:
+        _require_string(value["pimm_stable_id"], f"{label} pimm_stable_id")
+    return value
+
+
+def _require_identity_type(
+    identity: Mapping[str, object] | None,
+    expected: str,
+    label: str,
+) -> None:
+    if identity is None or identity["type"] != expected:
+        raise ValueError(f"{label} identity type must equal {expected}")
+
+
+def _validate_vector(value: object, length: int, label: str) -> None:
+    if not isinstance(value, list) or len(value) != length:
+        raise ValueError(f"{label} must contain exactly {length} numbers")
+    for index, item in enumerate(value):
+        _require_number(item, f"{label}[{index}]")
+
+
+def _validate_transform(value: object, label: str) -> None:
+    transform = _require_exact_mapping(value, _TRANSFORM_FIELDS, label)
+    _validate_vector(transform["location"], 3, f"{label} location")
+    _require_string(transform["rotation_mode"], f"{label} rotation_mode")
+    _validate_vector(transform["rotation_euler"], 3, f"{label} rotation_euler")
+    _validate_vector(transform["scale"], 3, f"{label} scale")
+    _validate_vector(transform["matrix_world"], 16, f"{label} matrix_world")
+    parent = _validate_identity(
+        transform["parent"], f"{label} parent", allow_none=True
+    )
+    if parent is not None:
+        _require_identity_type(parent, "Object", f"{label} parent")
+
+
+def _validate_socket(value: object, label: str) -> None:
+    socket = _require_exact_mapping(value, _SOCKET_FIELDS, label)
+    _require_string(socket["name"], f"{label} name", allow_empty=True)
+    _require_string(socket["identifier"], f"{label} identifier", allow_empty=True)
+    _require_string(socket["type"], f"{label} type")
+    if not isinstance(socket["enabled"], bool) or not isinstance(socket["is_linked"], bool):
+        raise ValueError(f"{label} enabled/is_linked must be boolean")
+    _validate_json_value(socket["default"], f"{label} default")
+
+
+def _validate_image(value: object, label: str) -> None:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be an image dependency object")
+    identity_fields = _identity_fields(value)
+    if set(value) != identity_fields | _IMAGE_FIELDS:
+        raise ValueError(f"{label} has missing or unknown image fields")
+    identity = {field: value[field] for field in identity_fields}
+    validated_identity = _validate_identity(identity, f"{label} identity")
+    _require_identity_type(validated_identity, "Image", label)
+    _require_string(value["filepath"], f"{label} filepath", allow_empty=True)
+    source = _require_string(value["source"], f"{label} source")
+    if source not in _IMAGE_SOURCES:
+        raise ValueError(f"{label} source is not a supported Blender image source")
+    size = value["size"]
+    if not isinstance(size, list) or len(size) != 2:
+        raise ValueError(f"{label} size must contain two integers")
+    for index, item in enumerate(size):
+        _require_integer(item, f"{label} size[{index}]")
+    for field in ("channels", "depth"):
+        _require_integer(value[field], f"{label} {field}")
+    if not isinstance(value["is_float"], bool):
+        raise ValueError(f"{label} is_float must be boolean")
+    for field in ("file_format", "alpha_mode", "colorspace"):
+        _require_string(value[field], f"{label} {field}", allow_empty=True)
+    external_files = value["external_files"]
+    if not isinstance(external_files, list):
+        raise ValueError(f"{label} external_files must be a list")
+    external_keys: list[str] = []
+    for index, raw in enumerate(external_files):
+        record = _require_exact_mapping(
+            raw, _EXTERNAL_IMAGE_FIELDS, f"{label} external_files[{index}]"
+        )
+        path = _validate_absolute_safe_path(
+            record["path"], f"{label} external_files[{index}] path"
+        )
+        resolved = _validate_absolute_safe_path(
+            record["resolved_path"], f"{label} external_files[{index}] resolved_path"
+        )
+        for field in ("bytes", "mtime_ns", "ctime_ns", "device", "inode"):
+            _require_integer(record[field], f"{label} external_files[{index}] {field}")
+        _require_integer(record["links"], f"{label} external_files[{index}] links", minimum=1)
+        _validate_sha256(record["sha256"], f"{label} external_files[{index}]")
+        external_keys.append(_canonical_key([path, resolved]))
+    if external_keys != sorted(external_keys) or len(external_keys) != len(set(external_keys)):
+        raise ValueError(f"{label} external_files must be sorted and unique")
+    packed_files = value["packed_files"]
+    if not isinstance(packed_files, list):
+        raise ValueError(f"{label} packed_files must be a list")
+    for index, raw in enumerate(packed_files):
+        record = _require_exact_mapping(
+            raw, _PACKED_IMAGE_FIELDS, f"{label} packed_files[{index}]"
+        )
+        if record["index"] != index:
+            raise ValueError(f"{label} packed file indices must be contiguous")
+        _require_string(record["filepath"], f"{label} packed filepath", allow_empty=True)
+        for field in ("view", "tile_number", "bytes"):
+            _require_integer(record[field], f"{label} packed {field}")
+        _validate_sha256(record["sha256"], f"{label} packed file")
+    pixels = _require_exact_mapping(value["pixels"], _PIXEL_FIELDS, f"{label} pixels")
+    if pixels["encoding"] != "float32-little-endian":
+        raise ValueError(f"{label} pixel encoding must be float32-little-endian")
+    _require_integer(pixels["values"], f"{label} pixel values")
+    _validate_sha256(pixels["sha256"], f"{label} pixels")
+
+
+def _validate_dependency_value(value: object, label: str) -> None:
+    record = _require_exact_mapping(value, _DEPENDENCY_VALUE_FIELDS, label)
+    kind = record["kind"]
+    if kind not in _DEPENDENCY_KINDS:
+        raise ValueError(f"{label} kind is invalid")
+    dependency = record["value"]
+    if kind == "value":
+        _validate_json_value(dependency, f"{label} value")
+    elif kind == "identity":
+        _validate_identity(dependency, f"{label} identity", allow_none=True, allow_empty_name=True)
+    elif kind == "image":
+        _validate_image(dependency, f"{label} image")
+    else:
+        _validate_node_tree(dependency, f"{label} node_tree")
+
+
+def _validate_pointer_mapping(value: object, label: str) -> None:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be an object")
+    for name, dependency in value.items():
+        _require_string(name, f"{label} property")
+        if dependency is None:
+            continue
+        if name == "image" or isinstance(dependency, Mapping) and "source" in dependency:
+            _validate_image(dependency, f"{label}.{name}")
+        elif name == "node_tree" or isinstance(dependency, Mapping) and (
+            "nodes" in dependency or "recursive_reference" in dependency
+        ):
+            _validate_node_tree(dependency, f"{label}.{name}")
+        else:
+            _validate_identity(
+                dependency, f"{label}.{name}", allow_empty_name=True
+            )
+
+
+def _validate_node_tree(value: object, label: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be null or an exact node tree")
+    if set(value) == _NODE_TREE_REFERENCE_FIELDS:
+        identity = _validate_identity(value["identity"], f"{label} identity")
+        if identity is None or not str(identity["type"]).endswith("NodeTree"):
+            raise ValueError(f"{label} identity type must be a Blender NodeTree")
+        if value["recursive_reference"] is not True:
+            raise ValueError(f"{label} recursive_reference must equal true")
+        return
+    tree = _require_exact_mapping(value, _NODE_TREE_FIELDS, label)
+    identity = _validate_identity(tree["identity"], f"{label} identity")
+    if identity is None or not str(identity["type"]).endswith("NodeTree"):
+        raise ValueError(f"{label} identity type must be a Blender NodeTree")
+    nodes = _validate_sorted_unique(
+        tree["nodes"], label + " nodes", lambda item: _canonical_key(
+            [item.get("name"), item.get("type")]
+        ) if isinstance(item, Mapping) else ""
+    )
+    node_names: set[str] = set()
+    for index, raw in enumerate(nodes):
+        node = _require_exact_mapping(raw, _NODE_FIELDS, f"{label} nodes[{index}]")
+        name = _require_string(node["name"], f"{label} node name")
+        if name in node_names:
+            raise ValueError(f"{label} node names must be unique")
+        node_names.add(name)
+        _require_string(node["type"], f"{label} node type")
+        if not isinstance(node["mute"], bool):
+            raise ValueError(f"{label} node mute must be boolean")
+        _validate_properties(node["properties"], f"{label} node properties")
+        for socket_field in ("inputs", "outputs"):
+            sockets = node[socket_field]
+            if not isinstance(sockets, list):
+                raise ValueError(f"{label} node {socket_field} must be a list")
+            for socket_index, socket in enumerate(sockets):
+                _validate_socket(
+                    socket, f"{label} node {name} {socket_field}[{socket_index}]"
+                )
+        _validate_pointer_mapping(node["data"], f"{label} node {name} data")
+    links = _validate_sorted_unique(
+        tree["links"], label + " links", lambda item: _canonical_key(
+            [
+                item.get("from_node"),
+                item.get("from_socket"),
+                item.get("to_node"),
+                item.get("to_socket"),
+            ]
+        ) if isinstance(item, Mapping) else ""
+    )
+    for index, raw in enumerate(links):
+        link = _require_exact_mapping(raw, _LINK_FIELDS, f"{label} links[{index}]")
+        for field in _LINK_FIELDS:
+            _require_string(link[field], f"{label} link {field}", allow_empty=True)
+        if link["from_node"] not in node_names or link["to_node"] not in node_names:
+            raise ValueError(f"{label} link references an unknown node")
+
+
+def _validate_modifier(value: object, label: str) -> None:
+    modifier = _require_exact_mapping(value, _MODIFIER_FIELDS, label)
+    _require_string(modifier["name"], f"{label} name")
+    modifier_type = _require_string(modifier["type"], f"{label} type")
+    if not re.fullmatch(r"[A-Z][A-Z0-9_]*", modifier_type):
+        raise ValueError(f"{label} type must be a canonical Blender enum")
+    _validate_properties(modifier["properties"], f"{label} properties")
+    references = modifier["references"]
+    if not isinstance(references, Mapping):
+        raise ValueError(f"{label} references must be an object")
+    for name, identity in references.items():
+        _require_string(name, f"{label} reference name")
+        _validate_identity(identity, f"{label} reference {name}", allow_none=True, allow_empty_name=True)
+    id_properties = _validate_sorted_unique(
+        modifier["id_properties"], label + " ID-properties", lambda item: str(
+            item.get("name", "")
+        ) if isinstance(item, Mapping) else ""
+    )
+    for index, raw in enumerate(id_properties):
+        record = _require_exact_mapping(raw, _ID_PROPERTY_FIELDS, f"{label} ID-property[{index}]")
+        _require_string(record["name"], f"{label} ID-property name")
+        _validate_dependency_value(record["dependency"], f"{label} ID-property dependency")
+    interface_inputs = modifier["interface_inputs"]
+    if not isinstance(interface_inputs, list):
+        raise ValueError(f"{label} interface_inputs must be a list")
+    prior_index = -1
+    identifiers: set[str] = set()
+    for offset, raw in enumerate(interface_inputs):
+        record = _require_exact_mapping(
+            raw, _INTERFACE_INPUT_FIELDS, f"{label} interface_inputs[{offset}]"
+        )
+        index = _require_integer(record["index"], f"{label} interface input index")
+        if index <= prior_index:
+            raise ValueError(f"{label} interface inputs must retain deterministic interface order")
+        prior_index = index
+        identifier = _require_string(record["identifier"], f"{label} interface identifier")
+        if identifier in identifiers:
+            raise ValueError(f"{label} interface identifiers must be unique")
+        identifiers.add(identifier)
+        _require_string(record["name"], f"{label} interface name")
+        _require_string(record["socket_type"], f"{label} interface socket_type")
+        _validate_properties(record["properties"], f"{label} interface properties")
+        deps = record["references"]
+        if not isinstance(deps, Mapping):
+            raise ValueError(f"{label} interface references must be an object")
+        for name, dependency in deps.items():
+            _require_string(name, f"{label} interface reference")
+            _validate_dependency_value(dependency, f"{label} interface reference {name}")
+    _validate_node_tree(modifier["node_group"], f"{label} node_group")
+
+
+def _validate_object(value: object, label: str) -> None:
+    obj = _require_exact_mapping(value, _OBJECT_FIELDS, label)
+    identity = _validate_identity(obj["identity"], f"{label} identity")
+    _require_identity_type(identity, "Object", label)
+    object_type = _require_string(obj["object_type"], f"{label} object_type")
+    if object_type not in _OBJECT_TYPES:
+        raise ValueError(f"{label} object_type is not a supported Blender enum")
+    data = obj["data"]
+    if data is not None:
+        if not isinstance(data, Mapping):
+            raise ValueError(f"{label} data must be null or an object")
+        expected = _OBJECT_DATA_FIELDS | ({"geometry"} if "geometry" in data else set())
+        data = _require_exact_mapping(data, expected, f"{label} data")
+        data_identity = _validate_identity(data["identity"], f"{label} data identity")
+        if object_type == "MESH":
+            _require_identity_type(data_identity, "Mesh", f"{label} data")
+        _validate_properties(data["properties"], f"{label} data properties")
+        if object_type == "MESH" and "geometry" not in data:
+            raise ValueError(f"{label} mesh data requires a geometry fingerprint")
+        if "geometry" in data:
+            geometry = _require_exact_mapping(data["geometry"], _GEOMETRY_FIELDS, f"{label} geometry")
+            _validate_sha256(geometry["sha256"], f"{label} geometry")
+            for field in _GEOMETRY_FIELDS - {"sha256"}:
+                _require_integer(geometry[field], f"{label} geometry {field}")
+    _validate_transform(obj["transform"], f"{label} transform")
+    if not isinstance(obj["hide_render"], bool) or not isinstance(obj["hide_viewport"], bool):
+        raise ValueError(f"{label} visibility fields must be boolean")
+    _validate_properties(obj["properties"], f"{label} properties")
+    collections = _validate_sorted_unique(
+        obj["collections"], label + " collections", lambda item: _canonical_key(item)
+    )
+    for index, identity in enumerate(collections):
+        collection_identity = _validate_identity(
+            identity, f"{label} collections[{index}]"
+        )
+        _require_identity_type(
+            collection_identity, "Collection", f"{label} collections[{index}]"
+        )
+    slots = obj["material_slots"]
+    if not isinstance(slots, list):
+        raise ValueError(f"{label} material_slots must be a list")
+    for index, raw in enumerate(slots):
+        slot = _require_exact_mapping(raw, _MATERIAL_SLOT_FIELDS, f"{label} material_slots[{index}]")
+        if slot["index"] != index:
+            raise ValueError(f"{label} material slot indices must be contiguous")
+        _require_string(slot["name"], f"{label} material slot name", allow_empty=True)
+        if slot["link"] not in {"DATA", "OBJECT"}:
+            raise ValueError(f"{label} material slot link must be DATA or OBJECT")
+        material_identity = _validate_identity(
+            slot["material"], f"{label} material slot", allow_none=True
+        )
+        if material_identity is not None:
+            _require_identity_type(
+                material_identity, "Material", f"{label} material slot"
+            )
+    modifiers = obj["modifiers"]
+    if not isinstance(modifiers, list):
+        raise ValueError(f"{label} modifiers must be a list")
+    modifier_names: set[str] = set()
+    for index, modifier in enumerate(modifiers):
+        _validate_modifier(modifier, f"{label} modifiers[{index}]")
+        name = str(modifier["name"])
+        if name in modifier_names:
+            raise ValueError(f"{label} modifier names must be unique")
+        modifier_names.add(name)
+
+
+def _validate_material(value: object, label: str) -> None:
+    material = _require_exact_mapping(value, _MATERIAL_FIELDS, label)
+    identity = _validate_identity(material["identity"], f"{label} identity")
+    _require_identity_type(identity, "Material", label)
+    _validate_properties(material["properties"], f"{label} properties")
+    _validate_node_tree(material["node_tree"], f"{label} node_tree")
+
+
+def _validate_path(value: object, label: str) -> list[str]:
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{label} must be a nonempty hierarchy path")
+    return [_require_string(item, f"{label} segment") for item in value]
+
+
+def _validate_collection_tree(
+    value: object,
+    label: str,
+    *,
+    parent_path: list[str] | None = None,
+) -> None:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be an exact collection record")
+    if set(value) == _COLLECTION_REFERENCE_FIELDS:
+        identity = _validate_identity(value["identity"], f"{label} identity")
+        _require_identity_type(identity, "Collection", label)
+        path = _validate_path(value["path"], f"{label} path")
+        if value["recursive_reference"] is not True:
+            raise ValueError(f"{label} recursive collection reference is invalid")
+        return
+    record = _require_exact_mapping(value, _COLLECTION_FIELDS, label)
+    identity = _validate_identity(record["identity"], f"{label} identity")
+    _require_identity_type(identity, "Collection", label)
+    path = _validate_path(record["path"], f"{label} path")
+    if parent_path is not None and path[:-1] != parent_path:
+        raise ValueError(f"{label} path does not match its collection hierarchy")
+    if not isinstance(record["hide_render"], bool) or not isinstance(record["hide_viewport"], bool):
+        raise ValueError(f"{label} visibility fields must be boolean")
+    _validate_properties(record["properties"], f"{label} properties")
+    objects = _validate_sorted_unique(
+        record["objects"], label + " objects", lambda item: _canonical_key(item)
+    )
+    for index, obj in enumerate(objects):
+        object_identity = _validate_identity(obj, f"{label} objects[{index}]")
+        _require_identity_type(
+            object_identity, "Object", f"{label} objects[{index}]"
+        )
+    children = _validate_sorted_unique(
+        record["children"], label + " children", lambda item: _canonical_key(
+            item.get("identity")
+        ) if isinstance(item, Mapping) else ""
+    )
+    for index, child in enumerate(children):
+        _validate_collection_tree(
+            child, f"{label} children[{index}]", parent_path=path
+        )
+
+
+def _validate_layer_collection(
+    value: object,
+    label: str,
+    *,
+    parent_path: list[str] | None = None,
+) -> None:
+    record = _require_exact_mapping(value, _LAYER_COLLECTION_FIELDS, label)
+    identity = _validate_identity(record["collection"], f"{label} collection")
+    _require_identity_type(identity, "Collection", f"{label} collection")
+    path = _validate_path(record["path"], f"{label} path")
+    if parent_path is not None and path[:-1] != parent_path:
+        raise ValueError(f"{label} path does not match its layer hierarchy")
+    for field in ("exclude", "holdout", "indirect_only", "hide_viewport"):
+        if not isinstance(record[field], bool):
+            raise ValueError(f"{label} {field} must be boolean")
+    children = _validate_sorted_unique(
+        record["children"], label + " children", lambda item: _canonical_key(
+            item.get("collection")
+        ) if isinstance(item, Mapping) else ""
+    )
+    for index, child in enumerate(children):
+        _validate_layer_collection(
+            child, f"{label} children[{index}]", parent_path=path
+        )
+
+
+def _dependency_digest(settings: Mapping[str, object]) -> str:
+    payload = {
+        field: settings[field]
+        for field in (
+            "objects",
+            "materials",
+            "images",
+            "collection_tree",
+            "view_layers",
+        )
+    }
+    return hashlib.sha256(
+        json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest().upper()
+
+
+def _validate_authored_settings(value: object, label: str) -> Mapping[str, object]:
+    authored = _require_exact_mapping(value, _AUTHORED_SETTINGS_FIELDS, label)
+    camera = _require_exact_mapping(authored["camera"], _CAMERA_SETTINGS_FIELDS, f"{label} camera")
+    camera_identity = _validate_identity(camera["identity"], f"{label} camera identity")
+    _require_identity_type(camera_identity, "Object", f"{label} camera")
+    _validate_transform(camera["transform"], f"{label} camera transform")
+    if camera["type"] not in {"PERSP", "ORTHO", "PANO"}:
+        raise ValueError(f"{label} camera type is invalid")
+    for field in (
+        "lens", "sensor_width", "sensor_height", "shift_x", "shift_y", "clip_start", "clip_end"
+    ):
+        _require_number(camera[field], f"{label} camera {field}")
+    _require_string(camera["sensor_fit"], f"{label} camera sensor_fit")
+    dof = _require_exact_mapping(
+        camera["dof"],
+        {
+            "use_dof", "focus_object", "focus_distance", "aperture_fstop",
+            "aperture_blades", "aperture_rotation", "aperture_ratio",
+        },
+        f"{label} camera DOF",
+    )
+    if not isinstance(dof["use_dof"], bool):
+        raise ValueError(f"{label} camera use_dof must be boolean")
+    focus_object = _validate_identity(
+        dof["focus_object"], f"{label} focus object", allow_none=True
+    )
+    if focus_object is not None:
+        _require_identity_type(focus_object, "Object", f"{label} focus object")
+    for field in ("focus_distance", "aperture_fstop", "aperture_rotation", "aperture_ratio"):
+        _require_number(dof[field], f"{label} DOF {field}")
+    _require_integer(dof["aperture_blades"], f"{label} aperture_blades")
+
+    lights = _validate_sorted_unique(
+        authored["lights"], label + " lights", lambda item: _canonical_key(
+            item.get("identity")
+        ) if isinstance(item, Mapping) else ""
+    )
+    light_fields = {
+        "identity", "transform", "type", "color", "energy", "shape", "size",
+        "size_y", "spot_size", "spot_blend", "shadow_soft_size", "properties", "node_tree",
+    }
+    for index, raw in enumerate(lights):
+        light = _require_exact_mapping(raw, light_fields, f"{label} lights[{index}]")
+        light_identity = _validate_identity(light["identity"], f"{label} light identity")
+        _require_identity_type(light_identity, "Object", f"{label} light")
+        _validate_transform(light["transform"], f"{label} light transform")
+        _require_string(light["type"], f"{label} light type")
+        _validate_vector(light["color"], 3, f"{label} light color")
+        for field in ("energy", "size", "size_y", "spot_size", "spot_blend", "shadow_soft_size"):
+            _require_number(light[field], f"{label} light {field}")
+        _require_string(light["shape"], f"{label} light shape", allow_empty=True)
+        _validate_properties(light["properties"], f"{label} light properties")
+        _validate_node_tree(light["node_tree"], f"{label} light node_tree")
+
+    world = authored["world"]
+    if world is not None:
+        world = _require_exact_mapping(
+            world, {"identity", "color", "properties", "node_tree"}, f"{label} world"
+        )
+        world_identity = _validate_identity(world["identity"], f"{label} world identity")
+        _require_identity_type(world_identity, "World", f"{label} world")
+        _validate_vector(world["color"], 3, f"{label} world color")
+        _validate_properties(world["properties"], f"{label} world properties")
+        _validate_node_tree(world["node_tree"], f"{label} world node_tree")
+    compositor = _require_exact_mapping(
+        authored["compositor"], _COMPOSITOR_SETTINGS_FIELDS, f"{label} compositor"
+    )
+    if not isinstance(compositor["enabled"], bool):
+        raise ValueError(f"{label} compositor enabled must be boolean")
+    _validate_node_tree(compositor["node_tree"], f"{label} compositor node_tree")
+    render = _require_exact_mapping(
+        authored["render"], {"properties", "image_settings", "ffmpeg"}, f"{label} render"
+    )
+    for field in ("properties", "image_settings", "ffmpeg"):
+        _validate_properties(render[field], f"{label} render {field}")
+    color = _require_exact_mapping(
+        authored["color_management"], {"view", "display", "sequencer"}, f"{label} color management"
+    )
+    for field in ("view", "display", "sequencer"):
+        _validate_properties(color[field], f"{label} color management {field}")
+    _validate_properties(authored["cycles"], f"{label} cycles")
+
+    view_layers = _validate_sorted_unique(
+        authored["view_layers"], label + " view_layers", lambda item: str(
+            item.get("name", "")
+        ) if isinstance(item, Mapping) else ""
+    )
+    if not view_layers:
+        raise ValueError(f"{label} requires at least one view layer")
+    for index, raw in enumerate(view_layers):
+        layer = _require_exact_mapping(raw, _VIEW_LAYER_FIELDS, f"{label} view_layers[{index}]")
+        _require_string(layer["name"], f"{label} view layer name")
+        _validate_properties(layer["properties"], f"{label} view layer properties")
+        material_override = _validate_identity(
+            layer["material_override"], f"{label} material override", allow_none=True
+        )
+        if material_override is not None:
+            _require_identity_type(
+                material_override, "Material", f"{label} material override"
+            )
+        _validate_layer_collection(layer["layer_collection"], f"{label} layer collection")
+
+    objects = _validate_sorted_unique(
+        authored["objects"],
+        label + " objects",
+        lambda item: _canonical_key(
+            [
+                item.get("identity", {}).get("name"),
+                item.get("object_type"),
+                item.get("identity", {}).get("library"),
+            ]
+        )
+        if isinstance(item, Mapping)
+        and isinstance(item.get("identity"), Mapping)
+        else "",
+    )
+    for index, obj in enumerate(objects):
+        _validate_object(obj, f"{label} objects[{index}]")
+    materials = _validate_sorted_unique(
+        authored["materials"], label + " materials", lambda item: _canonical_key(
+            item.get("identity")
+        ) if isinstance(item, Mapping) else ""
+    )
+    for index, material in enumerate(materials):
+        _validate_material(material, f"{label} materials[{index}]")
+    images = _validate_sorted_unique(
+        authored["images"], label + " images", lambda item: _canonical_key(
+            {field: item.get(field) for field in _identity_fields(item)}
+        ) if isinstance(item, Mapping) else ""
+    )
+    for index, image in enumerate(images):
+        _validate_image(image, f"{label} images[{index}]")
+    _validate_collection_tree(authored["collection_tree"], f"{label} collection_tree")
+    digest = _validate_sha256(authored["dependency_sha256"], f"{label} dependency digest")
+    if digest != _dependency_digest(authored):
+        raise ValueError(f"{label} dependency digest is inconsistent with dependency records")
+    return authored
+
+
 def _validate_render_metadata(
     metadata: object,
     contract: ProofContract,
@@ -687,61 +1467,10 @@ def _validate_render_metadata(
         or authored["before"] != authored["after"]
     ):
         raise ValueError("render metadata authored settings are incomplete or drifted")
-    authored_before = _require_exact_mapping(
-        authored["before"],
-        _AUTHORED_SETTINGS_FIELDS,
-        "render metadata authored settings before",
-    )
-    camera = _require_exact_mapping(
-        authored_before["camera"],
-        _CAMERA_SETTINGS_FIELDS,
-        "render metadata authored camera",
-    )
-    if (
-        not isinstance(camera["identity"], Mapping)
-        or not camera["identity"]
-        or not isinstance(camera["transform"], Mapping)
-        or not camera["transform"]
-        or not isinstance(camera["type"], str)
-        or not camera["type"]
-        or not isinstance(camera["lens"], (int, float))
-        or isinstance(camera["lens"], bool)
-        or not isinstance(camera["dof"], Mapping)
-        or not camera["dof"]
-    ):
-        raise ValueError("render metadata authored camera state is invalid")
-    if not isinstance(authored_before["lights"], list):
-        raise ValueError("render metadata authored lights must be a list")
-    world = authored_before["world"]
-    if world is not None and not isinstance(world, Mapping):
-        raise ValueError("render metadata authored world must be null or an object")
-    compositor = _require_exact_mapping(
-        authored_before["compositor"],
-        _COMPOSITOR_SETTINGS_FIELDS,
-        "render metadata authored compositor",
-    )
-    if (
-        not isinstance(compositor["enabled"], bool)
-        or (
-            compositor["node_tree"] is not None
-            and not isinstance(compositor["node_tree"], Mapping)
+    for phase in ("before", "after"):
+        _validate_authored_settings(
+            authored[phase], f"render metadata authored settings {phase}"
         )
-    ):
-        raise ValueError("render metadata authored compositor settings are invalid")
-    if (
-        not isinstance(authored_before["render"], Mapping)
-        or not authored_before["render"]
-        or not isinstance(authored_before["view_layers"], list)
-        or not authored_before["view_layers"]
-        or not isinstance(authored_before["color_management"], Mapping)
-        or not authored_before["color_management"]
-        or not isinstance(authored_before["cycles"], Mapping)
-        or not authored_before["cycles"]
-        or not isinstance(authored_before["objects"], list)
-        or not isinstance(authored_before["materials"], list)
-        or not isinstance(authored_before["images"], list)
-    ):
-        raise ValueError("render metadata authored render/view-layer settings are incomplete")
     for field in ("intended_subject_metrics", "physical_shadow_metrics"):
         metrics = _require_exact_mapping(
             metadata[field], _MASK_METRIC_FIELDS, f"render metadata {field}"

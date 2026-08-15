@@ -1,4 +1,5 @@
 import dataclasses
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -150,13 +151,16 @@ def _run_fixture_proofs(
                             "original_capture = proof_render._capture_authored_settings",
                             "dependency_setup_done = False",
                             "def capture_with_fixture_dependencies(bpy_arg):",
-                            "    global dependency_setup_done, authored_object, authored_mesh, authored_material, alternate_material, principled, authored_packed",
+                            "    global dependency_setup_done, authored_object, authored_mesh, authored_material, alternate_material, principled, authored_packed, authored_collection, authored_layer_collection, authored_modifier, authored_geometry_group, authored_geometry_socket, authored_geometry_input, authored_geometry_material_input, authored_geometry_value, authored_geometry_math, authored_geometry_link",
                             "    if not dependency_setup_done:",
                             "        dependency_setup_done = True",
                             "        authored_mesh = bpy.data.meshes.new('AUTHORED_RENDER_MESH')",
                             "        authored_mesh.from_pydata([(-0.4,-0.4,0.2),(0.4,-0.4,0.2),(0.0,0.4,0.2)], [], [(0,1,2)])",
                             "        authored_object = bpy.data.objects.new('AUTHORED_RENDER_OBJECT', authored_mesh)",
                             "        bpy.context.scene.collection.objects.link(authored_object)",
+                            "        authored_collection = bpy.data.collections.new('AUTHORED_RENDER_COLLECTION')",
+                            "        bpy.context.scene.collection.children.link(authored_collection)",
+                            "        authored_layer_collection = bpy.context.view_layer.layer_collection.children[authored_collection.name]",
                             "        authored_material = bpy.data.materials.new('AUTHORED_RENDER_MATERIAL')",
                             "        authored_material.use_nodes = True",
                             "        authored_material.diffuse_color = (0.2,0.3,0.4,1.0)",
@@ -176,6 +180,25 @@ def _run_fixture_proofs(
                             "        nested.nodes.new('ShaderNodeValue').outputs[0].default_value = 0.25",
                             "        group_node = authored_material.node_tree.nodes.new('ShaderNodeGroup')",
                             "        group_node.node_tree = nested",
+                            "        authored_modifier = authored_object.modifiers.new('AUTHORED_GEOMETRY_NODES', 'NODES')",
+                            "        authored_geometry_group = bpy.data.node_groups.new('AUTHORED_GEOMETRY_GROUP', 'GeometryNodeTree')",
+                            "        authored_geometry_socket = authored_geometry_group.interface.new_socket(name='Authored Scale', in_out='INPUT', socket_type='NodeSocketFloat')",
+                            "        authored_geometry_object_socket = authored_geometry_group.interface.new_socket(name='Authored Object', in_out='INPUT', socket_type='NodeSocketObject')",
+                            "        authored_geometry_collection_socket = authored_geometry_group.interface.new_socket(name='Authored Collection', in_out='INPUT', socket_type='NodeSocketCollection')",
+                            "        authored_geometry_material_socket = authored_geometry_group.interface.new_socket(name='Authored Material', in_out='INPUT', socket_type='NodeSocketMaterial')",
+                            "        authored_geometry_image_socket = authored_geometry_group.interface.new_socket(name='Authored Image', in_out='INPUT', socket_type='NodeSocketImage')",
+                            "        authored_modifier.node_group = authored_geometry_group",
+                            "        authored_geometry_input = getattr(authored_modifier.properties.inputs, authored_geometry_socket.identifier)",
+                            "        authored_geometry_input.value = 0.25",
+                            "        getattr(authored_modifier.properties.inputs, authored_geometry_object_socket.identifier).value = authored_object",
+                            "        getattr(authored_modifier.properties.inputs, authored_geometry_collection_socket.identifier).value = authored_collection",
+                            "        authored_geometry_material_input = getattr(authored_modifier.properties.inputs, authored_geometry_material_socket.identifier)",
+                            "        authored_geometry_material_input.value = authored_material",
+                            "        getattr(authored_modifier.properties.inputs, authored_geometry_image_socket.identifier).value = authored_packed",
+                            "        authored_geometry_value = authored_geometry_group.nodes.new('ShaderNodeValue')",
+                            "        authored_geometry_value.outputs[0].default_value = 0.125",
+                            "        authored_geometry_math = authored_geometry_group.nodes.new('ShaderNodeMath')",
+                            "        authored_geometry_link = authored_geometry_group.links.new(authored_geometry_value.outputs[0], authored_geometry_math.inputs[0])",
                             "        authored_mesh.materials.append(authored_material)",
                             "        alternate_material = bpy.data.materials.new('AUTHORED_ALTERNATE_MATERIAL')",
                             "    return original_capture(bpy_arg)",
@@ -236,6 +259,36 @@ def _run_fixture_proofs(
                             "dof": [
                                 "    bpy.context.scene.camera.data.dof.focus_distance += 3.0"
                             ],
+                            "collection_hide_render": [
+                                "    authored_collection.hide_render = True"
+                            ],
+                            "layer_collection_exclude": [
+                                "    authored_layer_collection.exclude = True"
+                            ],
+                            "layer_collection_holdout": [
+                                "    authored_layer_collection.holdout = True"
+                            ],
+                            "layer_collection_indirect_only": [
+                                "    authored_layer_collection.indirect_only = True"
+                            ],
+                            "collection_membership": [
+                                "    authored_collection.objects.link(authored_object)"
+                            ],
+                            "gn_modifier_id_property": [
+                                "    authored_geometry_input.value = 0.875"
+                            ],
+                            "gn_modifier_pointer": [
+                                "    authored_geometry_material_input.value = alternate_material"
+                            ],
+                            "gn_node": [
+                                "    authored_geometry_group.nodes.new('ShaderNodeValue')"
+                            ],
+                            "gn_node_default": [
+                                "    authored_geometry_value.outputs[0].default_value = 0.875"
+                            ],
+                            "gn_node_link": [
+                                "    authored_geometry_group.links.remove(authored_geometry_link)"
+                            ],
                         }.get(inject_dependency_mutation, [])
                     ),
                     "    return result",
@@ -282,6 +335,120 @@ def _fingerprint_record(path: str, sha256: str) -> dict[str, object]:
     return {"path": path, "bytes": 1, "mtime_ns": 1, "sha256": sha256}
 
 
+def _recompute_dependency_digest(authored: dict[str, object]) -> None:
+    dependency_payload = {
+        field: authored[field]
+        for field in (
+            "objects",
+            "materials",
+            "images",
+            "collection_tree",
+            "view_layers",
+        )
+    }
+    authored["dependency_sha256"] = hashlib.sha256(
+        json.dumps(
+            dependency_payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest().upper()
+
+
+def _valid_dependency_object(name: str = "AUTHORED_OBJECT") -> dict[str, object]:
+    return {
+        "identity": {"name": name, "type": "Object", "library": None},
+        "object_type": "MESH",
+        "data": {
+            "identity": {"name": f"{name}_MESH", "type": "Mesh", "library": None},
+            "properties": {},
+            "geometry": {
+                "sha256": "8" * 64,
+                "vertices": 3,
+                "edges": 3,
+                "loops": 3,
+                "polygons": 1,
+            },
+        },
+        "transform": {
+            "location": [0.0, 0.0, 0.0],
+            "rotation_mode": "XYZ",
+            "rotation_euler": [0.0, 0.0, 0.0],
+            "scale": [1.0, 1.0, 1.0],
+            "matrix_world": [1.0] * 16,
+            "parent": None,
+        },
+        "hide_render": False,
+        "hide_viewport": False,
+        "properties": {},
+        "collections": [
+            {"name": "Scene Collection", "type": "Collection", "library": None}
+        ],
+        "material_slots": [],
+        "modifiers": [],
+    }
+
+
+def _valid_dependency_node_tree() -> dict[str, object]:
+    return {
+        "identity": {"name": "AUTHORED_TREE", "type": "ShaderNodeTree", "library": None},
+        "nodes": [
+            {
+                "name": "Value",
+                "type": "ShaderNodeValue",
+                "mute": False,
+                "properties": {},
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "Value",
+                        "identifier": "Value",
+                        "type": "NodeSocketFloat",
+                        "enabled": True,
+                        "is_linked": False,
+                        "default": 0.5,
+                    }
+                ],
+                "data": {},
+            }
+        ],
+        "links": [],
+    }
+
+
+def _valid_dependency_material() -> dict[str, object]:
+    return {
+        "identity": {"name": "AUTHORED_MATERIAL", "type": "Material", "library": None},
+        "properties": {},
+        "node_tree": _valid_dependency_node_tree(),
+    }
+
+
+def _valid_dependency_image() -> dict[str, object]:
+    return {
+        "name": "AUTHORED_IMAGE",
+        "type": "Image",
+        "library": None,
+        "filepath": "",
+        "source": "GENERATED",
+        "size": [4, 4],
+        "channels": 4,
+        "depth": 32,
+        "is_float": False,
+        "file_format": "PNG",
+        "alpha_mode": "STRAIGHT",
+        "colorspace": "sRGB",
+        "external_files": [],
+        "packed_files": [],
+        "pixels": {
+            "encoding": "float32-little-endian",
+            "values": 64,
+            "sha256": "9" * 64,
+        },
+    }
+
+
 def _valid_render_metadata(
     contract: ProofContract,
     *,
@@ -298,7 +465,17 @@ def _valid_render_metadata(
         ),
         "scene": _fingerprint_record("C:/fixture/scene.blend", contract.scene_sha256.upper()),
     }
-    authored_settings = {
+    collection_identity = {"name": "Scene Collection", "type": "Collection", "library": None}
+    layer_collection = {
+        "path": ["Scene Collection"],
+        "collection": collection_identity,
+        "exclude": False,
+        "holdout": False,
+        "indirect_only": False,
+        "hide_viewport": False,
+        "children": [],
+    }
+    authored_settings: dict[str, object] = {
         "camera": {
             "identity": {"name": "CAM_HERO", "type": "Object", "library": None},
             "transform": {
@@ -331,14 +508,39 @@ def _valid_render_metadata(
         "lights": [],
         "world": None,
         "compositor": {"enabled": False, "node_tree": None},
-        "render": {"properties": {"engine": "CYCLES"}},
-        "view_layers": [{"name": "ViewLayer", "properties": {}, "material_override": None}],
-        "color_management": {"view": {"view_transform": "AgX"}},
+        "render": {
+            "properties": {"engine": "CYCLES"},
+            "image_settings": {},
+            "ffmpeg": {},
+        },
+        "view_layers": [
+            {
+                "name": "ViewLayer",
+                "properties": {},
+                "material_override": None,
+                "layer_collection": layer_collection,
+            }
+        ],
+        "color_management": {
+            "view": {"view_transform": "AgX"},
+            "display": {},
+            "sequencer": {},
+        },
         "cycles": {"samples": contract.samples},
         "objects": [],
         "materials": [],
         "images": [],
+        "collection_tree": {
+            "identity": collection_identity,
+            "path": ["Scene Collection"],
+            "hide_render": False,
+            "hide_viewport": False,
+            "properties": {},
+            "objects": [],
+            "children": [],
+        },
     }
+    _recompute_dependency_digest(authored_settings)
     return {
         "schema": "pimm-proof-render-metadata/v1",
         "engine": "CYCLES",
@@ -615,6 +817,98 @@ class ProofContractTests(unittest.TestCase):
                     (output_root / "render-metadata.json").write_text(
                         json.dumps(metadata), encoding="utf-8"
                     )
+
+                with patch.object(proof_module, "ASSET_ROOT", root):
+                    with self.assertRaises(ValueError):
+                        write_proof_manifest(contract, outputs)
+
+    def test_manifest_rejects_malformed_authored_dependency_entries(self):
+        mutations = (
+            "not-a-dependency",
+            "geometry-hash",
+            "object-type",
+            "material-node",
+            "modifier-record",
+            "image-path-and-hash",
+            "image-identity-type",
+            "duplicate-object-identity",
+            "reordered-objects",
+            "inconsistent-digest",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                contract = composition_contract()
+                scene = scene_contract_fixture()
+                _write_scene_contract(root, scene, contract.scene_contract_path)
+                output_root = root / contract.output_root
+                output_root.mkdir(parents=True)
+                outputs: list[Path] = []
+                for background in ("rgba", "white", "checker", "dark"):
+                    path = output_root / f"{scene.scene_id}--{background}.png"
+                    Image.new("RGBA", (300, 300), (100, 120, 140, 255)).save(path)
+                    outputs.append(path)
+                metadata = _valid_render_metadata(contract)
+                authored = json.loads(json.dumps(metadata["authored_settings"]["before"]))
+                if mutation == "not-a-dependency":
+                    authored["objects"] = [{"not": "a dependency fingerprint"}]
+                elif mutation == "geometry-hash":
+                    record = _valid_dependency_object()
+                    record["data"]["geometry"]["sha256"] = "not-a-hash"
+                    authored["objects"] = [record]
+                elif mutation == "object-type":
+                    record = _valid_dependency_object()
+                    record["object_type"] = "NOT_A_BLENDER_OBJECT_TYPE"
+                    authored["objects"] = [record]
+                elif mutation == "material-node":
+                    record = _valid_dependency_material()
+                    record["node_tree"]["nodes"][0].pop("mute")
+                    authored["materials"] = [record]
+                elif mutation == "modifier-record":
+                    record = _valid_dependency_object()
+                    record["modifiers"] = [{"name": "broken"}]
+                    authored["objects"] = [record]
+                elif mutation == "image-path-and-hash":
+                    record = _valid_dependency_image()
+                    record["source"] = "FILE"
+                    record["filepath"] = "relative.png"
+                    record["external_files"] = [
+                        {
+                            "path": "relative.png",
+                            "resolved_path": "relative.png",
+                            "bytes": 1,
+                            "mtime_ns": 1,
+                            "ctime_ns": 1,
+                            "device": 1,
+                            "inode": 1,
+                            "links": 1,
+                            "sha256": "bad",
+                        }
+                    ]
+                    authored["images"] = [record]
+                elif mutation == "image-identity-type":
+                    record = _valid_dependency_image()
+                    record["type"] = "Material"
+                    authored["images"] = [record]
+                elif mutation == "duplicate-object-identity":
+                    authored["objects"] = [
+                        _valid_dependency_object(),
+                        _valid_dependency_object(),
+                    ]
+                elif mutation == "reordered-objects":
+                    authored["objects"] = [
+                        _valid_dependency_object("B_OBJECT"),
+                        _valid_dependency_object("A_OBJECT"),
+                    ]
+                if mutation != "inconsistent-digest":
+                    _recompute_dependency_digest(authored)
+                else:
+                    authored["dependency_sha256"] = "F" * 64
+                metadata["authored_settings"] = {
+                    "before": authored,
+                    "after": json.loads(json.dumps(authored)),
+                }
+                _write_manifest_evidence(root, output_root, contract, scene, metadata)
 
                 with patch.object(proof_module, "ASSET_ROOT", root):
                     with self.assertRaises(ValueError):
@@ -1183,6 +1477,16 @@ class ProofContractTests(unittest.TestCase):
             "external_image",
             "packed_image",
             "dof",
+            "collection_hide_render",
+            "layer_collection_exclude",
+            "layer_collection_holdout",
+            "layer_collection_indirect_only",
+            "collection_membership",
+            "gn_modifier_id_property",
+            "gn_modifier_pointer",
+            "gn_node",
+            "gn_node_default",
+            "gn_node_link",
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
