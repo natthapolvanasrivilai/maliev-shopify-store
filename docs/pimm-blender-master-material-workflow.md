@@ -87,8 +87,8 @@ The initial 2026-08-14 handoff is intentionally ready for manual assignment, not
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `PIMM-30G-MASTER.blend` | 102,991,397 | `3D019F62463724E1B598124F1E1A42ED208BAA3D0ACBCEC47AB5390B0A2BD4D4` |
-| `PIMM-50G-MASTER.blend` | 104,115,932 | `56BEA2CEE95E7A09CFFA67DD6A96DA75205167719821C9B155294A57CF448992` |
+| `PIMM-30G-MASTER.blend` | 103,030,502 | `D447446BF6588CA7BCB08F8B588AE702DB0FE7DC169F8878B1E455CD7F2A18EC` |
+| `PIMM-50G-MASTER.blend` | 104,154,591 | `0B5853B6110B84F6B8B4915BC450449023589DC5296AFA05CA6DF2A81917C7AB` |
 | `PIMM-MATERIAL-LIBRARY.blend` | 229,871 | `F466ED9D12708DEF20449F5F41E0B0958C86025C5B42360E58B57F6658BF4E59` |
 
 Both masters contain 472 unique occurrence-solid objects, four explicitly accounted empty CAD placeholders, zero unexplained disconnected objects, and 472 `PIMM_UNASSIGNED` material states. Their working audits contain zero integrity errors and correctly report `publishable=false`.
