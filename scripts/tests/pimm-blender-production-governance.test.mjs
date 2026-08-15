@@ -8,6 +8,12 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const docRoot = path.join(repoRoot, 'docs', 'pimm-blender-governance');
 const assetRoot = String.raw`M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders`;
+const linkedTemplate = path.join(
+  assetRoot,
+  'scenes',
+  'shared-templates',
+  'pimm-linked-studio-template.blend',
+);
 
 test('canonical governance files map only to the exact external workspace paths', () => {
   const expectedMappings = [
@@ -114,4 +120,8 @@ test('machine contracts retain their separate physical controller values and blo
     assert.equal(contract.animation.status, 'blocked_pending_owner_motion_map');
     assert.deepEqual(contract.animation.allowed_controls, []);
   }
+});
+
+test('manual material approval gate leaves the production linked template absent', () => {
+  assert.equal(fs.existsSync(linkedTemplate), false);
 });

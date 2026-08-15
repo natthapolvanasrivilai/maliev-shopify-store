@@ -1,0 +1,217 @@
+"""Read-only Blender validation for linked PIMM render-scene ownership."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+try:
+    from .io_contract import sha256_file
+    from .machine_contract import load_machine_contract, validate_controller_scene
+    from .paths import ASSET_ROOT, require_within
+    from .scene_contract import SceneContract, validate_scene_contract
+except ImportError:  # Blender may execute this checked-in script directly.
+    import sys
+
+    repository_root = Path(__file__).resolve().parents[3]
+    if str(repository_root) not in sys.path:
+        sys.path.insert(0, str(repository_root))
+    from scripts.blender.pimm_production.io_contract import sha256_file
+    from scripts.blender.pimm_production.machine_contract import (
+        load_machine_contract,
+        validate_controller_scene,
+    )
+    from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
+    from scripts.blender.pimm_production.scene_contract import (
+        SceneContract,
+        validate_scene_contract,
+    )
+
+
+def _library_path(bpy: Any, library: object | None) -> Path | None:
+    if library is None:
+        return None
+    filepath = str(getattr(library, "filepath", ""))
+    if not filepath:
+        return None
+    if filepath.startswith("//"):
+        scene_base = Path(str(getattr(bpy.data, "filepath", ""))).resolve().parent
+        scene_relative = (scene_base / filepath[2:]).resolve()
+        if scene_relative.exists():
+            return scene_relative
+        parent = getattr(library, "parent", None)
+        if parent is None:
+            base = scene_base
+        else:
+            parent_path = _library_path(bpy, parent)
+            if parent_path is None:
+                return None
+            base = parent_path.parent
+        return (base / filepath[2:]).resolve()
+    return Path(filepath).resolve()
+
+
+def _datablock_library_path(bpy: Any, datablock: object | None) -> Path | None:
+    return _library_path(bpy, getattr(datablock, "library", None))
+
+
+def _property(datablock: object, name: str, default: object = None) -> object:
+    getter = getattr(datablock, "get", None)
+    return getter(name, default) if callable(getter) else default
+
+
+def _product_objects(bpy: Any, published: object | None) -> list[object]:
+    tagged = {
+        obj
+        for obj in bpy.data.objects
+        if _property(obj, "pimm_stable_id") or _property(obj, "pimm_product_object") is True
+    }
+    if published is not None:
+        tagged.update(getattr(published, "all_objects", ()))
+    return sorted(tagged, key=lambda obj: str(getattr(obj, "name", "")))
+
+
+def _validate_materials(
+    bpy: Any,
+    product: object,
+    expected_master: Path,
+    expected_material_library: Path,
+) -> list[str]:
+    errors: list[str] = []
+    name = str(getattr(product, "name", ""))
+    if getattr(product, "override_library", None) is not None or _property(
+        product, "pimm_product_material_override"
+    ) is True:
+        errors.append(f"approved product material override is forbidden: {name}")
+    for slot in getattr(product, "material_slots", ()):
+        material = getattr(slot, "material", None)
+        if material is None:
+            continue
+        scope = _property(material, "pimm_material_scope", "unknown")
+        origin = _datablock_library_path(bpy, material)
+        material_name = str(getattr(material, "name", ""))
+        if scope == "shared" and origin != expected_material_library:
+            errors.append(
+                f"linked product material made local or resolved outside material library: {name}/{material_name} origin={origin}"
+            )
+        elif scope == "machine-local" and origin != expected_master:
+            errors.append(
+                f"machine-local product material did not resolve through master: {name}/{material_name}"
+            )
+        elif scope not in {"shared", "machine-local"}:
+            errors.append(f"product material scope is not approved: {name}/{material_name}")
+    return errors
+
+
+def validate_open_render_scene(bpy: Any, contract: SceneContract) -> list[str]:
+    """Inspect the open file without mutation and return all ownership errors."""
+
+    errors = list(validate_scene_contract(contract))
+    if errors:
+        return errors
+
+    machine_contract = load_machine_contract(contract.machine)
+    errors.extend(validate_controller_scene(bpy, machine_contract))
+    animation = machine_contract["animation"]
+    if (
+        contract.animation_contract is not None
+        and animation["status"] != "enabled_owner_approved"
+    ):
+        errors.append(
+            "scene animation_contract is present while the machine motion map remains blocked"
+        )
+
+    expected_master = (ASSET_ROOT / Path(contract.master_path)).resolve()
+    expected_material_library = (
+        ASSET_ROOT / Path(contract.material_library_path)
+    ).resolve()
+    if not expected_master.is_file():
+        errors.append(f"expected master is missing: {expected_master}")
+    elif sha256_file(expected_master) != contract.master_sha256.upper():
+        errors.append(f"master SHA-256 mismatch: {expected_master}")
+    if not expected_material_library.is_file():
+        errors.append(f"expected material library is missing: {expected_material_library}")
+    elif sha256_file(expected_material_library) != contract.material_library_sha256.upper():
+        errors.append(
+            f"material-library SHA-256 mismatch: {expected_material_library}"
+        )
+
+    opened_path = Path(str(getattr(bpy.data, "filepath", "")))
+    try:
+        require_within(opened_path, ASSET_ROOT / "scenes")
+    except ValueError as error:
+        errors.append(f"open render scene is outside managed scene root: {error}")
+
+    library_paths = {
+        path
+        for path in (_library_path(bpy, library) for library in bpy.data.libraries)
+        if path is not None
+    }
+    if expected_master not in library_paths:
+        errors.append(f"missing expected master library link: {expected_master}")
+    if expected_material_library not in library_paths:
+        errors.append(
+            f"missing expected material-library dependency: {expected_material_library}; found={sorted(str(path) for path in library_paths)}"
+        )
+
+    candidates = [
+        collection
+        for collection in bpy.data.collections
+        if getattr(collection, "name", "") == contract.master_collection
+        and _datablock_library_path(bpy, collection) == expected_master
+    ]
+    published = candidates[0] if len(candidates) == 1 else None
+    if published is None:
+        errors.append(
+            "render scene must link exactly one PIMM_PUBLISHED collection from the expected master"
+        )
+    elif not list(getattr(published, "all_objects", ())):
+        errors.append("linked PIMM_PUBLISHED collection is empty")
+
+    products = _product_objects(bpy, published)
+    expected_products = set(getattr(published, "all_objects", ())) if published else set()
+    for product in products:
+        name = str(getattr(product, "name", ""))
+        object_library = _datablock_library_path(bpy, product)
+        mesh = getattr(product, "data", None)
+        mesh_library = _datablock_library_path(bpy, mesh)
+        if product not in expected_products or object_library != expected_master:
+            errors.append(f"private machine mesh is forbidden in render scene: {name}")
+        if getattr(product, "type", None) == "MESH" and mesh_library != expected_master:
+            errors.append(f"private machine mesh datablock is forbidden: {name}")
+        errors.extend(
+            _validate_materials(
+                bpy, product, expected_master, expected_material_library
+            )
+        )
+
+    camera = bpy.data.objects.get(contract.camera_name)
+    if camera is None or getattr(camera, "type", None) != "CAMERA":
+        errors.append(f"required camera is missing: {contract.camera_name}")
+    else:
+        if getattr(bpy.context.scene, "camera", None) != camera:
+            errors.append(f"required camera is not active: {contract.camera_name}")
+        if _datablock_library_path(bpy, camera) is not None or _datablock_library_path(
+            bpy, getattr(camera, "data", None)
+        ) is not None:
+            errors.append(f"required camera must be scene-local: {contract.camera_name}")
+
+    render = bpy.context.scene.render
+    output_path = Path(bpy.path.abspath(render.filepath)).resolve()
+    try:
+        require_within(output_path, ASSET_ROOT / "renders")
+    except ValueError as error:
+        errors.append(f"output is outside managed render root: {error}")
+    if render.resolution_x != contract.output_contract["width"]:
+        errors.append("render width does not match output_contract")
+    if render.resolution_y != contract.output_contract["height"]:
+        errors.append("render height does not match output_contract")
+    if render.film_transparent is not contract.output_contract["alpha"]:
+        errors.append("render alpha does not match output_contract")
+
+    units = bpy.context.scene.unit_settings
+    if units.system != "METRIC" or units.length_unit != "MILLIMETERS":
+        errors.append("render scene units must be Metric/Millimeters")
+    if abs(float(units.scale_length) - 0.001) > 1e-7:
+        errors.append("render scene scale_length must equal 0.001")
+    return errors
