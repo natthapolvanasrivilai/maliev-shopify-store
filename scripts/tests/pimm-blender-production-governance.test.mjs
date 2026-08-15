@@ -64,6 +64,28 @@ test('free tool lock lists only the pinned local production toolchain', () => {
     assert.match(tool.sha256, /^[A-F0-9]{64}$/);
   }
   assert.doesNotMatch(serialized, /subscription|paid|cloud|https?:\/\//);
+  assert.equal(lock.schema, 'pimm-free-tools-lock/v1');
+  assert.deepEqual(Object.keys(lock).sort(), ['license_evidence', 'schema', 'tools']);
+  assert.deepEqual(Object.keys(lock.license_evidence), ['blender-mcp']);
+  assert.deepEqual(Object.keys(lock.license_evidence['blender-mcp']).sort(), ['path', 'sha256']);
+});
+
+test('free tool lock rejects an injected network endpoint', () => {
+  const lockPath = path.join(assetRoot, 'manifests', 'free-tools-lock.json');
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  lock.tools[0].endpoint = 'http://127.0.0.1:8000';
+  const validationProgram = [
+    'import json, sys',
+    'from scripts.blender.pimm_production.tool_policy import validate_tool_lock',
+    'print(json.dumps(validate_tool_lock(json.loads(sys.stdin.read()))))',
+  ].join('\n');
+  const result = execFileSync('python', ['-c', validationProgram], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    input: JSON.stringify(lock),
+  });
+
+  assert.match(result, /network-bearing field/);
 });
 
 test('production Python requirements pin the approved Pillow release', () => {

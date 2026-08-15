@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from importlib.metadata import metadata, version
 from pathlib import Path
 import re
 import subprocess
@@ -21,8 +20,14 @@ BLENDER_EXECUTABLE = Path(r"D:\Blender 5.2\blender.exe")
 BLENDER_MCP_ROOT = Path(r"C:\Users\natth\blender_mcp")
 PRODUCTION_VENV_ROOT = ASSET_ROOT / "tools" / "pimm-render-py311"
 LOCK_PATH = ASSET_ROOT / "manifests" / "free-tools-lock.json"
+LOCK_SCHEMA = "pimm-free-tools-lock/v1"
 REQUIRED_TOOL_IDS = frozenset({"blender", "blender-mcp", "python", "pillow"})
 APPROVED_LICENSES = frozenset({"GPL-3.0-or-later", "PSF-2.0", "MIT-CMU"})
+LOCK_FIELDS = frozenset({"schema", "tools", "license_evidence"})
+TOOL_FIELDS = frozenset({"id", "version", "license", "execution", "path", "sha256"})
+LICENSE_EVIDENCE_FIELDS = frozenset({"path", "sha256"})
+NETWORK_FIELD_TOKENS = ("endpoint", "url", "uri", "remote", "network", "host", "port")
+SHA256_PATTERN = re.compile(r"^[A-Fa-f0-9]{64}$")
 TOOL_ROOTS = {
     "blender": BLENDER_EXECUTABLE.parent,
     "blender-mcp": BLENDER_MCP_ROOT,
@@ -132,14 +137,48 @@ def discover_free_tools() -> list[ToolRecord]:
     ]
 
 
+def _network_field_errors(value: object, location: str = "lock") -> list[str]:
+    """Reject URL, endpoint, and other network-bearing lock fields recursively."""
+
+    errors: list[str] = []
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            key_text = str(key)
+            child_location = f"{location}.{key_text}"
+            if any(token in key_text.lower() for token in NETWORK_FIELD_TOKENS):
+                errors.append(f"network-bearing field is prohibited: {child_location}")
+            errors.extend(_network_field_errors(child, child_location))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            errors.extend(_network_field_errors(child, f"{location}[{index}]"))
+    elif isinstance(value, str) and re.search(r"(?:https?|wss?)://", value, re.IGNORECASE):
+        errors.append(f"network-bearing value is prohibited: {location}")
+    return errors
+
+
+def _path_is_within_or_equal(path: str, root: Path) -> bool:
+    try:
+        if Path(path).resolve() != root.resolve():
+            require_within(Path(path), root)
+    except ValueError:
+        return False
+    return True
+
+
 def validate_tool_lock(payload: Mapping[str, object]) -> list[str]:
     """Return policy violations without probing, writing, or mutating tools."""
 
+    errors: list[str] = _network_field_errors(payload)
+    if payload.get("schema") != LOCK_SCHEMA:
+        errors.append(f"unsupported schema: {payload.get('schema')!r}")
+    unexpected_lock_fields = set(payload).difference(LOCK_FIELDS)
+    if unexpected_lock_fields:
+        errors.append(f"unexpected lock fields: {', '.join(sorted(unexpected_lock_fields))}")
+
     tools = payload.get("tools")
     if not isinstance(tools, list):
-        return ["tools must be a list"]
+        return [*errors, "tools must be a list"]
 
-    errors: list[str] = []
     observed_ids: list[str] = []
     for item in tools:
         if not isinstance(item, Mapping):
@@ -150,6 +189,12 @@ def validate_tool_lock(payload: Mapping[str, object]) -> list[str]:
             errors.append("tool record missing id")
             continue
         observed_ids.append(tool_id)
+        unexpected_tool_fields = set(item).difference(TOOL_FIELDS)
+        missing_tool_fields = TOOL_FIELDS.difference(item)
+        if unexpected_tool_fields:
+            errors.append(f"{tool_id}: unexpected fields: {', '.join(sorted(unexpected_tool_fields))}")
+        if missing_tool_fields:
+            errors.append(f"{tool_id}: missing fields: {', '.join(sorted(missing_tool_fields))}")
         if tool_id not in REQUIRED_TOOL_IDS:
             errors.append(f"unknown tool id: {tool_id}")
         version_value = item.get("version")
@@ -166,13 +211,35 @@ def validate_tool_lock(payload: Mapping[str, object]) -> list[str]:
         if not isinstance(path_value, str) or not path_value.strip():
             errors.append(f"{tool_id}: missing path")
         elif tool_id in TOOL_ROOTS:
-            try:
-                if Path(path_value).resolve() != TOOL_ROOTS[tool_id].resolve():
-                    require_within(Path(path_value), TOOL_ROOTS[tool_id])
-            except ValueError:
+            if not _path_is_within_or_equal(path_value, TOOL_ROOTS[tool_id]):
                 errors.append(f"{tool_id}: path outside approved local tool roots")
+        sha256_value = item.get("sha256")
+        if not isinstance(sha256_value, str) or not SHA256_PATTERN.fullmatch(sha256_value):
+            errors.append(f"{tool_id}: invalid sha256")
+    if set(observed_ids) != REQUIRED_TOOL_IDS or len(observed_ids) != len(REQUIRED_TOOL_IDS):
+        errors.append("tools must contain exact required tool IDs")
     if len(observed_ids) != len(set(observed_ids)):
         errors.append("duplicate tool id")
+    license_evidence = payload.get("license_evidence")
+    if not isinstance(license_evidence, Mapping):
+        errors.append("license_evidence must be an object")
+    elif set(license_evidence) != {"blender-mcp"}:
+        errors.append("license_evidence must contain only blender-mcp")
+    else:
+        evidence = license_evidence["blender-mcp"]
+        if not isinstance(evidence, Mapping):
+            errors.append("blender-mcp license evidence must be an object")
+        else:
+            if set(evidence) != LICENSE_EVIDENCE_FIELDS:
+                errors.append("blender-mcp license evidence must contain only path and sha256")
+            evidence_path = evidence.get("path")
+            if not isinstance(evidence_path, str) or not _path_is_within_or_equal(
+                evidence_path, BLENDER_MCP_ROOT
+            ):
+                errors.append("blender-mcp license evidence path outside approved local tool roots")
+            evidence_hash = evidence.get("sha256")
+            if not isinstance(evidence_hash, str) or not SHA256_PATTERN.fullmatch(evidence_hash):
+                errors.append("blender-mcp license evidence invalid sha256")
     return errors
 
 
@@ -180,19 +247,18 @@ def free_tool_lock_payload() -> dict[str, object]:
     """Build a JSON-serializable lock with reproducible provenance hashes."""
 
     records = discover_free_tools()
-    errors = validate_tool_lock(
-        {"tools": [{**asdict(record), "execution": "local"} for record in records]}
-    )
-    if errors:
-        raise ValueError("; ".join(errors))
     license_path = _first_blender_mcp_license_evidence()
-    return {
-        "schema": "pimm-free-tools-lock/v1",
+    payload: dict[str, object] = {
+        "schema": LOCK_SCHEMA,
         "tools": [{**asdict(record), "execution": "local"} for record in records],
         "license_evidence": {
             "blender-mcp": {"path": str(license_path), "sha256": sha256_file(license_path)}
         },
     }
+    errors = validate_tool_lock(payload)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return payload
 
 
 def write_free_tool_lock() -> dict[str, object]:

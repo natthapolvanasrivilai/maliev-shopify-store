@@ -8,7 +8,21 @@ from typing import Any
 
 
 MUTATION_FLAGS = frozenset(
-    {"--render", "--render-anim", "--save", "--save-as", "--python-expr", "--python-text"}
+    {
+        "-a",
+        "-f",
+        "--render",
+        "--render-anim",
+        "--render-frame",
+        "--save",
+        "--save-as",
+        "--save-as-mainfile",
+        "--save-mainfile",
+        "--python",
+        "--python-expr",
+        "--python-text",
+        "--python-console",
+    }
 )
 
 
@@ -32,6 +46,17 @@ def inspect_open_session(bpy: Any) -> dict[str, object]:
     }
 
 
+def _mutation_arguments(argv: list[str]) -> list[str]:
+    """Find render/save/code-execution flags anywhere in Blender's command line."""
+
+    forbidden: list[str] = []
+    for argument in argv[1:]:
+        option = argument.split("=", 1)[0]
+        if option in MUTATION_FLAGS or (option.startswith("-f") and option != "--factory-startup"):
+            forbidden.append(option)
+    return sorted(set(forbidden))
+
+
 def _script_arguments(argv: list[str]) -> list[str]:
     return argv[argv.index("--") + 1 :] if "--" in argv else []
 
@@ -39,10 +64,11 @@ def _script_arguments(argv: list[str]) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     """Print session evidence and reject any script-level mutation request."""
 
-    arguments = _script_arguments(list(sys.argv if argv is None else argv))
-    forbidden = sorted(set(arguments).intersection(MUTATION_FLAGS))
+    effective_argv = list(sys.argv if argv is None else argv)
+    forbidden = _mutation_arguments(effective_argv)
     if forbidden:
         raise SystemExit(f"read-only preflight rejects mutation flags: {', '.join(forbidden)}")
+    arguments = _script_arguments(effective_argv)
     if arguments:
         raise SystemExit(f"read-only preflight rejects unknown arguments: {' '.join(arguments)}")
     import bpy

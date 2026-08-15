@@ -12,11 +12,60 @@ import sys
 from types import SimpleNamespace
 import unittest
 
-from scripts.blender.pimm_production.blender_session_preflight import inspect_open_session
-from scripts.blender.pimm_production.tool_policy import validate_tool_lock
+from scripts.blender.pimm_production.blender_session_preflight import (
+    inspect_open_session,
+    main as run_preflight,
+)
+from scripts.blender.pimm_production.tool_policy import (
+    LOCK_SCHEMA,
+    PRODUCTION_VENV_ROOT,
+    validate_tool_lock,
+)
 
 
 class ToolPolicyTests(unittest.TestCase):
+    def _valid_lock_payload(self):
+        return {
+            "schema": LOCK_SCHEMA,
+            "tools": [
+                {
+                    "id": "blender",
+                    "version": "5.2.0",
+                    "license": "GPL-3.0-or-later",
+                    "execution": "local",
+                    "path": r"D:\Blender 5.2\blender.exe",
+                    "sha256": "A" * 64,
+                },
+                {
+                    "id": "blender-mcp",
+                    "version": "a" * 40,
+                    "license": "GPL-3.0-or-later",
+                    "execution": "local",
+                    "path": r"C:\Users\natth\blender_mcp",
+                    "sha256": "B" * 64,
+                },
+                {
+                    "id": "python",
+                    "version": "3.11.9",
+                    "license": "PSF-2.0",
+                    "execution": "local",
+                    "path": str(PRODUCTION_VENV_ROOT / "Scripts" / "python.exe"),
+                    "sha256": "C" * 64,
+                },
+                {
+                    "id": "pillow",
+                    "version": "12.2.0",
+                    "license": "MIT-CMU",
+                    "execution": "local",
+                    "path": str(PRODUCTION_VENV_ROOT / "Lib" / "site-packages" / "PIL" / "__init__.py"),
+                    "sha256": "D" * 64,
+                },
+            ],
+            "license_evidence": {
+                "blender-mcp": {"path": r"C:\Users\natth\blender_mcp\LICENSE", "sha256": "E" * 64}
+            },
+        }
+
     def test_tool_policy_script_runs_from_the_repository_root(self):
         repository_root = Path(__file__).resolve().parents[4]
 
@@ -45,19 +94,23 @@ class ToolPolicyTests(unittest.TestCase):
         self.assertRegex("\n".join(validate_tool_lock(payload)), "paid or cloud tool")
 
     def test_allowed_local_tools_require_version_and_license(self):
-        payload = {
-            "tools": [
-                {
-                    "id": "blender",
-                    "version": "5.2.0",
-                    "license": "GPL-3.0-or-later",
-                    "execution": "local",
-                    "path": r"D:\Blender 5.2\blender.exe",
-                }
-            ]
-        }
+        payload = self._valid_lock_payload()
 
         self.assertEqual(validate_tool_lock(payload), [])
+
+    def test_lock_rejects_partial_schema_missing_checksum_and_network_endpoint(self):
+        payload = self._valid_lock_payload()
+        payload["schema"] = "pimm-free-tools-lock/v0"
+        payload["tools"] = payload["tools"][:-1]
+        payload["tools"][0]["sha256"] = "not-a-hash"
+        payload["tools"][0]["endpoint"] = "http://127.0.0.1:8000"
+
+        errors = "\n".join(validate_tool_lock(payload))
+
+        self.assertIn("unsupported schema", errors)
+        self.assertIn("required tool IDs", errors)
+        self.assertIn("invalid sha256", errors)
+        self.assertIn("network-bearing field", errors)
 
     def test_lock_rejects_missing_identity_and_unapproved_path(self):
         payload = {
@@ -169,6 +222,21 @@ class ToolPolicyTests(unittest.TestCase):
                 "view_layer": "ViewLayer",
             },
         )
+
+    def test_preflight_rejects_render_and_save_flags_before_the_delimiter(self):
+        with self.assertRaisesRegex(SystemExit, "mutation flags"):
+            run_preflight(
+                [
+                    "blender",
+                    "-b",
+                    r"M:\masters\PIMM-50G-MASTER.blend",
+                    "-f",
+                    "1",
+                    "--save-as-mainfile=unsafe.blend",
+                    "-P",
+                    "blender_session_preflight.py",
+                ]
+            )
 
 
 if __name__ == "__main__":
