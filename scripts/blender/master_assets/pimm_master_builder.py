@@ -24,6 +24,7 @@ MASTER_ROOT = ASSET_ROOT / "masters"
 MATERIAL_LIBRARY = MASTER_ROOT / "PIMM-MATERIAL-LIBRARY.blend"
 SOURCE_TO_BLENDER_ROTATION_X = -math.pi / 2.0
 SOURCE_TO_BLENDER_SCALE = 0.01
+IMPORT_SCENE_SCALE_LENGTH = SOURCE_TO_BLENDER_SCALE
 BLENDER_UNIT_SYSTEM = "METRIC"
 BLENDER_LENGTH_UNIT = "MILLIMETERS"
 BLENDER_SCENE_SCALE_LENGTH = 0.001
@@ -111,6 +112,20 @@ def _configure_scene_units(scene) -> None:
     scene["pimm_source_to_blender_scale"] = SOURCE_TO_BLENDER_SCALE
 
 
+def _configure_import_units(scene) -> None:
+    """Use a glTF import scale that preserves physical millimeter dimensions.
+
+    Blender's glTF importer converts coordinates against the active scene scale.
+    The interchange files are already expressed in millimeter-sized units, so
+    importing while the scene is at 0.01 keeps the requested 0.01 object scale
+    from becoming an additional ten-times size error. The final authoring scene
+    is restored to 0.001 (one Blender unit per millimeter) after all imports.
+    """
+    scene.unit_settings.system = BLENDER_UNIT_SYSTEM
+    scene.unit_settings.length_unit = BLENDER_LENGTH_UNIT
+    scene.unit_settings.scale_length = IMPORT_SCENE_SCALE_LENGTH
+
+
 def _link_unassigned_material(bpy, material_library: Path):
     if not material_library.is_file():
         raise RuntimeError(f"shared material library is missing: {material_library}")
@@ -172,11 +187,24 @@ def _import_one_solid(bpy, solid: dict[str, Any], machine: str, source_hash: str
     for collection in list(product.users_collection):
         collection.objects.unlink(product)
     target.objects.link(product)
-    product.matrix_world = (
-        Matrix.Rotation(SOURCE_TO_BLENDER_ROTATION_X, 4, "X")
-        @ Matrix.Scale(SOURCE_TO_BLENDER_SCALE, 4)
-        @ product.matrix_world
+    source_matrix = product.matrix_world.copy()
+    source_linear = source_matrix.to_3x3().to_4x4()
+    source_translation = source_matrix.translation.copy()
+    coordinate_rotation = Matrix.Rotation(SOURCE_TO_BLENDER_ROTATION_X, 4, "X")
+
+    # Keep the object transform panel clean for manual authoring. The CAD
+    # coordinate conversion is baked into mesh data; only the requested 0.01
+    # source scale remains on the object itself.
+    product.data.transform(coordinate_rotation @ source_linear)
+    transformed_location = coordinate_rotation @ (
+        source_translation * SOURCE_TO_BLENDER_SCALE
     )
+    product.matrix_world = (
+        Matrix.Translation(transformed_location)
+        @ Matrix.Scale(SOURCE_TO_BLENDER_SCALE, 4)
+    )
+    product.rotation_mode = "XYZ"
+    product.rotation_euler = (0.0, 0.0, 0.0)
     product.name = master_object_name(
         machine, solid["original_name"], solid["stable_id"]
     )
@@ -234,6 +262,10 @@ def validate_master_scene(bpy, manifest: dict[str, Any], expected_count: int | N
             for value in obj.scale
         ):
             raise RuntimeError(f"master object import scale drifted: {obj.name} scale={tuple(obj.scale)}")
+        if not all(math.isclose(value, 0.0, rel_tol=0.0, abs_tol=1e-7) for value in obj.rotation_euler):
+            raise RuntimeError(
+                f"master object rotation drifted: {obj.name} rotation={tuple(obj.rotation_euler)}"
+            )
         if not math.isclose(
             obj.get("pimm_source_to_blender_scale", 0.0),
             SOURCE_TO_BLENDER_SCALE,
@@ -287,6 +319,23 @@ def validate_master_scene(bpy, manifest: dict[str, Any], expected_count: int | N
         if extents[2] <= max(extents[0], extents[1]):
             raise RuntimeError(
                 f"master is not Blender Z-up: extents={tuple(round(x, 6) for x in extents)}"
+            )
+        source_mins = [math.inf, math.inf, math.inf]
+        source_maxs = [-math.inf, -math.inf, -math.inf]
+        for solid in manifest["solids"]:
+            bounds = solid["geometry"]["bounds"]
+            for index in range(3):
+                source_mins[index] = min(source_mins[index], float(bounds[index]))
+                source_maxs[index] = max(source_maxs[index], float(bounds[index + 3]))
+        expected_extents = [source_maxs[index] - source_mins[index] for index in range(3)]
+        if any(
+            not math.isclose(actual, expected, rel_tol=0.12, abs_tol=0.5)
+            for actual, expected in zip(extents, expected_extents)
+        ):
+            raise RuntimeError(
+                "master physical extents drifted: "
+                f"actual={tuple(round(x, 3) for x in extents)} "
+                f"expected={tuple(round(x, 3) for x in expected_extents)}"
             )
     published = bpy.data.collections.get("PIMM_PUBLISHED")
     if published is None or any(True for _ in published.all_objects):
@@ -352,7 +401,7 @@ def build_master(
     _clear_blender(bpy)
     scene = bpy.context.scene
     scene.name = f"PIMM_{machine}_MASTER"
-    _configure_scene_units(scene)
+    _configure_import_units(scene)
     scene["pimm_master_machine"] = machine
     scene["pimm_master_schema_version"] = 1
     scene["pimm_source_to_blender_rotation_x"] = SOURCE_TO_BLENDER_ROTATION_X
@@ -393,6 +442,9 @@ def build_master(
         if index % 25 == 0 or index == len(selected_solids):
             print(f"PIMM_MASTER_IMPORT machine={machine} objects={index}/{len(selected_solids)}")
 
+    # Mesh transforms update evaluated bounds lazily; refresh before validating
+    # the physical assembly envelope and before saving the master.
+    bpy.context.view_layer.update()
     # The glTF importer may restore the active scene's unit display settings;
     # re-assert the authoring contract after the final import.
     audit_scene = bpy.data.scenes.new(f"PIMM_{machine}_MATERIAL_AUDIT")

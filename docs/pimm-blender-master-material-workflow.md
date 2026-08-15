@@ -8,7 +8,7 @@ This workflow is for manually correcting the 30G and 50G machine materials while
 - `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-50G-MASTER.blend`
 - Shared materials: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-MATERIAL-LIBRARY.blend`
 
-Each master contains 478 separate, selectable STEP-solid objects. They are intentionally magenta because every object begins with the linked `PIMM_UNASSIGNED` material. Each object's initial `pimm_part_name` is the exact `pimm_original_cad_name`; you can replace that label with a clearer name at any time. Both masters use Metric/Millimeters scene units (`scale_length=0.001`) and the STEP-to-Blender import transform includes a documented `0.01` object scale.
+Each master contains 478 separate, selectable STEP-solid objects. They are intentionally magenta because every object begins with the linked `PIMM_UNASSIGNED` material. Each object's initial `pimm_part_name` is the exact `pimm_original_cad_name`; you can replace that label with a clearer name at any time. Both masters use Metric/Millimeters scene units (`scale_length=0.001`) and retain a documented `0.01` object scale. During import, the builder temporarily uses the matching `0.01` scene scale so Blender's glTF unit conversion does not make the physical CAD ten times too large. The CAD-to-Blender `-90° X` conversion is baked into mesh data, so each object opens with zero rotation in the Transform panel.
 
 ## Select and identify a part
 

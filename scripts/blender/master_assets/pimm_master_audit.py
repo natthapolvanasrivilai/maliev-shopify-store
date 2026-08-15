@@ -245,6 +245,8 @@ def audit_open_master(
             for value in obj.scale
         ):
             integrity_errors.append(f"object import scale drifted: {stable_id}")
+        if not all(abs(value) <= 1e-7 for value in obj.rotation_euler):
+            integrity_errors.append(f"object rotation drifted: {stable_id}")
         if abs(
             obj.get("pimm_source_to_blender_scale", 0.0) - SOURCE_TO_BLENDER_SCALE
         ) > 1e-7:

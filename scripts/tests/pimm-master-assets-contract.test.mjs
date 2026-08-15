@@ -84,8 +84,13 @@ test('machine masters preserve one selectable object per solid and block publica
   assert.match(source, /PIMM_UNASSIGNED/);
   assert.match(source, /SOURCE_TO_BLENDER_ROTATION_X\s*=\s*-math\.pi\s*\/\s*2\.0/);
   assert.match(source, /SOURCE_TO_BLENDER_SCALE\s*=\s*0\.01/);
+  assert.match(source, /IMPORT_SCENE_SCALE_LENGTH\s*=\s*SOURCE_TO_BLENDER_SCALE/);
   assert.match(source, /MILLIMETERS/);
   assert.match(source, /BLENDER_SCENE_SCALE_LENGTH\s*=\s*0\.001/);
+  assert.match(source, /scene\.unit_settings\.scale_length\s*=\s*IMPORT_SCENE_SCALE_LENGTH/);
+  assert.match(source, /product\.data\.transform/);
+  assert.match(source, /product\.rotation_euler\s*=\s*\(0\.0, 0\.0, 0\.0\)/);
+  assert.match(source, /master physical extents drifted/);
   assert.match(source, /scene\.unit_settings\.scale_length\s*=\s*BLENDER_SCENE_SCALE_LENGTH/);
   assert.match(source, /imported \{len\(meshes\)\} mesh objects; expected 1/);
   assert.doesNotMatch(source, /bpy\.ops\.object\.join|join_by_material|merge_by_distance/);
@@ -108,6 +113,7 @@ test('master audit is read-only and manual material assignments are authoritativ
   assert.match(source, /objects remain unassigned/);
   assert.match(source, /pimm_source_to_blender_scale/);
   assert.match(source, /BLENDER_LENGTH_UNIT/);
+  assert.match(source, /object rotation drifted/);
   assert.match(source, /machine master changed during read-only audit/);
   assert.doesNotMatch(source, /save_as_mainfile|save_mainfile|bpy\.ops\.object\.join/);
 });

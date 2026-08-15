@@ -5,6 +5,7 @@ from scripts.blender.master_assets.pimm_master_builder import (
     BLENDER_LENGTH_UNIT,
     BLENDER_SCENE_SCALE_LENGTH,
     BLENDER_UNIT_SYSTEM,
+    IMPORT_SCENE_SCALE_LENGTH,
     REQUIRED_OBJECT_PROPERTIES,
     SOURCE_TO_BLENDER_ROTATION_X,
     SOURCE_TO_BLENDER_SCALE,
@@ -18,9 +19,21 @@ class MasterBuilderContractTests(unittest.TestCase):
     def test_source_coordinate_conversion_is_fixed_to_blender_z_up(self):
         self.assertAlmostEqual(SOURCE_TO_BLENDER_ROTATION_X, -math.pi / 2.0)
         self.assertAlmostEqual(SOURCE_TO_BLENDER_SCALE, 0.01)
+        self.assertAlmostEqual(IMPORT_SCENE_SCALE_LENGTH, 0.01)
         self.assertEqual(BLENDER_UNIT_SYSTEM, "METRIC")
         self.assertEqual(BLENDER_LENGTH_UNIT, "MILLIMETERS")
         self.assertAlmostEqual(BLENDER_SCENE_SCALE_LENGTH, 0.001)
+
+    def test_object_transform_contract_keeps_coordinate_conversion_in_mesh_data(self):
+        source = __import__(
+            "pathlib"
+        ).Path(__file__).parents[1].joinpath("pimm_master_builder.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("scene.unit_settings.scale_length = IMPORT_SCENE_SCALE_LENGTH", source)
+        self.assertIn("product.data.transform", source)
+        self.assertIn("product.rotation_euler = (0.0, 0.0, 0.0)", source)
+        self.assertIn("master object rotation drifted", source)
 
     def test_master_object_name_is_deterministic_and_readable(self):
         name = master_object_name(
