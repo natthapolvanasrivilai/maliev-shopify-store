@@ -125,3 +125,18 @@ test('machine contracts retain their separate physical controller values and blo
 test('manual material approval gate leaves the production linked template absent', () => {
   assert.equal(fs.existsSync(linkedTemplate), false);
 });
+
+test('Task 5 fixture proof generations never write into the production proof tree', () => {
+  const fixtureGenerationIds = [
+    'proof-20260815T153000Z-a1b2c3d',
+    'proof-20260815T153001Z-b2c3d4e',
+  ];
+
+  for (const generationId of fixtureGenerationIds) {
+    assert.equal(
+      fs.existsSync(path.join(assetRoot, 'renders', 'proofs', generationId)),
+      false,
+      `${generationId} must remain temporary fixture output only`,
+    );
+  }
+});
