@@ -425,7 +425,10 @@ def _external_image_file_record(path: Path) -> dict[str, object]:
         "bytes": before[3],
         "mtime_ns": before[4],
         "ctime_ns": before[5],
-        "device": before[0],
+        # CPython 3.11 and 3.14 expose the same Windows volume identity at
+        # different widths; normalize to the stable low 32 bits for the
+        # pinned Blender -> Pillow validation boundary.
+        "device": before[0] & 0xFFFFFFFF,
         "inode": before[1],
         "links": before[6],
         "sha256": digest,
@@ -481,9 +484,11 @@ def _image_identity(
     if cache is not None and cache_key in cache:
         return cache[cache_key]
     source = str(getattr(image, "source", ""))
+    if source not in proof_module._IMAGE_SOURCES:
+        raise ValueError(f"unsupported Blender render image source: {source}")
     packed = _packed_image_hashes(image)
     external_files: list[dict[str, object]] = []
-    if source in {"FILE", "SEQUENCE", "MOVIE", "TILED"}:
+    if source in proof_module._FILE_BACKED_IMAGE_SOURCES and not packed:
         try:
             raw_paths = [Path(image.filepath_from_user())]
         except (AttributeError, RuntimeError, TypeError, ValueError):
@@ -491,13 +496,21 @@ def _image_identity(
         for raw_path in raw_paths:
             if raw_path.is_file():
                 external_files.append(_external_image_file_record(raw_path))
-            elif not packed:
+            else:
                 raise ValueError(
                     f"external render image is missing or unreadable: {raw_path}"
                 )
+    if source in proof_module._FILE_BACKED_IMAGE_SOURCES:
+        filepath = external_files[0]["path"] if external_files else ""
+    else:
+        if packed:
+            raise ValueError(
+                f"non-file Blender render image cannot carry packed bytes: {image.name}"
+            )
+        filepath = ""
     identity.update(
         {
-            "filepath": str(getattr(image, "filepath_raw", "")),
+            "filepath": filepath,
             "source": source,
             "size": [int(value) for value in image.size],
             "channels": int(getattr(image, "channels", 0)),
@@ -511,6 +524,7 @@ def _image_identity(
             "pixels": _image_pixel_hash(image),
         }
     )
+    proof_module._validate_image(identity, f"captured image {identity['name']}")
     if cache is not None:
         cache[cache_key] = identity
     return identity
@@ -525,12 +539,26 @@ def _node_tree_record(
     if tree is None:
         return None
     identity = _data_identity(tree)
+    tree_type = str(identity["type"])
+    if tree_type not in proof_module._NODE_TREE_TYPES:
+        raise ValueError(f"unsupported Blender node-tree type: {tree_type}")
     tree_key = json.dumps(identity, sort_keys=True, separators=(",", ":"))
     if tree_key in ancestry:
-        return {"identity": identity, "recursive_reference": True}
+        reference = {"identity": identity, "recursive_reference": True}
+        proof_module._validate_node_tree(
+            reference,
+            f"captured recursive {tree_type}",
+            expected_type=tree_type,
+            allow_none=False,
+        )
+        return reference
     nested_ancestry = ancestry | {tree_key}
     node_records: list[dict[str, object]] = []
     for node in sorted(tree.nodes, key=lambda item: (item.name, item.bl_idname)):
+        if node.bl_idname not in proof_module._NODE_TYPES_BY_TREE[tree_type]:
+            raise ValueError(
+                f"unsupported {tree_type} node type: {node.bl_idname}"
+            )
         pointers = _pointer_property_records(node)
         if hasattr(node, "image"):
             pointers["image"] = _image_identity(
@@ -573,23 +601,38 @@ def _node_tree_record(
             {
                 "from_node": link.from_node.name,
                 "from_socket": link.from_socket.name,
+                "from_socket_identifier": str(
+                    getattr(link.from_socket, "identifier", "")
+                ),
                 "to_node": link.to_node.name,
                 "to_socket": link.to_socket.name,
+                "to_socket_identifier": str(
+                    getattr(link.to_socket, "identifier", "")
+                ),
             }
             for link in tree.links
         ],
         key=lambda item: (
             item["from_node"],
             item["from_socket"],
+            item["from_socket_identifier"],
             item["to_node"],
             item["to_socket"],
+            item["to_socket_identifier"],
         ),
     )
-    return {
+    record = {
         "identity": identity,
         "nodes": node_records,
         "links": links,
     }
+    proof_module._validate_node_tree(
+        record,
+        f"captured {tree_type}",
+        expected_type=tree_type,
+        allow_none=False,
+    )
+    return record
 
 
 def _transform_record(obj: object) -> dict[str, object]:
@@ -801,7 +844,9 @@ def _modifier_record(
     modifier: object,
     image_cache: dict[str, dict[str, object]],
 ) -> dict[str, object]:
-    return {
+    if modifier.type not in proof_module._MODIFIER_TYPES:
+        raise ValueError(f"unsupported Blender modifier type: {modifier.type}")
+    record = {
         "name": modifier.name,
         "type": modifier.type,
         "properties": _rna_scalar_properties(
@@ -814,13 +859,15 @@ def _modifier_record(
             getattr(modifier, "node_group", None), image_cache=image_cache
         ),
     }
+    proof_module._validate_modifier(record, f"captured modifier {modifier.name}")
+    return record
 
 
 def _material_record(
     material: object,
     image_cache: dict[str, dict[str, object]],
 ) -> dict[str, object]:
-    return {
+    record = {
         "identity": _data_identity(material),
         "properties": _rna_scalar_properties(material),
         "node_tree": _node_tree_record(
@@ -828,11 +875,14 @@ def _material_record(
             image_cache=image_cache,
         ),
     }
+    proof_module._validate_material(record, f"captured material {material.name}")
+    return record
 
 
 def _object_record(
     obj: object,
     image_cache: dict[str, dict[str, object]],
+    collection_paths: Mapping[str, tuple[tuple[str, ...], ...]],
 ) -> dict[str, object]:
     data = getattr(obj, "data", None)
     data_record: dict[str, object] | None = None
@@ -852,7 +902,14 @@ def _object_record(
         }
         for index, slot in enumerate(obj.material_slots)
     ]
-    return {
+    for collection in obj.users_collection:
+        identity = _data_identity(collection)
+        key = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+        if key not in collection_paths:
+            raise ValueError(
+                f"object collection membership has no canonical scene path: {obj.name}"
+            )
+    record = {
         "identity": _data_identity(obj),
         "object_type": str(obj.type),
         "data": data_record,
@@ -861,14 +918,23 @@ def _object_record(
         "hide_viewport": bool(obj.hide_viewport),
         "properties": _rna_scalar_properties(obj),
         "collections": sorted(
-            (_data_identity(collection) for collection in obj.users_collection),
-            key=lambda item: json.dumps(item, sort_keys=True),
+            (
+                {"identity": identity, "path": list(path)}
+                for collection in obj.users_collection
+                for identity in (_data_identity(collection),)
+                for path in collection_paths.get(
+                    json.dumps(identity, sort_keys=True, separators=(",", ":")), ()
+                )
+            ),
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
         ),
         "material_slots": material_slots,
         "modifiers": [
             _modifier_record(modifier, image_cache) for modifier in obj.modifiers
         ],
     }
+    proof_module._validate_object(record, f"captured object {obj.name}")
+    return record
 
 
 def _collection_tree_record(
@@ -891,6 +957,9 @@ def _collection_tree_record(
             _data_identity(child), sort_keys=True, separators=(",", ":")
         ),
     )
+    child_identities = {
+        id(child): _data_identity(child) for child in children
+    }
     return {
         "identity": identity,
         "path": list(path),
@@ -904,7 +973,7 @@ def _collection_tree_record(
         "children": [
             _collection_tree_record(
                 child,
-                path=path + (str(child.name),),
+                path=path + (str(child_identities[id(child)]["name"]),),
                 ancestry=ancestry | {key},
             )
             for child in children
@@ -918,6 +987,7 @@ def _layer_collection_record(
     path: tuple[str, ...],
 ) -> dict[str, object]:
     collection = layer_collection.collection
+    collection_identity = _data_identity(collection)
     children = sorted(
         layer_collection.children,
         key=lambda child: json.dumps(
@@ -926,17 +996,39 @@ def _layer_collection_record(
     )
     return {
         "path": list(path),
-        "collection": _data_identity(collection),
+        "collection": collection_identity,
         "exclude": bool(layer_collection.exclude),
         "holdout": bool(layer_collection.holdout),
         "indirect_only": bool(layer_collection.indirect_only),
         "hide_viewport": bool(layer_collection.hide_viewport),
         "children": [
             _layer_collection_record(
-                child, path=path + (str(child.collection.name),)
+                child,
+                path=path
+                + (str(_data_identity(child.collection)["name"]),),
             )
             for child in children
         ],
+    }
+
+
+def _collection_paths_by_identity(
+    root: Mapping[str, object],
+) -> dict[str, tuple[tuple[str, ...], ...]]:
+    paths: dict[str, list[tuple[str, ...]]] = {}
+
+    def visit(record: Mapping[str, object]) -> None:
+        identity = record["identity"]
+        key = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+        path = tuple(str(segment) for segment in record["path"])
+        paths.setdefault(key, []).append(path)
+        for child in record.get("children", []):
+            visit(child)
+
+    visit(root)
+    return {
+        key: tuple(sorted(set(identity_paths)))
+        for key, identity_paths in paths.items()
     }
 
 
@@ -1043,13 +1135,19 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
             "material_override": _data_identity(layer.material_override),
             "layer_collection": _layer_collection_record(
                 layer.layer_collection,
-                path=(str(layer.layer_collection.collection.name),),
+                path=(
+                    str(_data_identity(layer.layer_collection.collection)["name"]),
+                ),
             ),
         }
         for layer in sorted(scene.view_layers, key=lambda item: item.name)
     ]
+    collection_tree = _collection_tree_record(
+        scene.collection, path=(str(scene.collection.name),)
+    )
+    collection_paths = _collection_paths_by_identity(collection_tree)
     objects = [
-        _object_record(obj, image_cache)
+        _object_record(obj, image_cache, collection_paths)
         for obj in sorted(
             scene.objects,
             key=lambda item: (
@@ -1090,9 +1188,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
         "objects": objects,
         "materials": materials,
         "images": [image_cache[key] for key in sorted(image_cache)],
-        "collection_tree": _collection_tree_record(
-            scene.collection, path=(str(scene.collection.name),)
-        ),
+        "collection_tree": collection_tree,
     }
     settings["dependency_sha256"] = _dependency_sha256(settings)
     return settings

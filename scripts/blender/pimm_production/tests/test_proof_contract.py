@@ -383,11 +383,36 @@ def _valid_dependency_object(name: str = "AUTHORED_OBJECT") -> dict[str, object]
         "hide_viewport": False,
         "properties": {},
         "collections": [
-            {"name": "Scene Collection", "type": "Collection", "library": None}
+            {
+                "identity": {
+                    "name": "Scene Collection",
+                    "type": "Collection",
+                    "library": None,
+                },
+                "path": ["Scene Collection"],
+            }
         ],
         "material_slots": [],
         "modifiers": [],
     }
+
+
+def _valid_camera_dependency_object() -> dict[str, object]:
+    record = _valid_dependency_object("CAM_HERO")
+    record["object_type"] = "CAMERA"
+    record["data"] = {
+        "identity": {"name": "CAM_HERO", "type": "Camera", "library": None},
+        "properties": {},
+    }
+    record["transform"] = {
+        "location": [4.0, -6.0, 3.0],
+        "rotation_mode": "XYZ",
+        "rotation_euler": [1.0, 0.0, 0.5],
+        "scale": [1.0, 1.0, 1.0],
+        "matrix_world": [1.0] * 16,
+        "parent": None,
+    }
+    return record
 
 
 def _valid_dependency_node_tree() -> dict[str, object]:
@@ -422,6 +447,52 @@ def _valid_dependency_material() -> dict[str, object]:
         "identity": {"name": "AUTHORED_MATERIAL", "type": "Material", "library": None},
         "properties": {},
         "node_tree": _valid_dependency_node_tree(),
+    }
+
+
+def _valid_dependency_modifier() -> dict[str, object]:
+    group_identity = {
+        "name": "AUTHORED_GEOMETRY_GROUP",
+        "type": "GeometryNodeTree",
+        "library": None,
+    }
+    return {
+        "name": "AUTHORED_MODIFIER",
+        "type": "NODES",
+        "properties": {
+            "bake_directory": "",
+            "bake_target": "PACKED",
+            "execution_time": 0.0,
+            "is_active": True,
+            "is_override_data": False,
+            "open_bake_data_blocks_panel": False,
+            "open_bake_panel": False,
+            "open_manage_panel": False,
+            "open_named_attributes_panel": False,
+            "open_output_attributes_panel": False,
+            "open_warnings_panel": True,
+            "persistent_uid": 1,
+            "show_expanded": True,
+            "show_group_selector": True,
+            "show_in_editmode": True,
+            "show_manage_panel": True,
+            "show_on_cage": False,
+            "show_render": True,
+            "show_viewport": True,
+            "use_apply_on_spline": False,
+            "use_pin_to_last": False,
+        },
+        "references": {
+            "node_group": group_identity,
+            "properties": {
+                "name": "",
+                "type": "GeometryNodesModifierInterface",
+                "library": None,
+            },
+        },
+        "id_properties": [],
+        "interface_inputs": [],
+        "node_group": {"identity": group_identity, "nodes": [], "links": []},
     }
 
 
@@ -527,7 +598,7 @@ def _valid_render_metadata(
             "sequencer": {},
         },
         "cycles": {"samples": contract.samples},
-        "objects": [],
+        "objects": [_valid_camera_dependency_object()],
         "materials": [],
         "images": [],
         "collection_tree": {
@@ -536,7 +607,9 @@ def _valid_render_metadata(
             "hide_render": False,
             "hide_viewport": False,
             "properties": {},
-            "objects": [],
+            "objects": [
+                {"name": "CAM_HERO", "type": "Object", "library": None}
+            ],
             "children": [],
         },
     }
@@ -834,6 +907,21 @@ class ProofContractTests(unittest.TestCase):
             "duplicate-object-identity",
             "reordered-objects",
             "inconsistent-digest",
+            "identity-null-dependency",
+            "node-tree-null-dependency",
+            "fake-node-tree-type",
+            "wrong-context-node-tree-type",
+            "fake-modifier-enum",
+            "fake-rna-enum",
+            "file-image-without-content-evidence",
+            "file-image-with-both-content-authorities",
+            "generated-image-without-pixel-evidence",
+            "collection-path-leaf-mismatch",
+            "collection-child-path-mismatch",
+            "layer-path-leaf-mismatch",
+            "layer-child-path-mismatch",
+            "object-membership-path-spoof",
+            "unknown-material-reference",
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
@@ -900,6 +988,155 @@ class ProofContractTests(unittest.TestCase):
                         _valid_dependency_object("B_OBJECT"),
                         _valid_dependency_object("A_OBJECT"),
                     ]
+                elif mutation == "identity-null-dependency":
+                    record = _valid_dependency_object()
+                    modifier = _valid_dependency_modifier()
+                    modifier["interface_inputs"] = [
+                        {
+                            "index": 0,
+                            "identifier": "Socket_0",
+                            "name": "Authored Object",
+                            "socket_type": "NodeSocketObject",
+                            "properties": {"name": "", "type": "VALUE"},
+                            "references": {
+                                "value": {"kind": "identity", "value": None}
+                            },
+                        }
+                    ]
+                    record["modifiers"] = [modifier]
+                    authored["objects"] = [record]
+                elif mutation == "node-tree-null-dependency":
+                    record = _valid_dependency_object()
+                    modifier = _valid_dependency_modifier()
+                    modifier["id_properties"] = [
+                        {
+                            "name": "AuthoredTree",
+                            "dependency": {"kind": "node_tree", "value": None},
+                        }
+                    ]
+                    record["modifiers"] = [modifier]
+                    authored["objects"] = [record]
+                elif mutation == "fake-node-tree-type":
+                    record = _valid_dependency_material()
+                    record["node_tree"]["identity"]["type"] = "DefinitelyFakeNodeTree"
+                    authored["materials"] = [record]
+                elif mutation == "wrong-context-node-tree-type":
+                    record = _valid_dependency_material()
+                    record["node_tree"]["identity"]["type"] = "GeometryNodeTree"
+                    authored["materials"] = [record]
+                elif mutation == "fake-modifier-enum":
+                    record = _valid_dependency_object()
+                    modifier = _valid_dependency_modifier()
+                    modifier["type"] = "DEFINITELY_FAKE"
+                    record["modifiers"] = [modifier]
+                    authored["objects"] = [record]
+                elif mutation == "fake-rna-enum":
+                    authored["render"]["properties"]["engine"] = "DEFINITELY_FAKE"
+                elif mutation == "file-image-without-content-evidence":
+                    record = _valid_dependency_image()
+                    record["source"] = "FILE"
+                    record["filepath"] = "C:/fixture/no-evidence.png"
+                    authored["images"] = [record]
+                elif mutation == "file-image-with-both-content-authorities":
+                    record = _valid_dependency_image()
+                    ambiguous_path = root / "ambiguous.png"
+                    Image.new("RGBA", (4, 4), (1, 2, 3, 255)).save(ambiguous_path)
+                    ambiguous_stat = ambiguous_path.stat()
+                    record["source"] = "FILE"
+                    record["filepath"] = str(ambiguous_path)
+                    record["external_files"] = [
+                        {
+                            "path": str(ambiguous_path),
+                            "resolved_path": str(ambiguous_path.resolve()),
+                            "bytes": ambiguous_stat.st_size,
+                            "mtime_ns": ambiguous_stat.st_mtime_ns,
+                            "ctime_ns": ambiguous_stat.st_ctime_ns,
+                            "device": ambiguous_stat.st_dev & 0xFFFFFFFF,
+                            "inode": ambiguous_stat.st_ino,
+                            "links": ambiguous_stat.st_nlink,
+                            "sha256": sha256_file(ambiguous_path),
+                        }
+                    ]
+                    record["packed_files"] = [
+                        {
+                            "index": 0,
+                            "filepath": "",
+                            "view": 0,
+                            "tile_number": 1001,
+                            "bytes": 1,
+                            "sha256": "B" * 64,
+                        }
+                    ]
+                    authored["images"] = [record]
+                elif mutation == "generated-image-without-pixel-evidence":
+                    record = _valid_dependency_image()
+                    record["pixels"]["values"] = 0
+                    authored["images"] = [record]
+                elif mutation == "collection-path-leaf-mismatch":
+                    authored["collection_tree"]["path"] = ["WRONG_COLLECTION"]
+                elif mutation == "collection-child-path-mismatch":
+                    authored["collection_tree"]["children"] = [
+                        {
+                            "identity": {
+                                "name": "AUTHORED_CHILD",
+                                "type": "Collection",
+                                "library": None,
+                            },
+                            "path": ["Scene Collection", "WRONG_CHILD"],
+                            "hide_render": False,
+                            "hide_viewport": False,
+                            "properties": {},
+                            "objects": [],
+                            "children": [],
+                        }
+                    ]
+                elif mutation == "layer-path-leaf-mismatch":
+                    authored["view_layers"][0]["layer_collection"]["path"] = [
+                        "WRONG_COLLECTION"
+                    ]
+                elif mutation == "layer-child-path-mismatch":
+                    authored["view_layers"][0]["layer_collection"]["children"] = [
+                        {
+                            "path": ["Scene Collection", "WRONG_CHILD"],
+                            "collection": {
+                                "name": "AUTHORED_CHILD",
+                                "type": "Collection",
+                                "library": None,
+                            },
+                            "exclude": False,
+                            "holdout": False,
+                            "indirect_only": False,
+                            "hide_viewport": False,
+                            "children": [],
+                        }
+                    ]
+                elif mutation == "object-membership-path-spoof":
+                    authored["objects"][0]["collections"][0]["path"] = [
+                        "SPOOFED_ROOT",
+                        "Scene Collection",
+                    ]
+                elif mutation == "unknown-material-reference":
+                    record = _valid_dependency_object()
+                    record["material_slots"] = [
+                        {
+                            "index": 0,
+                            "name": "AUTHORED_UNKNOWN_MATERIAL",
+                            "link": "DATA",
+                            "material": {
+                                "name": "AUTHORED_UNKNOWN_MATERIAL",
+                                "type": "Material",
+                                "library": None,
+                            },
+                        }
+                    ]
+                    authored["objects"] = [
+                        record,
+                        _valid_camera_dependency_object(),
+                    ]
+                    authored["collection_tree"]["objects"] = [
+                        record["identity"],
+                        authored["camera"]["identity"],
+                    ]
                 if mutation != "inconsistent-digest":
                     _recompute_dependency_digest(authored)
                 else:
@@ -910,8 +1147,27 @@ class ProofContractTests(unittest.TestCase):
                 }
                 _write_manifest_evidence(root, output_root, contract, scene, metadata)
 
+                expected_errors = {
+                    "identity-null-dependency": "exact data-block identity",
+                    "node-tree-null-dependency": "cannot be null",
+                    "fake-node-tree-type": "supported Blender NodeTree",
+                    "wrong-context-node-tree-type": "parent context",
+                    "fake-modifier-enum": "pinned Blender modifier domain",
+                    "fake-rna-enum": "pinned Blender enum domain",
+                    "file-image-without-content-evidence": "exactly one",
+                    "file-image-with-both-content-authorities": "exactly one",
+                    "generated-image-without-pixel-evidence": "pixel values",
+                    "collection-path-leaf-mismatch": "path leaf",
+                    "collection-child-path-mismatch": "path leaf",
+                    "layer-path-leaf-mismatch": "path leaf",
+                    "layer-child-path-mismatch": "path leaf",
+                    "object-membership-path-spoof": "does not resolve",
+                    "unknown-material-reference": "captured registry",
+                }
                 with patch.object(proof_module, "ASSET_ROOT", root):
-                    with self.assertRaises(ValueError):
+                    with self.assertRaisesRegex(
+                        ValueError, expected_errors.get(mutation, ".+")
+                    ):
                         write_proof_manifest(contract, outputs)
 
     def test_standalone_finalizer_rejects_external_product_temp_and_preserves_it(self):
