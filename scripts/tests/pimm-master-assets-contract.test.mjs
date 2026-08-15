@@ -16,8 +16,8 @@ const assetRoot = 'M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blen
 test('STEP manifest pipeline pins the CAD runtime and authoritative sources', () => {
   assert.equal(fs.readFileSync(requirements, 'utf8').trim(), 'cadquery-ocp==7.9.3.1.1');
   const source = fs.readFileSync(manifestBuilder, 'utf8');
-  assert.match(source, /F8AAA223A79B9FE3BB71470818C2E87591C0DECA9A7B0BC8E09AD4DDB0499295/);
-  assert.match(source, /55914B756354C3BDCC522ED439732C9F3F0FBE43F7038A1FFA6045C92ADC1E98/);
+  assert.match(source, /2EA1C86BD15386717BB53F02B61490ABB2F8DB45E7D70ED668AF29203A4E2205/);
+  assert.match(source, /A6CB2CAA65CA2002A3A18D9C341833506764D55F7ED840BC9095ED8AF7386FEF/);
   assert.match(source, /STEPCAFControl_Reader/);
   assert.match(source, /XCAFDoc_DocumentTool/);
 });
@@ -106,13 +106,13 @@ test('generated external handoff artifacts have exact manifest-to-master parity'
     const masterPath = path.join(assetRoot, 'masters', `PIMM-${machine}-MASTER.blend`);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const audit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
-    assert.equal(manifest.summary.solid_count, 472);
+    assert.equal(manifest.summary.solid_count, 474);
     assert.equal(manifest.summary.non_solid_product_count, 4);
-    assert.equal(new Set(manifest.solids.map((solid) => solid.stable_id)).size, 472);
+    assert.equal(new Set(manifest.solids.map((solid) => solid.stable_id)).size, 474);
     assert.equal(manifest.solids.every((solid) => fs.statSync(solid.interchange_path).size > 0), true);
-    assert.equal(audit.object_count, 472);
-    assert.equal(audit.unique_id_count, 472);
-    assert.equal(audit.unassigned_ids.length, 472);
+    assert.equal(audit.object_count, 474);
+    assert.equal(audit.unique_id_count, 474);
+    assert.equal(audit.unassigned_ids.length, 474);
     assert.deepEqual(audit.errors, []);
     assert.equal(audit.publishable, false);
     assert.equal(audit.source_ok, true);

@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- Authoritative 30G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-30G-authoritative-source.step`, 116,620,371 bytes, SHA-256 `F8AAA223A79B9FE3BB71470818C2E87591C0DECA9A7B0BC8E09AD4DDB0499295`.
-- Authoritative 50G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-50G-authoritative-source.step`, 116,851,157 bytes, SHA-256 `55914B756354C3BDCC522ED439732C9F3F0FBE43F7038A1FFA6045C92ADC1E98`.
+- Authoritative 30G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-30G-authoritative-source.step`, 116,623,783 bytes, SHA-256 `2EA1C86BD15386717BB53F02B61490ABB2F8DB45E7D70ED668AF29203A4E2205`.
+- Authoritative 50G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-50G-authoritative-source.step`, 116,854,560 bytes, SHA-256 `A6CB2CAA65CA2002A3A18D9C341833506764D55F7ED840BC9095ED8AF7386FEF`.
 - Blender executable: `D:\Blender 5.2\blender.exe`.
 - Never mutate either authoritative STEP file.
 - Never use OBJ as a canonical machine source.

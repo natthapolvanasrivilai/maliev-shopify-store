@@ -87,10 +87,10 @@ The initial 2026-08-14 handoff is intentionally ready for manual assignment, not
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `PIMM-30G-MASTER.blend` | 103,030,502 | `D447446BF6588CA7BCB08F8B588AE702DB0FE7DC169F8878B1E455CD7F2A18EC` |
-| `PIMM-50G-MASTER.blend` | 104,154,591 | `0B5853B6110B84F6B8B4915BC450449023589DC5296AFA05CA6DF2A81917C7AB` |
+| `PIMM-30G-MASTER.blend` | 103,264,370 | `06DCCD9C7F4ADE3D81B46F38177688F5EF8C885032908677AEB16E65AF1F69AA` |
+| `PIMM-50G-MASTER.blend` | 104,778,205 | `A0C67B0E97D6FEEDEC60D8627519D56E43916576835B98283EB0D091B289542B` |
 | `PIMM-MATERIAL-LIBRARY.blend` | 229,871 | `F466ED9D12708DEF20449F5F41E0B0958C86025C5B42360E58B57F6658BF4E59` |
 
-Both masters contain 472 unique occurrence-solid objects, four explicitly accounted empty CAD placeholders, zero unexplained disconnected objects, and 472 `PIMM_UNASSIGNED` material states. Their working audits contain zero integrity errors and correctly report `publishable=false`.
+Both masters contain 474 unique occurrence-solid objects, four explicitly accounted empty CAD placeholders, zero unexplained disconnected objects, and 474 `PIMM_UNASSIGNED` material states. Their working audits contain zero integrity errors and correctly report `publishable=false`.
 
 The legacy inventory covers 77 Blender projects totaling 13,498,586,358 bytes. Proposed dispositions are 3 `keep-authoritative`, 15 `migrate-scene`, 23 `archive-after-validation`, and 36 `review`. These are recommendations only; the inventory performed no moves or deletions.
