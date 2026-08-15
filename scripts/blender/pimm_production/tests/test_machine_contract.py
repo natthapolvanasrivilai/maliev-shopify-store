@@ -35,6 +35,29 @@ class _Collection:
         self.name = name
 
 
+class _KeyframePoint:
+    def __init__(self, frame: float, value: float) -> None:
+        self.co = (frame, value)
+
+
+class _Fcurve:
+    def __init__(self, data_path: str, array_index: int, keyframes: tuple[tuple[float, float], ...]) -> None:
+        self.data_path = data_path
+        self.array_index = array_index
+        self.keyframe_points = tuple(_KeyframePoint(frame, value) for frame, value in keyframes)
+
+
+class _Action:
+    def __init__(self, fcurves: tuple[_Fcurve, ...]) -> None:
+        self.fcurves = fcurves
+
+
+class _AnimationData:
+    def __init__(self, fcurves: tuple[_Fcurve, ...]) -> None:
+        self.action = _Action(fcurves)
+        self.drivers: tuple[object, ...] = ()
+
+
 class _Object:
     def __init__(
         self,
@@ -46,6 +69,7 @@ class _Object:
         materials: tuple[str, ...] = (),
         collections: tuple[str, ...] = (),
         animated: bool = False,
+        fcurves: tuple[_Fcurve, ...] = (),
         image_empty: bool = False,
     ) -> None:
         self.name = name
@@ -54,7 +78,7 @@ class _Object:
         self.bound_box = tuple((float(x), float(y), float(z)) for x in (0, 1) for y in (0, 1) for z in (0, 1))
         self.users_collection = tuple(_Collection(value) for value in collections)
         self.material_slots = tuple(_MaterialSlot(_Material(value)) for value in materials)
-        self.animation_data = object() if animated else None
+        self.animation_data = _AnimationData(fcurves) if fcurves else (object() if animated else None)
         self.empty_display_type = "IMAGE" if image_empty else "PLAIN_AXES"
         self._properties = {
             "pimm_stable_id": stable_id,
@@ -78,6 +102,66 @@ class _Bpy:
 
 
 class MachineContractTests(unittest.TestCase):
+    def _enabled_contract(self) -> dict[str, object]:
+        contract = load_machine_contract("30G")
+        contract["controller"]["approved_machine_local_material_ids"] = [
+            "CONTROLLER_GREEN_EMISSIVE",
+            "CONTROLLER_OFF",
+        ]
+        contract["controller"]["approved_segments"] = [
+            {
+                "stable_object_id": "30G-segment-active",
+                "material_id": "CONTROLLER_GREEN_EMISSIVE",
+                "object_type": "MESH",
+                "active": True,
+            },
+            {
+                "stable_object_id": "30G-segment-inactive",
+                "material_id": "CONTROLLER_OFF",
+                "object_type": "MESH",
+                "active": False,
+            },
+        ]
+        contract["animation"] = {
+            "status": "enabled_owner_approved",
+            "allowed_controls": [
+                {
+                    "stable_object_id": "30G-approved-control",
+                    "human_part_name": "Approved part",
+                    "control_id": "approved-control",
+                    "transform_channel": "location",
+                    "axis": "Z",
+                    "minimum": 0.0,
+                    "maximum": 10.0,
+                    "neutral": 0.0,
+                    "start": 0.0,
+                    "operating": 5.0,
+                    "final": 10.0,
+                    "hose_cable_dependency": "Owner reviewed",
+                    "collision_note": "Owner reviewed",
+                }
+            ],
+        }
+        return contract
+
+    def _approved_segments(self) -> list[_Object]:
+        return [
+            _Object(
+                "Active display segment",
+                "MESH",
+                stable_id="30G-segment-active",
+                cad_name="Display",
+                materials=("CONTROLLER_GREEN_EMISSIVE",),
+            ),
+            _Object(
+                "Inactive display segment",
+                "MESH",
+                stable_id="30G-segment-inactive",
+                cad_name="Display",
+                materials=("CONTROLLER_OFF",),
+            ),
+        ]
+
     def test_controller_values_are_machine_specific(self) -> None:
         """Catches a copied display temperature between the two master contracts."""
 
@@ -140,6 +224,42 @@ class MachineContractTests(unittest.TestCase):
 
         self.assertIn("enabled_owner_approved animation requires a nonempty allowed_controls map", errors)
         self.assertFalse(animation_is_authorized(payload))
+
+    def test_enabled_motion_requires_a_complete_physical_segment_and_material_map(self) -> None:
+        """Catches enabled motion that lacks physical active/inactive display evidence."""
+
+        missing_segments = self._enabled_contract()
+        del missing_segments["controller"]["approved_segments"]
+        del missing_segments["controller"]["approved_machine_local_material_ids"]
+        self.assertIn(
+            "enabled_owner_approved animation requires a nonempty controller approved_segments map",
+            validate_machine_contract(missing_segments),
+        )
+        self.assertFalse(animation_is_authorized(missing_segments))
+
+        missing_inactive = self._enabled_contract()
+        missing_inactive["controller"]["approved_segments"][1]["active"] = True
+        self.assertIn(
+            "approved controller segment map requires at least one inactive segment",
+            validate_machine_contract(missing_inactive),
+        )
+        self.assertFalse(animation_is_authorized(missing_inactive))
+
+        unassigned = self._enabled_contract()
+        unassigned["controller"]["approved_segments"][0]["material_id"] = "UNASSIGNED"
+        self.assertIn(
+            "controller approved_segments[0] material_id cannot be UNASSIGNED",
+            validate_machine_contract(unassigned),
+        )
+        self.assertFalse(animation_is_authorized(unassigned))
+
+        non_approved = self._enabled_contract()
+        non_approved["controller"]["approved_segments"][0]["material_id"] = "OTHER_MACHINE_MATERIAL"
+        self.assertIn(
+            "controller approved_segments[0] material_id is not in approved_machine_local_material_ids",
+            validate_machine_contract(non_approved),
+        )
+        self.assertFalse(animation_is_authorized(non_approved))
 
     def test_discovery_reports_stable_identity_and_cad_context_without_mutating_objects(self) -> None:
         """Catches discovery that loses the identity needed for later owner review."""
@@ -229,45 +349,84 @@ class MachineContractTests(unittest.TestCase):
         self.assertIn("controller/display candidate cannot be an image overlay: Display image", errors)
 
     def test_scene_allows_only_the_exact_owner_approved_animated_object(self) -> None:
-        """Catches an approved motion map that still blocks its named object or admits another one."""
+        """Catches an approved motion map that admits a different object or channel."""
 
-        contract = load_machine_contract("30G")
-        contract["animation"] = {
-            "status": "enabled_owner_approved",
-            "allowed_controls": [
-                {
-                    "stable_object_id": "30G-approved-control",
-                    "human_part_name": "Approved part",
-                    "control_id": "approved-control",
-                    "axis": "Z",
-                    "minimum": 0.0,
-                    "maximum": 10.0,
-                    "neutral": 0.0,
-                    "start": 0.0,
-                    "operating": 5.0,
-                    "final": 10.0,
-                    "hose_cable_dependency": "Owner reviewed",
-                    "collision_note": "Owner reviewed",
-                }
-            ],
-        }
-        approved = _Object("Approved part", "MESH", stable_id="30G-approved-control", animated=True)
+        contract = self._enabled_contract()
+        approved = _Object(
+            "Approved part",
+            "MESH",
+            stable_id="30G-approved-control",
+            fcurves=(_Fcurve("location", 2, ((1.0, 0.0), (2.0, 5.0), (3.0, 10.0))),),
+        )
         unknown = _Object("Unknown part", "MESH", stable_id="30G-unknown-control", animated=True)
 
         self.assertTrue(animation_is_authorized(contract))
-        self.assertEqual(validate_controller_scene(_Bpy([approved]), contract), [])
+        self.assertEqual(validate_controller_scene(_Bpy([*self._approved_segments(), approved]), contract), [])
         self.assertIn(
             "animated scene object is not owner-approved: Unknown part",
-            validate_controller_scene(_Bpy([approved, unknown]), contract),
+            validate_controller_scene(_Bpy([*self._approved_segments(), approved, unknown]), contract),
         )
+
+    def test_scene_rejects_unapproved_animation_channels_axis_limits_and_poses(self) -> None:
+        """Catches f-curves that depart from the exact owner-approved motion record."""
+
+        contract = self._enabled_contract()
+        fixtures = [
+            (
+                _Object(
+                    "Approved part",
+                    "MESH",
+                    stable_id="30G-approved-control",
+                    fcurves=(_Fcurve("location", 0, ((1.0, 0.0), (2.0, 5.0), (3.0, 10.0))),),
+                ),
+                "approved animation axis mismatch: Approved part",
+            ),
+            (
+                _Object(
+                    "Approved part",
+                    "MESH",
+                    stable_id="30G-approved-control",
+                    fcurves=(
+                        _Fcurve("location", 2, ((1.0, 0.0), (2.0, 5.0), (3.0, 10.0))),
+                        _Fcurve("rotation_euler", 2, ((1.0, 0.0),)),
+                    ),
+                ),
+                "approved animation has unexpected transform channel: Approved part",
+            ),
+            (
+                _Object(
+                    "Approved part",
+                    "MESH",
+                    stable_id="30G-approved-control",
+                    fcurves=(_Fcurve("location", 2, ((1.0, 0.0), (2.0, 12.0), (3.0, 10.0))),),
+                ),
+                "approved animation key value is outside limits: Approved part",
+            ),
+            (
+                _Object(
+                    "Approved part",
+                    "MESH",
+                    stable_id="30G-approved-control",
+                    fcurves=(_Fcurve("location", 2, ((1.0, 0.0), (2.0, 6.0), (3.0, 10.0))),),
+                ),
+                "approved animation key poses do not match start/operating/final: Approved part",
+            ),
+        ]
+        for object_value, expected in fixtures:
+            with self.subTest(expected=expected):
+                self.assertIn(
+                    expected,
+                    validate_controller_scene(_Bpy([*self._approved_segments(), object_value]), contract),
+                )
 
     def test_owner_mapped_segments_require_mesh_material_and_an_inactive_segment(self) -> None:
         """Catches approved display maps that cannot prove physical active and inactive segments."""
 
         contract = load_machine_contract("30G")
+        contract["controller"]["approved_machine_local_material_ids"] = ["Controller Green"]
         contract["controller"]["approved_segments"] = [
-            {"stable_object_id": "segment-a", "material_id": "Controller Green", "active": True},
-            {"stable_object_id": "segment-b", "material_id": "Controller Green", "active": False},
+            {"stable_object_id": "segment-a", "material_id": "Controller Green", "object_type": "MESH", "active": True},
+            {"stable_object_id": "segment-b", "material_id": "Controller Green", "object_type": "MESH", "active": False},
         ]
         scene = _Bpy(
             [

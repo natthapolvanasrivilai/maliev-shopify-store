@@ -32,11 +32,12 @@ _BASE_CONTROLLER_KEYS = {
     "allow_image_overlay",
     "inactive_segments_required",
 }
-_SEGMENT_KEYS = {"stable_object_id", "material_id", "active"}
+_SEGMENT_KEYS = {"stable_object_id", "material_id", "object_type", "active"}
 _CONTROL_KEYS = {
     "stable_object_id",
     "human_part_name",
     "control_id",
+    "transform_channel",
     "axis",
     "minimum",
     "maximum",
@@ -47,6 +48,8 @@ _CONTROL_KEYS = {
     "hose_cable_dependency",
     "collision_note",
 }
+_TRANSFORM_CHANNELS = {"location", "rotation_euler", "scale"}
+_AXIS_INDICES = {"X": 0, "Y": 1, "Z": 2}
 
 
 def load_machine_contract(machine: MachineName) -> dict[str, object]:
@@ -79,13 +82,17 @@ def _validate_approved_segments(controller: Mapping[str, object]) -> list[str]:
     if not isinstance(segments, list) or not segments:
         return ["controller approved_segments must be a nonempty list when present"]
 
+    allowlist = controller.get("approved_machine_local_material_ids")
+    approved_material_ids = set(allowlist) if isinstance(allowlist, list) else set()
     errors: list[str] = []
     stable_ids: set[str] = set()
     inactive_count = 0
     for index, segment in enumerate(segments):
         entry = _mapping(segment)
         if entry is None or set(entry) != _SEGMENT_KEYS:
-            errors.append(f"controller approved_segments[{index}] must contain stable_object_id, material_id, and active")
+            errors.append(
+                f"controller approved_segments[{index}] must contain stable_object_id, material_id, object_type, and active"
+            )
             continue
         stable_id = entry["stable_object_id"]
         if not _is_nonempty_string(stable_id):
@@ -94,14 +101,43 @@ def _validate_approved_segments(controller: Mapping[str, object]) -> list[str]:
             errors.append(f"controller approved_segments[{index}] duplicates stable_object_id: {stable_id}")
         else:
             stable_ids.add(stable_id)
-        if not _is_nonempty_string(entry["material_id"]):
+        material_id = entry["material_id"]
+        if not _is_nonempty_string(material_id):
             errors.append(f"controller approved_segments[{index}] material_id must be a nonempty string")
+        elif material_id.casefold().removeprefix("pimm_") == "unassigned":
+            errors.append(f"controller approved_segments[{index}] material_id cannot be UNASSIGNED")
+        elif isinstance(allowlist, list) and material_id not in approved_material_ids:
+            errors.append(
+                f"controller approved_segments[{index}] material_id is not in approved_machine_local_material_ids"
+            )
+        if entry["object_type"] != "MESH":
+            errors.append(f"controller approved_segments[{index}] object_type must be MESH")
         if not isinstance(entry["active"], bool):
             errors.append(f"controller approved_segments[{index}] active must be boolean")
         elif not entry["active"]:
             inactive_count += 1
     if controller.get("inactive_segments_required") is True and inactive_count == 0:
         errors.append("approved controller segment map requires at least one inactive segment")
+    return errors
+
+
+def _validate_material_allowlist(controller: Mapping[str, object]) -> list[str]:
+    allowlist = controller.get("approved_machine_local_material_ids")
+    if allowlist is None:
+        return []
+    if not isinstance(allowlist, list) or not allowlist:
+        return ["controller approved_machine_local_material_ids must be a nonempty list when present"]
+    errors: list[str] = []
+    seen: set[str] = set()
+    for index, material_id in enumerate(allowlist):
+        if not _is_nonempty_string(material_id):
+            errors.append(f"controller approved_machine_local_material_ids[{index}] must be a nonempty string")
+        elif material_id.casefold().removeprefix("pimm_") == "unassigned":
+            errors.append(f"controller approved_machine_local_material_ids[{index}] cannot be UNASSIGNED")
+        elif material_id in seen:
+            errors.append(f"controller approved_machine_local_material_ids[{index}] is duplicated: {material_id}")
+        else:
+            seen.add(material_id)
     return errors
 
 
@@ -112,10 +148,18 @@ def _validate_control_map(controls: list[object]) -> list[str]:
         if entry is None or set(entry) != _CONTROL_KEYS:
             errors.append(f"allowed_controls[{index}] must contain the complete owner approval record")
             continue
-        for key in ("stable_object_id", "human_part_name", "control_id", "hose_cable_dependency", "collision_note"):
+        for key in (
+            "stable_object_id",
+            "human_part_name",
+            "control_id",
+            "hose_cable_dependency",
+            "collision_note",
+        ):
             if not _is_nonempty_string(entry[key]):
                 errors.append(f"allowed_controls[{index}] {key} must be a nonempty string")
-        if entry["axis"] not in {"X", "Y", "Z"}:
+        if entry["transform_channel"] not in _TRANSFORM_CHANNELS:
+            errors.append(f"allowed_controls[{index}] transform_channel must be location, rotation_euler, or scale")
+        if entry["axis"] not in _AXIS_INDICES:
             errors.append(f"allowed_controls[{index}] axis must be X, Y, or Z")
         values = [entry[key] for key in ("minimum", "maximum", "neutral", "start", "operating", "final")]
         if not all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in values):
@@ -147,8 +191,11 @@ def validate_machine_contract(payload: Mapping[str, object]) -> list[str]:
         errors.append("machine contract controller must be an object")
         return errors
     controller_keys = set(controller)
-    if not _BASE_CONTROLLER_KEYS.issubset(controller_keys) or controller_keys - (_BASE_CONTROLLER_KEYS | {"approved_segments"}):
-        errors.append("controller must contain only the required physical display fields and optional approved_segments")
+    optional_controller_keys = {"approved_segments", "approved_machine_local_material_ids"}
+    if not _BASE_CONTROLLER_KEYS.issubset(controller_keys) or controller_keys - (_BASE_CONTROLLER_KEYS | optional_controller_keys):
+        errors.append(
+            "controller must contain only the required physical display fields and optional approved_segments or approved_machine_local_material_ids"
+        )
         return errors
     if machine in _MACHINE_VALUES and controller.get("display_values") != _MACHINE_VALUES[machine]:
         errors.append(f"{machine} controller display_values must be {_MACHINE_VALUES[machine]!r}")
@@ -160,6 +207,7 @@ def validate_machine_contract(payload: Mapping[str, object]) -> list[str]:
         errors.append("controller allow_image_overlay must be false")
     if controller.get("inactive_segments_required") is not True:
         errors.append("controller inactive_segments_required must be true")
+    errors.extend(_validate_material_allowlist(controller))
     errors.extend(_validate_approved_segments(controller))
 
     animation = _mapping(payload["animation"])
@@ -177,6 +225,14 @@ def validate_machine_contract(payload: Mapping[str, object]) -> list[str]:
     elif status == "enabled_owner_approved" and not controls:
         errors.append("enabled_owner_approved animation requires a nonempty allowed_controls map")
     elif status == "enabled_owner_approved":
+        if not isinstance(controller.get("approved_segments"), list) or not controller["approved_segments"]:
+            errors.append("enabled_owner_approved animation requires a nonempty controller approved_segments map")
+        if not isinstance(controller.get("approved_machine_local_material_ids"), list) or not controller[
+            "approved_machine_local_material_ids"
+        ]:
+            errors.append(
+                "enabled_owner_approved animation requires a nonempty controller approved_machine_local_material_ids allowlist"
+            )
         errors.extend(_validate_control_map(controls))
     return errors
 
@@ -316,6 +372,63 @@ def _animated(object_value: object) -> bool:
     return getattr(object_value, "animation_data", None) is not None
 
 
+def _keyframes(fcurve: object) -> list[tuple[float, float]] | None:
+    try:
+        return [
+            (float(point.co[0]), float(point.co[1]))
+            for point in getattr(fcurve, "keyframe_points", ())
+        ]
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return None
+
+
+def _validate_control_animation(object_value: object, control: Mapping[str, object]) -> list[str]:
+    """Validate every actual F-curve against one owner-approved transform record."""
+
+    name = str(getattr(object_value, "name", ""))
+    animation_data = getattr(object_value, "animation_data", None)
+    action = getattr(animation_data, "action", None)
+    fcurves = list(getattr(action, "fcurves", ()) if action is not None else ())
+    drivers = list(getattr(animation_data, "drivers", ()) if animation_data is not None else ())
+    errors: list[str] = []
+    if drivers:
+        errors.append(f"approved animation has drivers outside the owner-approved F-curve record: {name}")
+    if not fcurves:
+        errors.append(f"approved animation requires one F-curve: {name}")
+        return errors
+
+    expected_channel = control["transform_channel"]
+    expected_axis = _AXIS_INDICES[control["axis"]]
+    matching_curves: list[object] = []
+    for fcurve in fcurves:
+        if getattr(fcurve, "data_path", None) != expected_channel:
+            errors.append(f"approved animation has unexpected transform channel: {name}")
+        elif getattr(fcurve, "array_index", None) != expected_axis:
+            errors.append(f"approved animation axis mismatch: {name}")
+        else:
+            matching_curves.append(fcurve)
+    if len(fcurves) != 1 or len(matching_curves) != 1:
+        if not errors:
+            errors.append(f"approved animation must contain exactly one approved transform channel: {name}")
+        return errors
+
+    keyframes = _keyframes(matching_curves[0])
+    if keyframes is None or len(keyframes) != 3:
+        return [*errors, f"approved animation must contain start/operating/final keys: {name}"]
+    frames = [frame for frame, _ in keyframes]
+    values = [value for _, value in keyframes]
+    if frames != sorted(frames) or len(set(frames)) != len(frames):
+        errors.append(f"approved animation key frames are not in start/operating/final order: {name}")
+    minimum = control["minimum"]
+    maximum = control["maximum"]
+    if any(value < minimum or value > maximum for value in values):
+        errors.append(f"approved animation key value is outside limits: {name}")
+    expected_values = [control["start"], control["operating"], control["final"]]
+    if values != expected_values:
+        errors.append(f"approved animation key poses do not match start/operating/final: {name}")
+    return errors
+
+
 def validate_controller_scene(bpy: Any, contract: Mapping[str, object]) -> list[str]:
     """Read a scene for forbidden animation/display substitutions and approved mappings."""
 
@@ -325,8 +438,8 @@ def validate_controller_scene(bpy: Any, contract: Mapping[str, object]) -> list[
     objects = list(bpy.data.objects)
     animation = _mapping(contract["animation"])
     allowed_controls = animation["allowed_controls"] if animation else []
-    approved_animation_ids = {
-        control["stable_object_id"]
+    controls_by_stable_id = {
+        control["stable_object_id"]: control
         for control in allowed_controls
         if isinstance(control, Mapping) and _is_nonempty_string(control.get("stable_object_id"))
     }
@@ -334,10 +447,12 @@ def validate_controller_scene(bpy: Any, contract: Mapping[str, object]) -> list[
         if _animated(object_value):
             name = getattr(object_value, "name", "")
             stable_id = _property(object_value, ("pimm_stable_id", "stable_object_id", "stable_id"))
-            if not approved_animation_ids:
+            if not controls_by_stable_id:
                 errors.append(f"animation is blocked but scene object is animated: {name}")
-            elif stable_id not in approved_animation_ids:
+            elif stable_id not in controls_by_stable_id:
                 errors.append(f"animated scene object is not owner-approved: {name}")
+            else:
+                errors.extend(_validate_control_animation(object_value, controls_by_stable_id[stable_id]))
     candidates = discover_controller_candidates(objects)
     for candidate in candidates:
         if candidate["object_type"] == "EMPTY" and getattr(

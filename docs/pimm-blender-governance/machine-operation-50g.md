@@ -12,6 +12,8 @@ Animation is **blocked_pending_owner_motion_map**. `allowed_controls` is empty. 
 
 Animation can begin only after the owner approves a complete named control/axis/limit map and it is recorded in the 50G JSON contract. That approval must identify physical MESH display segments and their approved emissive material IDs as well as every motion control.
 
+An enabled contract must also name a nonempty machine/controller-local material-ID allowlist. Each active and inactive physical MESH segment must use one of those IDs; `UNASSIGNED` is never allowed. Each approved motion control records its transform channel and axis, and its Blender F-curve must contain only the approved channel/axis with start, operating, and final key values in that order and within the owner-approved limits.
+
 ## Required owner approval table
 
 | stable object ID | human part name | control ID | axis | minimum | maximum | neutral | start | operating | final | hose/cable dependency | collision note |
