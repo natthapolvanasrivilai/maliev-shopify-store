@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from array import array
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -336,7 +338,12 @@ def _data_identity(value: object | None) -> dict[str, object] | None:
         "type": type(value).__name__,
         "library": str(getattr(library, "filepath", "")) if library else None,
     }
-    stable_id = value.get("pimm_stable_id") if hasattr(value, "get") else None
+    stable_id = None
+    if hasattr(value, "get"):
+        try:
+            stable_id = value.get("pimm_stable_id")
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            stable_id = None
     if stable_id is not None:
         result["pimm_stable_id"] = str(stable_id)
     return result
@@ -388,34 +395,143 @@ def _socket_record(socket: object) -> dict[str, object]:
     }
 
 
-def _image_identity(image: object | None) -> dict[str, object] | None:
+def _external_image_file_record(path: Path) -> dict[str, object]:
+    canonical = _lexical_absolute(path)
+    anchor = Path(canonical.anchor)
+    if not anchor:
+        raise ValueError(f"external render image path is not absolute: {path}")
+    _validate_no_reparse_ancestors(anchor, canonical)
+    if not canonical.is_file():
+        raise ValueError(f"external render image is missing or unreadable: {canonical}")
+    before = _scratch_stat_identity(canonical)
+    resolved = canonical.resolve(strict=True)
+    digest = sha256_file(canonical)
+    after = _scratch_stat_identity(canonical)
+    if before != after:
+        raise ValueError(f"external render image changed while fingerprinting: {canonical}")
+    return {
+        "path": str(canonical),
+        "resolved_path": str(resolved),
+        "bytes": before[3],
+        "mtime_ns": before[4],
+        "ctime_ns": before[5],
+        "device": before[0],
+        "inode": before[1],
+        "links": before[6],
+        "sha256": digest,
+    }
+
+
+def _packed_image_hashes(image: object) -> list[dict[str, object]]:
+    packed_files = list(getattr(image, "packed_files", ()))
+    if not packed_files and getattr(image, "packed_file", None) is not None:
+        packed_files = [image.packed_file]
+    records: list[dict[str, object]] = []
+    for index, packed in enumerate(packed_files):
+        packed_file = getattr(packed, "packed_file", packed)
+        try:
+            data = bytes(packed_file.data)
+        except (AttributeError, TypeError, ValueError) as error:
+            raise ValueError(f"packed render image bytes are unreadable: {image.name}") from error
+        records.append(
+            {
+                "index": index,
+                "filepath": str(getattr(packed, "filepath", "")),
+                "view": int(getattr(packed, "view", 0)),
+                "tile_number": int(getattr(packed, "tile_number", 0)),
+                "bytes": len(data),
+                "sha256": hashlib.sha256(data).hexdigest().upper(),
+            }
+        )
+    return records
+
+
+def _image_pixel_hash(image: object) -> dict[str, object]:
+    pixels = image.pixels
+    values = array("f", [0.0]) * len(pixels)
+    if values:
+        pixels.foreach_get(values)
+    if sys.byteorder != "little":
+        values.byteswap()
+    return {
+        "encoding": "float32-little-endian",
+        "values": len(values),
+        "sha256": hashlib.sha256(values.tobytes()).hexdigest().upper(),
+    }
+
+
+def _image_identity(
+    image: object | None,
+    cache: dict[str, dict[str, object]] | None = None,
+) -> dict[str, object] | None:
     identity = _data_identity(image)
     if identity is None:
         return None
+    cache_key = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
+    source = str(getattr(image, "source", ""))
+    packed = _packed_image_hashes(image)
+    external_files: list[dict[str, object]] = []
+    if source in {"FILE", "SEQUENCE", "MOVIE", "TILED"}:
+        try:
+            raw_paths = [Path(image.filepath_from_user())]
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            raw_paths = [Path(str(getattr(image, "filepath_raw", "")))]
+        for raw_path in raw_paths:
+            if raw_path.is_file():
+                external_files.append(_external_image_file_record(raw_path))
+            elif not packed:
+                raise ValueError(
+                    f"external render image is missing or unreadable: {raw_path}"
+                )
     identity.update(
         {
             "filepath": str(getattr(image, "filepath_raw", "")),
-            "source": str(getattr(image, "source", "")),
+            "source": source,
+            "size": [int(value) for value in image.size],
+            "channels": int(getattr(image, "channels", 0)),
+            "depth": int(getattr(image, "depth", 0)),
+            "is_float": bool(getattr(image, "is_float", False)),
+            "file_format": str(getattr(image, "file_format", "")),
             "alpha_mode": str(getattr(image, "alpha_mode", "")),
             "colorspace": str(getattr(getattr(image, "colorspace_settings", None), "name", "")),
-            "packed": getattr(image, "packed_file", None) is not None,
+            "external_files": external_files,
+            "packed_files": packed,
+            "pixels": _image_pixel_hash(image),
         }
     )
+    if cache is not None:
+        cache[cache_key] = identity
     return identity
 
 
-def _node_tree_record(tree: object | None) -> dict[str, object] | None:
+def _node_tree_record(
+    tree: object | None,
+    *,
+    ancestry: frozenset[str] = frozenset(),
+    image_cache: dict[str, dict[str, object]] | None = None,
+) -> dict[str, object] | None:
     if tree is None:
         return None
+    identity = _data_identity(tree)
+    tree_key = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    if tree_key in ancestry:
+        return {"identity": identity, "recursive_reference": True}
+    nested_ancestry = ancestry | {tree_key}
     node_records: list[dict[str, object]] = []
     for node in sorted(tree.nodes, key=lambda item: (item.name, item.bl_idname)):
-        pointers = {
-            name: _data_identity(getattr(node, name, None))
-            for name in ("object", "scene", "material", "texture", "collection", "node_tree")
-            if hasattr(node, name)
-        }
+        pointers = _pointer_property_records(node)
         if hasattr(node, "image"):
-            pointers["image"] = _image_identity(getattr(node, "image", None))
+            pointers["image"] = _image_identity(
+                getattr(node, "image", None), image_cache
+            )
+        if hasattr(node, "node_tree"):
+            pointers["node_tree"] = _node_tree_record(
+                getattr(node, "node_tree", None),
+                ancestry=nested_ancestry,
+                image_cache=image_cache,
+            )
         node_records.append(
             {
                 "name": node.name,
@@ -460,7 +576,7 @@ def _node_tree_record(tree: object | None) -> dict[str, object] | None:
         ),
     )
     return {
-        "identity": _data_identity(tree),
+        "identity": identity,
         "nodes": node_records,
         "links": links,
     }
@@ -479,11 +595,171 @@ def _transform_record(obj: object) -> dict[str, object]:
     }
 
 
+def _hash_json_value(digest: object, value: object) -> None:
+    digest.update(
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    digest.update(b"\n")
+
+
+def _mesh_geometry_record(mesh: object) -> dict[str, object]:
+    digest = hashlib.sha256()
+    _hash_json_value(
+        digest,
+        {
+            "vertices": len(mesh.vertices),
+            "edges": len(mesh.edges),
+            "loops": len(mesh.loops),
+            "polygons": len(mesh.polygons),
+        },
+    )
+    for vertex in mesh.vertices:
+        _hash_json_value(digest, [vertex.index, [float(value) for value in vertex.co]])
+    for edge in mesh.edges:
+        _hash_json_value(digest, [edge.index, [int(value) for value in edge.vertices]])
+    for loop in mesh.loops:
+        _hash_json_value(digest, [loop.index, int(loop.vertex_index), int(loop.edge_index)])
+    for polygon in mesh.polygons:
+        _hash_json_value(
+            digest,
+            [
+                polygon.index,
+                [int(value) for value in polygon.vertices],
+                int(polygon.material_index),
+                bool(polygon.use_smooth),
+            ],
+        )
+    for layer in sorted(mesh.uv_layers, key=lambda item: item.name):
+        _hash_json_value(digest, {"uv_layer": layer.name, "active_render": layer.active_render})
+        for item in layer.uv:
+            _hash_json_value(digest, [float(value) for value in item.vector])
+    for attribute in sorted(mesh.attributes, key=lambda item: item.name):
+        _hash_json_value(
+            digest,
+            {
+                "attribute": attribute.name,
+                "domain": attribute.domain,
+                "data_type": attribute.data_type,
+                "length": len(attribute.data),
+            },
+        )
+        for item in attribute.data:
+            values: dict[str, object] = {}
+            for field in ("value", "vector", "color", "byte_color"):
+                if hasattr(item, field):
+                    serialized = _stable_value(getattr(item, field))
+                    if serialized is not _UNSUPPORTED:
+                        values[field] = serialized
+            _hash_json_value(digest, values)
+    shape_keys = getattr(mesh, "shape_keys", None)
+    if shape_keys is not None:
+        for block in shape_keys.key_blocks:
+            _hash_json_value(
+                digest,
+                {
+                    "name": block.name,
+                    "mute": block.mute,
+                    "value": block.value,
+                    "slider_min": block.slider_min,
+                    "slider_max": block.slider_max,
+                },
+            )
+            for point in block.data:
+                _hash_json_value(digest, [float(value) for value in point.co])
+    return {
+        "sha256": digest.hexdigest().upper(),
+        "vertices": len(mesh.vertices),
+        "edges": len(mesh.edges),
+        "loops": len(mesh.loops),
+        "polygons": len(mesh.polygons),
+    }
+
+
+def _pointer_property_records(owner: object) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for prop in getattr(getattr(owner, "bl_rna", None), "properties", ()):
+        if getattr(prop, "type", None) != "POINTER" or prop.identifier == "rna_type":
+            continue
+        try:
+            value = getattr(owner, prop.identifier)
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            continue
+        result[str(prop.identifier)] = _data_identity(value)
+    return dict(sorted(result.items()))
+
+
+def _modifier_record(modifier: object) -> dict[str, object]:
+    return {
+        "name": modifier.name,
+        "type": modifier.type,
+        "properties": _rna_scalar_properties(
+            modifier, exclude=frozenset({"name", "type"})
+        ),
+        "references": _pointer_property_records(modifier),
+    }
+
+
+def _material_record(
+    material: object,
+    image_cache: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "identity": _data_identity(material),
+        "properties": _rna_scalar_properties(material),
+        "node_tree": _node_tree_record(
+            material.node_tree if material.use_nodes else None,
+            image_cache=image_cache,
+        ),
+    }
+
+
+def _object_record(obj: object) -> dict[str, object]:
+    data = getattr(obj, "data", None)
+    data_record: dict[str, object] | None = None
+    if data is not None:
+        data_record = {
+            "identity": _data_identity(data),
+            "properties": _rna_scalar_properties(data),
+        }
+        if getattr(obj, "type", None) == "MESH":
+            data_record["geometry"] = _mesh_geometry_record(data)
+    material_slots = [
+        {
+            "index": index,
+            "name": slot.name,
+            "link": slot.link,
+            "material": _data_identity(slot.material),
+        }
+        for index, slot in enumerate(obj.material_slots)
+    ]
+    return {
+        "identity": _data_identity(obj),
+        "object_type": str(obj.type),
+        "data": data_record,
+        "transform": _transform_record(obj),
+        "hide_render": bool(obj.hide_render),
+        "hide_viewport": bool(obj.hide_viewport),
+        "properties": _rna_scalar_properties(obj),
+        "collections": sorted(
+            (_data_identity(collection) for collection in obj.users_collection),
+            key=lambda item: json.dumps(item, sort_keys=True),
+        ),
+        "material_slots": material_slots,
+        "modifiers": [_modifier_record(modifier) for modifier in obj.modifiers],
+    }
+
+
 def _capture_authored_settings(bpy: Any) -> dict[str, object]:
     """Deterministically capture all available material render-affecting state."""
 
     bpy.context.view_layer.update()
     scene = bpy.context.scene
+    image_cache: dict[str, dict[str, object]] = {}
     camera = scene.camera
     camera_record: dict[str, object] | None = None
     if camera is not None:
@@ -530,7 +806,10 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
                 "spot_blend": float(getattr(data, "spot_blend", 0.0)),
                 "shadow_soft_size": float(getattr(data, "shadow_soft_size", 0.0)),
                 "properties": _rna_scalar_properties(data),
-                "node_tree": _node_tree_record(data.node_tree if data.use_nodes else None),
+                "node_tree": _node_tree_record(
+                    data.node_tree if data.use_nodes else None,
+                    image_cache=image_cache,
+                ),
             }
         )
     lights.sort(key=lambda item: json.dumps(item["identity"], sort_keys=True))
@@ -541,14 +820,17 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
             "identity": _data_identity(world),
             "color": [round(float(value), 12) for value in world.color],
             "properties": _rna_scalar_properties(world),
-            "node_tree": _node_tree_record(world.node_tree if world.use_nodes else None),
+            "node_tree": _node_tree_record(
+                world.node_tree if world.use_nodes else None,
+                image_cache=image_cache,
+            ),
         }
     compositor_tree = getattr(scene, "compositing_node_group", None)
     if compositor_tree is None:
         compositor_tree = getattr(scene, "node_tree", None)
     compositor = {
         "enabled": compositor_tree is not None,
-        "node_tree": _node_tree_record(compositor_tree),
+        "node_tree": _node_tree_record(compositor_tree, image_cache=image_cache),
     }
     render = scene.render
     view_layers = [
@@ -558,6 +840,28 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
             "material_override": _data_identity(layer.material_override),
         }
         for layer in sorted(scene.view_layers, key=lambda item: item.name)
+    ]
+    objects = [
+        _object_record(obj)
+        for obj in sorted(
+            scene.objects,
+            key=lambda item: (
+                item.name,
+                item.type,
+                str(getattr(getattr(item, "library", None), "filepath", "")),
+            ),
+        )
+    ]
+    used_materials = {
+        json.dumps(
+            _data_identity(material), sort_keys=True, separators=(",", ":")
+        ): material
+        for material in bpy.data.materials
+        if int(getattr(material, "users", 0)) > 0
+    }
+    materials = [
+        _material_record(used_materials[key], image_cache)
+        for key in sorted(used_materials)
     ]
     return {
         "camera": camera_record,
@@ -576,6 +880,9 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
             "sequencer": _rna_scalar_properties(scene.sequencer_colorspace_settings),
         },
         "cycles": _rna_scalar_properties(scene.cycles),
+        "objects": objects,
+        "materials": materials,
+        "images": [image_cache[key] for key in sorted(image_cache)],
     }
 
 

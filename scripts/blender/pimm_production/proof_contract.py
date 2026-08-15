@@ -89,6 +89,9 @@ _AUTHORED_SETTINGS_FIELDS = {
     "view_layers",
     "color_management",
     "cycles",
+    "objects",
+    "materials",
+    "images",
 }
 _CAMERA_SETTINGS_FIELDS = {
     "identity",
@@ -734,6 +737,9 @@ def _validate_render_metadata(
         or not authored_before["color_management"]
         or not isinstance(authored_before["cycles"], Mapping)
         or not authored_before["cycles"]
+        or not isinstance(authored_before["objects"], list)
+        or not isinstance(authored_before["materials"], list)
+        or not isinstance(authored_before["images"], list)
     ):
         raise ValueError("render metadata authored render/view-layer settings are incomplete")
     for field in ("intended_subject_metrics", "physical_shadow_metrics"):

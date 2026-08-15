@@ -109,9 +109,14 @@ def _run_fixture_proofs(
     *,
     inject_drift_after_prepare: bool = False,
     inject_authored_mutation: str | None = None,
+    inject_dependency_mutation: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
     runner = PROOF_RUNNER
-    if inject_drift_after_prepare or inject_authored_mutation is not None:
+    if (
+        inject_drift_after_prepare
+        or inject_authored_mutation is not None
+        or inject_dependency_mutation is not None
+    ):
         runner = root / "inject_proof_drift.py"
         runner.write_text(
             "\n".join(
@@ -138,6 +143,51 @@ def _run_fixture_proofs(
                         if inject_authored_mutation is not None
                         else []
                     ),
+                    *(
+                        [
+                            "external_path = Path(" + repr(str(root / "fixture-external.png")) + ")",
+                            "replacement_path = Path(" + repr(str(root / "fixture-external-replacement.png")) + ")",
+                            "original_capture = proof_render._capture_authored_settings",
+                            "dependency_setup_done = False",
+                            "def capture_with_fixture_dependencies(bpy_arg):",
+                            "    global dependency_setup_done, authored_object, authored_mesh, authored_material, alternate_material, principled, authored_packed",
+                            "    if not dependency_setup_done:",
+                            "        dependency_setup_done = True",
+                            "        authored_mesh = bpy.data.meshes.new('AUTHORED_RENDER_MESH')",
+                            "        authored_mesh.from_pydata([(-0.4,-0.4,0.2),(0.4,-0.4,0.2),(0.0,0.4,0.2)], [], [(0,1,2)])",
+                            "        authored_object = bpy.data.objects.new('AUTHORED_RENDER_OBJECT', authored_mesh)",
+                            "        bpy.context.scene.collection.objects.link(authored_object)",
+                            "        authored_material = bpy.data.materials.new('AUTHORED_RENDER_MATERIAL')",
+                            "        authored_material.use_nodes = True",
+                            "        authored_material.diffuse_color = (0.2,0.3,0.4,1.0)",
+                            "        authored_material.roughness = 0.35",
+                            "        principled = authored_material.node_tree.nodes.get('Principled BSDF')",
+                            "        external_image = bpy.data.images.load(str(external_path), check_existing=False)",
+                            "        external_node = authored_material.node_tree.nodes.new('ShaderNodeTexImage')",
+                            "        external_node.image = external_image",
+                            "        authored_material.node_tree.links.new(external_node.outputs['Color'], principled.inputs['Base Color'])",
+                            "        authored_packed = bpy.data.images.new('AUTHORED_PACKED_IMAGE', width=2, height=2)",
+                            "        authored_packed.pixels[:] = [0.1,0.2,0.3,1.0] * 4",
+                            "        authored_packed.pack()",
+                            "        packed_node = authored_material.node_tree.nodes.new('ShaderNodeTexImage')",
+                            "        packed_node.image = authored_packed",
+                            "        authored_material.node_tree.links.new(packed_node.outputs['Alpha'], principled.inputs['Roughness'])",
+                            "        nested = bpy.data.node_groups.new('AUTHORED_NESTED_GROUP', 'ShaderNodeTree')",
+                            "        nested.nodes.new('ShaderNodeValue').outputs[0].default_value = 0.25",
+                            "        group_node = authored_material.node_tree.nodes.new('ShaderNodeGroup')",
+                            "        group_node.node_tree = nested",
+                            "        authored_mesh.materials.append(authored_material)",
+                            "        alternate_material = bpy.data.materials.new('AUTHORED_ALTERNATE_MATERIAL')",
+                            "    return original_capture(bpy_arg)",
+                            "proof_render._capture_authored_settings = capture_with_fixture_dependencies",
+                            "original_environment_errors = proof_render._proof_environment_errors",
+                            "def fixture_environment_errors(bpy_arg):",
+                            "    return [error for error in original_environment_errors(bpy_arg) if error != 'unauthorized local proof environment mesh object: AUTHORED_RENDER_OBJECT']",
+                            "proof_render._proof_environment_errors = fixture_environment_errors",
+                        ]
+                        if inject_dependency_mutation is not None
+                        else []
+                    ),
                     "original = proof_render._run_pillow_finalizer",
                     "def injected(*args, **kwargs):",
                     "    result = original(*args, **kwargs)",
@@ -161,6 +211,32 @@ def _run_fixture_proofs(
                                 "    scene.compositing_node_group = compositor",
                             ],
                         }.get(inject_authored_mutation, [])
+                    ),
+                    *(
+                        {
+                            "object_visibility": ["    authored_object.hide_render = True"],
+                            "geometry": [
+                                "    authored_mesh.vertices[0].co.x += 0.25",
+                                "    authored_mesh.update()",
+                            ],
+                            "material_scalar": ["    authored_material.roughness = 0.9"],
+                            "material_node": [
+                                "    principled.inputs['Metallic'].default_value = 0.75"
+                            ],
+                            "material_assignment": [
+                                "    authored_mesh.materials[0] = alternate_material"
+                            ],
+                            "external_image": [
+                                "    external_path.write_bytes(replacement_path.read_bytes())"
+                            ],
+                            "packed_image": [
+                                "    authored_packed.pixels[0:4] = (0.9,0.8,0.7,1.0)",
+                                "    authored_packed.update()",
+                            ],
+                            "dof": [
+                                "    bpy.context.scene.camera.data.dof.focus_distance += 3.0"
+                            ],
+                        }.get(inject_dependency_mutation, [])
                     ),
                     "    return result",
                     "proof_render._run_pillow_finalizer = injected",
@@ -259,6 +335,9 @@ def _valid_render_metadata(
         "view_layers": [{"name": "ViewLayer", "properties": {}, "material_override": None}],
         "color_management": {"view": {"view_transform": "AgX"}},
         "cycles": {"samples": contract.samples},
+        "objects": [],
+        "materials": [],
+        "images": [],
     }
     return {
         "schema": "pimm-proof-render-metadata/v1",
@@ -1074,6 +1153,76 @@ class ProofContractTests(unittest.TestCase):
                     root,
                     inject_authored_mutation=mutation,
                 )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
+                self.assertEqual(
+                    rows[0]["status"],
+                    "blocked_settings_drift",
+                    msg=result.stdout + result.stderr,
+                )
+                output_root = root / contract.output_root
+                for name in (
+                    "manifest.json",
+                    "contact-sheet.png",
+                    "contact-sheet.json",
+                    ".manifest.pending.json",
+                    ".contact-sheet.pending.png",
+                    ".contact-sheet.pending.json",
+                ):
+                    self.assertFalse((output_root / name).exists(), msg=name)
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_render_dependency_mutations_at_final_gate_publish_no_pass_artifacts(self):
+        mutations = (
+            "object_visibility",
+            "geometry",
+            "material_scalar",
+            "material_node",
+            "material_assignment",
+            "external_image",
+            "packed_image",
+            "dof",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                external_path = root / "fixture-external.png"
+                replacement_path = root / "fixture-external-replacement.png"
+                Image.new("RGBA", (4, 4), (10, 20, 30, 255)).save(external_path)
+                Image.new("RGBA", (4, 4), (210, 120, 30, 255)).save(replacement_path)
+                external_before = external_path.read_bytes()
+                scene_path, scene = build_scene_fixture("valid", root)
+                source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+                source_path.parent.mkdir(parents=True)
+                source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+                scene_contract_path = _write_scene_contract(
+                    root, scene, "scenes/fixtures/dependency-scene.json"
+                )
+                contract = dataclasses.replace(
+                    composition_contract(),
+                    scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                    scene_sha256=sha256_file(scene_path),
+                    master_sha256=scene.master_sha256,
+                    material_library_sha256=scene.material_library_sha256,
+                    resolution_percentage=12.5,
+                    samples=16,
+                )
+                proof_path = root / "scenes" / "fixtures" / f"{mutation}-proof.json"
+                proof_path.write_text(
+                    json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+                )
+
+                result, rows = _run_fixture_proofs(
+                    scene_path,
+                    [proof_path],
+                    root,
+                    inject_dependency_mutation=mutation,
+                )
+                if mutation == "external_image":
+                    self.assertNotEqual(external_path.read_bytes(), external_before)
+                    external_path.write_bytes(external_before)
+                    self.assertEqual(external_path.read_bytes(), external_before)
 
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
