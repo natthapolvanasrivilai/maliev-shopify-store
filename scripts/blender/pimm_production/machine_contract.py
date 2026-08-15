@@ -83,9 +83,12 @@ def _validate_approved_segments(controller: Mapping[str, object]) -> list[str]:
         return ["controller approved_segments must be a nonempty list when present"]
 
     allowlist = controller.get("approved_machine_local_material_ids")
-    approved_material_ids = set(allowlist) if isinstance(allowlist, list) else set()
+    approved_material_ids = {
+        material_id for material_id in allowlist if _is_nonempty_string(material_id)
+    } if isinstance(allowlist, list) else set()
     errors: list[str] = []
     stable_ids: set[str] = set()
+    active_count = 0
     inactive_count = 0
     for index, segment in enumerate(segments):
         entry = _mapping(segment)
@@ -114,8 +117,13 @@ def _validate_approved_segments(controller: Mapping[str, object]) -> list[str]:
             errors.append(f"controller approved_segments[{index}] object_type must be MESH")
         if not isinstance(entry["active"], bool):
             errors.append(f"controller approved_segments[{index}] active must be boolean")
-        elif not entry["active"]:
-            inactive_count += 1
+        elif entry["object_type"] == "MESH":
+            if entry["active"]:
+                active_count += 1
+            else:
+                inactive_count += 1
+    if active_count == 0:
+        errors.append("approved controller segment map requires at least one active segment")
     if controller.get("inactive_segments_required") is True and inactive_count == 0:
         errors.append("approved controller segment map requires at least one inactive segment")
     return errors

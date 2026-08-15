@@ -245,6 +245,16 @@ class MachineContractTests(unittest.TestCase):
         )
         self.assertFalse(animation_is_authorized(missing_inactive))
 
+        only_inactive = self._enabled_contract()
+        only_inactive["controller"]["approved_segments"] = [
+            only_inactive["controller"]["approved_segments"][1]
+        ]
+        self.assertIn(
+            "approved controller segment map requires at least one active segment",
+            validate_machine_contract(only_inactive),
+        )
+        self.assertFalse(animation_is_authorized(only_inactive))
+
         unassigned = self._enabled_contract()
         unassigned["controller"]["approved_segments"][0]["material_id"] = "UNASSIGNED"
         self.assertIn(
@@ -260,6 +270,23 @@ class MachineContractTests(unittest.TestCase):
             validate_machine_contract(non_approved),
         )
         self.assertFalse(animation_is_authorized(non_approved))
+
+    def test_material_allowlist_rejects_malformed_entries_without_throwing(self) -> None:
+        """Catches malformed local material allowlists escaping semantic validation."""
+
+        fixtures = [
+            ([{}], "controller approved_machine_local_material_ids[0] must be a nonempty string"),
+            ([None], "controller approved_machine_local_material_ids[0] must be a nonempty string"),
+            ([3], "controller approved_machine_local_material_ids[0] must be a nonempty string"),
+            (["CONTROLLER_GREEN_EMISSIVE", "CONTROLLER_GREEN_EMISSIVE"], "controller approved_machine_local_material_ids[1] is duplicated: CONTROLLER_GREEN_EMISSIVE"),
+        ]
+        for allowlist, expected in fixtures:
+            with self.subTest(allowlist=allowlist):
+                contract = self._enabled_contract()
+                contract["controller"]["approved_machine_local_material_ids"] = allowlist
+                errors = validate_machine_contract(contract)
+                self.assertIn(expected, errors)
+                self.assertFalse(animation_is_authorized(contract))
 
     def test_discovery_reports_stable_identity_and_cad_context_without_mutating_objects(self) -> None:
         """Catches discovery that loses the identity needed for later owner review."""
