@@ -16,8 +16,8 @@ const assetRoot = 'M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blen
 test('STEP manifest pipeline pins the CAD runtime and authoritative sources', () => {
   assert.equal(fs.readFileSync(requirements, 'utf8').trim(), 'cadquery-ocp==7.9.3.1.1');
   const source = fs.readFileSync(manifestBuilder, 'utf8');
-  assert.match(source, /D1522BEB526BAF96C0A4707E0AC296F660BBC7339E60FE4A88931E1D5203E5CE/);
-  assert.match(source, /405534913F74ABB1E801577EABDA1BC1F7C8C5FFC37FEB84D2D2EF15DF2BF455/);
+  assert.match(source, /024BC2D5FD847D3EE1F65E83D7C3CB42459E5626177008509CF877B4DA3E8A1A/);
+  assert.match(source, /7B8AB5F0EF8CC3EA65628BBC78D0AB0E25557CE256F161E916C59C4B5500DBE3/);
   assert.match(source, /STEPCAFControl_Reader/);
   assert.match(source, /XCAFDoc_DocumentTool/);
 });
@@ -134,13 +134,15 @@ test('generated external handoff artifacts have exact manifest-to-master parity'
     const masterPath = path.join(assetRoot, 'masters', `PIMM-${machine}-MASTER.blend`);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const audit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
-    assert.equal(manifest.summary.solid_count, 478);
-    assert.equal(manifest.summary.non_solid_product_count, 4);
-    assert.equal(new Set(manifest.solids.map((solid) => solid.stable_id)).size, 478);
+    const expectedObjectCount = 491;
+    const expectedUnassigned = machine === '30G' ? 316 : 491;
+    assert.equal(manifest.summary.solid_count, expectedObjectCount);
+    assert.equal(manifest.summary.non_solid_product_count, 0);
+    assert.equal(new Set(manifest.solids.map((solid) => solid.stable_id)).size, expectedObjectCount);
     assert.equal(manifest.solids.every((solid) => fs.statSync(solid.interchange_path).size > 0), true);
-    assert.equal(audit.object_count, 478);
-    assert.equal(audit.unique_id_count, 478);
-    assert.equal(audit.unassigned_ids.length, 478);
+    assert.equal(audit.object_count, expectedObjectCount);
+    assert.equal(audit.unique_id_count, expectedObjectCount);
+    assert.equal(audit.unassigned_ids.length, expectedUnassigned);
     assert.deepEqual(audit.errors, []);
     assert.equal(audit.publishable, false);
     assert.equal(audit.source_ok, true);
