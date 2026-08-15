@@ -23,8 +23,33 @@ class MaterialLibraryContractTests(unittest.TestCase):
                 "RUBBER_BLACK",
                 "PNEUMATIC_TUBE_BLUE",
                 "ENGINEERING_PLASTIC",
+                "STAINLESS_BRUSHED_HAIRLINE",
+                "ALUMINUM_SATIN_EXTRUSION",
+                "PINK_POWDERCOAT_STEEL",
+                "NYLON_PA6",
+                "PEEK",
+                "ASA_3D_PRINT_0_2MM",
+                "WHITE_TEXTILE_CABLE",
+                "STEEL_BRAIDED_CABLE",
+                "STAINLESS_STEEL_FASTENERS",
+                "STEEL_SATIN",
+                "STEEL_HEAT_OXIDIZED_BLUEBLACK",
+                "GREEN_ILLUMINATED_NUMERIC",
+                "RED_ILLUMINATED_NUMERIC",
+                "RED_ILLUMINATED_TRANSPARENT",
             },
         )
+
+    def test_requested_display_and_cable_profiles_are_explicit(self):
+        green = MATERIAL_SPECS["GREEN_ILLUMINATED_NUMERIC"]
+        red = MATERIAL_SPECS["RED_ILLUMINATED_NUMERIC"]
+        transparent = MATERIAL_SPECS["RED_ILLUMINATED_TRANSPARENT"]
+        self.assertGreater(green.emission_strength, 0.0)
+        self.assertGreater(red.emission_strength, 0.0)
+        self.assertGreater(transparent.transmission, 0.0)
+        self.assertLess(transparent.alpha, 1.0)
+        self.assertEqual(MATERIAL_SPECS["WHITE_TEXTILE_CABLE"].microstructure, "textile")
+        self.assertEqual(MATERIAL_SPECS["ASA_3D_PRINT_0_2MM"].microstructure, "layer_lines")
 
     def test_aluminum_and_shaft_profiles_are_physically_distinct(self):
         cnc = MATERIAL_SPECS["CNC_MILLED_ALUMINUM"]

@@ -4,14 +4,14 @@
 
 **Goal:** Build one editable, assembly-aware Blender master for each PIMM machine, one shared physical-material library, and a non-destructive migration inventory from the authoritative 30G and 50G STEP files.
 
-**Architecture:** A pinned external Python 3.11 CAD environment reads STEP through OpenCascade XCAF, records assembly/product occurrence provenance, and exports one interchange mesh per STEP solid. Blender 5.2 consumes the manifest, creates one object per solid inside assembly collections, assigns an explicit unassigned audit material, and saves editable master files. Validators fail closed on source drift, merged/missing solids, duplicate IDs, unauthorized material state, and legacy inventory omissions.
+**Architecture:** A pinned external Python 3.11 CAD environment reads STEP through OpenCascade XCAF, records assembly/product occurrence provenance, and exports one interchange mesh per STEP solid. Blender 5.2 consumes the manifest, creates one object per solid inside assembly collections, applies the fixed `0.01` import scale, configures Metric/Millimeters scene units (`scale_length=0.001`), assigns an explicit unassigned audit material, and saves editable master files. Validators fail closed on source drift, merged/missing solids, duplicate IDs, scale/unit drift, unauthorized material state, and legacy inventory omissions.
 
 **Tech Stack:** Python 3.11, `cadquery-ocp==7.9.3.1.1`, OpenCascade XCAF, Blender 5.2 LTS Python API, glTF 2.0 intermediates, Node.js contract tests, Python `unittest`, JSON manifests.
 
 ## Global Constraints
 
-- Authoritative 30G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-30G-authoritative-source.step`, 116,623,783 bytes, SHA-256 `2EA1C86BD15386717BB53F02B61490ABB2F8DB45E7D70ED668AF29203A4E2205`.
-- Authoritative 50G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-50G-authoritative-source.step`, 116,854,560 bytes, SHA-256 `A6CB2CAA65CA2002A3A18D9C341833506764D55F7ED840BC9095ED8AF7386FEF`.
+- Authoritative 30G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-30G-authoritative-source.step`, 116,901,306 bytes, SHA-256 `D1522BEB526BAF96C0A4707E0AC296F660BBC7339E60FE4A88931E1D5203E5CE`.
+- Authoritative 50G source: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\sources\PIMM-50G-authoritative-source.step`, 117,113,211 bytes, SHA-256 `405534913F74ABB1E801577EABDA1BC1F7C8C5FFC37FEB84D2D2EF15DF2BF455`.
 - Blender executable: `D:\Blender 5.2\blender.exe`.
 - Never mutate either authoritative STEP file.
 - Never use OBJ as a canonical machine source.
@@ -135,7 +135,7 @@ Commit Task 2 files with message: `Create shared PIMM physical material library`
 **Interfaces:**
 - Consumes: Task 1 import manifests and Task 2 material library.
 - Produces: `build_master(machine: str, manifest_path: Path, material_library: Path, output_blend: Path) -> dict[str, object]`.
-- Object properties: `pimm_stable_id`, `pimm_machine`, `pimm_step_sha256`, `pimm_product_id`, `pimm_occurrence_id`, `pimm_assembly_path`, `pimm_solid_index`, `pimm_original_cad_name`, `pimm_geometry_signature`, `pimm_part_name`, and `pimm_material_state="unassigned"`.
+- Object properties: `pimm_stable_id`, `pimm_machine`, `pimm_step_sha256`, `pimm_product_id`, `pimm_occurrence_id`, `pimm_assembly_path`, `pimm_solid_index`, `pimm_original_cad_name`, `pimm_geometry_signature`, `pimm_part_name`, `pimm_material_state="unassigned"`, and `pimm_source_to_blender_scale=0.01`.
 
 - [x] **Step 1: Write failing Blender integration tests**
 

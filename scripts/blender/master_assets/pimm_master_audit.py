@@ -29,6 +29,13 @@ MACHINE_LOCAL_TOKENS = (
     "LOGO",
 )
 
+from scripts.blender.master_assets.pimm_master_builder import (
+    BLENDER_LENGTH_UNIT,
+    BLENDER_SCENE_SCALE_LENGTH,
+    BLENDER_UNIT_SYSTEM,
+    SOURCE_TO_BLENDER_SCALE,
+)
+
 
 @dataclass(frozen=True)
 class AuditObjectRecord:
@@ -227,11 +234,21 @@ def audit_open_master(
                 "pimm_geometry_signature",
                 "pimm_part_name",
                 "pimm_material_state",
+                "pimm_source_to_blender_scale",
             )
             if key not in obj
         )
         if missing:
             integrity_errors.append(f"object lacks provenance {missing}: {stable_id}")
+        if not all(
+            abs(value - SOURCE_TO_BLENDER_SCALE) <= 1e-7
+            for value in obj.scale
+        ):
+            integrity_errors.append(f"object import scale drifted: {stable_id}")
+        if abs(
+            obj.get("pimm_source_to_blender_scale", 0.0) - SOURCE_TO_BLENDER_SCALE
+        ) > 1e-7:
+            integrity_errors.append(f"object scale provenance drifted: {stable_id}")
 
         materials = tuple(material for material in obj.data.materials if material)
         material_ids = tuple(
@@ -269,6 +286,12 @@ def audit_open_master(
     forbidden = [obj.name for obj in bpy.data.objects if obj.type in {"CAMERA", "LIGHT"}]
     if forbidden:
         integrity_errors.append(f"master contains forbidden cameras/lights: {forbidden}")
+    if master_scene.unit_settings.system != BLENDER_UNIT_SYSTEM:
+        integrity_errors.append("master scene unit system drifted")
+    if master_scene.unit_settings.length_unit != BLENDER_LENGTH_UNIT:
+        integrity_errors.append("master scene length unit drifted")
+    if abs(master_scene.unit_settings.scale_length - BLENDER_SCENE_SCALE_LENGTH) > 1e-7:
+        integrity_errors.append("master scene scale length drifted")
 
     result = evaluate_records(records, mode)
     result.errors[:0] = integrity_errors

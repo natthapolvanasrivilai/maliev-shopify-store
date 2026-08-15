@@ -15,10 +15,12 @@ The authoritative CAD inputs are:
 
 These are verified copies of `Z:\30g.step` and `Z:\50g.step`:
 
-- 30G: 116,623,783 bytes; SHA-256 `2EA1C86BD15386717BB53F02B61490ABB2F8DB45E7D70ED668AF29203A4E2205`
-- 50G: 116,854,560 bytes; SHA-256 `A6CB2CAA65CA2002A3A18D9C341833506764D55F7ED840BC9095ED8AF7386FEF`
+- 30G: 116,901,306 bytes; SHA-256 `D1522BEB526BAF96C0A4707E0AC296F660BBC7339E60FE4A88931E1D5203E5CE`
+- 50G: 117,113,211 bytes; SHA-256 `405534913F74ABB1E801577EABDA1BC1F7C8C5FFC37FEB84D2D2EF15DF2BF455`
 
 These hashes and sizes must remain part of the import manifest.
+
+Blender authoring units are Metric/Millimeters with `scene.unit_settings.scale_length=0.001`. Every imported STEP-solid object carries the fixed `0.01` source-to-Blender scale in its transform and `pimm_source_to_blender_scale` provenance property.
 
 ## Target Architecture
 

@@ -25,6 +25,10 @@ class MaterialSpec:
     anisotropy: float = 0.0
     coat_weight: float = 0.0
     microstructure: str = "none"
+    emission_color: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
+    emission_strength: float = 0.0
+    transmission: float = 0.0
+    alpha: float = 1.0
 
 
 MATERIAL_SPECS: dict[str, MaterialSpec] = {
@@ -61,6 +65,51 @@ MATERIAL_SPECS: dict[str, MaterialSpec] = {
     ),
     "ENGINEERING_PLASTIC": MaterialSpec(
         (0.055, 0.060, 0.068, 1.0), 0.0, 0.38, 0.0, 0.05, "polymer"
+    ),
+    "STAINLESS_BRUSHED_HAIRLINE": MaterialSpec(
+        (0.60, 0.63, 0.67, 1.0), 1.0, 0.24, 0.78, 0.14, "brushed_linear"
+    ),
+    "ALUMINUM_SATIN_EXTRUSION": MaterialSpec(
+        (0.48, 0.51, 0.55, 1.0), 1.0, 0.30, 0.64, 0.05, "brushed_linear"
+    ),
+    "PINK_POWDERCOAT_STEEL": MaterialSpec(
+        (0.42, 0.035, 0.10, 1.0), 0.12, 0.46, 0.0, 0.02, "powder_grain"
+    ),
+    "NYLON_PA6": MaterialSpec(
+        (0.72, 0.68, 0.58, 1.0), 0.0, 0.42, 0.0, 0.02, "polymer"
+    ),
+    "PEEK": MaterialSpec(
+        (0.31, 0.18, 0.045, 1.0), 0.0, 0.34, 0.0, 0.03, "polymer"
+    ),
+    "ASA_3D_PRINT_0_2MM": MaterialSpec(
+        (0.20, 0.22, 0.25, 1.0), 0.0, 0.48, 0.0, 0.02, "layer_lines"
+    ),
+    "WHITE_TEXTILE_CABLE": MaterialSpec(
+        (0.82, 0.82, 0.78, 1.0), 0.0, 0.70, 0.0, 0.0, "textile"
+    ),
+    "STEEL_BRAIDED_CABLE": MaterialSpec(
+        (0.28, 0.30, 0.33, 1.0), 0.86, 0.38, 0.22, 0.03, "braided"
+    ),
+    "STAINLESS_STEEL_FASTENERS": MaterialSpec(
+        (0.58, 0.61, 0.65, 1.0), 1.0, 0.18, 0.26, 0.12, "machined_fine"
+    ),
+    "STEEL_SATIN": MaterialSpec(
+        (0.39, 0.41, 0.44, 1.0), 0.95, 0.32, 0.45, 0.05, "brushed_linear"
+    ),
+    "STEEL_HEAT_OXIDIZED_BLUEBLACK": MaterialSpec(
+        (0.018, 0.028, 0.050, 1.0), 0.88, 0.34, 0.16, 0.0, "fine_grain"
+    ),
+    "GREEN_ILLUMINATED_NUMERIC": MaterialSpec(
+        (0.008, 0.028, 0.010, 1.0), 0.0, 0.24, 0.0, 0.0, "none",
+        (0.03, 1.0, 0.08, 1.0), 5.0
+    ),
+    "RED_ILLUMINATED_NUMERIC": MaterialSpec(
+        (0.030, 0.006, 0.005, 1.0), 0.0, 0.24, 0.0, 0.0, "none",
+        (1.0, 0.025, 0.012, 1.0), 5.0
+    ),
+    "RED_ILLUMINATED_TRANSPARENT": MaterialSpec(
+        (0.30, 0.008, 0.004, 1.0), 0.0, 0.20, 0.0, 0.04, "none",
+        (1.0, 0.012, 0.006, 1.0), 1.8, 0.38, 0.78
     ),
 }
 
@@ -118,6 +167,9 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         "fine_grain": 260.0,
         "machined_fine": 420.0,
         "brushed_linear": 310.0,
+        "textile": 240.0,
+        "braided": 180.0,
+        "layer_lines": 700.0,
     }[spec.microstructure]
     texture.inputs["Scale"].default_value = scale
     texture.inputs["Detail"].default_value = 2.0
@@ -130,6 +182,9 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         "fine_grain": 0.025,
         "machined_fine": 0.018,
         "brushed_linear": 0.022,
+        "textile": 0.035,
+        "braided": 0.040,
+        "layer_lines": 0.012,
     }[spec.microstructure]
     bump.inputs["Distance"].default_value = 0.018
     links.new(texture.outputs["Fac"], bump.inputs["Height"])
@@ -160,6 +215,19 @@ def create_material(bpy, material_id: str, spec: MaterialSpec):
     _set_principled_input(
         principled, ("Coat Weight", "Clearcoat"), spec.coat_weight
     )
+    _set_principled_input(
+        principled, ("Emission Color", "Emission"), spec.emission_color
+    )
+    _set_principled_input(principled, ("Emission Strength",), spec.emission_strength)
+    _set_principled_input(
+        principled, ("Transmission Weight", "Transmission"), spec.transmission
+    )
+    _set_principled_input(principled, ("Alpha",), spec.alpha)
+    if spec.alpha < 1.0:
+        try:
+            material.surface_render_method = "DITHERED"
+        except (AttributeError, TypeError):
+            pass
     _add_microstructure(material, principled, spec)
     try:
         material.asset_mark()

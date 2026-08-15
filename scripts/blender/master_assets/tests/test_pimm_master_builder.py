@@ -2,8 +2,12 @@ import math
 import unittest
 
 from scripts.blender.master_assets.pimm_master_builder import (
+    BLENDER_LENGTH_UNIT,
+    BLENDER_SCENE_SCALE_LENGTH,
+    BLENDER_UNIT_SYSTEM,
     REQUIRED_OBJECT_PROPERTIES,
     SOURCE_TO_BLENDER_ROTATION_X,
+    SOURCE_TO_BLENDER_SCALE,
     collection_key,
     master_object_name,
     validate_import_manifest,
@@ -13,6 +17,10 @@ from scripts.blender.master_assets.pimm_master_builder import (
 class MasterBuilderContractTests(unittest.TestCase):
     def test_source_coordinate_conversion_is_fixed_to_blender_z_up(self):
         self.assertAlmostEqual(SOURCE_TO_BLENDER_ROTATION_X, -math.pi / 2.0)
+        self.assertAlmostEqual(SOURCE_TO_BLENDER_SCALE, 0.01)
+        self.assertEqual(BLENDER_UNIT_SYSTEM, "METRIC")
+        self.assertEqual(BLENDER_LENGTH_UNIT, "MILLIMETERS")
+        self.assertAlmostEqual(BLENDER_SCENE_SCALE_LENGTH, 0.001)
 
     def test_master_object_name_is_deterministic_and_readable(self):
         name = master_object_name(
@@ -77,6 +85,7 @@ class MasterBuilderContractTests(unittest.TestCase):
                 "pimm_geometry_signature",
                 "pimm_part_name",
                 "pimm_material_state",
+                "pimm_source_to_blender_scale",
             },
         )
 

@@ -18,13 +18,13 @@ STAGING_ROOT = ASSET_ROOT / "imports" / "master-solids"
 EXPECTED_SOURCES: dict[str, dict[str, Any]] = {
     "30G": {
         "path": SOURCE_ROOT / "PIMM-30G-authoritative-source.step",
-        "size": 116_623_783,
-        "sha256": "2EA1C86BD15386717BB53F02B61490ABB2F8DB45E7D70ED668AF29203A4E2205",
+        "size": 116_901_306,
+        "sha256": "D1522BEB526BAF96C0A4707E0AC296F660BBC7339E60FE4A88931E1D5203E5CE",
     },
     "50G": {
         "path": SOURCE_ROOT / "PIMM-50G-authoritative-source.step",
-        "size": 116_854_560,
-        "sha256": "A6CB2CAA65CA2002A3A18D9C341833506764D55F7ED840BC9095ED8AF7386FEF",
+        "size": 117_113_211,
+        "sha256": "405534913F74ABB1E801577EABDA1BC1F7C8C5FFC37FEB84D2D2EF15DF2BF455",
     },
 }
 

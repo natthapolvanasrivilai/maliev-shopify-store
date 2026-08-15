@@ -8,7 +8,7 @@ This workflow is for manually correcting the 30G and 50G machine materials while
 - `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-50G-MASTER.blend`
 - Shared materials: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-MATERIAL-LIBRARY.blend`
 
-Each master contains 472 separate, selectable STEP-solid objects. They are intentionally magenta because every object begins with the linked `PIMM_UNASSIGNED` material. Each object's initial `pimm_part_name` is the exact `pimm_original_cad_name`; you can replace that label with a clearer name at any time.
+Each master contains 478 separate, selectable STEP-solid objects. They are intentionally magenta because every object begins with the linked `PIMM_UNASSIGNED` material. Each object's initial `pimm_part_name` is the exact `pimm_original_cad_name`; you can replace that label with a clearer name at any time. Both masters use Metric/Millimeters scene units (`scale_length=0.001`) and the STEP-to-Blender import transform includes a documented `0.01` object scale.
 
 ## Select and identify a part
 
@@ -23,7 +23,7 @@ Each master contains 472 separate, selectable STEP-solid objects. They are inten
 
 1. In the Material properties, remove `PIMM_UNASSIGNED` only after identifying the body.
 2. Link the required material from `PIMM-MATERIAL-LIBRARY.blend`; do not append or duplicate it.
-3. Choose the physically correct family, such as CNC-milled aluminum, die-cast aluminum, satin sheet, polished stainless, nickel-plated shaft steel, black oxide, brass, powder coat, rubber, pneumatic tube, or engineering plastic.
+3. Choose the physically correct family from the shared library: CNC milled aluminum, die-cast aluminum, satin sheet aluminum, polished stainless, nickel-plated shaft, black oxide steel, brass, black powder coat, rubber, blue pneumatic tube, engineering plastic, stainless brushed hairline, aluminum satin extrusion, pink powder-coat steel, nylon PA6, PEEK, ASA 3D print (0.2 mm layer), white textile cable, steel braided cable, stainless steel fasteners, steel satin, heat-oxidized blue-black steel, green illuminated numeric, red illuminated numeric, or red illuminated transparent.
 4. Set the object custom property `pimm_material_state` to `approved`.
 5. Save the machine master.
 
@@ -87,10 +87,10 @@ The initial 2026-08-14 handoff is intentionally ready for manual assignment, not
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `PIMM-30G-MASTER.blend` | 103,264,370 | `06DCCD9C7F4ADE3D81B46F38177688F5EF8C885032908677AEB16E65AF1F69AA` |
-| `PIMM-50G-MASTER.blend` | 104,778,205 | `A0C67B0E97D6FEEDEC60D8627519D56E43916576835B98283EB0D091B289542B` |
-| `PIMM-MATERIAL-LIBRARY.blend` | 229,871 | `F466ED9D12708DEF20449F5F41E0B0958C86025C5B42360E58B57F6658BF4E59` |
+| `PIMM-30G-MASTER.blend` | 104,980,950 | `2176F34E2FFD36FE52F1BFF34F71E47AE1B1D87FAC0F0A528601908D8D8FBB18` |
+| `PIMM-50G-MASTER.blend` | 106,148,542 | `B5CF3BC3B94B62D6F2302F2BFBAB2794F73A3B95F6DA3E2966C477C813B4AD6B` |
+| `PIMM-MATERIAL-LIBRARY.blend` | 358,194 | `F5DD5A1739A3479CE1202AFFFA9C91A56E34551B39B0943F6060CC0724A44EFC` |
 
-Both masters contain 474 unique occurrence-solid objects, four explicitly accounted empty CAD placeholders, zero unexplained disconnected objects, and 474 `PIMM_UNASSIGNED` material states. Their working audits contain zero integrity errors and correctly report `publishable=false`.
+Both masters contain 478 unique occurrence-solid objects, four explicitly accounted empty CAD placeholders, zero unexplained disconnected objects, and 478 `PIMM_UNASSIGNED` material states. Their working audits contain zero integrity errors and correctly report `publishable=false`.
 
 The legacy inventory covers 77 Blender projects totaling 13,498,586,358 bytes. Proposed dispositions are 3 `keep-authoritative`, 15 `migrate-scene`, 23 `archive-after-validation`, and 36 `review`. These are recommendations only; the inventory performed no moves or deletions.

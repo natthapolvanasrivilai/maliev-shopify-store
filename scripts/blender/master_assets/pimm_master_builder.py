@@ -23,6 +23,10 @@ MANIFEST_ROOT = ASSET_ROOT / "manifests"
 MASTER_ROOT = ASSET_ROOT / "masters"
 MATERIAL_LIBRARY = MASTER_ROOT / "PIMM-MATERIAL-LIBRARY.blend"
 SOURCE_TO_BLENDER_ROTATION_X = -math.pi / 2.0
+SOURCE_TO_BLENDER_SCALE = 0.01
+BLENDER_UNIT_SYSTEM = "METRIC"
+BLENDER_LENGTH_UNIT = "MILLIMETERS"
+BLENDER_SCENE_SCALE_LENGTH = 0.001
 
 REQUIRED_OBJECT_PROPERTIES = {
     "pimm_stable_id",
@@ -36,6 +40,7 @@ REQUIRED_OBJECT_PROPERTIES = {
     "pimm_geometry_signature",
     "pimm_part_name",
     "pimm_material_state",
+    "pimm_source_to_blender_scale",
 }
 
 
@@ -94,6 +99,16 @@ def _clear_blender(bpy) -> None:
     for material in list(bpy.data.materials):
         if material.library is None:
             bpy.data.materials.remove(material)
+
+
+def _configure_scene_units(scene) -> None:
+    scene.unit_settings.system = BLENDER_UNIT_SYSTEM
+    scene.unit_settings.length_unit = BLENDER_LENGTH_UNIT
+    scene.unit_settings.scale_length = BLENDER_SCENE_SCALE_LENGTH
+    scene["pimm_unit_system"] = BLENDER_UNIT_SYSTEM
+    scene["pimm_unit_length"] = BLENDER_LENGTH_UNIT
+    scene["pimm_scene_scale_length"] = BLENDER_SCENE_SCALE_LENGTH
+    scene["pimm_source_to_blender_scale"] = SOURCE_TO_BLENDER_SCALE
 
 
 def _link_unassigned_material(bpy, material_library: Path):
@@ -158,7 +173,9 @@ def _import_one_solid(bpy, solid: dict[str, Any], machine: str, source_hash: str
         collection.objects.unlink(product)
     target.objects.link(product)
     product.matrix_world = (
-        Matrix.Rotation(SOURCE_TO_BLENDER_ROTATION_X, 4, "X") @ product.matrix_world
+        Matrix.Rotation(SOURCE_TO_BLENDER_ROTATION_X, 4, "X")
+        @ Matrix.Scale(SOURCE_TO_BLENDER_SCALE, 4)
+        @ product.matrix_world
     )
     product.name = master_object_name(
         machine, solid["original_name"], solid["stable_id"]
@@ -181,6 +198,7 @@ def _import_one_solid(bpy, solid: dict[str, Any], machine: str, source_hash: str
     # replace this later without touching the immutable provenance fields.
     product["pimm_part_name"] = solid["original_name"]
     product["pimm_material_state"] = "unassigned"
+    product["pimm_source_to_blender_scale"] = SOURCE_TO_BLENDER_SCALE
     product["pimm_manual_material_authority"] = True
     product.show_name = False
     return product
@@ -211,6 +229,18 @@ def validate_master_scene(bpy, manifest: dict[str, Any], expected_count: int | N
             raise RuntimeError(f"master object falsely claims approved material: {obj.name}")
         if material is None or material.name != "PIMM_UNASSIGNED" or material.library is None:
             raise RuntimeError(f"master object lacks linked PIMM_UNASSIGNED: {obj.name}")
+        if not all(
+            math.isclose(abs(value), SOURCE_TO_BLENDER_SCALE, rel_tol=0.0, abs_tol=1e-7)
+            for value in obj.scale
+        ):
+            raise RuntimeError(f"master object import scale drifted: {obj.name} scale={tuple(obj.scale)}")
+        if not math.isclose(
+            obj.get("pimm_source_to_blender_scale", 0.0),
+            SOURCE_TO_BLENDER_SCALE,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise RuntimeError(f"master object scale provenance drifted: {obj.name}")
     forbidden = [obj.name for obj in bpy.data.objects if obj.type in {"CAMERA", "LIGHT"}]
     if forbidden:
         raise RuntimeError(f"master contains forbidden cameras or lights: {forbidden}")
@@ -223,6 +253,26 @@ def validate_master_scene(bpy, manifest: dict[str, Any], expected_count: int | N
         abs_tol=1e-12,
     ):
         raise RuntimeError("master source-to-Blender coordinate contract drifted")
+    if master_scene.unit_settings.system != BLENDER_UNIT_SYSTEM:
+        raise RuntimeError("master scene unit system drifted")
+    if master_scene.unit_settings.length_unit != BLENDER_LENGTH_UNIT:
+        raise RuntimeError(
+            f"master scene length unit drifted: {master_scene.unit_settings.length_unit!r}"
+        )
+    if not math.isclose(
+        master_scene.unit_settings.scale_length,
+        BLENDER_SCENE_SCALE_LENGTH,
+        rel_tol=0.0,
+        abs_tol=1e-7,
+    ):
+        raise RuntimeError("master scene scale length drifted")
+    if not math.isclose(
+        master_scene.get("pimm_source_to_blender_scale", 0.0),
+        SOURCE_TO_BLENDER_SCALE,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise RuntimeError("master scene import scale contract drifted")
     if target_count == len(manifest["solids"]):
         points = [
             obj.matrix_world @ Vector(corner)
@@ -302,9 +352,11 @@ def build_master(
     _clear_blender(bpy)
     scene = bpy.context.scene
     scene.name = f"PIMM_{machine}_MASTER"
+    _configure_scene_units(scene)
     scene["pimm_master_machine"] = machine
     scene["pimm_master_schema_version"] = 1
     scene["pimm_source_to_blender_rotation_x"] = SOURCE_TO_BLENDER_ROTATION_X
+    scene["pimm_source_to_blender_scale"] = SOURCE_TO_BLENDER_SCALE
     scene["pimm_source_step_sha256"] = manifest["source"]["sha256"]
     scene["pimm_publishable"] = False
     scene["pimm_publish_blocker"] = "manual material assignments incomplete"
@@ -341,8 +393,14 @@ def build_master(
         if index % 25 == 0 or index == len(selected_solids):
             print(f"PIMM_MASTER_IMPORT machine={machine} objects={index}/{len(selected_solids)}")
 
+    # The glTF importer may restore the active scene's unit display settings;
+    # re-assert the authoring contract after the final import.
     audit_scene = bpy.data.scenes.new(f"PIMM_{machine}_MATERIAL_AUDIT")
     audit_scene.collection.children.link(working)
+    _configure_scene_units(audit_scene)
+    # Creating/linking the audit scene can reset the original scene's display
+    # unit enum, so re-assert both scene contracts as the final setup step.
+    _configure_scene_units(scene)
     audit_scene["pimm_audit_scene"] = True
     audit_scene["pimm_unassigned_count"] = len(selected_solids)
     instructions = bpy.data.texts.new("PIMM_MASTER_README")
