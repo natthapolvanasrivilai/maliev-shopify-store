@@ -7,6 +7,7 @@ import unittest
 
 from scripts.blender.pimm_production.scene_contract import (
     SceneContract,
+    canonical_scene_contract_json,
     validate_scene_contract,
 )
 
@@ -38,6 +39,7 @@ def _write_fixture_builder(path: Path) -> None:
     path.write_text(
         textwrap.dedent(
             """
+            import hashlib
             import json
             from pathlib import Path
             import sys
@@ -73,7 +75,7 @@ def _write_fixture_builder(path: Path) -> None:
             published = bpy.data.collections.new(published_name)
             bpy.context.scene.collection.children.link(published)
             withheld = None
-            if kind == "partial-published":
+            if kind in {"partial-published", "manifest-truncated-partial"}:
                 withheld = bpy.data.collections.new("PIMM_WITHHELD")
                 bpy.context.scene.collection.children.link(withheld)
             stable_ids = ["30G-fixture-product-1", "30G-fixture-product-2"]
@@ -90,11 +92,49 @@ def _write_fixture_builder(path: Path) -> None:
                 product["pimm_material_state"] = "approved"
                 target = withheld if index == 2 and withheld is not None else published
                 target.objects.link(product)
+            evidence_payload = "\\n".join(sorted(stable_ids)) + "\\n"
+            if kind != "collection-evidence-absent":
+                published["pimm_published_stable_id_count"] = (
+                    1 if kind == "collection-evidence-count-mismatch" else len(stable_ids)
+                )
+                published["pimm_published_stable_id_sha256"] = (
+                    "0" * 64
+                    if kind == "collection-evidence-digest-mismatch"
+                    else hashlib.sha256(evidence_payload.encode("utf-8")).hexdigest().upper()
+                )
             bpy.context.scene["pimm_master_machine"] = "30G"
             bpy.ops.wm.save_as_mainfile(filepath=str(master_path), check_existing=False)
+            manifest_ids = stable_ids[:1] if kind == "manifest-truncated-partial" else stable_ids
             (manifests / "PIMM-30G-import-manifest.json").write_text(
-                json.dumps({"schema_version": 1, "solids": [{"stable_id": value} for value in stable_ids]}, sort_keys=True),
+                json.dumps({"schema_version": 1, "solids": [{"stable_id": value} for value in manifest_ids]}, sort_keys=True),
                 encoding="utf-8",
+            )
+
+            def sha256_file(file_path):
+                digest = hashlib.sha256()
+                with file_path.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                return digest.hexdigest().upper()
+
+            contract_payload = {
+                "schema_version": 1,
+                "scene_id": "pimm-30g--hero--three-quarter",
+                "machine": "30G",
+                "purpose": "hero",
+                "master_path": "masters/PIMM-30G-MASTER.blend",
+                "master_sha256": sha256_file(master_path),
+                "master_collection": "PIMM_PUBLISHED",
+                "material_library_path": "masters/PIMM-MATERIAL-LIBRARY.blend",
+                "material_library_sha256": sha256_file(material_path),
+                "camera_name": "CAM_HERO",
+                "complete_product": True,
+                "animation_contract": None,
+                "output_contract": {"width": 1200, "height": 1200, "alpha": True},
+            }
+            contract_snapshot = json.dumps(contract_payload, sort_keys=True).encode("utf-8")
+            contract_canonical = json.dumps(
+                contract_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             )
 
             bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -171,6 +211,10 @@ def _write_fixture_builder(path: Path) -> None:
             bpy.context.scene.unit_settings.system = "METRIC"
             bpy.context.scene.unit_settings.length_unit = "MILLIMETERS"
             bpy.context.scene.unit_settings.scale_length = 0.001
+            bpy.context.scene["pimm_scene_contract_payload"] = contract_canonical
+            bpy.context.scene["pimm_scene_contract_snapshot_sha256"] = hashlib.sha256(
+                contract_snapshot
+            ).hexdigest().upper()
             bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), check_existing=False)
             print("PIMM_FIXTURE_JSON=" + json.dumps({
                 "scene": str(scene_path),
@@ -213,6 +257,10 @@ def build_scene_fixture(kind: str, root: Path) -> tuple[Path, SceneContract]:
         "untagged-local-mesh",
         "stripped-provenance-copy",
         "partial-published",
+        "manifest-truncated-partial",
+        "collection-evidence-absent",
+        "collection-evidence-count-mismatch",
+        "collection-evidence-digest-mismatch",
         "orphaned-linked-collection",
         "resolution-50-percent",
         "missing-link",
@@ -273,6 +321,7 @@ def run_scene_fixture_validation(path: Path, contract: SceneContract) -> list[st
     runner_path.write_text(
         textwrap.dedent(
             f"""
+            import hashlib
             import json
             from pathlib import Path
             import sys
@@ -283,7 +332,12 @@ def run_scene_fixture_validation(path: Path, contract: SceneContract) -> list[st
 
             validator.ASSET_ROOT = Path({str(root)!r})
             contract = SceneContract.from_json(Path({str(contract_path)!r}))
-            errors = validator.validate_open_render_scene(bpy, contract)
+            contract_snapshot_sha256 = hashlib.sha256(
+                Path({str(contract_path)!r}).read_bytes()
+            ).hexdigest().upper()
+            errors = validator.validate_open_render_scene(
+                bpy, contract, contract_snapshot_sha256=contract_snapshot_sha256
+            )
             print({VALIDATION_MARKER!r} + json.dumps(errors, sort_keys=True))
             """
         ),
@@ -315,10 +369,17 @@ def run_scene_fixture_build(
     output_path: Path,
     *,
     mutate_temporary_before_reopen: bool = False,
+    mutate_original_contract_before_reopen: bool = False,
+    mutate_embedded_contract_before_reopen: bool = False,
 ) -> dict[str, object]:
     root = master_path.parents[1]
     contract_path = root / "scene-contract-build.json"
     runner_path = root / "build_linked_scene.py"
+    has_mutation = (
+        mutate_temporary_before_reopen
+        or mutate_original_contract_before_reopen
+        or mutate_embedded_contract_before_reopen
+    )
     _write_contract(contract_path, contract)
     runner_path.write_text(
         textwrap.dedent(
@@ -331,13 +392,29 @@ def run_scene_fixture_build(
             import scripts.blender.pimm_production.blender_scene_template as template
 
             template.ASSET_ROOT = Path({str(root)!r})
-            if {mutate_temporary_before_reopen!r}:
+            if {has_mutation!r}:
                 original_validation = template._run_fresh_validation
-                def mutate_then_validate(scene_path, contract_path):
-                    camera = bpy.data.objects.get("CAM_HERO")
-                    bpy.data.objects.remove(camera, do_unlink=True)
-                    bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), check_existing=False)
-                    return original_validation(scene_path, contract_path)
+                def mutate_then_validate(scene_path, snapshot_path):
+                    if {mutate_temporary_before_reopen!r}:
+                        camera = bpy.data.objects.get("CAM_HERO")
+                        bpy.data.objects.remove(camera, do_unlink=True)
+                        bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), check_existing=False)
+                    if {mutate_original_contract_before_reopen!r}:
+                        changed = json.loads(Path({str(contract_path)!r}).read_text(encoding="utf-8"))
+                        changed["scene_id"] = "pimm-30g--detail--three-quarter"
+                        changed["purpose"] = "detail"
+                        Path({str(contract_path)!r}).write_text(
+                            json.dumps(changed, sort_keys=True), encoding="utf-8"
+                        )
+                    if {mutate_embedded_contract_before_reopen!r}:
+                        changed = json.loads(bpy.context.scene["pimm_scene_contract_payload"])
+                        changed["scene_id"] = "pimm-30g--detail--three-quarter"
+                        changed["purpose"] = "detail"
+                        bpy.context.scene["pimm_scene_contract_payload"] = json.dumps(
+                            changed, sort_keys=True, separators=(",", ":")
+                        )
+                        bpy.ops.wm.save_as_mainfile(filepath=str(scene_path), check_existing=False)
+                    return original_validation(scene_path, snapshot_path)
                 template._run_fresh_validation = mutate_then_validate
             result = template.build_linked_scene(Path({str(contract_path)!r}), Path({str(output_path)!r}))
             print({BUILD_MARKER!r} + json.dumps(result, sort_keys=True))
@@ -405,6 +482,10 @@ class SceneContractTests(unittest.TestCase):
             path.write_text(json.dumps(payload), encoding="utf-8")
             contract = SceneContract.from_json(path)
         self.assertEqual(contract.to_mapping(), payload)
+        self.assertEqual(
+            canonical_scene_contract_json(contract),
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+        )
 
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
     def test_valid_linked_fixture_passes(self):
@@ -443,7 +524,7 @@ class SceneContractTests(unittest.TestCase):
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
     def test_complete_product_requires_reachable_full_published_collection(self):
         expected = {
-            "partial-published": "does not match authoritative import manifest",
+            "partial-published": "embedded stable-ID evidence",
             "orphaned-linked-collection": "not reachable from the active scene",
         }
         for kind, message in expected.items():
@@ -451,6 +532,35 @@ class SceneContractTests(unittest.TestCase):
                 path, contract = build_scene_fixture(kind, Path(root))
                 self.assertIn(
                     message,
+                    "\n".join(run_scene_fixture_validation(path, contract)),
+                )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_manifest_truncation_cannot_authorize_partial_published_collection(self):
+        with TemporaryDirectory() as root:
+            path, contract = build_scene_fixture("manifest-truncated-partial", Path(root))
+            manifest = json.loads(
+                (Path(root) / "manifests" / "PIMM-30G-import-manifest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(len(manifest["solids"]), 1)
+            self.assertIn(
+                "embedded stable-ID evidence",
+                "\n".join(run_scene_fixture_validation(path, contract)),
+            )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_published_collection_requires_exact_embedded_evidence(self):
+        for kind in {
+            "collection-evidence-absent",
+            "collection-evidence-count-mismatch",
+            "collection-evidence-digest-mismatch",
+        }:
+            with self.subTest(kind=kind), TemporaryDirectory() as root:
+                path, contract = build_scene_fixture(kind, Path(root))
+                self.assertIn(
+                    "embedded stable-ID evidence",
                     "\n".join(run_scene_fixture_validation(path, contract)),
                 )
 
@@ -558,6 +668,46 @@ class SceneContractTests(unittest.TestCase):
             self.assertIn("required camera", "\n".join(result["errors"]))
             self.assertFalse(output.exists())
             self.assertEqual(list(output.parent.glob("*.tmp.blend")), [])
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_original_contract_drift_never_publishes_and_cleans_snapshot(self):
+        with TemporaryDirectory() as root:
+            _, contract = build_scene_fixture("valid", Path(root))
+            master = Path(root) / "masters" / "PIMM-30G-MASTER.blend"
+            output = Path(root) / "scenes" / "shared-templates" / "template.blend"
+
+            result = run_scene_fixture_build(
+                master,
+                contract,
+                output,
+                mutate_original_contract_before_reopen=True,
+            )
+
+            self.assertEqual(result["status"], "blocked_contract_drift")
+            self.assertIn("contract changed during build", "\n".join(result["errors"]))
+            self.assertFalse(output.exists())
+            self.assertEqual(list(output.parent.glob("*.tmp.blend")), [])
+            self.assertEqual(list(output.parent.glob("*.contract.json")), [])
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_embedded_contract_mismatch_fails_fresh_reopen_and_cleans_snapshot(self):
+        with TemporaryDirectory() as root:
+            _, contract = build_scene_fixture("valid", Path(root))
+            master = Path(root) / "masters" / "PIMM-30G-MASTER.blend"
+            output = Path(root) / "scenes" / "shared-templates" / "template.blend"
+
+            result = run_scene_fixture_build(
+                master,
+                contract,
+                output,
+                mutate_embedded_contract_before_reopen=True,
+            )
+
+            self.assertEqual(result["status"], "blocked_reopen_validation")
+            self.assertIn("embedded scene contract payload", "\n".join(result["errors"]))
+            self.assertFalse(output.exists())
+            self.assertEqual(list(output.parent.glob("*.tmp.blend")), [])
+            self.assertEqual(list(output.parent.glob("*.contract.json")), [])
 
 
 if __name__ == "__main__":

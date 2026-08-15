@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 from typing import Any, Sequence
@@ -15,8 +17,12 @@ try:
     from .io_contract import sha256_file
     from .paths import ASSET_ROOT, require_within
     from .scene_contract import (
+        PUBLISHED_STABLE_ID_COUNT_PROPERTY,
+        PUBLISHED_STABLE_ID_SHA256_PROPERTY,
         SceneContract,
+        canonical_scene_contract_json,
         load_authoritative_product_ids,
+        stable_id_evidence,
         validate_scene_contract,
     )
 except ImportError:  # Blender may execute this checked-in script directly.
@@ -26,8 +32,12 @@ except ImportError:  # Blender may execute this checked-in script directly.
     from scripts.blender.pimm_production.io_contract import sha256_file
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.scene_contract import (
+        PUBLISHED_STABLE_ID_COUNT_PROPERTY,
+        PUBLISHED_STABLE_ID_SHA256_PROPERTY,
         SceneContract,
+        canonical_scene_contract_json,
         load_authoritative_product_ids,
+        stable_id_evidence,
         validate_scene_contract,
     )
 
@@ -111,6 +121,25 @@ def audit_master_publication(
             "PIMM_PUBLISHED does not match authoritative import manifest "
             f"(missing={sorted(expected_ids - published_ids)}, extra={sorted(published_ids - expected_ids)})"
         )
+    evidence_count = (
+        published.get(PUBLISHED_STABLE_ID_COUNT_PROPERTY) if published else None
+    )
+    evidence_sha256 = (
+        published.get(PUBLISHED_STABLE_ID_SHA256_PROPERTY) if published else None
+    )
+    actual_count, actual_sha256 = stable_id_evidence(published_ids)
+    if published is not None and (
+        evidence_count != actual_count or evidence_sha256 != actual_sha256
+    ):
+        errors.append(
+            "PIMM_PUBLISHED embedded stable-ID evidence does not match its contents"
+        )
+    if published is not None and not manifest_errors:
+        manifest_count, manifest_sha256 = stable_id_evidence(expected_ids)
+        if evidence_count != manifest_count or evidence_sha256 != manifest_sha256:
+            errors.append(
+                "PIMM_PUBLISHED embedded stable-ID evidence does not match authoritative import manifest"
+            )
 
     all_products = [obj for obj in bpy.data.objects if obj.get("pimm_stable_id")]
     material_errors, unassigned = _material_gate_errors(all_products)
@@ -220,7 +249,21 @@ def build_linked_scene(
 
     import bpy
 
-    contract = SceneContract.from_json(contract_path)
+    contract_path = Path(contract_path).resolve()
+    try:
+        contract_bytes = contract_path.read_bytes()
+        contract = SceneContract.from_mapping(
+            json.loads(contract_bytes.decode("utf-8"))
+        )
+    except (
+        OSError,
+        TypeError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        ValueError,
+    ) as error:
+        return {"status": "blocked_contract", "errors": [str(error)]}
+    contract_sha256 = hashlib.sha256(contract_bytes).hexdigest().upper()
     contract_errors = validate_scene_contract(contract)
     if contract_errors:
         return {"status": "blocked_contract", "errors": contract_errors}
@@ -281,21 +324,46 @@ def build_linked_scene(
     scene.render.filepath = str(
         (ASSET_ROOT / "renders" / "proofs" / "unapproved" / contract.scene_id).resolve()
     )
-    scene["pimm_scene_contract"] = json.dumps(
-        contract.to_mapping(), sort_keys=True
-    )
+    scene["pimm_scene_contract_payload"] = canonical_scene_contract_json(contract)
+    scene["pimm_scene_contract_snapshot_sha256"] = contract_sha256
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_name(
-        f".{destination.stem}.{uuid.uuid4().hex}.tmp.blend"
+    nonce = uuid.uuid4().hex
+    temporary = destination.with_name(f".{destination.stem}.{nonce}.tmp.blend")
+    contract_snapshot = destination.with_name(
+        f".{destination.stem}.{nonce}.contract.json"
     )
     try:
+        with contract_snapshot.open("xb") as snapshot:
+            snapshot.write(contract_bytes)
+            snapshot.flush()
+            os.fsync(snapshot.fileno())
+        contract_snapshot.chmod(stat.S_IREAD)
         bpy.ops.wm.save_as_mainfile(filepath=str(temporary), check_existing=False)
-        validation_errors = _run_fresh_validation(temporary, contract_path)
+        validation_errors = _run_fresh_validation(temporary, contract_snapshot)
         master_after = sha256_file(master_path)
         material_after = sha256_file(material_path)
         if master_after != master_before or material_after != material_before:
             validation_errors.append(
                 "linked scene build changed a protected library fingerprint"
+            )
+        try:
+            original_contract_unchanged = sha256_file(contract_path) == contract_sha256
+        except OSError:
+            original_contract_unchanged = False
+        try:
+            snapshot_unchanged = sha256_file(contract_snapshot) == contract_sha256
+        except OSError:
+            snapshot_unchanged = False
+        if not original_contract_unchanged:
+            return {
+                "status": "blocked_contract_drift",
+                "errors": ["original scene contract changed during build"],
+                "output_created": False,
+                "output_path": str(destination),
+            }
+        if not snapshot_unchanged:
+            validation_errors.append(
+                "immutable scene contract snapshot changed during build"
             )
         if validation_errors:
             return {
@@ -315,6 +383,9 @@ def build_linked_scene(
     finally:
         if temporary.exists():
             temporary.unlink()
+        if contract_snapshot.exists():
+            contract_snapshot.chmod(stat.S_IWRITE)
+            contract_snapshot.unlink()
     return {
         "status": "created",
         "errors": [],

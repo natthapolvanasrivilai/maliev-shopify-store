@@ -14,8 +14,11 @@ try:
     from .machine_contract import load_machine_contract, validate_controller_scene
     from .paths import ASSET_ROOT, require_within
     from .scene_contract import (
+        PUBLISHED_STABLE_ID_COUNT_PROPERTY,
+        PUBLISHED_STABLE_ID_SHA256_PROPERTY,
         SceneContract,
-        load_authoritative_product_ids,
+        canonical_scene_contract_json,
+        stable_id_evidence,
         validate_scene_contract,
     )
 except ImportError:  # Blender may execute this checked-in script directly.
@@ -29,8 +32,11 @@ except ImportError:  # Blender may execute this checked-in script directly.
     )
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.scene_contract import (
+        PUBLISHED_STABLE_ID_COUNT_PROPERTY,
+        PUBLISHED_STABLE_ID_SHA256_PROPERTY,
         SceneContract,
-        load_authoritative_product_ids,
+        canonical_scene_contract_json,
+        stable_id_evidence,
         validate_scene_contract,
     )
 
@@ -85,9 +91,10 @@ def _reachable_collections(scene: object) -> set[object]:
 def _validate_complete_product(
     published: object | None, contract: SceneContract
 ) -> list[str]:
-    expected_ids, errors = load_authoritative_product_ids(ASSET_ROOT, contract.machine)
-    if published is None or errors:
-        return errors
+    del contract
+    if published is None:
+        return []
+    errors: list[str] = []
     published_meshes = [
         obj
         for obj in getattr(published, "all_objects", ())
@@ -109,12 +116,26 @@ def _validate_complete_product(
         )
     if len(identifier_rows) != len(actual_ids):
         errors.append("PIMM_PUBLISHED contains duplicate stable IDs")
-    if actual_ids != expected_ids:
-        missing = sorted(expected_ids - actual_ids)
-        extra = sorted(actual_ids - expected_ids)
+    expected_count = _property(published, PUBLISHED_STABLE_ID_COUNT_PROPERTY)
+    expected_sha256 = _property(published, PUBLISHED_STABLE_ID_SHA256_PROPERTY)
+    if (
+        not isinstance(expected_count, int)
+        or isinstance(expected_count, bool)
+        or expected_count <= 0
+        or not isinstance(expected_sha256, str)
+        or len(expected_sha256) != 64
+        or any(character not in "0123456789ABCDEF" for character in expected_sha256)
+    ):
         errors.append(
-            "PIMM_PUBLISHED does not match authoritative import manifest "
-            f"(missing={missing}, extra={extra})"
+            "PIMM_PUBLISHED embedded stable-ID evidence is absent or invalid"
+        )
+        return errors
+    actual_count, actual_sha256 = stable_id_evidence(actual_ids)
+    if actual_count != expected_count or actual_sha256 != expected_sha256:
+        errors.append(
+            "PIMM_PUBLISHED does not match embedded stable-ID evidence "
+            f"(expected_count={expected_count}, actual_count={actual_count}, "
+            f"expected_sha256={expected_sha256}, actual_sha256={actual_sha256})"
         )
     return errors
 
@@ -151,12 +172,40 @@ def _validate_materials(
     return errors
 
 
-def validate_open_render_scene(bpy: Any, contract: SceneContract) -> list[str]:
+def validate_open_render_scene(
+    bpy: Any,
+    contract: SceneContract,
+    *,
+    contract_snapshot_sha256: str | None = None,
+) -> list[str]:
     """Inspect the open file without mutation and return all ownership errors."""
 
     errors = list(validate_scene_contract(contract))
     if errors:
         return errors
+
+    embedded_payload = _property(
+        bpy.context.scene, "pimm_scene_contract_payload"
+    )
+    embedded_snapshot_sha256 = _property(
+        bpy.context.scene, "pimm_scene_contract_snapshot_sha256"
+    )
+    if embedded_payload != canonical_scene_contract_json(contract):
+        errors.append("embedded scene contract payload does not match validation snapshot")
+    if (
+        not isinstance(embedded_snapshot_sha256, str)
+        or len(embedded_snapshot_sha256) != 64
+        or any(
+            character not in "0123456789ABCDEF"
+            for character in embedded_snapshot_sha256
+        )
+    ):
+        errors.append("embedded scene contract snapshot SHA-256 is absent or invalid")
+    elif (
+        contract_snapshot_sha256 is not None
+        and embedded_snapshot_sha256 != contract_snapshot_sha256.upper()
+    ):
+        errors.append("embedded scene contract snapshot SHA-256 does not match snapshot")
 
     machine_contract = load_machine_contract(contract.machine)
     errors.extend(validate_controller_scene(bpy, machine_contract))
@@ -324,9 +373,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     if arguments.fixture_asset_root is not None:
         ASSET_ROOT = _fixture_asset_root(arguments.fixture_asset_root)
     contract = SceneContract.from_json(arguments.contract)
+    contract_snapshot_sha256 = sha256_file(arguments.contract)
     import bpy
 
-    errors = validate_open_render_scene(bpy, contract)
+    errors = validate_open_render_scene(
+        bpy,
+        contract,
+        contract_snapshot_sha256=contract_snapshot_sha256,
+    )
     print(VALIDATION_MARKER + json.dumps(errors, sort_keys=True), flush=True)
 
 

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
-from typing import Mapping
+from typing import Iterable, Mapping
 
 
 _FIELDS = {
@@ -29,6 +30,8 @@ _SLUG = re.compile(r"^[a-z0-9-]+$")
 _CAMERA = re.compile(r"^CAM_[A-Z0-9_]+$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _OUTPUT_FIELDS = {"width", "height", "alpha"}
+PUBLISHED_STABLE_ID_COUNT_PROPERTY = "pimm_published_stable_id_count"
+PUBLISHED_STABLE_ID_SHA256_PROPERTY = "pimm_published_stable_id_sha256"
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,25 @@ class SceneContract:
         """Return the deterministic JSON-ready field mapping."""
 
         return asdict(self)
+
+
+def canonical_scene_contract_json(contract: SceneContract) -> str:
+    """Return the canonical payload embedded in a contracted render scene."""
+
+    return json.dumps(
+        contract.to_mapping(),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def stable_id_evidence(stable_ids: Iterable[str]) -> tuple[int, str]:
+    """Return deterministic unique stable-ID count and SHA-256 evidence."""
+
+    identifiers = sorted(set(stable_ids))
+    payload = ("\n".join(identifiers) + "\n").encode("utf-8")
+    return len(identifiers), hashlib.sha256(payload).hexdigest().upper()
 
 
 def _canonical_relative(value: object, expected: str) -> bool:
