@@ -15,6 +15,8 @@ test('canonical governance files map only to the exact external workspace paths'
     ['docs/pimm-blender-governance/README.md', `${assetRoot}\\README.md`],
     ['docs/pimm-blender-governance/animation-rigging.md', `${assetRoot}\\docs\\animation-rigging.md`],
     ['docs/pimm-blender-governance/lighting-and-cameras.md', `${assetRoot}\\docs\\lighting-and-cameras.md`],
+    ['docs/pimm-blender-governance/machine-operation-30g.md', `${assetRoot}\\docs\\machine-operation-30g.md`],
+    ['docs/pimm-blender-governance/machine-operation-50g.md', `${assetRoot}\\docs\\machine-operation-50g.md`],
     ['docs/pimm-blender-governance/material-authoring.md', `${assetRoot}\\docs\\material-authoring.md`],
     ['docs/pimm-blender-governance/rendering-and-approval.md', `${assetRoot}\\docs\\rendering-and-approval.md`],
   ];
@@ -94,4 +96,22 @@ test('production Python requirements pin the approved Pillow release', () => {
     'utf8',
   );
   assert.equal(requirements, 'Pillow==12.2.0\n');
+});
+
+test('machine contracts retain their separate physical controller values and blocked animation state', () => {
+  const contractRoot = path.join(repoRoot, 'scripts', 'blender', 'pimm_production', 'contracts', 'machines');
+  const thirty = JSON.parse(fs.readFileSync(path.join(contractRoot, '30g.json'), 'utf8'));
+  const fifty = JSON.parse(fs.readFileSync(path.join(contractRoot, '50g.json'), 'utf8'));
+
+  assert.deepEqual(thirty.controller.display_values, ['300', '300']);
+  assert.deepEqual(fifty.controller.display_values, ['350', '350']);
+  for (const contract of [thirty, fifty]) {
+    assert.equal(contract.schema_version, 1);
+    assert.equal(contract.controller.geometry_mode, 'physical-seven-segment-mesh');
+    assert.equal(contract.controller.allow_font, false);
+    assert.equal(contract.controller.allow_image_overlay, false);
+    assert.equal(contract.controller.inactive_segments_required, true);
+    assert.equal(contract.animation.status, 'blocked_pending_owner_motion_map');
+    assert.deepEqual(contract.animation.allowed_controls, []);
+  }
 });
