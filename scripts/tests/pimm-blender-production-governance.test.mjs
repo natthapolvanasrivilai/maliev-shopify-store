@@ -46,3 +46,30 @@ test('approved local tool section excludes paid and cloud enhancers', () => {
   assert.match(allowedTools, /BlenderMCP/);
   assert.doesNotMatch(allowedTools, /paid|subscription|cloud|upscal|generative/i);
 });
+
+test('free tool lock lists only the pinned local production toolchain', () => {
+  const lockPath = path.join(assetRoot, 'manifests', 'free-tools-lock.json');
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  const serialized = JSON.stringify(lock).toLowerCase();
+
+  assert.deepEqual(
+    lock.tools.map((tool) => tool.id).sort(),
+    ['blender', 'blender-mcp', 'pillow', 'python'],
+  );
+  for (const tool of lock.tools) {
+    assert.equal(tool.execution, 'local');
+    assert.match(tool.version, /\S/);
+    assert.match(tool.license, /\S/);
+    assert.match(tool.path, /^(?:[A-Z]:\\|\\\\)/i);
+    assert.match(tool.sha256, /^[A-F0-9]{64}$/);
+  }
+  assert.doesNotMatch(serialized, /subscription|paid|cloud|https?:\/\//);
+});
+
+test('production Python requirements pin the approved Pillow release', () => {
+  const requirements = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'blender', 'pimm_production', 'requirements-production.txt'),
+    'utf8',
+  );
+  assert.equal(requirements, 'Pillow==12.2.0\n');
+});
