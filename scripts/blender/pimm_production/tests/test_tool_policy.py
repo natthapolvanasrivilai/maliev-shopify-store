@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stdout
+from io import StringIO
+import json
 from pathlib import Path
+import runpy
 import subprocess
+import sys
 from types import SimpleNamespace
 import unittest
 
@@ -108,6 +113,60 @@ class ToolPolicyTests(unittest.TestCase):
                 "selected_objects": ["Clamp", "Frame"],
                 "active_object": "Frame",
                 "libraries": ["//PIMM-MATERIAL-LIBRARY.blend"],
+            },
+        )
+
+    def test_blender_script_entrypoint_returns_normally(self):
+        bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                scene=SimpleNamespace(
+                    name="PIMM-50G",
+                    unit_settings=SimpleNamespace(
+                        system="METRIC", length_unit="MILLIMETERS", scale_length=0.001
+                    ),
+                ),
+                view_layer=SimpleNamespace(
+                    name="ViewLayer",
+                    objects=SimpleNamespace(active=SimpleNamespace(name="Frame")),
+                ),
+                selected_objects=[SimpleNamespace(name="Frame")],
+            ),
+            data=SimpleNamespace(
+                filepath=r"M:\masters\PIMM-50G-MASTER.blend",
+                is_dirty=True,
+                libraries=[SimpleNamespace(filepath="//PIMM-MATERIAL-LIBRARY.blend")],
+            ),
+        )
+        script = Path(__file__).resolve().parents[1] / "blender_session_preflight.py"
+        previous_bpy = sys.modules.get("bpy")
+        sys.modules["bpy"] = bpy
+        stdout = StringIO()
+
+        try:
+            try:
+                with redirect_stdout(stdout):
+                    runpy.run_path(str(script), run_name="__main__")
+            except SystemExit as error:
+                self.fail(f"Blender script entrypoint raised SystemExit({error.code!r})")
+        finally:
+            if previous_bpy is None:
+                del sys.modules["bpy"]
+            else:
+                sys.modules["bpy"] = previous_bpy
+
+        self.assertEqual(
+            json.loads(stdout.getvalue()),
+            {
+                "active_object": "Frame",
+                "dirty": True,
+                "filepath": r"M:\masters\PIMM-50G-MASTER.blend",
+                "length_unit": "MILLIMETERS",
+                "libraries": ["//PIMM-MATERIAL-LIBRARY.blend"],
+                "scale_length": 0.001,
+                "scene": "PIMM-50G",
+                "selected_objects": ["Frame"],
+                "unit_system": "METRIC",
+                "view_layer": "ViewLayer",
             },
         )
 
