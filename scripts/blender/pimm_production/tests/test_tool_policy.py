@@ -216,7 +216,17 @@ class ToolPolicyTests(unittest.TestCase):
         )
         script = Path(__file__).resolve().parents[1] / "blender_session_preflight.py"
         previous_bpy = sys.modules.get("bpy")
+        previous_argv = sys.argv
         sys.modules["bpy"] = bpy
+        sys.argv = [
+            "blender",
+            "-b",
+            "factory-startup.blend",
+            "--python-exit-code",
+            "1",
+            "-P",
+            str(APPROVED_PREFLIGHT_PATH),
+        ]
         stdout = StringIO()
 
         try:
@@ -230,6 +240,7 @@ class ToolPolicyTests(unittest.TestCase):
                 del sys.modules["bpy"]
             else:
                 sys.modules["bpy"] = previous_bpy
+            sys.argv = previous_argv
 
         self.assertEqual(
             json.loads(stdout.getvalue()),
@@ -294,6 +305,11 @@ class ToolPolicyTests(unittest.TestCase):
         for command, expected_error in aliases_and_bypasses:
             with self.subTest(command=command):
                 self.assertIn(expected_error, "\n".join(validate_invocation(command)))
+
+    def test_preflight_rejects_a_cli_invocation_without_the_checked_in_script(self):
+        errors = validate_invocation(["blender", "-b"])
+
+        self.assertIn("exactly one -P", "\n".join(errors))
 
 
 if __name__ == "__main__":

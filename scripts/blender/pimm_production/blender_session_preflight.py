@@ -64,7 +64,7 @@ def _script_arguments(argv: list[str]) -> list[str]:
 
 
 def _preflight_script_errors(argv: list[str]) -> list[str]:
-    """Allow at most one canonical ``-P`` reference to this checked-in script."""
+    """Require exactly one canonical ``-P`` reference to this checked-in script."""
 
     script_positions = [index for index, argument in enumerate(argv[1:], start=1) if argument == "-P"]
     malformed = [argument for argument in argv[1:] if argument.startswith("-P") and argument != "-P"]
@@ -72,6 +72,7 @@ def _preflight_script_errors(argv: list[str]) -> list[str]:
     if malformed:
         errors.append("read-only preflight rejects malformed -P invocation")
     if not script_positions:
+        errors.append("read-only preflight requires exactly one -P invocation")
         return errors
     if len(script_positions) != 1:
         errors.append("read-only preflight requires exactly one -P invocation")
