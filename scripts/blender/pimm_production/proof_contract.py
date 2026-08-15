@@ -80,9 +80,31 @@ _IMAGE_SETTINGS_FIELDS = {
 }
 _FINGERPRINT_NAMES = {"source", "master", "material_library", "scene"}
 _FINGERPRINT_FIELDS = {"path", "bytes", "mtime_ns", "sha256"}
-_AUTHORED_SETTINGS_FIELDS = {"camera", "lights", "world", "compositor"}
-_CAMERA_SETTINGS_FIELDS = {"name", "location", "rotation_euler", "lens"}
-_COMPOSITOR_SETTINGS_FIELDS = {"use_nodes", "nodes", "links"}
+_AUTHORED_SETTINGS_FIELDS = {
+    "camera",
+    "lights",
+    "world",
+    "compositor",
+    "render",
+    "view_layers",
+    "color_management",
+    "cycles",
+}
+_CAMERA_SETTINGS_FIELDS = {
+    "identity",
+    "transform",
+    "type",
+    "lens",
+    "sensor_fit",
+    "sensor_width",
+    "sensor_height",
+    "shift_x",
+    "shift_y",
+    "clip_start",
+    "clip_end",
+    "dof",
+}
+_COMPOSITOR_SETTINGS_FIELDS = {"enabled", "node_tree"}
 _MASK_METRIC_FIELDS = {"bounds", "nonzero_fraction", "unique_values", "unique_value_count"}
 
 
@@ -622,6 +644,11 @@ def _validate_render_metadata(
     )
     if before != after:
         raise ValueError("render metadata protected fingerprints drifted")
+    expected_pins = {
+        "master": contract.master_sha256.upper(),
+        "material_library": contract.material_library_sha256.upper(),
+        "scene": contract.scene_sha256.upper(),
+    }
     for phase, records in (("before", before), ("after", after)):
         for name, raw_record in records.items():
             record = _require_exact_mapping(
@@ -641,6 +668,10 @@ def _validate_render_metadata(
             ):
                 raise ValueError(f"render metadata fingerprint size/time is invalid: {name}")
             _validate_sha256(record["sha256"], f"render metadata fingerprint {name}")
+            if name in expected_pins and str(record["sha256"]).upper() != expected_pins[name]:
+                raise ValueError(
+                    f"render metadata {name} fingerprint does not match proof contract pin"
+                )
 
     authored = _require_exact_mapping(
         metadata["authored_settings"],
@@ -663,35 +694,48 @@ def _validate_render_metadata(
         _CAMERA_SETTINGS_FIELDS,
         "render metadata authored camera",
     )
-    if not isinstance(camera["name"], str) or not camera["name"]:
-        raise ValueError("render metadata authored camera name is invalid")
     if (
-        not isinstance(camera["location"], list)
-        or len(camera["location"]) != 3
-        or not isinstance(camera["rotation_euler"], list)
-        or len(camera["rotation_euler"]) != 3
+        not isinstance(camera["identity"], Mapping)
+        or not camera["identity"]
+        or not isinstance(camera["transform"], Mapping)
+        or not camera["transform"]
+        or not isinstance(camera["type"], str)
+        or not camera["type"]
         or not isinstance(camera["lens"], (int, float))
         or isinstance(camera["lens"], bool)
+        or not isinstance(camera["dof"], Mapping)
+        or not camera["dof"]
     ):
-        raise ValueError("render metadata authored camera transform/lens is invalid")
+        raise ValueError("render metadata authored camera state is invalid")
     if not isinstance(authored_before["lights"], list):
         raise ValueError("render metadata authored lights must be a list")
     world = authored_before["world"]
-    if world is not None:
-        _require_exact_mapping(
-            world, {"name", "use_nodes", "color"}, "render metadata authored world"
-        )
+    if world is not None and not isinstance(world, Mapping):
+        raise ValueError("render metadata authored world must be null or an object")
     compositor = _require_exact_mapping(
         authored_before["compositor"],
         _COMPOSITOR_SETTINGS_FIELDS,
         "render metadata authored compositor",
     )
     if (
-        not isinstance(compositor["use_nodes"], bool)
-        or not isinstance(compositor["nodes"], list)
-        or not isinstance(compositor["links"], list)
+        not isinstance(compositor["enabled"], bool)
+        or (
+            compositor["node_tree"] is not None
+            and not isinstance(compositor["node_tree"], Mapping)
+        )
     ):
         raise ValueError("render metadata authored compositor settings are invalid")
+    if (
+        not isinstance(authored_before["render"], Mapping)
+        or not authored_before["render"]
+        or not isinstance(authored_before["view_layers"], list)
+        or not authored_before["view_layers"]
+        or not isinstance(authored_before["color_management"], Mapping)
+        or not authored_before["color_management"]
+        or not isinstance(authored_before["cycles"], Mapping)
+        or not authored_before["cycles"]
+    ):
+        raise ValueError("render metadata authored render/view-layer settings are incomplete")
     for field in ("intended_subject_metrics", "physical_shadow_metrics"):
         metrics = _require_exact_mapping(
             metadata[field], _MASK_METRIC_FIELDS, f"render metadata {field}"

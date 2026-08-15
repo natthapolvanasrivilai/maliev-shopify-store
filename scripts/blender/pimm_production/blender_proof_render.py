@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import json
 import os
 from pathlib import Path, PurePosixPath
+import stat
 import subprocess
 import sys
 import time
@@ -39,6 +41,13 @@ _PENDING_TO_PUBLISHED = {
     ".contact-sheet.pending.json": "contact-sheet.json",
     ".manifest.pending.json": "manifest.json",
 }
+
+
+@dataclass(frozen=True)
+class _ScratchIdentity:
+    path: Path
+    resolved_path: Path
+    stat_identity: tuple[int, ...]
 
 
 def _fingerprint(path: Path) -> dict[str, object]:
@@ -293,57 +302,280 @@ def _prepare_render_environment(
     return [], []
 
 
-def _capture_authored_settings(bpy: Any) -> dict[str, object]:
-    """Capture authored camera, lights, world, and compositor without mutation."""
+_UNSUPPORTED = object()
 
+
+def _stable_value(value: object) -> object:
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return round(value, 12)
+    if isinstance(value, (list, tuple)):
+        serialized = [_stable_value(item) for item in value]
+        return serialized if all(item is not _UNSUPPORTED for item in serialized) else _UNSUPPORTED
+    if isinstance(value, (set, frozenset)):
+        serialized = [_stable_value(item) for item in value]
+        if any(item is _UNSUPPORTED for item in serialized):
+            return _UNSUPPORTED
+        return sorted(serialized, key=lambda item: json.dumps(item, sort_keys=True))
+    if hasattr(value, "__len__") and hasattr(value, "__iter__"):
+        try:
+            serialized = [_stable_value(item) for item in value]
+        except (TypeError, ValueError):
+            return _UNSUPPORTED
+        return serialized if all(item is not _UNSUPPORTED for item in serialized) else _UNSUPPORTED
+    return _UNSUPPORTED
+
+
+def _data_identity(value: object | None) -> dict[str, object] | None:
+    if value is None:
+        return None
+    library = getattr(value, "library", None)
+    result: dict[str, object] = {
+        "name": str(getattr(value, "name_full", getattr(value, "name", ""))),
+        "type": type(value).__name__,
+        "library": str(getattr(library, "filepath", "")) if library else None,
+    }
+    stable_id = value.get("pimm_stable_id") if hasattr(value, "get") else None
+    if stable_id is not None:
+        result["pimm_stable_id"] = str(stable_id)
+    return result
+
+
+def _rna_scalar_properties(
+    owner: object,
+    *,
+    exclude: frozenset[str] = frozenset(),
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    rna = getattr(owner, "bl_rna", None)
+    properties = getattr(rna, "properties", ())
+    for prop in properties:
+        identifier = str(prop.identifier)
+        if identifier == "rna_type" or identifier in exclude:
+            continue
+        if getattr(prop, "type", None) not in {
+            "BOOLEAN",
+            "INT",
+            "FLOAT",
+            "STRING",
+            "ENUM",
+        }:
+            continue
+        try:
+            serialized = _stable_value(getattr(owner, identifier))
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            continue
+        if serialized is not _UNSUPPORTED:
+            result[identifier] = serialized
+    return dict(sorted(result.items()))
+
+
+def _socket_record(socket: object) -> dict[str, object]:
+    default = _UNSUPPORTED
+    if hasattr(socket, "default_value"):
+        try:
+            default = _stable_value(socket.default_value)
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            pass
+    return {
+        "name": str(socket.name),
+        "identifier": str(getattr(socket, "identifier", "")),
+        "type": str(getattr(socket, "bl_idname", type(socket).__name__)),
+        "enabled": bool(getattr(socket, "enabled", True)),
+        "is_linked": bool(getattr(socket, "is_linked", False)),
+        "default": None if default is _UNSUPPORTED else default,
+    }
+
+
+def _image_identity(image: object | None) -> dict[str, object] | None:
+    identity = _data_identity(image)
+    if identity is None:
+        return None
+    identity.update(
+        {
+            "filepath": str(getattr(image, "filepath_raw", "")),
+            "source": str(getattr(image, "source", "")),
+            "alpha_mode": str(getattr(image, "alpha_mode", "")),
+            "colorspace": str(getattr(getattr(image, "colorspace_settings", None), "name", "")),
+            "packed": getattr(image, "packed_file", None) is not None,
+        }
+    )
+    return identity
+
+
+def _node_tree_record(tree: object | None) -> dict[str, object] | None:
+    if tree is None:
+        return None
+    node_records: list[dict[str, object]] = []
+    for node in sorted(tree.nodes, key=lambda item: (item.name, item.bl_idname)):
+        pointers = {
+            name: _data_identity(getattr(node, name, None))
+            for name in ("object", "scene", "material", "texture", "collection", "node_tree")
+            if hasattr(node, name)
+        }
+        if hasattr(node, "image"):
+            pointers["image"] = _image_identity(getattr(node, "image", None))
+        node_records.append(
+            {
+                "name": node.name,
+                "type": node.bl_idname,
+                "mute": bool(getattr(node, "mute", False)),
+                "properties": _rna_scalar_properties(
+                    node,
+                    exclude=frozenset(
+                        {
+                            "name",
+                            "label",
+                            "select",
+                            "show_options",
+                            "show_preview",
+                            "show_texture",
+                            "width",
+                            "width_hidden",
+                            "height",
+                        }
+                    ),
+                ),
+                "inputs": [_socket_record(socket) for socket in node.inputs],
+                "outputs": [_socket_record(socket) for socket in node.outputs],
+                "data": dict(sorted(pointers.items())),
+            }
+        )
+    links = sorted(
+        [
+            {
+                "from_node": link.from_node.name,
+                "from_socket": link.from_socket.name,
+                "to_node": link.to_node.name,
+                "to_socket": link.to_socket.name,
+            }
+            for link in tree.links
+        ],
+        key=lambda item: (
+            item["from_node"],
+            item["from_socket"],
+            item["to_node"],
+            item["to_socket"],
+        ),
+    )
+    return {
+        "identity": _data_identity(tree),
+        "nodes": node_records,
+        "links": links,
+    }
+
+
+def _transform_record(obj: object) -> dict[str, object]:
+    return {
+        "location": [round(float(value), 12) for value in obj.location],
+        "rotation_mode": str(obj.rotation_mode),
+        "rotation_euler": [round(float(value), 12) for value in obj.rotation_euler],
+        "scale": [round(float(value), 12) for value in obj.scale],
+        "matrix_world": [
+            round(float(value), 12) for row in obj.matrix_world for value in row
+        ],
+        "parent": _data_identity(obj.parent),
+    }
+
+
+def _capture_authored_settings(bpy: Any) -> dict[str, object]:
+    """Deterministically capture all available material render-affecting state."""
+
+    bpy.context.view_layer.update()
     scene = bpy.context.scene
     camera = scene.camera
     camera_record: dict[str, object] | None = None
     if camera is not None:
+        data = camera.data
+        dof = data.dof
         camera_record = {
-            "name": camera.name,
-            "location": [float(value) for value in camera.location],
-            "rotation_euler": [float(value) for value in camera.rotation_euler],
-            "lens": float(camera.data.lens),
+            "identity": _data_identity(camera),
+            "transform": _transform_record(camera),
+            "type": str(data.type),
+            "lens": float(data.lens),
+            "sensor_fit": str(data.sensor_fit),
+            "sensor_width": float(data.sensor_width),
+            "sensor_height": float(data.sensor_height),
+            "shift_x": float(data.shift_x),
+            "shift_y": float(data.shift_y),
+            "clip_start": float(data.clip_start),
+            "clip_end": float(data.clip_end),
+            "dof": {
+                "use_dof": bool(dof.use_dof),
+                "focus_object": _data_identity(dof.focus_object),
+                "focus_distance": float(dof.focus_distance),
+                "aperture_fstop": float(dof.aperture_fstop),
+                "aperture_blades": int(dof.aperture_blades),
+                "aperture_rotation": float(dof.aperture_rotation),
+                "aperture_ratio": float(dof.aperture_ratio),
+            },
         }
-    lights = sorted(
-        (
+    lights: list[dict[str, object]] = []
+    for obj in bpy.data.objects:
+        if getattr(obj, "type", None) != "LIGHT":
+            continue
+        data = obj.data
+        lights.append(
             {
-                "name": obj.name,
-                "type": obj.data.type,
-                "energy": float(obj.data.energy),
-                "location": [float(value) for value in obj.location],
-                "rotation_euler": [float(value) for value in obj.rotation_euler],
+                "identity": _data_identity(obj),
+                "transform": _transform_record(obj),
+                "type": str(data.type),
+                "color": [round(float(value), 12) for value in data.color],
+                "energy": float(data.energy),
+                "shape": str(getattr(data, "shape", "")),
+                "size": float(getattr(data, "size", 0.0)),
+                "size_y": float(getattr(data, "size_y", 0.0)),
+                "spot_size": float(getattr(data, "spot_size", 0.0)),
+                "spot_blend": float(getattr(data, "spot_blend", 0.0)),
+                "shadow_soft_size": float(getattr(data, "shadow_soft_size", 0.0)),
+                "properties": _rna_scalar_properties(data),
+                "node_tree": _node_tree_record(data.node_tree if data.use_nodes else None),
             }
-            for obj in bpy.data.objects
-            if getattr(obj, "type", None) == "LIGHT"
-        ),
-        key=lambda item: str(item["name"]),
-    )
+        )
+    lights.sort(key=lambda item: json.dumps(item["identity"], sort_keys=True))
     world = scene.world
     world_record = None
     if world is not None:
         world_record = {
-            "name": world.name,
-            "use_nodes": bool(world.use_nodes),
-            "color": [float(value) for value in world.color],
+            "identity": _data_identity(world),
+            "color": [round(float(value), 12) for value in world.color],
+            "properties": _rna_scalar_properties(world),
+            "node_tree": _node_tree_record(world.node_tree if world.use_nodes else None),
         }
-    tree = getattr(scene, "node_tree", None) if scene.use_nodes else None
+    compositor_tree = getattr(scene, "compositing_node_group", None)
+    if compositor_tree is None:
+        compositor_tree = getattr(scene, "node_tree", None)
     compositor = {
-        "use_nodes": bool(scene.use_nodes),
-        "nodes": sorted(node.name for node in tree.nodes) if tree else [],
-        "links": sorted(
-            f"{link.from_node.name}:{link.from_socket.name}->{link.to_node.name}:{link.to_socket.name}"
-            for link in tree.links
-        )
-        if tree
-        else [],
+        "enabled": compositor_tree is not None,
+        "node_tree": _node_tree_record(compositor_tree),
     }
+    render = scene.render
+    view_layers = [
+        {
+            "name": layer.name,
+            "properties": _rna_scalar_properties(layer, exclude=frozenset({"name"})),
+            "material_override": _data_identity(layer.material_override),
+        }
+        for layer in sorted(scene.view_layers, key=lambda item: item.name)
+    ]
     return {
         "camera": camera_record,
         "lights": lights,
         "world": world_record,
         "compositor": compositor,
+        "render": {
+            "properties": _rna_scalar_properties(render),
+            "image_settings": _rna_scalar_properties(render.image_settings),
+            "ffmpeg": _rna_scalar_properties(render.ffmpeg),
+        },
+        "view_layers": view_layers,
+        "color_management": {
+            "view": _rna_scalar_properties(scene.view_settings),
+            "display": _rna_scalar_properties(scene.display_settings),
+            "sequencer": _rna_scalar_properties(scene.sequencer_colorspace_settings),
+        },
+        "cycles": _rna_scalar_properties(scene.cycles),
     }
 
 
@@ -351,13 +583,73 @@ def _expected_product_rgba_path(output_root: Path, shot_id: str) -> Path:
     return output_root / f".{shot_id}--product-only.tmp.png"
 
 
+def _lexical_absolute(path: Path) -> Path:
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _require_lexical_canonical(path: Path, label: str) -> Path:
+    raw = Path(path)
+    canonical = _lexical_absolute(raw)
+    if not raw.is_absolute() or raw != canonical:
+        raise ValueError(f"{label} must be one absolute lexical canonical path without aliases")
+    return canonical
+
+
+def _is_reparse_path(path: Path) -> bool:
+    try:
+        details = os.lstat(path)
+    except OSError:
+        return False
+    attributes = getattr(details, "st_file_attributes", 0)
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    is_junction = getattr(path, "is_junction", lambda: False)
+    return bool(attributes & reparse_flag) or path.is_symlink() or bool(is_junction())
+
+
+def _validate_no_reparse_ancestors(asset_root: Path, target: Path) -> None:
+    root = _lexical_absolute(asset_root)
+    candidate = _lexical_absolute(target)
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError as error:
+        raise ValueError("proof path is not lexically inside the canonical asset root") from error
+    current = root
+    paths = [current]
+    for part in relative.parts:
+        current /= part
+        paths.append(current)
+    for existing in paths:
+        if os.path.lexists(existing) and _is_reparse_path(existing):
+            raise ValueError(f"proof path ancestor is a junction or reparse point: {existing}")
+
+
+def _scratch_stat_identity(path: Path) -> tuple[int, ...]:
+    details = os.lstat(path)
+    return (
+        int(details.st_dev),
+        int(details.st_ino),
+        int(details.st_mode),
+        int(details.st_size),
+        int(details.st_mtime_ns),
+        int(details.st_ctime_ns),
+        int(details.st_nlink),
+        int(getattr(details, "st_file_attributes", 0)),
+        int(getattr(details, "st_reparse_tag", 0)),
+    )
+
+
 def _validate_product_rgba_path(
-    output_root: Path, shot_id: str, product_rgba_path: Path
-) -> Path:
+    asset_root: Path,
+    output_root: Path,
+    shot_id: str,
+    product_rgba_path: Path,
+) -> _ScratchIdentity:
     """Allow cleanup of only the exact hidden file created for this generation."""
 
-    output_root = Path(output_root)
-    supplied = Path(product_rgba_path)
+    output_root = _require_lexical_canonical(output_root, "proof output root")
+    supplied = _require_lexical_canonical(
+        product_rgba_path, "product-only temporary path"
+    )
     expected = _expected_product_rgba_path(output_root, shot_id)
     contracted = {
         output_root / "manifest.json",
@@ -368,13 +660,12 @@ def _validate_product_rgba_path(
         output_root / "scene-contract.json",
     }
     if (
-        not supplied.is_absolute()
-        or supplied != expected
+        supplied != expected
+        or supplied.name != f".{shot_id}--product-only.tmp.png"
         or expected in contracted
-        or output_root.is_symlink()
-        or supplied.is_symlink()
     ):
         raise ValueError("product-only temporary path is not the exact contained generation file")
+    _validate_no_reparse_ancestors(asset_root, supplied)
     try:
         resolved_root = output_root.resolve(strict=True)
         resolved = supplied.resolve(strict=True)
@@ -384,10 +675,33 @@ def _validate_product_rgba_path(
     if (
         resolved != expected.resolve()
         or not resolved.is_file()
-        or resolved.stat().st_nlink != 1
+        or os.lstat(supplied).st_nlink != 1
     ):
         raise ValueError("product-only temporary path is not the exact readable generation file")
-    return resolved
+    return _ScratchIdentity(
+        path=supplied,
+        resolved_path=resolved,
+        stat_identity=_scratch_stat_identity(supplied),
+    )
+
+
+def _unlink_validated_product_scratch(
+    initial: _ScratchIdentity,
+    asset_root: Path,
+    output_root: Path,
+    shot_id: str,
+) -> None:
+    current = _validate_product_rgba_path(
+        asset_root, output_root, shot_id, initial.path
+    )
+    if (
+        current.path != initial.path
+        or current.resolved_path != initial.resolved_path
+        or current.stat_identity != initial.stat_identity
+    ):
+        raise ValueError("product-only temporary path was replaced in a cleanup race")
+    # No operation may intervene between final identity validation and deletion.
+    current.path.unlink()
 
 
 def _render_rgba(
@@ -514,18 +828,23 @@ def finalize_proof(
 
     from PIL import Image, ImageDraw
 
+    asset_root = _require_lexical_canonical(asset_root, "asset root")
+    output_root = _require_lexical_canonical(output_root, "proof output root")
+    rgba_path = _require_lexical_canonical(rgba_path, "RGBA path")
     proof_module.ASSET_ROOT = asset_root.resolve()
     contract = ProofContract.from_json(proof_contract_path)
-    expected_root = (
+    expected_root = _lexical_absolute(
         asset_root / Path(*PurePosixPath(contract.output_root).parts)
-    ).resolve()
-    if output_root.resolve() != expected_root:
+    )
+    if output_root != expected_root:
         raise ValueError("finalizer output root does not match proof contract")
+    _validate_no_reparse_ancestors(asset_root, output_root)
     scene_contract = SceneContract.from_json(output_root / "scene-contract.json")
     shot_id = scene_contract.scene_id
     expected_rgba = output_root / f"{shot_id}--rgba.png"
-    if not rgba_path.is_absolute() or rgba_path != expected_rgba or rgba_path.is_symlink():
+    if rgba_path != expected_rgba:
         raise ValueError("RGBA path is not the exact contracted generation output")
+    _validate_no_reparse_ancestors(asset_root, rgba_path)
     metadata_path = output_root / "render-metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     fixture_mode = metadata.get("fixture_mode") is True
@@ -534,7 +853,7 @@ def finalize_proof(
         if not fixture_mode:
             raise ValueError("product-only temporary path is fixture-only")
         validated_product = _validate_product_rgba_path(
-            output_root, shot_id, product_rgba_path
+            asset_root, output_root, shot_id, product_rgba_path
         )
     elif fixture_mode:
         raise ValueError("fixture proof QA requires the exact product-only temporary path")
@@ -566,7 +885,7 @@ def finalize_proof(
         _save_png_once(composite, destination)
         outputs.append(destination)
     if validated_product is not None:
-        with Image.open(validated_product) as loaded_product:
+        with Image.open(validated_product.path) as loaded_product:
             product_alpha = loaded_product.convert("RGBA").getchannel("A")
             product_alpha.load()
         from PIL import ImageChops
@@ -591,7 +910,9 @@ def finalize_proof(
             _save_png_once(mask, destination, mode="L")
             outputs.append(destination)
     if validated_product is not None:
-        validated_product.unlink()
+        _unlink_validated_product_scratch(
+            validated_product, asset_root, output_root, shot_id
+        )
 
     manifest_path = write_proof_manifest(
         contract, outputs, destination=output_root / ".manifest.pending.json"

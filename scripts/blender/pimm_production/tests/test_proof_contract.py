@@ -2,6 +2,7 @@ import dataclasses
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
@@ -107,9 +108,10 @@ def _run_fixture_proofs(
     root: Path,
     *,
     inject_drift_after_prepare: bool = False,
+    inject_authored_mutation: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
     runner = PROOF_RUNNER
-    if inject_drift_after_prepare:
+    if inject_drift_after_prepare or inject_authored_mutation is not None:
         runner = root / "inject_proof_drift.py"
         runner.write_text(
             "\n".join(
@@ -117,12 +119,49 @@ def _run_fixture_proofs(
                     "from pathlib import Path",
                     "import sys",
                     f"sys.path.insert(0, {str(REPO_ROOT)!r})",
+                    "import bpy",
                     "import scripts.blender.pimm_production.blender_proof_render as proof_render",
+                    *(
+                        [
+                            "scene = bpy.context.scene",
+                            "authored_light_data = bpy.data.lights.new('AUTHORED_KEY', type='AREA')",
+                            "authored_light_data.energy = 125.0",
+                            "authored_light_data.color = (0.2, 0.4, 0.6)",
+                            "authored_light = bpy.data.objects.new('AUTHORED_KEY', authored_light_data)",
+                            "scene.collection.objects.link(authored_light)",
+                            "authored_world = bpy.data.worlds.new('AUTHORED_WORLD')",
+                            "authored_world.use_nodes = True",
+                            "scene.world = authored_world",
+                            "compositor = bpy.data.node_groups.new('AUTHORED_COMPOSITOR', 'CompositorNodeTree')",
+                            "compositor_node = compositor.nodes.new('CompositorNodeBrightContrast')",
+                        ]
+                        if inject_authored_mutation is not None
+                        else []
+                    ),
                     "original = proof_render._run_pillow_finalizer",
                     "def injected(*args, **kwargs):",
                     "    result = original(*args, **kwargs)",
-                    f"    source = Path({str(root / 'sources' / 'PIMM-30G-authoritative-source.step')!r})",
-                    "    source.write_bytes(source.read_bytes() + b'INJECTED-DRIFT')",
+                    *(
+                        [
+                            f"    source = Path({str(root / 'sources' / 'PIMM-30G-authoritative-source.step')!r})",
+                            "    source.write_bytes(source.read_bytes() + b'INJECTED-DRIFT')",
+                        ]
+                        if inject_drift_after_prepare
+                        else []
+                    ),
+                    *(
+                        {
+                            "camera": ["    scene.camera.data.sensor_width += 1.0"],
+                            "light": ["    authored_light_data.color = (0.9, 0.1, 0.2)"],
+                            "world": [
+                                "    authored_world.node_tree.nodes['Background'].inputs['Strength'].default_value += 1.0"
+                            ],
+                            "compositor": [
+                                "    compositor_node.mute = True",
+                                "    scene.compositing_node_group = compositor",
+                            ],
+                        }.get(inject_authored_mutation, [])
+                    ),
                     "    return result",
                     "proof_render._run_pillow_finalizer = injected",
                     "raise SystemExit(proof_render.main())",
@@ -175,20 +214,51 @@ def _valid_render_metadata(
 ) -> dict[str, object]:
     fingerprints = {
         "source": _fingerprint_record("C:/fixture/source.step", "1" * 64),
-        "master": _fingerprint_record("C:/fixture/master.blend", "2" * 64),
-        "material_library": _fingerprint_record("C:/fixture/material.blend", "3" * 64),
+        "master": _fingerprint_record(
+            "C:/fixture/master.blend", contract.master_sha256.upper()
+        ),
+        "material_library": _fingerprint_record(
+            "C:/fixture/material.blend", contract.material_library_sha256.upper()
+        ),
         "scene": _fingerprint_record("C:/fixture/scene.blend", contract.scene_sha256.upper()),
     }
     authored_settings = {
         "camera": {
-            "name": "CAM_HERO",
-            "location": [4.0, -6.0, 3.0],
-            "rotation_euler": [1.0, 0.0, 0.5],
+            "identity": {"name": "CAM_HERO", "type": "Object", "library": None},
+            "transform": {
+                "location": [4.0, -6.0, 3.0],
+                "rotation_mode": "XYZ",
+                "rotation_euler": [1.0, 0.0, 0.5],
+                "scale": [1.0, 1.0, 1.0],
+                "matrix_world": [1.0] * 16,
+                "parent": None,
+            },
+            "type": "PERSP",
             "lens": 50.0,
+            "sensor_fit": "AUTO",
+            "sensor_width": 36.0,
+            "sensor_height": 32.0,
+            "shift_x": 0.0,
+            "shift_y": 0.0,
+            "clip_start": 0.1,
+            "clip_end": 1000.0,
+            "dof": {
+                "use_dof": False,
+                "focus_object": None,
+                "focus_distance": 10.0,
+                "aperture_fstop": 2.8,
+                "aperture_blades": 0,
+                "aperture_rotation": 0.0,
+                "aperture_ratio": 1.0,
+            },
         },
         "lights": [],
         "world": None,
-        "compositor": {"use_nodes": False, "nodes": [], "links": []},
+        "compositor": {"enabled": False, "node_tree": None},
+        "render": {"properties": {"engine": "CYCLES"}},
+        "view_layers": [{"name": "ViewLayer", "properties": {}, "material_override": None}],
+        "color_management": {"view": {"view_transform": "AgX"}},
+        "cycles": {"samples": contract.samples},
     }
     return {
         "schema": "pimm-proof-render-metadata/v1",
@@ -292,6 +362,27 @@ def _write_manifest_evidence(
     )
 
 
+def _prepare_finalizer_fixture(
+    root: Path, output_root: Path
+) -> tuple[ProofContract, SceneContract, Path, Path, Path]:
+    contract = material_contract(["white", "checker", "dark"], True)
+    scene = scene_contract_fixture()
+    proof_path = root / "fixture-proof.json"
+    proof_path.write_text(
+        json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+    )
+    _write_scene_contract(root, scene, contract.scene_contract_path)
+    output_root.mkdir(parents=True, exist_ok=True)
+    _write_manifest_evidence(
+        root, output_root, contract, scene, _valid_render_metadata(contract)
+    )
+    rgba = output_root / f"{scene.scene_id}--rgba.png"
+    Image.new("RGBA", (300, 300), (90, 110, 130, 255)).save(rgba)
+    product = output_root / f".{scene.scene_id}--product-only.tmp.png"
+    Image.new("RGBA", (300, 300), (90, 110, 130, 255)).save(product)
+    return contract, scene, proof_path, rgba, product
+
+
 class ProofContractTests(unittest.TestCase):
     def test_composition_proof_is_low_cost(self):
         contract = composition_contract()
@@ -386,6 +477,9 @@ class ProofContractTests(unittest.TestCase):
         mutations = {
             "missing-engine": "metadata",
             "fingerprint-drift": "metadata",
+            "master-pin-mismatch": "metadata",
+            "material-pin-mismatch": "metadata",
+            "scene-pin-mismatch": "metadata",
             "settings-mismatch": "metadata",
             "blender-lock-mismatch": "metadata",
             "wrong-dimensions": "image",
@@ -427,6 +521,15 @@ class ProofContractTests(unittest.TestCase):
                     metadata["fingerprints"]["after"]["source"]["sha256"] = "9" * 64
                 elif mutation == "settings-mismatch":
                     metadata["samples"] = contract.samples - 1
+                elif mutation.endswith("-pin-mismatch"):
+                    name = mutation.removesuffix("-pin-mismatch")
+                    if name == "material":
+                        name = "material_library"
+                    metadata["fingerprints"] = json.loads(
+                        json.dumps(metadata["fingerprints"])
+                    )
+                    metadata["fingerprints"]["before"][name]["sha256"] = "9" * 64
+                    metadata["fingerprints"]["after"][name]["sha256"] = "9" * 64
                 _write_manifest_evidence(root, output_root, contract, scene, metadata)
                 if mutation == "blender-lock-mismatch":
                     metadata["blender"]["binary_sha256"] = "8" * 64
@@ -483,6 +586,123 @@ class ProofContractTests(unittest.TestCase):
             self.assertTrue(exact_hidden.is_file())
             self.assertEqual(sha256_file(external), before)
             self.assertFalse((output_root / "manifest.json").exists())
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction mutation")
+    def test_finalizer_rejects_generation_junction_without_deleting_external_target(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as external_text:
+            root = Path(root_text)
+            external = Path(external_text)
+            contract = material_contract(["white", "checker", "dark"], True)
+            generation = root / contract.output_root
+            generation.parent.mkdir(parents=True)
+            subprocess.run(
+                ["cmd.exe", "/c", "mklink", "/J", str(generation), str(external)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            try:
+                _, _, proof_path, rgba, product = _prepare_finalizer_fixture(
+                    root, generation
+                )
+                external_product = external / product.name
+                before = sha256_file(external_product)
+                captured: ValueError | None = None
+                try:
+                    render_module.finalize_proof(
+                        proof_path, generation, rgba, root, product
+                    )
+                except ValueError as error:
+                    captured = error
+
+                self.assertIsNotNone(captured)
+                self.assertRegex(str(captured), "junction|reparse")
+                self.assertTrue(external_product.is_file())
+                self.assertEqual(sha256_file(external_product), before)
+                for name in (
+                    "manifest.json",
+                    "contact-sheet.png",
+                    "contact-sheet.json",
+                    ".manifest.pending.json",
+                    ".contact-sheet.pending.png",
+                    ".contact-sheet.pending.json",
+                ):
+                    self.assertFalse((external / name).exists(), msg=name)
+            finally:
+                if generation.exists():
+                    os.rmdir(generation)
+
+    def test_product_scratch_replacement_race_is_preserved_and_fails_closed(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            contract = material_contract(["white", "checker", "dark"], True)
+            output_root = root / contract.output_root
+            _, _, proof_path, rgba, product = _prepare_finalizer_fixture(
+                root, output_root
+            )
+            external = root / "external-readable.png"
+            Image.new("RGBA", (300, 300), (12, 34, 56, 255)).save(external)
+            external_before = sha256_file(external)
+            original_product = root / "original-product-preserved.png"
+            original_analyze = render_module.analyze_mask_metrics
+            injected = False
+
+            def replace_after_validation(image: object) -> dict[str, object]:
+                nonlocal injected
+                result = original_analyze(image)
+                if not injected:
+                    injected = True
+                    os.replace(product, original_product)
+                    shutil.copyfile(external, product)
+                return result
+
+            captured: ValueError | None = None
+            with patch.object(
+                render_module, "analyze_mask_metrics", replace_after_validation
+            ):
+                try:
+                    render_module.finalize_proof(
+                        proof_path, output_root, rgba, root, product
+                    )
+                except ValueError as error:
+                    captured = error
+
+            self.assertTrue(injected)
+            self.assertIsNotNone(captured)
+            self.assertRegex(str(captured), "replaced|identity|race")
+            self.assertTrue(product.is_file())
+            self.assertTrue(original_product.is_file())
+            self.assertEqual(sha256_file(external), external_before)
+            self.assertEqual(sha256_file(product), external_before)
+            for name in (
+                "manifest.json",
+                "contact-sheet.png",
+                "contact-sheet.json",
+                ".manifest.pending.json",
+                ".contact-sheet.pending.png",
+                ".contact-sheet.pending.json",
+            ):
+                self.assertFalse((output_root / name).exists(), msg=name)
+
+    def test_product_scratch_lexical_alias_is_rejected_and_preserved(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            contract = material_contract(["white", "checker", "dark"], True)
+            output_root = root / contract.output_root
+            _, _, proof_path, rgba, product = _prepare_finalizer_fixture(
+                root, output_root
+            )
+            (output_root / "alias-component").mkdir()
+            alias = output_root / "alias-component" / ".." / product.name
+            before = sha256_file(product)
+
+            with self.assertRaisesRegex(ValueError, "lexical|alias|canonical"):
+                render_module.finalize_proof(
+                    proof_path, output_root, rgba, root, alias
+                )
+
+            self.assertTrue(product.is_file())
+            self.assertEqual(sha256_file(product), before)
 
     def test_canonical_mode_never_calls_fixture_setup_and_rejects_fixture_roles(self):
         clean_bpy = SimpleNamespace(data=SimpleNamespace(objects=[]))
@@ -821,6 +1041,57 @@ class ProofContractTests(unittest.TestCase):
                 ".contact-sheet.pending.json",
             ):
                 self.assertFalse((output_root / name).exists(), msg=name)
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_authored_render_state_mutations_at_final_gate_publish_no_pass_artifacts(self):
+        for mutation in ("camera", "light", "world", "compositor"):
+            with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                scene_path, scene = build_scene_fixture("valid", root)
+                source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+                source_path.parent.mkdir(parents=True)
+                source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+                scene_contract_path = _write_scene_contract(
+                    root, scene, "scenes/fixtures/scene.json"
+                )
+                contract = dataclasses.replace(
+                    composition_contract(),
+                    scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                    scene_sha256=sha256_file(scene_path),
+                    master_sha256=scene.master_sha256,
+                    material_library_sha256=scene.material_library_sha256,
+                    resolution_percentage=12.5,
+                    samples=16,
+                )
+                proof_path = root / "scenes" / "fixtures" / f"{mutation}-proof.json"
+                proof_path.write_text(
+                    json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+                )
+
+                result, rows = _run_fixture_proofs(
+                    scene_path,
+                    [proof_path],
+                    root,
+                    inject_authored_mutation=mutation,
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
+                self.assertEqual(
+                    rows[0]["status"],
+                    "blocked_settings_drift",
+                    msg=result.stdout + result.stderr,
+                )
+                output_root = root / contract.output_root
+                for name in (
+                    "manifest.json",
+                    "contact-sheet.png",
+                    "contact-sheet.json",
+                    ".manifest.pending.json",
+                    ".contact-sheet.pending.png",
+                    ".contact-sheet.pending.json",
+                ):
+                    self.assertFalse((output_root / name).exists(), msg=name)
 
 
 if __name__ == "__main__":
