@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,32 +10,32 @@ const docRoot = path.join(repoRoot, 'docs', 'pimm-blender-governance');
 const assetRoot = String.raw`M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders`;
 
 test('canonical governance files map only to the exact external workspace paths', () => {
-  const expectedCanonicalFiles = [
-    'AGENTS.md',
-    'README.md',
-    'material-authoring.md',
-    'lighting-and-cameras.md',
-    'animation-rigging.md',
-    'rendering-and-approval.md',
+  const expectedMappings = [
+    ['docs/pimm-blender-governance/AGENTS.md', `${assetRoot}\\AGENTS.md`],
+    ['docs/pimm-blender-governance/README.md', `${assetRoot}\\README.md`],
+    ['docs/pimm-blender-governance/animation-rigging.md', `${assetRoot}\\docs\\animation-rigging.md`],
+    ['docs/pimm-blender-governance/lighting-and-cameras.md', `${assetRoot}\\docs\\lighting-and-cameras.md`],
+    ['docs/pimm-blender-governance/material-authoring.md', `${assetRoot}\\docs\\material-authoring.md`],
+    ['docs/pimm-blender-governance/rendering-and-approval.md', `${assetRoot}\\docs\\rendering-and-approval.md`],
   ];
 
-  for (const name of expectedCanonicalFiles) {
-    assert.equal(fs.existsSync(path.join(docRoot, name)), true, `missing canonical ${name}`);
-  }
+  const mappingProgram = [
+    'import json',
+    'from pathlib import Path',
+    'from scripts.blender.pimm_production.workspace_docs import canonical_workspace_docs',
+    'repository_root = Path.cwd()',
+    'mapping = canonical_workspace_docs(repository_root)',
+    'rows = sorted((source.relative_to(repository_root).as_posix(), str(destination)) for source, destination in mapping.items())',
+    'print(json.dumps(rows))',
+  ].join('\n');
+  const actualMappings = JSON.parse(
+    execFileSync('python', ['-c', mappingProgram], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }),
+  );
 
-  const installer = fs.readFileSync(
-    path.join(repoRoot, 'scripts', 'blender', 'pimm_production', 'workspace_docs.py'),
-    'utf8',
-  );
-  const paths = fs.readFileSync(
-    path.join(repoRoot, 'scripts', 'blender', 'pimm_production', 'paths.py'),
-    'utf8',
-  );
-  assert.match(installer, /ASSET_ROOT/);
-  assert.match(installer, /AGENTS\.md/);
-  assert.match(installer, /README\.md/);
-  assert.match(installer, /ASSET_ROOT \/ "docs"/);
-  assert.match(paths, new RegExp(assetRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.deepEqual(actualMappings, expectedMappings);
 });
 
 test('approved local tool section excludes paid and cloud enhancers', () => {
