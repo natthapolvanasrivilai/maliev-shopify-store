@@ -177,7 +177,9 @@ def _import_one_solid(bpy, solid: dict[str, Any], machine: str, source_hash: str
     product["pimm_solid_index"] = int(solid["solid_index"])
     product["pimm_original_cad_name"] = solid["original_name"]
     product["pimm_geometry_signature"] = solid["geometry_signature"]
-    product["pimm_part_name"] = ""
+    # Start the human-editable label with the exact CAD name. Owners can
+    # replace this later without touching the immutable provenance fields.
+    product["pimm_part_name"] = solid["original_name"]
     product["pimm_material_state"] = "unassigned"
     product["pimm_manual_material_authority"] = True
     product.show_name = False

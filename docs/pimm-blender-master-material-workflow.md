@@ -8,7 +8,7 @@ This workflow is for manually correcting the 30G and 50G machine materials while
 - `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-50G-MASTER.blend`
 - Shared materials: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-MATERIAL-LIBRARY.blend`
 
-Each master currently contains 472 separate, selectable STEP-solid objects. They are intentionally magenta because every object begins with the linked `PIMM_UNASSIGNED` material.
+Each master contains 472 separate, selectable STEP-solid objects. They are intentionally magenta because every object begins with the linked `PIMM_UNASSIGNED` material. Each object's initial `pimm_part_name` is the exact `pimm_original_cad_name`; you can replace that label with a clearer name at any time.
 
 ## Select and identify a part
 
@@ -17,7 +17,7 @@ Each master currently contains 472 separate, selectable STEP-solid objects. They
 3. In the Outliner, expand `PIMM_WORKING`. Nested collections mirror the STEP assembly occurrences.
 4. Select a body in the viewport. Use `/` on the numeric keypad for Local View when neighboring bodies obscure it.
 5. Open Object Properties → Custom Properties. Do not change `pimm_stable_id`, `pimm_product_id`, `pimm_occurrence_id`, `pimm_solid_index`, `pimm_geometry_signature`, or `pimm_original_cad_name`.
-6. Enter your descriptive part name in `pimm_part_name`. Renaming the visible Blender object is optional because the stable source identity is stored separately.
+6. Replace `pimm_part_name` with your descriptive part name if desired. It starts as the original CAD name. Renaming the visible Blender object is optional because the stable source identity is stored separately.
 
 ## Assign a shared physical material
 

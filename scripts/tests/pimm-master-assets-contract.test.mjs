@@ -10,6 +10,7 @@ const materialBuilder = path.join(root, 'scripts', 'blender', 'master_assets', '
 const masterBuilder = path.join(root, 'scripts', 'blender', 'master_assets', 'pimm_master_builder.py');
 const masterAudit = path.join(root, 'scripts', 'blender', 'master_assets', 'pimm_master_audit.py');
 const legacyInventory = path.join(root, 'scripts', 'blender', 'master_assets', 'pimm_legacy_inventory.py');
+const partNameSync = path.join(root, 'scripts', 'blender', 'master_assets', 'pimm_part_name_sync.py');
 const assetRoot = 'M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders';
 
 test('STEP manifest pipeline pins the CAD runtime and authoritative sources', () => {
@@ -63,10 +64,20 @@ test('machine masters preserve one selectable object per solid and block publica
   assert.match(source, /pimm_geometry_signature/);
   assert.match(source, /pimm_part_name/);
   assert.match(source, /pimm_material_state/);
+  assert.match(source, /pimm_part_name.*solid\["original_name"\]/s);
   assert.match(source, /PIMM_UNASSIGNED/);
   assert.match(source, /SOURCE_TO_BLENDER_ROTATION_X\s*=\s*-math\.pi\s*\/\s*2\.0/);
   assert.match(source, /imported \{len\(meshes\)\} mesh objects; expected 1/);
   assert.doesNotMatch(source, /bpy\.ops\.object\.join|join_by_material|merge_by_distance/);
+});
+
+test('part-name sync initializes labels without overwriting manual edits by default', () => {
+  const source = fs.readFileSync(partNameSync, 'utf8');
+  assert.match(source, /if current and not force/);
+  assert.match(source, /current != original\.strip\(\)/);
+  assert.match(source, /obj\["pimm_part_name"\] = original/);
+  assert.match(source, /--force/);
+  assert.match(source, /remaining_blank/);
 });
 
 test('master audit is read-only and manual material assignments are authoritative', () => {
