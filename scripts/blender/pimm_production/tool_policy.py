@@ -22,7 +22,12 @@ PRODUCTION_VENV_ROOT = ASSET_ROOT / "tools" / "pimm-render-py311"
 LOCK_PATH = ASSET_ROOT / "manifests" / "free-tools-lock.json"
 LOCK_SCHEMA = "pimm-free-tools-lock/v1"
 REQUIRED_TOOL_IDS = frozenset({"blender", "blender-mcp", "python", "pillow"})
-APPROVED_LICENSES = frozenset({"GPL-3.0-or-later", "PSF-2.0", "MIT-CMU"})
+TOOL_LICENSES = {
+    "blender": "GPL-3.0-or-later",
+    "blender-mcp": "GPL-3.0-or-later",
+    "python": "PSF-2.0",
+    "pillow": "MIT-CMU",
+}
 LOCK_FIELDS = frozenset({"schema", "tools", "license_evidence"})
 TOOL_FIELDS = frozenset({"id", "version", "license", "execution", "path", "sha256"})
 LICENSE_EVIDENCE_FIELDS = frozenset({"path", "sha256"})
@@ -203,8 +208,8 @@ def validate_tool_lock(payload: Mapping[str, object]) -> list[str]:
         license_value = item.get("license")
         if not isinstance(license_value, str) or not license_value.strip():
             errors.append(f"{tool_id}: missing license")
-        elif license_value not in APPROVED_LICENSES:
-            errors.append(f"{tool_id}: unknown commercial license")
+        elif tool_id in TOOL_LICENSES and license_value != TOOL_LICENSES[tool_id]:
+            errors.append(f"{tool_id}: expected license {TOOL_LICENSES[tool_id]}")
         if item.get("execution") != "local":
             errors.append(f"{tool_id}: paid or cloud tool execution is prohibited")
         path_value = item.get("path")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from contextlib import redirect_stdout
 from io import StringIO
 import json
@@ -13,8 +14,10 @@ from types import SimpleNamespace
 import unittest
 
 from scripts.blender.pimm_production.blender_session_preflight import (
+    APPROVED_PREFLIGHT_PATH,
     inspect_open_session,
     main as run_preflight,
+    validate_invocation,
 )
 from scripts.blender.pimm_production.tool_policy import (
     LOCK_SCHEMA,
@@ -111,6 +114,27 @@ class ToolPolicyTests(unittest.TestCase):
         self.assertIn("required tool IDs", errors)
         self.assertIn("invalid sha256", errors)
         self.assertIn("network-bearing field", errors)
+
+    def test_lock_rejects_every_cross_assigned_tool_license(self):
+        expected_licenses = {
+            "blender": "GPL-3.0-or-later",
+            "blender-mcp": "GPL-3.0-or-later",
+            "python": "PSF-2.0",
+            "pillow": "MIT-CMU",
+        }
+
+        for tool_id, expected_license in expected_licenses.items():
+            for wrong_license in sorted(set(expected_licenses.values()) - {expected_license}):
+                with self.subTest(tool_id=tool_id, wrong_license=wrong_license):
+                    payload = deepcopy(self._valid_lock_payload())
+                    next(tool for tool in payload["tools"] if tool["id"] == tool_id)[
+                        "license"
+                    ] = wrong_license
+
+                    self.assertIn(
+                        f"{tool_id}: expected license {expected_license}",
+                        validate_tool_lock(payload),
+                    )
 
     def test_lock_rejects_missing_identity_and_unapproved_path(self):
         payload = {
@@ -237,6 +261,39 @@ class ToolPolicyTests(unittest.TestCase):
                     "blender_session_preflight.py",
                 ]
             )
+
+    def test_preflight_permits_only_the_exact_checked_in_python_script(self):
+        approved_command = [
+            "blender",
+            "-b",
+            r"M:\masters\PIMM-50G-MASTER.blend",
+            "--python-exit-code",
+            "1",
+            "-P",
+            str(APPROVED_PREFLIGHT_PATH),
+        ]
+        self.assertEqual(validate_invocation(approved_command), [])
+
+        aliases_and_bypasses = [
+            (["blender", "-P", "arbitrary.py"], "approved checked-in script"),
+            (["blender", "-P"], "missing script path"),
+            (
+                ["blender", "-P", str(APPROVED_PREFLIGHT_PATH), "-P", str(APPROVED_PREFLIGHT_PATH)],
+                "exactly one -P",
+            ),
+            (
+                [
+                    "blender",
+                    "-P",
+                    str(APPROVED_PREFLIGHT_PATH.parent) + r"\.\blender_session_preflight.py",
+                ],
+                "canonical",
+            ),
+            (["blender", "--python-expr", "print('unsafe')"], "mutation flags"),
+        ]
+        for command, expected_error in aliases_and_bypasses:
+            with self.subTest(command=command):
+                self.assertIn(expected_error, "\n".join(validate_invocation(command)))
 
 
 if __name__ == "__main__":

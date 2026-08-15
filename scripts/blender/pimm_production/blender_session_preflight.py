@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import sys
 from typing import Any
 
@@ -24,6 +25,7 @@ MUTATION_FLAGS = frozenset(
         "--python-console",
     }
 )
+APPROVED_PREFLIGHT_PATH = Path(__file__).resolve()
 
 
 def inspect_open_session(bpy: Any) -> dict[str, object]:
@@ -61,16 +63,47 @@ def _script_arguments(argv: list[str]) -> list[str]:
     return argv[argv.index("--") + 1 :] if "--" in argv else []
 
 
+def _preflight_script_errors(argv: list[str]) -> list[str]:
+    """Allow at most one canonical ``-P`` reference to this checked-in script."""
+
+    script_positions = [index for index, argument in enumerate(argv[1:], start=1) if argument == "-P"]
+    malformed = [argument for argument in argv[1:] if argument.startswith("-P") and argument != "-P"]
+    errors: list[str] = []
+    if malformed:
+        errors.append("read-only preflight rejects malformed -P invocation")
+    if not script_positions:
+        return errors
+    if len(script_positions) != 1:
+        errors.append("read-only preflight requires exactly one -P invocation")
+        return errors
+    script_position = script_positions[0]
+    if script_position + 1 >= len(argv) or argv[script_position + 1].startswith("-"):
+        errors.append("read-only preflight -P is missing script path")
+        return errors
+    if argv[script_position + 1] != str(APPROVED_PREFLIGHT_PATH):
+        errors.append("read-only preflight -P must reference the canonical approved checked-in script")
+    return errors
+
+
+def validate_invocation(argv: list[str]) -> list[str]:
+    """Return any mutation or non-canonical checked-in-script invocation errors."""
+
+    forbidden = _mutation_arguments(argv)
+    errors = [f"read-only preflight rejects mutation flags: {', '.join(forbidden)}"] if forbidden else []
+    errors.extend(_preflight_script_errors(argv))
+    arguments = _script_arguments(argv)
+    if arguments:
+        errors.append(f"read-only preflight rejects unknown arguments: {' '.join(arguments)}")
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print session evidence and reject any script-level mutation request."""
 
     effective_argv = list(sys.argv if argv is None else argv)
-    forbidden = _mutation_arguments(effective_argv)
-    if forbidden:
-        raise SystemExit(f"read-only preflight rejects mutation flags: {', '.join(forbidden)}")
-    arguments = _script_arguments(effective_argv)
-    if arguments:
-        raise SystemExit(f"read-only preflight rejects unknown arguments: {' '.join(arguments)}")
+    errors = validate_invocation(effective_argv)
+    if errors:
+        raise SystemExit("\n".join(errors))
     import bpy
 
     print(json.dumps(inspect_open_session(bpy), sort_keys=True))
