@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import hashlib
 import io
 import json
@@ -83,6 +84,7 @@ _CANONICAL_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9
 _MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
 _SEGMENT_LABELS = ("a", "b", "c", "d", "e", "f", "g")
+_WINDOWS_HANDLE_DELETE = os.name == "nt"
 _DIGIT_SEGMENTS = {
     "0": "1110111",
     "1": "0010010",
@@ -480,30 +482,178 @@ def stable_json(
     return _mapping(payload, label), record
 
 
+def _owned_identity(status: os.stat_result) -> dict[str, object]:
+    return {
+        "device": int(status.st_dev),
+        "inode": int(status.st_ino),
+        "links": int(status.st_nlink),
+        "bytes": int(status.st_size),
+        "mtime_ns": int(status.st_mtime_ns),
+        "ctime_ns": int(status.st_ctime_ns),
+    }
+
+
+def _create_owned_file(path: Path, *, share_delete: bool) -> int:
+    """Create one absent file whose exact handle can later revoke only that object."""
+
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    if not _WINDOWS_HANDLE_DELETE:
+        return os.open(path, flags)
+
+    import ctypes
+    import msvcrt
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        ctypes.c_wchar_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+    )
+    create_file.restype = ctypes.c_void_p
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (ctypes.c_void_p,)
+    close_handle.restype = ctypes.c_int
+
+    generic_read = 0x80000000
+    generic_write = 0x40000000
+    delete_right = 0x00010000
+    file_read_attributes = 0x00000080
+    file_share_read = 0x00000001
+    file_share_delete = 0x00000004
+    create_new = 1
+    file_attribute_normal = 0x00000080
+    share_mode = file_share_read | (file_share_delete if share_delete else 0)
+    native_handle = create_file(
+        str(path),
+        generic_read | generic_write | delete_right | file_read_attributes,
+        share_mode,
+        None,
+        create_new,
+        file_attribute_normal,
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if native_handle in (None, invalid_handle):
+        error = ctypes.get_last_error()
+        if error in {80, 183}:
+            raise FileExistsError(error, "immutable file already exists", str(path))
+        raise ctypes.WinError(error)
+    try:
+        return msvcrt.open_osfhandle(
+            int(native_handle), os.O_RDWR | getattr(os, "O_BINARY", 0)
+        )
+    except BaseException:
+        close_handle(ctypes.c_void_p(native_handle))
+        raise
+
+
+def _delete_owned_handle(descriptor: int, label: str) -> None:
+    """Mark the exact open Windows file object for deletion, never a pathname."""
+
+    if not _WINDOWS_HANDLE_DELETE:
+        raise OSError(
+            errno.ENOTSUP,
+            f"{label} exact handle deletion is unavailable on this platform",
+        )
+
+    import ctypes
+    import msvcrt
+
+    class FileDispositionInfoEx(ctypes.Structure):
+        _fields_ = (("Flags", ctypes.c_ulong),)
+
+    class FileDispositionInfo(ctypes.Structure):
+        _fields_ = (("DeleteFile", ctypes.c_ubyte),)
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    set_information = kernel32.SetFileInformationByHandle
+    set_information.argtypes = (
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+    )
+    set_information.restype = ctypes.c_int
+    native_handle = ctypes.c_void_p(msvcrt.get_osfhandle(descriptor))
+
+    disposition_ex = FileDispositionInfoEx(0x00000001 | 0x00000002 | 0x00000010)
+    if set_information(
+        native_handle,
+        21,  # FileDispositionInfoEx
+        ctypes.byref(disposition_ex),
+        ctypes.sizeof(disposition_ex),
+    ):
+        return
+    extended_error = ctypes.get_last_error()
+
+    disposition = FileDispositionInfo(1)
+    if set_information(
+        native_handle,
+        4,  # FileDispositionInfo
+        ctypes.byref(disposition),
+        ctypes.sizeof(disposition),
+    ):
+        return
+    error = ctypes.get_last_error()
+    raise OSError(
+        error,
+        f"{label} exact handle deletion failed "
+        f"(FileDispositionInfoEx error {extended_error})",
+    )
+
+
+def _write_all(descriptor: int, payload: bytes) -> None:
+    offset = 0
+    while offset < len(payload):
+        written = os.write(descriptor, payload[offset:])
+        if written <= 0:
+            raise OSError("immutable JSON write made no progress")
+        offset += written
+
+
+def _read_all(descriptor: int) -> bytes:
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    chunks: list[bytes] = []
+    while True:
+        chunk = os.read(descriptor, 64 * 1024)
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+
+
 def _create_new_json(
     path: Path,
     payload: Mapping[str, object],
     *,
     before_commit: Callable[[Path], None] | None = None,
-    after_commit: Callable[[Path, Mapping[str, object]], None] | None = None,
+    after_commit: Callable[[Path, Mapping[str, object], int], None] | None = None,
+    retain_owned_handle: list[int] | None = None,
 ) -> dict[str, object]:
     """Stage complete JSON privately, then atomically claim its absent final name."""
 
+    if (
+        after_commit is not None or retain_owned_handle is not None
+    ) and not _WINDOWS_HANDLE_DELETE:
+        raise OSError(
+            errno.ENOTSUP,
+            "postcommit immutable JSON requires exact Windows handle deletion",
+        )
     _canonical_component(path.name, "immutable JSON filename")
     _reject_reparse_ancestors(path.parent, "immutable JSON parent")
     encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
     pending = path.parent / f".{path.name}.{secrets.token_hex(16)}.pending"
-    descriptor = os.open(
-        pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
-    )
+    descriptor = _create_owned_file(pending, share_delete=True)
     created = os.fstat(descriptor)
     created_identity = (int(created.st_dev), int(created.st_ino), int(created.st_nlink))
-    pending_published = False
+    retained = False
     try:
-        with os.fdopen(descriptor, "wb") as stream:
-            stream.write(encoded)
-            stream.flush()
-            os.fsync(stream.fileno())
+        _write_all(descriptor, encoded)
+        os.fsync(descriptor)
         status = os.stat(pending, follow_symlinks=False)
         if (
             not stat.S_ISREG(status.st_mode)
@@ -523,7 +673,6 @@ def _create_new_json(
         if os.path.lexists(path):
             raise FileExistsError(f"immutable JSON already exists: {path}")
         os.rename(pending, path)
-        pending_published = True
         final = os.stat(path, follow_symlinks=False)
         if (
             not stat.S_ISREG(final.st_mode)
@@ -533,47 +682,53 @@ def _create_new_json(
             or int(final.st_size) != len(encoded)
         ):
             raise ValueError("exclusive JSON final identity changed")
-        final_identity = {
-            "device": int(final.st_dev),
-            "inode": int(final.st_ino),
-            "links": int(final.st_nlink),
-            "bytes": int(final.st_size),
-            "mtime_ns": int(final.st_mtime_ns),
-            "ctime_ns": int(final.st_ctime_ns),
-        }
+        final_identity = _owned_identity(final)
+        if _read_all(descriptor) != encoded:
+            raise ValueError("exclusive JSON creation-handle readback changed")
         if after_commit is not None:
-            after_commit(path, final_identity)
+            after_commit(path, final_identity, descriptor)
+        if retain_owned_handle is not None:
+            retain_owned_handle.append(descriptor)
+            retained = True
         return final_identity
-    except BaseException:
-        # A final-name competitor is never removed. Clean only the exact pending
-        # or final inode created by this call.
-        cleanup_path = path if pending_published else pending
+    except BaseException as error:
         try:
-            current = os.stat(cleanup_path, follow_symlinks=False)
-            if (
-                int(current.st_dev), int(current.st_ino), int(current.st_nlink)
-            ) == created_identity:
-                cleanup_path.unlink()
-        except OSError:
-            pass
+            _unlink_owned(
+                descriptor,
+                _owned_identity(os.fstat(descriptor)),
+                "immutable JSON publication cleanup",
+            )
+        except (OSError, ValueError) as cleanup_error:
+            error.add_note(
+                "exact-owned cleanup was unavailable; the owned file was left in place: "
+                f"{cleanup_error}"
+            )
         raise
+    finally:
+        if not retained:
+            os.close(descriptor)
 
 
-def _unlink_owned(path: Path, identity: Mapping[str, object], label: str) -> None:
-    _reject_reparse_ancestors(path, label)
-    status = os.stat(path, follow_symlinks=False)
-    actual = {
-        "device": int(status.st_dev),
-        "inode": int(status.st_ino),
-        "links": int(status.st_nlink),
-        "bytes": int(status.st_size),
-        "mtime_ns": int(status.st_mtime_ns),
-        "ctime_ns": int(status.st_ctime_ns),
-    }
+def _unlink_owned(
+    owned: int | Path, identity: Mapping[str, object], label: str
+) -> None:
+    if isinstance(owned, int):
+        actual = _owned_identity(os.fstat(owned))
+        ownership_fields = ("device", "inode", "links")
+        if any(actual[key] != identity.get(key) for key in ownership_fields):
+            raise ValueError(f"{label} identity changed before delete")
+        _delete_owned_handle(owned, label)
+        return
+
+    # Preserve the existing cleanup contract for callers that do not own an
+    # open handle. Immutable JSON and lock cleanup always use the branch above.
+    _reject_reparse_ancestors(owned, label)
+    status = os.stat(owned, follow_symlinks=False)
+    actual = _owned_identity(status)
     expected = {key: identity.get(key) for key in actual}
     if actual != expected:
         raise ValueError(f"{label} identity changed before delete")
-    path.unlink()
+    owned.unlink()
 
 
 @contextlib.contextmanager
@@ -583,25 +738,27 @@ def approval_head_lock(approval_dir: Path) -> Iterator[None]:
     approval_dir.mkdir(parents=True, exist_ok=True)
     _reject_reparse_ancestors(approval_dir, "approval head directory")
     lock_path = approval_dir / ".approval-head.lock"
-    descriptor = os.open(
-        lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
-    )
+    descriptor = _create_owned_file(lock_path, share_delete=False)
+    identity = _owned_identity(os.fstat(descriptor))
     try:
         os.write(descriptor, b"pimm approval head lock\n")
         os.fsync(descriptor)
         status = os.stat(lock_path, follow_symlinks=False)
-        identity = {
-            "device": int(status.st_dev),
-            "inode": int(status.st_ino),
-            "links": int(status.st_nlink),
-            "bytes": int(status.st_size),
-            "mtime_ns": int(status.st_mtime_ns),
-            "ctime_ns": int(status.st_ctime_ns),
-        }
+        handle_status = os.fstat(descriptor)
+        if (
+            int(status.st_dev), int(status.st_ino), int(status.st_nlink)
+        ) != (
+            int(handle_status.st_dev),
+            int(handle_status.st_ino),
+            int(handle_status.st_nlink),
+        ):
+            raise ValueError("approval head lock pathname identity changed")
         yield
     finally:
-        os.close(descriptor)
-        _unlink_owned(lock_path, identity, "approval head lock")
+        try:
+            _unlink_owned(descriptor, identity, "approval head lock")
+        finally:
+            os.close(descriptor)
 
 
 def _authority_roots(asset_root: Path, blender_binary: Path) -> dict[str, str]:

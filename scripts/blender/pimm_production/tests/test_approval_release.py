@@ -2823,6 +2823,122 @@ class ApprovalReleaseTests(unittest.TestCase):
             self.assertEqual(destination.read_bytes(), competitor)
             self.assertEqual(list(destination.parent.glob(".decision.json.*.pending")), [])
 
+    @unittest.skipUnless(os.name == "nt", "Windows handle deletion is required")
+    def test_atomic_json_pending_cleanup_deletes_only_its_creation_handle(self) -> None:
+        """Catches pending cleanup unlinking a replacement after identity verification."""
+
+        with TemporaryDirectory() as root_text:
+            destination = Path(root_text) / "decision.json"
+            parked = destination.parent / "owned-pending.json"
+            competitor = b'{"competitor":true}\n'
+            pending: Path | None = None
+            swapped = False
+            original_delete = getattr(approval_module, "_delete_owned_handle", None)
+            original_create_owned = approval_module._create_owned_file
+            created_descriptor: int | None = None
+
+            def capture_creation_handle(path: Path, **kwargs: object) -> int:
+                nonlocal created_descriptor
+                created_descriptor = original_create_owned(path, **kwargs)
+                return created_descriptor
+
+            def fail_before_commit(path: Path) -> None:
+                nonlocal pending
+                pending = path
+                raise OSError("injected pending publication failure")
+
+            def replace_after_owned_verification(descriptor: int, label: str) -> None:
+                nonlocal swapped
+                self.assertIsNotNone(original_delete)
+                self.assertIsNotNone(pending)
+                self.assertEqual(descriptor, created_descriptor)
+                assert pending is not None
+                pending.rename(parked)
+                pending.write_bytes(competitor)
+                swapped = True
+                original_delete(descriptor, label)
+
+            with (
+                patch.object(
+                    approval_module,
+                    "_create_owned_file",
+                    side_effect=capture_creation_handle,
+                ),
+                patch.object(
+                    approval_module,
+                    "_delete_owned_handle",
+                    create=True,
+                    side_effect=replace_after_owned_verification,
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    OSError, "injected pending publication failure"
+                ):
+                    approval_module._create_new_json(
+                        destination,
+                        {"complete": True},
+                        before_commit=fail_before_commit,
+                    )
+
+            self.assertTrue(swapped)
+            assert pending is not None
+            self.assertEqual(pending.read_bytes(), competitor)
+            self.assertFalse(parked.exists())
+            self.assertFalse(destination.exists())
+
+    def test_atomic_json_postcommit_requires_exact_handle_delete_support(self) -> None:
+        """Catches non-Windows release publication that cannot revoke its marker exactly."""
+
+        with TemporaryDirectory() as root_text:
+            destination = Path(root_text) / "release-manifest.json"
+            with patch.object(
+                approval_module, "_WINDOWS_HANDLE_DELETE", False, create=True
+            ):
+                with self.assertRaisesRegex(OSError, "exact.*handle.*delet"):
+                    approval_module._create_new_json(
+                        destination,
+                        {"complete": True},
+                        after_commit=lambda *_: None,
+                    )
+
+            self.assertFalse(destination.exists())
+            self.assertEqual(
+                list(destination.parent.glob(".release-manifest.json.*.pending")), []
+            )
+
+    def test_atomic_json_non_windows_pending_cleanup_fails_closed(self) -> None:
+        """Catches a pathname-unlink fallback deleting an unowned pending replacement."""
+
+        with TemporaryDirectory() as root_text:
+            destination = Path(root_text) / "decision.json"
+            pending: Path | None = None
+
+            def fail_before_commit(path: Path) -> None:
+                nonlocal pending
+                pending = path
+                raise OSError("injected pending publication failure")
+
+            with patch.object(
+                approval_module, "_WINDOWS_HANDLE_DELETE", False, create=True
+            ):
+                with self.assertRaisesRegex(
+                    OSError, "injected pending publication failure"
+                ) as raised:
+                    approval_module._create_new_json(
+                        destination,
+                        {"complete": True},
+                        before_commit=fail_before_commit,
+                    )
+
+            self.assertIsNotNone(pending)
+            assert pending is not None
+            self.assertTrue(pending.exists())
+            self.assertRegex(
+                "\n".join(getattr(raised.exception, "__notes__", [])),
+                "exact-owned cleanup.*unavailable",
+            )
+            self.assertFalse(destination.exists())
+
     def test_final_contract_rehashes_every_authoritative_artifact_and_state(self) -> None:
         """Catches authorization that trusts approval/final JSON instead of current bytes."""
 
@@ -3350,23 +3466,41 @@ class ApprovalReleaseTests(unittest.TestCase):
     def test_release_context_exit_never_removes_postcommit_competitor_marker(
         self,
     ) -> None:
-        """Catches cleanup claiming a competitor swapped after postcommit validation."""
+        """Catches cleanup deleting a competitor swapped at the delete boundary."""
 
         with TemporaryDirectory() as root_text:
             output = write_release_output_fixture(
                 Path(root_text), "proof-20260815T153000Z-a1b2c3d"
             )
-            original_postcommit = release_module._release_postcommit_validate
             original_held = release_module.held_evidence_authority
             competitor = b'{"competitor":true}\n'
+            marker = output.parents[1] / "release-manifest.json"
+            parked = output.parents[1] / "owned-release-manifest.json"
             swapped = False
+            original_delete = getattr(approval_module, "_delete_owned_handle", None)
+            original_create_owned = approval_module._create_owned_file
+            marker_descriptor: int | None = None
 
-            def swap_after_postcommit(marker: Path, *args: object) -> None:
+            def capture_marker_handle(path: Path, **kwargs: object) -> int:
+                nonlocal marker_descriptor
+                descriptor = original_create_owned(path, **kwargs)
+                if path.name.startswith(".release-manifest.json."):
+                    marker_descriptor = descriptor
+                return descriptor
+
+            def replace_after_owned_verification(
+                descriptor: int, label: str
+            ) -> None:
                 nonlocal swapped
-                original_postcommit(marker, *args)
-                marker.unlink()
+                self.assertIsNotNone(original_delete)
+                if label != "release marker failed held-authority exit":
+                    original_delete(descriptor, label)
+                    return
+                self.assertEqual(descriptor, marker_descriptor)
+                marker.rename(parked)
                 marker.write_bytes(competitor)
                 swapped = True
+                original_delete(descriptor, label)
 
             @contextlib.contextmanager
             def fail_after_held_exit(
@@ -3379,9 +3513,15 @@ class ApprovalReleaseTests(unittest.TestCase):
 
             with (
                 patch.object(
-                    release_module,
-                    "_release_postcommit_validate",
-                    side_effect=swap_after_postcommit,
+                    approval_module,
+                    "_create_owned_file",
+                    side_effect=capture_marker_handle,
+                ),
+                patch.object(
+                    approval_module,
+                    "_delete_owned_handle",
+                    create=True,
+                    side_effect=replace_after_owned_verification,
                 ),
                 patch.object(
                     release_module,
@@ -3392,9 +3532,9 @@ class ApprovalReleaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "context exit failure"):
                     build_release_manifest(RELEASE_ID, [output])
 
-            marker = output.parents[1] / "release-manifest.json"
             self.assertTrue(swapped)
             self.assertEqual(marker.read_bytes(), competitor)
+            self.assertFalse(parked.exists())
 
     def test_release_commit_rescan_rejects_late_file_and_directory(self) -> None:
         """Catches a release tree rescan performed only before marker staging."""

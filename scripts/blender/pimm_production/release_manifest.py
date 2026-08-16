@@ -23,8 +23,10 @@ from .approval_manifest import (
     _create_new_json,
     _decode_component_mask,
     _mapping,
+    _owned_identity,
     _rgba_pixel_evidence,
     _stable_file,
+    _unlink_owned,
     approval_head_lock,
     build_authorized_component_contract,
     canonical_absolute_path,
@@ -33,7 +35,6 @@ from .approval_manifest import (
     held_evidence_authority,
     stable_file_record,
     stable_json,
-    _unlink_owned,
 )
 from .blender_final_render import (
     _authorize_final_render,
@@ -881,13 +882,21 @@ def _current_tree_authority(release_root: Path, marker: Path) -> dict[str, objec
     }
 
 
-def _validate_release_tree_authority(marker: Path) -> Mapping[str, object]:
+def _validate_release_tree_authority(
+    marker: Path, published_payload: Mapping[str, object] | None = None
+) -> Mapping[str, object]:
     """Reject any marker whose exact immutable tree differs at observation time."""
 
     release_root = marker.parent
     if marker.name != "release-manifest.json" or _RELEASE_ID.fullmatch(release_root.name) is None:
         raise ValueError("release tree authority marker path is invalid")
-    payload, _ = stable_json(marker, release_root, "asset", "release manifest")
+    if published_payload is None:
+        try:
+            payload, _ = stable_json(marker, release_root, "asset", "release manifest")
+        except OSError as error:
+            raise ValueError("release tree authority marker is not readable") from error
+    else:
+        payload = published_payload
     authority = _mapping(payload.get("tree_authority"), "release tree authority")
     if set(authority) != _TREE_AUTHORITY_FIELDS:
         raise ValueError("release tree authority fields are invalid")
@@ -940,6 +949,7 @@ def _release_postcommit_validate(
     final_path: Path,
     expected_approval_sha256: str,
     expected_authorization_sha256: str,
+    published_payload: Mapping[str, object],
 ) -> None:
     _release_commit_revalidate(
         marker,
@@ -952,7 +962,7 @@ def _release_postcommit_validate(
         expected_approval_sha256,
         expected_authorization_sha256,
     )
-    _validate_release_tree_authority(marker)
+    _validate_release_tree_authority(marker, published_payload)
 
 
 def _build_release_manifest_locked(
@@ -1026,12 +1036,20 @@ def _build_release_manifest_locked(
         "marker authorized final contract",
         marker_authorization.final_contract_record,
     )
-    marker_identity: dict[str, object] = {}
+    marker_owned_handles: list[int] = []
 
-    def validate_and_capture_marker(
-        marker: Path, owned_identity: Mapping[str, object]
+    def validate_marker(
+        marker: Path, owned_identity: Mapping[str, object], descriptor: int
     ) -> None:
-        marker_identity.update(owned_identity)
+        ownership_fields = ("device", "inode", "links", "bytes")
+        handle_identity = _owned_identity(os.fstat(descriptor))
+        path_identity = _owned_identity(os.stat(marker, follow_symlinks=False))
+        if any(
+            handle_identity[field] != owned_identity.get(field)
+            or path_identity[field] != handle_identity[field]
+            for field in ownership_fields
+        ):
+            raise ValueError("release marker pathname no longer names its creation handle")
         _release_postcommit_validate(
             marker,
             release_root,
@@ -1042,8 +1060,14 @@ def _build_release_manifest_locked(
             final_path,
             next(iter(approvals))[1],
             next(iter(authorizations)),
+            payload,
         )
-
+        path_identity = _owned_identity(os.stat(marker, follow_symlinks=False))
+        if any(
+            path_identity[field] != handle_identity[field]
+            for field in ownership_fields
+        ):
+            raise ValueError("release marker pathname changed during postcommit validation")
     try:
         with held_evidence_authority(
             marker_final.get("authority_roots"), marker_final.get("evidence")
@@ -1062,23 +1086,23 @@ def _build_release_manifest_locked(
                     next(iter(approvals))[1],
                     next(iter(authorizations)),
                 ),
-                after_commit=validate_and_capture_marker,
+                after_commit=validate_marker,
+                retain_owned_handle=marker_owned_handles,
             )
     except FileExistsError as error:
         raise ValueError("release manifest already exists; releases are immutable") from error
     except BaseException:
-        if marker_identity:
-            try:
-                _unlink_owned(
-                    destination,
-                    marker_identity,
-                    "release marker failed held-authority exit",
-                )
-            except (OSError, ValueError):
-                # Never remove a path that no longer has the exact inode created
-                # and post-commit-validated by this publication attempt.
-                pass
+        if marker_owned_handles:
+            handle = marker_owned_handles[0]
+            _unlink_owned(
+                handle,
+                _owned_identity(os.fstat(handle)),
+                "release marker failed held-authority exit",
+            )
         raise
+    finally:
+        for handle in marker_owned_handles:
+            os.close(handle)
     published, record = stable_json(destination, release_root, "asset", "release manifest")
     if published != payload or any(record[key] != value for key, value in created.items()):
         raise ValueError("release manifest publication identity or payload drift")
