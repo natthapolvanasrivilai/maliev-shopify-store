@@ -363,11 +363,11 @@ class _ExactReferenceMatcher:
                     found.update(terminals)  # type: ignore[arg-type]
         return found
 
-    def match_details(self, text: str) -> tuple[set[str], set[str]]:
+    def match_details(self, text: str) -> tuple[set[str], dict[str, set[str]]]:
         normalized = text.replace("\\", "/").casefold()
         resolved = self._trie_matches(self._exact_trie, normalized)
         exact_basenames = {PurePosixPath(path).name.casefold() for path in resolved}
-        ambiguous: set[str] = set()
+        ambiguous: dict[str, set[str]] = {}
         for basename in self._trie_matches(self._basename_trie, normalized):
             if basename in exact_basenames:
                 continue
@@ -375,7 +375,7 @@ class _ExactReferenceMatcher:
             if len(paths) == 1:
                 resolved.update(paths)
             else:
-                ambiguous.add(basename)
+                ambiguous[basename] = set(paths)
         return resolved, ambiguous
 
     def matches(self, text: str) -> set[str]:
@@ -1024,6 +1024,8 @@ def verify_published_outputs(
                 raise RuntimeError(f"published generated artifact payload ID mismatch: {relative}")
         elif f"Publication ID: `{publication_id}`" not in content.decode("utf-8"):
             raise RuntimeError(f"published migration report ID mismatch: {relative}")
+    published_inventory = inventory_from_payload(authority)
+    _verify_inventory_fresh(published_inventory, root)
     return authority
 
 
@@ -1063,6 +1065,7 @@ def _publish_output_set(
     snapshots = {relative: _path_snapshot(paths[relative]) for relative in contents}
     publication_error: BaseException | None = None
     try:
+        _verify_inventory_fresh(inventory, root)
         for relative, content in contents.items():
             prepared[relative] = _prepare_atomic_bytes(paths[relative], content)
         for relative in (
@@ -1088,14 +1091,21 @@ def _publish_output_set(
         publication_error = error
         raise
     finally:
+        cleanup_error: BaseException | None = None
         for temporary, identity in prepared.values():
             if temporary.exists():
-                _remove_owned_file(temporary, identity)
+                try:
+                    _remove_owned_file(temporary, identity)
+                except BaseException as error:
+                    if cleanup_error is None:
+                        cleanup_error = error
         try:
             _release_publication_lock(lock_path, lock_descriptor, lock_identity)
-        except BaseException:
-            if publication_error is None:
-                raise
+        except BaseException as error:
+            if cleanup_error is None:
+                cleanup_error = error
+        if publication_error is None and cleanup_error is not None:
+            raise cleanup_error
 
 
 def finalize_inventory(
@@ -1193,7 +1203,6 @@ def finalize_inventory(
     render_payload = render_generation_payload(finalized, publication_id=publication_id)
     graph_payload = consumer_graph_payload(graph, publication_id=publication_id)
     report_text = migration_report(finalized, publication_id=publication_id)
-    _verify_inventory_fresh(finalized, asset_root)
     _publish_output_set(
         asset_root,
         finalized,

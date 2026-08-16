@@ -207,3 +207,38 @@ test('Task 7 inventory schema accounts once for blend recovery and nested render
   });
   assert.equal(payload.records.some((record) => record.proposed_disposition === 'delete'), false);
 });
+
+test('Task 7 consumer graph CLI is diagnostic-only and cannot publish outputs', () => {
+  const program = [
+    'import json',
+    'import subprocess',
+    'import sys',
+    'from pathlib import Path',
+    'from tempfile import TemporaryDirectory',
+    'from scripts.blender.master_assets.pimm_legacy_inventory import AssetRecord, InventoryManifest, inventory_payload',
+    'with TemporaryDirectory() as root_text:',
+    '    root = Path(root_text)',
+    "    asset_root = root / 'assets'",
+    '    asset_root.mkdir()',
+    "    record = AssetRecord(path='legacy/example.blend1', kind='blend-recovery', size=7, mtime_ns=1, sha256='0' * 64)",
+    "    inventory = root / 'inventory.json'",
+    "    inventory.write_text(json.dumps(inventory_payload(InventoryManifest((record,), (record.path,), str(asset_root)))), encoding='utf-8')",
+    "    results = []",
+    "    for destination in (root / 'outside.json', asset_root / 'manifests' / 'consumer-graph.json'):",
+    "        destination.parent.mkdir(parents=True, exist_ok=True)",
+    "        destination.write_text('sentinel', encoding='utf-8')",
+    "        process = subprocess.run([sys.executable, '-m', 'scripts.blender.pimm_production.consumer_graph', '--inventory', str(inventory), '--repo-root', str(root), '--asset-root', str(asset_root), '--output', str(destination)], cwd=Path.cwd(), capture_output=True, text=True)",
+    "        results.append({'returncode': process.returncode, 'destination': destination.read_text(encoding='utf-8')})",
+    "    print(json.dumps(results))",
+  ].join('\n');
+  const result = JSON.parse(execFileSync('python', ['-c', program], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }));
+
+  assert.equal(result.length, 2);
+  for (const attempt of result) {
+    assert.notEqual(attempt.returncode, 0);
+    assert.equal(attempt.destination, 'sentinel');
+  }
+});

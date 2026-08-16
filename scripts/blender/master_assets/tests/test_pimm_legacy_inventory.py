@@ -6,6 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from scripts.blender.master_assets.pimm_legacy_inventory import (
     AssetRecord,
@@ -17,6 +18,7 @@ from scripts.blender.master_assets.pimm_legacy_inventory import (
     inventory_workspace,
     migration_report,
     render_generation_payload,
+    verify_published_outputs,
     _compositor_node_tree,
 )
 import scripts.blender.master_assets.pimm_legacy_inventory as inventory_module
@@ -313,6 +315,194 @@ class LegacyInventoryContractTests(unittest.TestCase):
                     Path(repo_text),
                     root,
                 )
+
+    def test_published_authority_rejects_governed_source_drift(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"original")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            finalize_inventory(
+                inventory_path,
+                manifest_root / "blender-project-migration-report.md",
+                manifest_root / "consumer-graph.json",
+                manifest_root / "render-generation-inventory.json",
+                Path(repo_text),
+                root,
+            )
+            source.write_bytes(b"mutated!")
+
+            with self.assertRaisesRegex(RuntimeError, "asset .*changed"):
+                verify_published_outputs(root)
+
+    def test_finalize_fails_when_governed_bytes_change_at_publish_boundary(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"original")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            real_prepare = inventory_module._prepare_atomic_bytes
+            mutated = False
+
+            def mutate_after_final_check(*args, **kwargs):
+                nonlocal mutated
+                if not mutated:
+                    mutated = True
+                    source.write_bytes(b"mutated!")
+                return real_prepare(*args, **kwargs)
+
+            with patch.object(
+                inventory_module,
+                "_prepare_atomic_bytes",
+                side_effect=mutate_after_final_check,
+            ), self.assertRaisesRegex(RuntimeError, "asset .*changed"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_finalize_fails_when_path_set_changes_at_publish_boundary(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            real_prepare = inventory_module._prepare_atomic_bytes
+            mutated = False
+
+            def replace_path_set_after_final_check(*args, **kwargs):
+                nonlocal mutated
+                if not mutated:
+                    mutated = True
+                    source.unlink()
+                    _write(root, "scripts/replacement.py")
+                return real_prepare(*args, **kwargs)
+
+            with patch.object(
+                inventory_module,
+                "_prepare_atomic_bytes",
+                side_effect=replace_path_set_after_final_check,
+            ), self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_finalize_fails_when_path_identity_changes_at_publish_boundary(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"same bytes")
+            original_stat = source.stat()
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            real_prepare = inventory_module._prepare_atomic_bytes
+            mutated = False
+
+            def replace_identity_after_final_check(*args, **kwargs):
+                nonlocal mutated
+                if not mutated:
+                    mutated = True
+                    source.unlink()
+                    source.write_bytes(b"same bytes")
+                    os.utime(source, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+                return real_prepare(*args, **kwargs)
+
+            with patch.object(
+                inventory_module,
+                "_prepare_atomic_bytes",
+                side_effect=replace_identity_after_final_check,
+            ), self.assertRaisesRegex(RuntimeError, "filesystem identity"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_finalize_fails_when_symlink_replaces_path_at_publish_boundary(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text, TemporaryDirectory() as outside_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py")
+            external = _write(Path(outside_text), "external.py")
+            probe = root / "symlink-probe"
+            try:
+                probe.symlink_to(external)
+                probe.unlink()
+            except OSError as error:
+                self.skipTest(f"symlink creation unavailable: {error}")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            real_prepare = inventory_module._prepare_atomic_bytes
+            mutated = False
+
+            def replace_with_symlink_after_final_check(*args, **kwargs):
+                nonlocal mutated
+                if not mutated:
+                    mutated = True
+                    source.unlink()
+                    source.symlink_to(external)
+                return real_prepare(*args, **kwargs)
+
+            with patch.object(
+                inventory_module,
+                "_prepare_atomic_bytes",
+                side_effect=replace_with_symlink_after_final_check,
+            ), self.assertRaisesRegex(ValueError, "reparse|symbolic link"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_publication_cleanup_preserves_competing_generated_output(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            render_path = manifest_root / "render-generation-inventory.json"
+            real_replace = inventory_module._replace_prepared
+
+            def replace_then_compete(destination, temporary, content):
+                real_replace(destination, temporary, content)
+                if destination == render_path:
+                    destination.write_bytes(b"competitor")
+                    raise RuntimeError("injected competitor")
+
+            with patch.object(
+                inventory_module,
+                "_replace_prepared",
+                side_effect=replace_then_compete,
+            ), self.assertRaisesRegex(RuntimeError, "injected competitor"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    render_path,
+                    Path(repo_text),
+                    root,
+                )
+
+            self.assertEqual(render_path.read_bytes(), b"competitor")
 
     def test_finalize_rejects_competing_publication_lock_without_writes(self):
         with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:

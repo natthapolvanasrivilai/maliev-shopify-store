@@ -1,8 +1,17 @@
+import json
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from scripts.blender.master_assets.pimm_legacy_inventory import AssetRecord, AUTHORITATIVE_PATHS
+from scripts.blender.master_assets.pimm_legacy_inventory import (
+    AUTHORITATIVE_PATHS,
+    REPOSITORY_ROOT,
+    AssetRecord,
+    InventoryManifest,
+    inventory_payload,
+)
 from scripts.blender.pimm_production.consumer_graph import (
     ConsumerGraph,
     build_consumer_graph,
@@ -60,6 +69,33 @@ class ConsumerGraphTests(unittest.TestCase):
             self.assertEqual(graph.consumers[records[1].path], ())
             self.assertEqual(graph.unresolved_references["logo.png"], ("repo:scripts/render.py:1",))
 
+    def test_live_ambiguous_blend_recovery_reference_protects_every_candidate(self):
+        with TemporaryDirectory() as repository_text, TemporaryDirectory() as asset_text:
+            repository = Path(repository_text)
+            asset_root = Path(asset_text)
+            _write(repository, "scripts/render.py", "open('PIMM-old.blend1')\n")
+            records = (
+                AssetRecord(path="backups/first/PIMM-old.blend1", kind="blend-recovery"),
+                AssetRecord(path="backups/second/PIMM-old.blend1", kind="blend-recovery"),
+            )
+
+            graph = build_consumer_graph(repository, asset_root, records)
+
+            self.assertEqual(graph.consumers[records[0].path], ())
+            self.assertEqual(graph.consumers[records[1].path], ())
+            self.assertEqual(
+                graph.ambiguous_references["pimm-old.blend1"],
+                {
+                    "candidate_paths": (
+                        "backups/first/PIMM-old.blend1",
+                        "backups/second/PIMM-old.blend1",
+                    ),
+                    "evidence": ("repo:scripts/render.py:1",),
+                },
+            )
+            self.assertEqual(classify_record(records[0], graph), "unresolved")
+            self.assertEqual(classify_record(records[1], graph), "unresolved")
+
     def test_only_exact_generated_graph_path_is_excluded_from_asset_evidence(self):
         with TemporaryDirectory() as repository_text, TemporaryDirectory() as asset_text:
             repository = Path(repository_text)
@@ -90,6 +126,70 @@ class ConsumerGraphTests(unittest.TestCase):
             graph = build_consumer_graph(repository, asset_root, [record])
 
             self.assertEqual(graph.consumers[record.path], ())
+
+    def test_material_library_candidate_is_not_a_repository_consumer(self):
+        with TemporaryDirectory() as repository_text, TemporaryDirectory() as asset_text:
+            repository = Path(repository_text)
+            asset_root = Path(asset_text)
+            _write(
+                repository,
+                ".material-library-candidate/check.py",
+                "open('hero.png')\n",
+            )
+            record = AssetRecord(path="renders/hero.png", kind="render-image")
+
+            graph = build_consumer_graph(repository, asset_root, [record])
+
+            self.assertEqual(graph.consumers[record.path], ())
+            self.assertEqual(graph.unresolved_references, {})
+
+    def test_standalone_cli_rejects_every_output_destination_without_writing(self):
+        with TemporaryDirectory() as repository_text, TemporaryDirectory() as asset_text:
+            repository = Path(repository_text)
+            asset_root = Path(asset_text)
+            record = AssetRecord(path="renders/hero.png", kind="render-image")
+            manifest_root = asset_root / "manifests"
+            manifest_root.mkdir(parents=True)
+            inventory_path = manifest_root / "inventory-fixture.json"
+            inventory_path.write_text(
+                json.dumps(
+                    inventory_payload(
+                        InventoryManifest(records=(record,), discovered_paths=(record.path,))
+                    )
+                ),
+                encoding="utf-8",
+            )
+            destinations = (
+                Path(repository_text) / "outside.json",
+                manifest_root / "consumer-graph.json",
+            )
+
+            for destination in destinations:
+                with self.subTest(destination=destination):
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(b"sentinel")
+                    result = subprocess.run(
+                        [
+                            sys.executable,
+                            "-m",
+                            "scripts.blender.pimm_production.consumer_graph",
+                            "--inventory",
+                            str(inventory_path),
+                            "--repo-root",
+                            str(repository),
+                            "--asset-root",
+                            str(asset_root),
+                            "--output",
+                            str(destination),
+                        ],
+                        cwd=REPOSITORY_ROOT,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(destination.read_bytes(), b"sentinel")
 
     def test_active_consumer_prevents_archive(self):
         record = AssetRecord(path="PIMM-product-render-master.blend", unique_content=True)

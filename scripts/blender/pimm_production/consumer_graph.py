@@ -12,13 +12,11 @@ from typing import Literal, Mapping, Sequence
 from scripts.blender.master_assets.pimm_legacy_inventory import (
     ASSET_ROOT,
     AUTHORITATIVE_PATHS,
-    DEFAULT_GRAPH,
     DEFAULT_INVENTORY,
     GENERATED_ARTIFACT_PATHS,
     REPOSITORY_ROOT,
     AssetRecord,
     _ExactReferenceMatcher,
-    atomic_write_json,
     inventory_from_payload,
 )
 
@@ -27,7 +25,17 @@ CONSUMER_GRAPH_SCHEMA = "pimm-consumer-graph/v1"
 _TEXT_SUFFIXES = frozenset(
     {".liquid", ".json", ".jsonl", ".css", ".js", ".mjs", ".py", ".ps1", ".bat", ".cmd", ".yaml", ".yml"}
 )
-_IGNORED_PARTS = frozenset({".git", ".worktrees", "node_modules", ".venv", "venv", "__pycache__"})
+_IGNORED_PARTS = frozenset(
+    {
+        ".git",
+        ".worktrees",
+        ".material-library-candidate",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+    }
+)
 _GENERATED_GRAPH_INPUTS = frozenset(path.casefold() for path in GENERATED_ARTIFACT_PATHS)
 _PRODUCER_HINT = re.compile(r"(?:output|destination|render|write|publish|release|target)", re.IGNORECASE)
 
@@ -41,6 +49,9 @@ class ConsumerGraph:
     consumers: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     producers: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     unresolved_references: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    ambiguous_references: Mapping[str, Mapping[str, tuple[str, ...]]] = field(
+        default_factory=dict
+    )
     authoritative_paths: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -50,6 +61,17 @@ class ConsumerGraph:
             self,
             "unresolved_references",
             {key: _normalize_values(values) for key, values in self.unresolved_references.items()},
+        )
+        object.__setattr__(
+            self,
+            "ambiguous_references",
+            {
+                key: {
+                    "candidate_paths": _normalize_values(value.get("candidate_paths")),
+                    "evidence": _normalize_values(value.get("evidence")),
+                }
+                for key, value in self.ambiguous_references.items()
+            },
         )
         object.__setattr__(self, "authoritative_paths", _normalize_values(self.authoritative_paths))
 
@@ -89,6 +111,7 @@ def _scan_text_root(
     consumers: dict[str, set[str]],
     producers: dict[str, set[str]],
     unresolved_references: dict[str, set[str]],
+    ambiguous_references: dict[str, dict[str, set[str]]],
 ) -> None:
     for text_path in _text_files(root, exclude_generated=root_name == "asset"):
         try:
@@ -98,8 +121,14 @@ def _scan_text_root(
         for line_number, line in enumerate(lines, start=1):
             matched_paths, ambiguous = matcher.match_details(line)
             evidence = _display(root_name, root, text_path, line_number)
-            for basename in ambiguous:
+            for basename, candidate_paths in ambiguous.items():
                 unresolved_references.setdefault(basename, set()).add(evidence)
+                entry = ambiguous_references.setdefault(
+                    basename,
+                    {"candidate_paths": set(), "evidence": set()},
+                )
+                entry["candidate_paths"].update(candidate_paths)
+                entry["evidence"].add(evidence)
             for record_path in matched_paths:
                 consumers[record_path].add(evidence)
                 if _PRODUCER_HINT.search(line):
@@ -116,13 +145,32 @@ def build_consumer_graph(
     consumers = {record.path: set() for record in records}
     producers = {record.path: set() for record in records}
     unresolved_references: dict[str, set[str]] = {}
+    ambiguous_references: dict[str, dict[str, set[str]]] = {}
     by_path = {record.path.casefold(): record.path for record in records}
     candidates = {
         record.path: asset_root / PurePosixPath(record.path) for record in records
     }
     matcher = _ExactReferenceMatcher(candidates)
-    _scan_text_root("repo", repo_root, records, matcher, consumers, producers, unresolved_references)
-    _scan_text_root("asset", asset_root, records, matcher, consumers, producers, unresolved_references)
+    _scan_text_root(
+        "repo",
+        repo_root,
+        records,
+        matcher,
+        consumers,
+        producers,
+        unresolved_references,
+        ambiguous_references,
+    )
+    _scan_text_root(
+        "asset",
+        asset_root,
+        records,
+        matcher,
+        consumers,
+        producers,
+        unresolved_references,
+        ambiguous_references,
+    )
 
     for record in records:
         for dependency in record.dependencies:
@@ -142,9 +190,17 @@ def build_consumer_graph(
                     canonical_dependency = matches[0]
                 else:
                     for evidence in evidence_values:
+                        rendered_evidence = f"asset:{record.path}#{evidence}"
                         unresolved_references.setdefault(normalized_dependency, set()).add(
-                            f"asset:{record.path}#{evidence}"
+                            rendered_evidence
                         )
+                        if "/" not in normalized_dependency and len(matches) > 1:
+                            entry = ambiguous_references.setdefault(
+                                normalized_dependency.casefold(),
+                                {"candidate_paths": set(), "evidence": set()},
+                            )
+                            entry["candidate_paths"].update(matches)
+                            entry["evidence"].add(rendered_evidence)
                     continue
             for evidence in evidence_values:
                 consumers.setdefault(canonical_dependency, set()).add(f"asset:{record.path}#{evidence}")
@@ -156,6 +212,15 @@ def build_consumer_graph(
         unresolved_references={
             key: tuple(sorted(values, key=str.casefold))
             for key, values in sorted(unresolved_references.items())
+        },
+        ambiguous_references={
+            key: {
+                "candidate_paths": tuple(
+                    sorted(value["candidate_paths"], key=str.casefold)
+                ),
+                "evidence": tuple(sorted(value["evidence"], key=str.casefold)),
+            }
+            for key, value in sorted(ambiguous_references.items())
         },
         authoritative_paths=tuple(
             path
@@ -176,6 +241,13 @@ def classify_record(
         return "authoritative"
     missing_dependencies = record.blender_inspection.get("missing_dependencies", ())
     if record.blender_inspection.get("inspection_error") or missing_dependencies:
+        return "unresolved"
+    if any(
+        value.get("evidence")
+        and record.path.casefold()
+        in {path.casefold() for path in value.get("candidate_paths", ())}
+        for value in graph.ambiguous_references.values()
+    ):
         return "unresolved"
     if record.kind == "blend-project" and any(
         dependency.replace("\\", "/").casefold() in authoritative_paths
@@ -204,6 +276,13 @@ def consumer_graph_payload(
         "unresolved_references": {
             key: list(values) for key, values in graph.unresolved_references.items()
         },
+        "ambiguous_references": {
+            key: {
+                "candidate_paths": list(value.get("candidate_paths", ())),
+                "evidence": list(value.get("evidence", ())),
+            }
+            for key, value in graph.ambiguous_references.items()
+        },
         "authoritative_paths": list(graph.authoritative_paths),
     }
     if publication_id is not None:
@@ -214,7 +293,6 @@ def consumer_graph_payload(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
-    parser.add_argument("--output", type=Path, default=DEFAULT_GRAPH)
     parser.add_argument("--repo-root", type=Path, default=REPOSITORY_ROOT)
     parser.add_argument("--asset-root", type=Path, default=ASSET_ROOT)
     return parser.parse_args()
@@ -224,8 +302,7 @@ def main() -> None:
     args = parse_args()
     inventory = inventory_from_payload(json.loads(args.inventory.read_text(encoding="utf-8")))
     graph = build_consumer_graph(args.repo_root, args.asset_root, inventory.records)
-    atomic_write_json(args.output, consumer_graph_payload(graph))
-    print(f"PIMM_CONSUMER_GRAPH assets={len(graph.consumers)}")
+    print(json.dumps(consumer_graph_payload(graph), indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
