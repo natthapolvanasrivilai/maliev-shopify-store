@@ -3,20 +3,48 @@
 from __future__ import annotations
 
 import json
+import ntpath
 import os
 import re
+import secrets
+import stat
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Mapping
 
-from .approval_manifest import validate_approval
-from .io_contract import sha256_file
+from .approval_manifest import (
+    _canonical_component,
+    _create_new_json,
+    _lexically_within,
+    _load_approval,
+    _mapping,
+    _reject_reparse_ancestors,
+    _revision_entries,
+    _sha,
+    _unlink_owned,
+    _validate_roots,
+    approval_head_lock,
+    canonical_absolute_path,
+    canonical_json_sha256,
+    stable_file_record,
+    stable_json,
+    validate_approval,
+    validate_evidence_records,
+)
 
 
 _RELEASE_ID = re.compile(r"^release-[0-9]{4}-[0-9]{2}-[0-9]{2}-r[0-9]{2}$")
-_SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _DELIVERABLES = frozenset({"exr", "png", "webp"})
+_FINAL_FIELDS = {
+    "schema", "release_id", "shot_id", "generation_id", "authority_roots",
+    "evidence", "inputs", "render_settings", "samples", "output_root",
+    "deliverables", "asset_root", "scene_path",
+}
+_STATE_HASH_FIELDS = {
+    "camera_sha256", "lights_sha256", "world_sha256", "compositor_sha256",
+    "render_settings_sha256", "animation_sha256", "composition_sha256",
+}
 
 
 @dataclass(frozen=True)
@@ -29,262 +57,492 @@ class FinalAuthorization:
     shot_id: str
     generation_id: str
     output_root: PurePosixPath
+    asset_root: Path
+    scene_path: Path
+    approval_sha256: str
+    final_contract_sha256: str
+    authorization_sha256: str
+    approval_record: Mapping[str, object]
+    final_contract_record: Mapping[str, object]
 
 
-def _load(path: Path, label: str) -> Mapping[str, object]:
-    try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"{label} cannot be read: {error}") from error
-    if not isinstance(payload, Mapping):
-        raise ValueError(f"{label} must be an object")
-    return payload
+def _load_final(path: Path) -> tuple[Mapping[str, object], dict[str, Path], dict[str, object]]:
+    absolute = canonical_absolute_path(str(Path(path)), "final contract path")
+    drive_root = Path(absolute.anchor)
+    payload, _ = stable_json(absolute, drive_root, "asset", "final contract")
+    roots = _validate_roots(payload.get("authority_roots"))
+    _lexically_within(absolute, roots["asset"], "final contract")
+    payload, record = stable_json(absolute, roots["asset"], "asset", "final contract")
+    return payload, roots, record
 
 
 def _contract_errors(approval: Mapping[str, object], final: Mapping[str, object]) -> list[str]:
     errors: list[str] = []
+    if set(final) != _FINAL_FIELDS:
+        errors.append("final contract fields are incomplete or contain unknown values")
     if final.get("schema") != "pimm-final-render-contract/v1":
         errors.append("final contract schema is invalid")
     release_id = final.get("release_id")
     if not isinstance(release_id, str) or _RELEASE_ID.fullmatch(release_id) is None:
         errors.append("final release ID is invalid")
-    shot_id = final.get("shot_id")
-    if shot_id != approval.get("shot_id"):
+    if final.get("shot_id") != approval.get("shot_id"):
         errors.append("shot ID drift")
     if final.get("generation_id") != approval.get("proof_generation_id"):
         errors.append("proof generation drift")
-    approved_inputs = approval.get("inputs")
-    final_inputs = final.get("inputs")
-    if not isinstance(approved_inputs, Mapping) or not isinstance(final_inputs, Mapping):
-        errors.append("final inputs are required")
-    elif dict(final_inputs) != dict(approved_inputs):
-        errors.append("approved input SHA-256 drift")
+    for field, label in (
+        ("authority_roots", "authority roots"),
+        ("evidence", "evidence"),
+        ("inputs", "approved input SHA-256"),
+    ):
+        if final.get(field) != approval.get(field):
+            errors.append(f"{label} drift")
     approved_settings = approval.get("render_settings")
     final_settings = final.get("render_settings")
     if not isinstance(approved_settings, Mapping) or not isinstance(final_settings, Mapping):
         errors.append("final render settings are required")
     else:
+        expected_fields = _STATE_HASH_FIELDS | {"output_dimensions", "alpha_mode", "proof_samples"}
+        if set(approved_settings) != expected_fields or set(final_settings) != expected_fields:
+            errors.append("final render settings fields are invalid")
         labels = {
             "camera_sha256": "camera SHA-256 drift",
             "lights_sha256": "lights SHA-256 drift",
             "world_sha256": "world SHA-256 drift",
             "compositor_sha256": "compositor SHA-256 drift",
             "render_settings_sha256": "render settings SHA-256 drift",
+            "animation_sha256": "animation SHA-256 drift",
             "composition_sha256": "composition SHA-256 drift",
             "output_dimensions": "output dimensions drift",
             "alpha_mode": "alpha mode drift",
+            "proof_samples": "proof samples drift",
         }
         for key, message in labels.items():
             if final_settings.get(key) != approved_settings.get(key):
                 errors.append(message)
+        for key in _STATE_HASH_FIELDS:
+            try:
+                _sha(final_settings.get(key), f"final {key}")
+            except ValueError as error:
+                errors.append(str(error))
     samples = final.get("samples")
     proof_samples = approved_settings.get("proof_samples") if isinstance(approved_settings, Mapping) else None
-    if not isinstance(samples, int) or isinstance(samples, bool) or not isinstance(proof_samples, int) or samples <= proof_samples:
+    if (
+        not isinstance(samples, int)
+        or isinstance(samples, bool)
+        or not isinstance(proof_samples, int)
+        or isinstance(proof_samples, bool)
+        or samples <= proof_samples
+    ):
         errors.append("final render requires an explicit sampling increase")
     output_root = final.get("output_root")
     if not isinstance(release_id, str) or output_root != f"renders/final/{release_id}":
         errors.append("final output root must be a new immutable renders/final/<release-id> directory")
     deliverables = final.get("deliverables")
-    if not isinstance(deliverables, list) or set(deliverables) != _DELIVERABLES or len(deliverables) != len(_DELIVERABLES):
+    if (
+        not isinstance(deliverables, list)
+        or set(deliverables) != _DELIVERABLES
+        or len(deliverables) != len(_DELIVERABLES)
+    ):
         errors.append("final deliverables must contain exactly float EXR, transparent PNG, and transparent WebP")
     return errors
 
 
-def _revision_head_errors(approval_path: Path) -> list[str]:
+def _revision_head_errors(
+    approval_path: Path, approval: Mapping[str, object], asset_root: Path
+) -> list[str]:
     """Require the supplied approval to be the one unbroken immutable chain head."""
 
-    entries = sorted(approval_path.parent.glob("approval-r*.json"))
-    if not entries or entries[-1].resolve() != approval_path.resolve():
+    try:
+        entries = _revision_entries(approval_path.parent)
+    except (OSError, ValueError) as error:
+        return [str(error)]
+    if not entries or entries[-1] != approval_path:
         return ["latest approval revision is required"]
     prior: Path | None = None
     for revision, path in enumerate(entries, start=1):
         try:
-            payload = _load(path, "approval revision")
+            payload, record = stable_json(path, asset_root, "asset", "approval revision")
         except ValueError as error:
             return [f"approval revision chain is unreadable: {error}"]
         if payload.get("revision") != revision:
             return ["approval revision chain is broken"]
         if prior is None:
-            if payload.get("prior_approval_sha256") is not None:
+            if payload.get("prior_approval_sha256") is not None or payload.get("prior_approval_path") is not None:
                 return ["approval revision chain is broken"]
-        elif (
-            payload.get("prior_approval_sha256") != sha256_file(prior)
-            or payload.get("prior_approval_path") != str(prior.resolve())
-        ):
-            return ["approval revision chain is broken"]
+        else:
+            prior_record = stable_file_record(prior, asset_root, "asset", "prior approval revision")
+            if (
+                payload.get("prior_approval_sha256") != prior_record["sha256"]
+                or payload.get("prior_approval_path") != str(prior)
+            ):
+                return ["approval revision chain is broken"]
+        # Revalidate the current revision identity after all dependent reads.
+        stable_file_record(path, asset_root, "asset", "approval revision", record)
         prior = path
     return []
+
+
+def _authorization_payload(
+    approval_path: Path,
+    approval_record: Mapping[str, object],
+    final_path: Path,
+    final_record: Mapping[str, object],
+    final: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        "approval_path": str(approval_path),
+        "approval_sha256": approval_record["sha256"],
+        "final_contract_path": str(final_path),
+        "final_contract_sha256": final_record["sha256"],
+        "release_id": final["release_id"],
+        "shot_id": final["shot_id"],
+        "generation_id": final["generation_id"],
+        "authority_roots": final["authority_roots"],
+        "evidence": final["evidence"],
+        "inputs": final["inputs"],
+        "render_settings": final["render_settings"],
+        "samples": final["samples"],
+        "output_root": final["output_root"],
+        "deliverables": final["deliverables"],
+    }
+
+
+def _authorize_final_render(
+    approval_path: Path, final_contract_path: Path, *, head_locked: bool
+) -> FinalAuthorization:
+    approval_path = canonical_absolute_path(str(Path(approval_path)), "approval path")
+    approval, approval_roots = _load_approval(approval_path)
+    asset_root = approval_roots["asset"]
+
+    def validate_locked() -> FinalAuthorization:
+        locked_approval, locked_roots = _load_approval(approval_path)
+        if locked_approval != approval or locked_roots != approval_roots:
+            raise ValueError("approval identity raced before chain-head authorization")
+        if (
+            approval.get("decision") != "approved"
+            or not isinstance(approval.get("owner"), str)
+            or not str(approval["owner"]).strip()
+        ):
+            raise ValueError("owner approval required")
+        errors = _revision_head_errors(approval_path, approval, asset_root)
+        errors += validate_approval(approval_path, {})
+        final, final_roots, final_record = _load_final(Path(final_contract_path))
+        errors += _contract_errors(approval, final)
+        try:
+            _, current_evidence = validate_evidence_records(
+                final.get("authority_roots"), final.get("evidence")
+            )
+            if current_evidence != final.get("evidence"):
+                errors.append("final current evidence drift")
+        except (OSError, ValueError) as error:
+            errors.append(str(error))
+        if final_roots != approval_roots:
+            errors.append("final authority roots drift")
+        try:
+            final_asset = canonical_absolute_path(final.get("asset_root"), "final asset root")
+            final_scene = canonical_absolute_path(final.get("scene_path"), "final scene path")
+            if final_asset != asset_root:
+                errors.append("final asset root drift")
+            scene_record = _mapping(final.get("evidence"), "final evidence").get("scene")
+            if not isinstance(scene_record, Mapping) or final_scene != Path(str(scene_record.get("path"))):
+                errors.append("final scene path drift")
+        except ValueError as error:
+            errors.append(str(error))
+            final_asset = asset_root
+            final_scene = asset_root
+        if errors:
+            raise ValueError("final render authorization failed: " + "; ".join(errors))
+        approval_record = stable_file_record(
+            approval_path, asset_root, "asset", "latest approval"
+        )
+        final_path = canonical_absolute_path(str(Path(final_contract_path)), "final contract path")
+        final_record = stable_file_record(
+            final_path, asset_root, "asset", "final contract", final_record
+        )
+        authorization_hash = canonical_json_sha256(
+            _authorization_payload(approval_path, approval_record, final_path, final_record, final)
+        )
+        return FinalAuthorization(
+            approval_path=approval_path,
+            final_contract_path=final_path,
+            release_id=str(final["release_id"]),
+            shot_id=str(final["shot_id"]),
+            generation_id=str(final["generation_id"]),
+            output_root=PurePosixPath(str(final["output_root"])),
+            asset_root=final_asset,
+            scene_path=final_scene,
+            approval_sha256=str(approval_record["sha256"]),
+            final_contract_sha256=str(final_record["sha256"]),
+            authorization_sha256=authorization_hash,
+            approval_record=approval_record,
+            final_contract_record=final_record,
+        )
+
+    if head_locked:
+        return validate_locked()
+    with approval_head_lock(approval_path.parent):
+        return validate_locked()
 
 
 def authorize_final_render(approval_path: Path, final_contract_path: Path) -> FinalAuthorization:
     """Authorize only an explicit sample increase over a current approved proof."""
 
-    approval_path = Path(approval_path).resolve()
-    approval = _load(approval_path, "approval")
-    if approval.get("decision") != "approved" or not isinstance(approval.get("owner"), str) or not approval["owner"].strip():
-        raise ValueError("owner approval required")
-    inputs = approval.get("inputs")
-    if not isinstance(inputs, Mapping):
-        raise ValueError("owner approval required: immutable inputs missing")
-    approval_errors = _revision_head_errors(approval_path)
-    approval_errors += validate_approval(approval_path, {})
-    final = _load(final_contract_path, "final contract")
-    errors = approval_errors + _contract_errors(approval, final)
-    if errors:
-        raise ValueError("final render authorization failed: " + "; ".join(errors))
-    return FinalAuthorization(
-        approval_path=approval_path,
-        final_contract_path=Path(final_contract_path).resolve(),
-        release_id=str(final["release_id"]),
-        shot_id=str(final["shot_id"]),
-        generation_id=str(final["generation_id"]),
-        output_root=PurePosixPath(str(final["output_root"])),
-    )
+    return _authorize_final_render(approval_path, final_contract_path, head_locked=False)
 
 
-def _write_new_json(path: Path, payload: Mapping[str, object]) -> None:
-    """Create, never replace, the immutable JSON evidence marker at *path*."""
-
-    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_BINARY)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            stream.write(encoded)
-            stream.flush()
-            os.fsync(stream.fileno())
-    except BaseException:
-        try:
-            path.unlink()
-        except OSError:
-            pass
-        raise
-
-
-def _validate_png(path: Path, dimensions: list[object]) -> None:
+def _validate_rgba(path: Path, dimensions: list[object]) -> tuple[int, int]:
     from PIL import Image
 
     with Image.open(path) as image:
         image.load()
         if list(image.size) != dimensions or image.mode != "RGBA":
-            raise ValueError("final PNG dimensions or RGBA alpha drift")
-        if image.getchannel("A").getextrema()[1] == 0:
-            raise ValueError("final PNG alpha has no visible product")
+            raise ValueError("final image dimensions or RGBA alpha drift")
+        alpha = image.getchannel("A").getextrema()
+        if alpha[1] == 0:
+            raise ValueError("final image alpha has no visible product")
+        return int(alpha[0]), int(alpha[1])
 
 
-def _blender_render_script(scene_path: Path, output_root: Path, dimensions: list[object], samples: int) -> str:
-    """Return a self-contained native Blender render script for a disposable final scene."""
+def _blender_render_script(
+    output_root: Path,
+    audit_path: Path,
+    repository_root: Path,
+    dimensions: list[object],
+    samples: int,
+    shot_id: str,
+) -> str:
+    """Return a native Blender script that audits current state before its only mutation."""
 
     return "\n".join((
-        "import bpy",
-        f"scene = bpy.context.scene",
-        "scene.render.engine = 'BLENDER_EEVEE'",
+        "import bpy, json, pathlib, sys",
+        f"sys.path.insert(0, {str(repository_root)!r})",
+        "from scripts.blender.pimm_production.blender_proof_render import _capture_authored_settings",
+        f"pathlib.Path({str(audit_path)!r}).write_text(json.dumps(_capture_authored_settings(bpy), sort_keys=True), encoding='utf-8')",
+        "scene = bpy.context.scene",
+        "if scene.render.engine != 'CYCLES': raise RuntimeError('authorized final scene must retain CYCLES')",
+        f"scene.cycles.samples = {samples}",
         "scene.render.film_transparent = True",
         f"scene.render.resolution_x = {int(dimensions[0])}",
         f"scene.render.resolution_y = {int(dimensions[1])}",
         "scene.render.resolution_percentage = 100",
-        f"scene.render.image_settings.color_mode = 'RGBA'",
+        "scene.render.image_settings.color_mode = 'RGBA'",
         "scene.render.image_settings.file_format = 'OPEN_EXR'",
         "scene.render.image_settings.color_depth = '32'",
-        f"scene.render.filepath = {str(output_root / 'final.exr')!r}",
+        f"scene.render.filepath = {str(output_root / f'{shot_id}--transparent.exr')!r}",
         "bpy.ops.render.render(write_still=True)",
         "scene.render.image_settings.file_format = 'PNG'",
         "scene.render.image_settings.color_depth = '8'",
-        f"scene.render.filepath = {str(output_root / 'final.png')!r}",
+        f"scene.render.filepath = {str(output_root / f'{shot_id}--transparent.png')!r}",
         "bpy.ops.render.render(write_still=True)",
     ))
 
 
+def _live_state_hashes(
+    authored: Mapping[str, object], animation_contract: object
+) -> dict[str, str]:
+    return {
+        "camera_sha256": canonical_json_sha256(authored.get("camera")),
+        "lights_sha256": canonical_json_sha256(authored.get("lights")),
+        "world_sha256": canonical_json_sha256(authored.get("world")),
+        "compositor_sha256": canonical_json_sha256(authored.get("compositor")),
+        "render_settings_sha256": canonical_json_sha256({
+            "render": authored.get("render"),
+            "cycles": authored.get("cycles"),
+            "color_management": authored.get("color_management"),
+            "view_layers": authored.get("view_layers"),
+        }),
+        "animation_sha256": canonical_json_sha256({
+            "animation_contract": animation_contract,
+            "objects": authored.get("objects"),
+        }),
+    }
+
+
+def _owned_identity(path: Path) -> dict[str, object]:
+    status = os.stat(path, follow_symlinks=False)
+    return {
+        "device": int(status.st_dev), "inode": int(status.st_ino),
+        "links": int(status.st_nlink), "bytes": int(status.st_size),
+        "mtime_ns": int(status.st_mtime_ns),
+    }
+
+
+def _directory_claim(path: Path) -> tuple[int, int, int]:
+    _reject_reparse_ancestors(path, "owned final stage")
+    status = os.stat(path, follow_symlinks=False)
+    if not stat.S_ISDIR(status.st_mode):
+        raise ValueError("owned final stage is no longer a directory")
+    return int(status.st_dev), int(status.st_ino), int(status.st_nlink)
+
+
+def _cleanup_stage(stage: Path, expected_files: set[Path]) -> None:
+    """Delete only known files inside the exclusively-owned stage."""
+
+    if not stage.exists():
+        return
+    actual_files = {path for path in stage.rglob("*") if path.is_file() and not path.is_symlink()}
+    if not actual_files <= expected_files:
+        return
+    for path in sorted(actual_files, key=lambda item: len(item.parts), reverse=True):
+        _unlink_owned(path, _owned_identity(path), "owned final stage artifact")
+    directories = sorted(
+        (path for path in stage.rglob("*") if path.is_dir() and not path.is_symlink()),
+        key=lambda item: len(item.parts),
+        reverse=True,
+    )
+    for directory in directories:
+        directory.rmdir()
+    stage.rmdir()
+
+
 def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path:
-    """Render a native temporary-authorized final and publish evidence only after QA.
+    """Stage, audit, render, QA, and exclusively publish one immutable final root."""
 
-    This runner intentionally requires a caller-supplied temporary asset root and
-    scene path. It never selects the production ``M:`` workspace.
-    """
-
-    authorization = authorize_final_render(approval_path, final_contract_path)
-    final = _load(final_contract_path, "final contract")
-    asset_root = final.get("asset_root")
-    scene_path = final.get("scene_path")
-    if not isinstance(asset_root, str) or not isinstance(scene_path, str):
-        raise ValueError("native final render requires explicit asset_root and scene_path")
-    root = Path(asset_root).resolve()
-    scene = Path(scene_path).resolve()
-    if not root.is_dir() or not scene.is_file() or str(root).upper().startswith("M:\\"):
-        raise ValueError("native final render requires a safe temporary root and scene")
-    try:
-        scene.relative_to(root)
-    except ValueError as error:
-        raise ValueError("native final scene is outside the supplied asset root") from error
-    dimensions = final.get("render_settings", {}).get("output_dimensions") if isinstance(final.get("render_settings"), Mapping) else None
-    if not isinstance(dimensions, list) or len(dimensions) != 2 or not all(isinstance(value, int) and value > 0 for value in dimensions):
-        raise ValueError("native final output dimensions are invalid")
-    output_root = root / "renders" / "final" / authorization.release_id / authorization.shot_id
-    output_root.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        output_root.mkdir()
-    except FileExistsError as error:
-        raise ValueError("final release root already exists; immutable output required") from error
-    blender = Path(r"D:\Blender 5.2\blender.exe")
-    if not blender.is_file():
-        raise ValueError("pinned local Blender 5.2 is unavailable")
-    script = output_root / ".native-final.py"
-    script.write_text(_blender_render_script(scene, output_root, dimensions, int(final["samples"])), encoding="utf-8")
-    try:
-        result = subprocess.run(
-            [str(blender), "--factory-startup", "-b", str(scene), "-P", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
+    raw_approval = canonical_absolute_path(str(Path(approval_path)), "approval path")
+    with approval_head_lock(raw_approval.parent):
+        authorization = _authorize_final_render(
+            raw_approval, final_contract_path, head_locked=True
         )
-        if result.returncode:
-            raise ValueError("native Blender final render failed: " + result.stderr[-1000:])
-        png = output_root / "final.png"
-        exr = output_root / "final.exr"
-        if not png.is_file() or not exr.is_file() or exr.read_bytes()[:4] != b"v/1\x01":
-            raise ValueError(
-                "native final did not produce a valid float EXR and PNG "
-                f"(png={png.is_file()}, exr={exr.is_file()}, "
-                f"header={exr.read_bytes()[:4].hex() if exr.is_file() else ''}, "
-                f"blender={result.stdout[-500:]})"
-            )
-        _validate_png(png, dimensions)
-        from PIL import Image
-        webp = output_root / "final.webp"
-        with Image.open(png) as image:
-            image.save(webp, format="WEBP", lossless=True)
-        _validate_png(webp, dimensions)
-        approval_hash = sha256_file(Path(approval_path))
-        outputs = []
-        for path, mime in ((exr, "image/x-exr"), (png, "image/png"), (webp, "image/webp")):
-            outputs.append({
-                "logical_asset_id": f"{authorization.shot_id}--transparent-{path.suffix[1:]}",
-                "path": path.name,
-                "sha256": sha256_file(path),
-                "dimensions": dimensions,
-                "alpha": True,
-                "mime_type": mime,
-            })
-        manifest = output_root / "final-output-manifest.json"
-        _write_new_json(manifest, {
-            "schema": "pimm-final-output-manifest/v1",
-            "release_id": authorization.release_id,
-            "generation_id": authorization.generation_id,
-            "shot_id": authorization.shot_id,
-            "approval_path": str(Path(approval_path).resolve()),
-            "approval_sha256": approval_hash,
-            "authorized_final_contract_sha256": sha256_file(Path(final_contract_path)),
-            "output_root": f"renders/final/{authorization.release_id}",
-            "required_deliverables": ["exr", "png", "webp"],
-            "qa": {"product": True, "material": True, "alpha": True, "controller": True, "animation_endpoints_match": True},
-            "outputs": outputs,
-        })
-        return manifest
-    except BaseException:
-        for child in sorted(output_root.glob("*")):
-            if child.is_file() and not child.is_symlink():
-                child.unlink()
+        final, roots, _ = _load_final(Path(final_contract_path))
+        dimensions = _mapping(final.get("render_settings"), "final render settings").get("output_dimensions")
+        if (
+            not isinstance(dimensions, list)
+            or len(dimensions) != 2
+            or not all(isinstance(value, int) and not isinstance(value, bool) and value > 0 for value in dimensions)
+        ):
+            raise ValueError("native final output dimensions are invalid")
+        release_parent = authorization.asset_root / "renders" / "final"
+        _lexically_within(release_parent, authorization.asset_root, "final release parent")
+        _reject_reparse_ancestors(release_parent, "final release parent")
+        release_parent.mkdir(parents=True, exist_ok=True)
+        _reject_reparse_ancestors(release_parent, "final release parent")
+        release_root = release_parent / authorization.release_id
+        if release_root.exists():
+            raise ValueError("final release root already exists; immutable output required")
+        stage = release_parent / f".{authorization.release_id}-{secrets.token_hex(8)}.stage"
+        os.mkdir(stage)
+        stage_claim = _directory_claim(stage)
+        family = stage / authorization.shot_id
+        os.mkdir(family)
+        script = family / ".native-final.py"
+        audit = family / ".native-state.json"
+        exr = family / f"{authorization.shot_id}--transparent.exr"
+        png = family / f"{authorization.shot_id}--transparent.png"
+        webp = family / f"{authorization.shot_id}--transparent.webp"
+        manifest = family / "final-output-manifest.json"
+        expected_stage_files = {script, audit, exr, png, webp, manifest}
         try:
-            output_root.rmdir()
-        except OSError:
-            pass
-        raise
+            repository_root = roots["repository"]
+            script.write_text(
+                _blender_render_script(
+                    family, audit, repository_root, dimensions,
+                    int(final["samples"]), authorization.shot_id,
+                ),
+                encoding="utf-8",
+            )
+            script_identity = _owned_identity(script)
+            blender_record = _mapping(final.get("evidence"), "final evidence").get("blender_binary")
+            blender = Path(str(_mapping(blender_record, "Blender evidence").get("path")))
+            result = subprocess.run(
+                [str(blender), "--factory-startup", "-b", str(authorization.scene_path), "-P", str(script)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode:
+                raise ValueError("native Blender final render failed: " + result.stderr[-1000:])
+            if not all(path.is_file() for path in (audit, exr, png)):
+                raise ValueError(
+                    "native final did not produce audited EXR and PNG outputs "
+                    f"(files={sorted(child.name for child in family.iterdir())}, "
+                    f"stdout={result.stdout[-1000:]})"
+                )
+            authored, _ = stable_json(audit, stage, "asset", "native authored state")
+            scene_contract_record = _mapping(final.get("evidence"), "final evidence").get("scene_contract")
+            scene_contract_path = Path(str(_mapping(scene_contract_record, "scene contract evidence").get("path")))
+            scene_contract, _ = stable_json(
+                scene_contract_path, roots["asset"], "asset", "current scene contract",
+                _mapping(scene_contract_record, "scene contract evidence"),
+            )
+            live_hashes = _live_state_hashes(authored, scene_contract.get("animation_contract"))
+            expected_settings = _mapping(final.get("render_settings"), "final render settings")
+            for field, actual in live_hashes.items():
+                if expected_settings.get(field) != actual:
+                    raise ValueError(f"native current {field.replace('_sha256', '')} state drift")
+            alpha_range = _validate_rgba(png, dimensions)
+            from PIL import Image
+            with Image.open(png) as image:
+                image.save(webp, format="WEBP", lossless=True)
+            _validate_rgba(webp, dimensions)
+            if exr.read_bytes()[:4] != b"v/1\x01":
+                raise ValueError("native final did not produce a genuine EXR")
+            _unlink_owned(script, script_identity, "native final script")
+            _unlink_owned(audit, _owned_identity(audit), "native state audit")
+
+            # Revalidate all authorities and both authorization records immediately
+            # before hashing output and publishing evidence.
+            validate_evidence_records(final.get("authority_roots"), final.get("evidence"))
+            stable_file_record(
+                authorization.approval_path, authorization.asset_root, "asset",
+                "latest approval", authorization.approval_record,
+            )
+            stable_file_record(
+                authorization.final_contract_path, authorization.asset_root, "asset",
+                "final contract", authorization.final_contract_record,
+            )
+            outputs: list[dict[str, object]] = []
+            published_records: list[tuple[Path, dict[str, object]]] = []
+            for path, mime in ((exr, "image/x-exr"), (png, "image/png"), (webp, "image/webp")):
+                record = stable_file_record(path, stage, "asset", f"final {path.suffix}")
+                published_records.append((path, record))
+                extension = path.suffix[1:]
+                outputs.append({
+                    "logical_asset_id": f"{authorization.shot_id}--transparent-{extension}",
+                    "path": path.name,
+                    "sha256": record["sha256"],
+                    "dimensions": dimensions,
+                    "alpha": True,
+                    "mime_type": mime,
+                })
+            _create_new_json(manifest, {
+                "schema": "pimm-final-output-manifest/v1",
+                "release_id": authorization.release_id,
+                "generation_id": authorization.generation_id,
+                "shot_id": authorization.shot_id,
+                "approval_path": str(authorization.approval_path),
+                "approval_sha256": authorization.approval_sha256,
+                "authorized_final_contract_path": str(authorization.final_contract_path),
+                "authorized_final_contract_sha256": authorization.final_contract_sha256,
+                "final_authorization_sha256": authorization.authorization_sha256,
+                "output_root": f"renders/final/{authorization.release_id}",
+                "required_deliverables": ["exr", "png", "webp"],
+                "qa": {
+                    "product_visible": True,
+                    "alpha_min": alpha_range[0],
+                    "alpha_max": alpha_range[1],
+                    "material_state_sha256": canonical_json_sha256(authored.get("materials")),
+                    "controller_state_sha256": canonical_json_sha256(authored.get("objects")),
+                    "animation_state_sha256": live_hashes["animation_sha256"],
+                },
+                "outputs": outputs,
+            })
+            manifest_record = stable_file_record(
+                manifest, stage, "asset", "final output manifest"
+            )
+            published_records.append((manifest, manifest_record))
+            for path, record in published_records:
+                stable_file_record(path, stage, "asset", "staged final publication", record)
+            if _directory_claim(stage) != stage_claim:
+                raise ValueError("owned final stage identity changed before publication")
+            if release_root.exists():
+                raise ValueError("final release root already exists; competing publication detected")
+            try:
+                os.rename(stage, release_root)
+            except FileExistsError as error:
+                raise ValueError(
+                    "final release root already exists; competing publication detected"
+                ) from error
+            return release_root / authorization.shot_id / manifest.name
+        except BaseException:
+            _cleanup_stage(stage, expected_stage_files)
+            raise

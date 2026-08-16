@@ -144,15 +144,16 @@ test('Task 5 fixture proof generations never write into the production proof tre
 test('Task 6 fixture approvals fail closed and publish only immutable release manifests', () => {
   const program = [
     'from pathlib import Path',
+    'import json',
     'from tempfile import TemporaryDirectory',
     'from scripts.blender.pimm_production.blender_final_render import authorize_final_render',
     'from scripts.blender.pimm_production.release_manifest import build_release_manifest',
-    'from scripts.blender.pimm_production.tests.test_approval_release import RELEASE_ID, write_approval_fixture, write_release_output_fixture',
+    'from scripts.blender.pimm_production.tests.test_approval_release import RELEASE_ID, write_release_output_fixture',
     'with TemporaryDirectory() as root_text:',
     '    root = Path(root_text)',
-    "    approval, final = write_approval_fixture(root, 'approved', 'a' * 64)",
-    '    authorization = authorize_final_render(approval, final)',
-    '    output = write_release_output_fixture(root, authorization.generation_id)',
+    "    output = write_release_output_fixture(root, 'proof-20260815T153000Z-a1b2c3d')",
+    "    payload = json.loads(output.read_text(encoding='utf-8'))",
+    "    authorize_final_render(Path(payload['approval_path']), Path(payload['authorized_final_contract_path']))",
     '    print(build_release_manifest(RELEASE_ID, [output]).name)',
   ].join('\n');
   const result = execFileSync('python', ['-c', program], {
