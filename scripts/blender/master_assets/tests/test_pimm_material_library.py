@@ -68,6 +68,10 @@ class MaterialLibraryContractTests(unittest.TestCase):
         self.assertEqual(sintered.microstructure, "sintered_porous")
         self.assertGreater(sintered.metallic, 0.5)
         self.assertGreater(sintered.roughness, 0.35)
+        asa = MATERIAL_SPECS["ASA_3D_PRINT_0_2MM"]
+        self.assertEqual(asa.microstructure, "layer_lines")
+        self.assertLess(max(asa.base_color[:3]), 0.02)
+        self.assertGreaterEqual(asa.roughness, 0.45)
         self.assertEqual(MATERIAL_SPECS["WHITE_TEXTILE_CABLE"].microstructure, "textile")
         self.assertEqual(MATERIAL_SPECS["ASA_3D_PRINT_0_2MM"].microstructure, "layer_lines")
 

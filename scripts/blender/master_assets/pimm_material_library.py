@@ -82,7 +82,7 @@ MATERIAL_SPECS: dict[str, MaterialSpec] = {
         (0.31, 0.18, 0.045, 1.0), 0.0, 0.34, 0.0, 0.03, "polymer"
     ),
     "ASA_3D_PRINT_0_2MM": MaterialSpec(
-        (0.20, 0.22, 0.25, 1.0), 0.0, 0.48, 0.0, 0.02, "layer_lines"
+        (0.006, 0.007, 0.010, 1.0), 0.0, 0.52, 0.0, 0.02, "layer_lines"
     ),
     "WHITE_TEXTILE_CABLE": MaterialSpec(
         (0.82, 0.82, 0.78, 1.0), 0.0, 0.70, 0.0, 0.0, "textile"
@@ -198,6 +198,33 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         return
     nodes = material.node_tree.nodes
     links = material.node_tree.links
+    if spec.microstructure == "layer_lines":
+        # Scene units are millimetres, so a wave scale of 5.0 gives one
+        # repeat every 0.2 mm. Object coordinates keep that spacing physical
+        # instead of compressing it into a generated 0..1 texture range.
+        coordinates = nodes.new("ShaderNodeTexCoord")
+        coordinates.name = "PIMM_LAYER_LINE_COORDINATES"
+        wave = nodes.new("ShaderNodeTexWave")
+        wave.name = "PIMM_LAYER_LINES_0_2MM"
+        wave.wave_type = "BANDS"
+        wave.bands_direction = "Z"
+        wave.inputs["Scale"].default_value = 5.0
+        wave.inputs["Distortion"].default_value = 0.0
+        ramp = nodes.new("ShaderNodeValToRGB")
+        ramp.name = "PIMM_LAYER_LINE_PROFILE"
+        ramp.color_ramp.elements[0].position = 0.35
+        ramp.color_ramp.elements[1].position = 0.65
+        links.new(coordinates.outputs["Object"], wave.inputs["Vector"])
+        links.new(wave.outputs["Color"], ramp.inputs["Fac"])
+        bump = nodes.new("ShaderNodeBump")
+        bump.name = "PIMM_LAYER_LINE_BUMP"
+        bump.inputs["Strength"].default_value = 0.20
+        bump.inputs["Distance"].default_value = 0.025
+        links.new(ramp.outputs["Color"], bump.inputs["Height"])
+        normal = principled.inputs.get("Normal")
+        if normal is not None:
+            links.new(bump.outputs["Normal"], normal)
+        return
     if spec.microstructure == "sintered_porous":
         # The silencer face needs visible, coarse sintered pores rather than
         # a fine machining grain. A low-frequency noise field drives both a
