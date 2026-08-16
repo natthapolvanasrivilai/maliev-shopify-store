@@ -567,6 +567,7 @@ def _node_tree_record(
     *,
     ancestry: frozenset[str] = frozenset(),
     image_cache: dict[str, dict[str, object]] | None = None,
+    current_scene_identity: Mapping[str, object] | None = None,
 ) -> dict[str, object] | None:
     if tree is None:
         return None
@@ -582,11 +583,19 @@ def _node_tree_record(
             f"captured recursive {tree_type}",
             expected_type=tree_type,
             allow_none=False,
+            current_scene_identity=current_scene_identity,
         )
         return reference
     nested_ancestry = ancestry | {tree_key}
     node_records: list[dict[str, object]] = []
     for node in sorted(tree.nodes, key=lambda item: (item.name, item.bl_idname)):
+        if node.bl_idname in proof_module._UNSAFE_NODE_TYPES_BY_TREE.get(
+            tree_type, frozenset()
+        ):
+            raise ValueError(
+                f"captured {tree_type} contains unsafe external writer node type "
+                f"{node.bl_idname}"
+            )
         if node.bl_idname not in proof_module._NODE_TYPES_BY_TREE[tree_type]:
             raise ValueError(
                 f"unsupported {tree_type} node type: {node.bl_idname}"
@@ -601,6 +610,7 @@ def _node_tree_record(
                 getattr(node, "node_tree", None),
                 ancestry=nested_ancestry,
                 image_cache=image_cache,
+                current_scene_identity=current_scene_identity,
             )
         node_records.append(
             {
@@ -667,6 +677,7 @@ def _node_tree_record(
         f"captured {tree_type}",
         expected_type=tree_type,
         allow_none=False,
+        current_scene_identity=current_scene_identity,
     )
     return record
 
@@ -1072,6 +1083,7 @@ def _dependency_sha256(settings: Mapping[str, object]) -> str:
     payload = {
         field: settings[field]
         for field in (
+            "scene_identity",
             "objects",
             "materials",
             "images",
@@ -1090,6 +1102,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
 
     bpy.context.view_layer.update()
     scene = bpy.context.scene
+    scene_identity = _data_identity(scene)
     image_cache: dict[str, dict[str, object]] = {}
     camera = scene.camera
     camera_record: dict[str, object] | None = None
@@ -1161,7 +1174,11 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
         compositor_tree = getattr(scene, "node_tree", None)
     compositor = {
         "enabled": compositor_tree is not None,
-        "node_tree": _node_tree_record(compositor_tree, image_cache=image_cache),
+        "node_tree": _node_tree_record(
+            compositor_tree,
+            image_cache=image_cache,
+            current_scene_identity=scene_identity,
+        ),
     }
     render = scene.render
     view_layers = [
@@ -1205,6 +1222,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
         for key in sorted(used_materials)
     ]
     settings: dict[str, object] = {
+        "scene_identity": scene_identity,
         "camera": camera_record,
         "lights": lights,
         "world": world_record,

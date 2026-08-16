@@ -84,6 +84,7 @@ _IMAGE_SETTINGS_FIELDS = {
 _FINGERPRINT_NAMES = {"source", "master", "material_library", "scene"}
 _FINGERPRINT_FIELDS = {"path", "bytes", "mtime_ns", "sha256"}
 _AUTHORED_SETTINGS_FIELDS = {
+    "scene_identity",
     "camera",
     "lights",
     "world",
@@ -278,12 +279,14 @@ _NODE_TYPES_BY_TREE = {
         {
             "CompositorNodeBrightContrast",
             "CompositorNodeComposite",
-            "CompositorNodeOutputFile",
             "CompositorNodeRLayers",
             "NodeGroupInput",
             "NodeGroupOutput",
         }
     ),
+}
+_UNSAFE_NODE_TYPES_BY_TREE = {
+    "CompositorNodeTree": frozenset({"CompositorNodeOutputFile"}),
 }
 _NODE_SOCKET_TYPES = frozenset(
     {
@@ -368,15 +371,6 @@ _NODE_COMMON_PROPERTY_FIELDS = frozenset(
     }
 )
 _NODE_EXTRA_PROPERTY_FIELDS = {
-    "CompositorNodeOutputFile": frozenset(
-        {
-            "active_item_index",
-            "directory",
-            "file_name",
-            "save_as_render",
-            "use_file_extension",
-        }
-    ),
     "CompositorNodeRLayers": frozenset({"layer"}),
     "NodeGroupOutput": frozenset({"is_active_output"}),
     "ShaderNodeBsdfPrincipled": frozenset({"distribution", "subsurface_method"}),
@@ -390,7 +384,6 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     ),
 }
 _NODE_STATIC_TYPES = {
-    "CompositorNodeOutputFile": "OUTPUT_FILE",
     "CompositorNodeRLayers": "R_LAYERS",
     "GeometryNodeSetMaterial": "SET_MATERIAL",
     "NodeGroupInput": "GROUP_INPUT",
@@ -1160,6 +1153,7 @@ def _validate_pointer_mapping(
     *,
     tree_type: str,
     node_type: str,
+    current_scene_identity: Mapping[str, object] | None = None,
 ) -> None:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} must be an object")
@@ -1181,8 +1175,6 @@ def _validate_pointer_mapping(
                 "texture_mapping": ("identity", frozenset({"TexMapping"})),
             }
         )
-    elif node_type == "CompositorNodeOutputFile":
-        allowed["format"] = ("identity", frozenset({"ImageFormatSettings"}))
     elif node_type == "CompositorNodeRLayers":
         allowed["scene"] = ("identity", frozenset({"Scene"}))
     if set(value) != set(allowed):
@@ -1198,7 +1190,11 @@ def _validate_pointer_mapping(
             _validate_image(dependency, f"{label}.{name}")
         elif kind == "node_tree":
             _validate_node_tree(
-                dependency, f"{label}.{name}", expected_type=str(domain), allow_none=False
+                dependency,
+                f"{label}.{name}",
+                expected_type=str(domain),
+                allow_none=False,
+                current_scene_identity=current_scene_identity,
             )
         else:
             identity = _validate_identity(
@@ -1206,6 +1202,14 @@ def _validate_pointer_mapping(
             )
             if identity["type"] not in domain:
                 raise ValueError(f"{label}.{name} identity type is incompatible")
+    if (
+        node_type == "CompositorNodeRLayers"
+        and current_scene_identity is not None
+        and value["scene"] != current_scene_identity
+    ):
+        raise ValueError(
+            f"{label}.scene must resolve exactly to the current proof scene"
+        )
 
 
 def _validate_node_tree(
@@ -1214,6 +1218,7 @@ def _validate_node_tree(
     *,
     expected_type: str | None = None,
     allow_none: bool = True,
+    current_scene_identity: Mapping[str, object] | None = None,
 ) -> None:
     if value is None:
         if allow_none:
@@ -1250,6 +1255,10 @@ def _validate_node_tree(
             raise ValueError(f"{label} node names must be unique")
         node_names.add(name)
         node_type = _require_string(node["type"], f"{label} node type")
+        if node_type in _UNSAFE_NODE_TYPES_BY_TREE.get(tree_type, frozenset()):
+            raise ValueError(
+                f"{label} contains unsafe external writer node type {node_type}"
+            )
         if node_type not in _NODE_TYPES_BY_TREE[tree_type]:
             raise ValueError(f"{label} node type is not supported for {tree_type}")
         if not isinstance(node["mute"], bool):
@@ -1318,6 +1327,7 @@ def _validate_node_tree(
             f"{label} node {name} data",
             tree_type=tree_type,
             node_type=node_type,
+            current_scene_identity=current_scene_identity,
         )
     node_types_by_name = {
         str(node["name"]): str(node["type"]) for node in nodes
@@ -1719,6 +1729,7 @@ def _dependency_digest(settings: Mapping[str, object]) -> str:
     payload = {
         field: settings[field]
         for field in (
+            "scene_identity",
             "objects",
             "materials",
             "images",
@@ -1951,6 +1962,10 @@ def _validate_dependency_graph(
 
 def _validate_authored_settings(value: object, label: str) -> Mapping[str, object]:
     authored = _require_exact_mapping(value, _AUTHORED_SETTINGS_FIELDS, label)
+    scene_identity = _validate_identity(
+        authored["scene_identity"], f"{label} scene identity"
+    )
+    _require_identity_type(scene_identity, "Scene", f"{label} scene")
     camera = _require_exact_mapping(authored["camera"], _CAMERA_SETTINGS_FIELDS, f"{label} camera")
     camera_identity = _validate_identity(camera["identity"], f"{label} camera identity")
     _require_identity_type(camera_identity, "Object", f"{label} camera")
@@ -2036,6 +2051,7 @@ def _validate_authored_settings(value: object, label: str) -> Mapping[str, objec
         compositor["node_tree"],
         f"{label} compositor node_tree",
         expected_type="CompositorNodeTree",
+        current_scene_identity=scene_identity,
     )
     if compositor["enabled"] is not (compositor["node_tree"] is not None):
         raise ValueError(f"{label} compositor enabled state does not match node_tree")

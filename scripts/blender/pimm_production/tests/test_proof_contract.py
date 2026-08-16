@@ -115,6 +115,8 @@ def _run_fixture_proofs(
     inject_pointer_socket_materials: bool = False,
     inject_pointer_socket_swap: bool = False,
     inject_geometry_transform: bool = False,
+    inject_compositor_file_output: bool = False,
+    inject_compositor_render_layers: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
     runner = PROOF_RUNNER
     if (
@@ -125,6 +127,8 @@ def _run_fixture_proofs(
         or inject_pointer_socket_materials
         or inject_pointer_socket_swap
         or inject_geometry_transform
+        or inject_compositor_file_output
+        or inject_compositor_render_layers is not None
     ):
         runner = root / "inject_proof_drift.py"
         runner.write_text(
@@ -132,10 +136,57 @@ def _run_fixture_proofs(
                 [
                     "from pathlib import Path",
                     "import json",
+                    "import os",
                     "import sys",
                     f"sys.path.insert(0, {str(REPO_ROOT)!r})",
                     "import bpy",
                     "import scripts.blender.pimm_production.blender_proof_render as proof_render",
+                    *(
+                        [
+                            "fixture_compositor = bpy.data.node_groups.new('AUTHORED_COMPOSITOR', 'CompositorNodeTree')",
+                            "bpy.context.scene.compositing_node_group = fixture_compositor",
+                            *(
+                                [
+                                    "unsafe_directory = Path("
+                                    + repr(str(root / "unsafe-compositor-output"))
+                                    + ")",
+                                    "unsafe_directory.mkdir(parents=True, exist_ok=True)",
+                                    "fixture_render_layers = fixture_compositor.nodes.new('CompositorNodeRLayers')",
+                                    "fixture_file_output = fixture_compositor.nodes.new('CompositorNodeOutputFile')",
+                                    "fixture_file_output.directory = str(unsafe_directory) + os.sep",
+                                    "fixture_file_output.file_name = 'UNSAFE_{frame}'",
+                                    "fixture_compositor.links.new(fixture_render_layers.outputs['Image'], fixture_file_output.inputs[0])",
+                                ]
+                                if inject_compositor_file_output
+                                else [
+                                    "fixture_render_layers = fixture_compositor.nodes.new('CompositorNodeRLayers')",
+                                    *(
+                                        [
+                                            "fixture_second_scene = bpy.data.scenes.new('SECOND_PROOF_SCENE')",
+                                            "fixture_render_layers.scene = fixture_second_scene",
+                                        ]
+                                        if inject_compositor_render_layers == "second"
+                                        else []
+                                    ),
+                                ]
+                            ),
+                            "original_compositor_capture = proof_render._capture_authored_settings",
+                            "compositor_capture_written = False",
+                            "def capture_with_fixture_compositor(bpy_arg):",
+                            "    global compositor_capture_written",
+                            "    capture = original_compositor_capture(bpy_arg)",
+                            "    if not compositor_capture_written:",
+                            "        compositor_capture_written = True",
+                            "        Path("
+                            + repr(str(root / "compositor-capture.json"))
+                            + ").write_text(json.dumps(capture, sort_keys=True), encoding='utf-8')",
+                            "    return capture",
+                            "proof_render._capture_authored_settings = capture_with_fixture_compositor",
+                        ]
+                        if inject_compositor_file_output
+                        or inject_compositor_render_layers is not None
+                        else []
+                    ),
                     *(
                         [
                             "original_minimal_capture = proof_render._capture_authored_settings",
@@ -419,9 +470,19 @@ def _run_fixture_proofs(
 
 
 _BLENDER_52_ALLOWLIST_INSTANTIATION_EXCLUSIONS = {
-    "CompositorNodeTree:CompositorNodeComposite": (
-        "Blender 5.2 factory-startup reports the legacy node identifier as undefined"
-    ),
+    "CompositorNodeTree:CompositorNodeComposite": {
+        "reason": (
+            "Blender 5.2 factory-startup reports the legacy node identifier as undefined"
+        ),
+        "instantiable": False,
+    },
+    "CompositorNodeTree:CompositorNodeOutputFile": {
+        "reason": "unsafe external writer prohibited in proof scenes",
+        "instantiable": True,
+    },
+}
+_BLENDER_52_UNSAFE_AUDIT_NODE_TYPES = {
+    "CompositorNodeTree": frozenset({"CompositorNodeOutputFile"})
 }
 
 
@@ -443,23 +504,28 @@ def _run_allowlist_compatibility_audit(
                 f"result_path = Path({str(result_path)!r})",
                 "exclusions = "
                 + repr(_BLENDER_52_ALLOWLIST_INSTANTIATION_EXCLUSIONS),
+                "unsafe_node_types = " + repr(_BLENDER_52_UNSAFE_AUDIT_NODE_TYPES),
                 "passed = []",
                 "excluded = []",
                 "failures = []",
                 "for tree_type, node_types in sorted(proof_contract._NODE_TYPES_BY_TREE.items()):",
-                "    for node_type in sorted(node_types):",
+                "    audit_node_types = set(node_types) | set(unsafe_node_types.get(tree_type, ()))",
+                "    for node_type in sorted(audit_node_types):",
                 "        key = f'{tree_type}:{node_type}'",
                 "        tree = bpy.data.node_groups.new(f'AUDIT_{tree_type}_{node_type}', tree_type)",
                 "        try:",
                 "            node = tree.nodes.new(node_type)",
                 "        except Exception as error:",
-                "            if key in exclusions:",
-                "                excluded.append({'key': key, 'reason': exclusions[key], 'error': f'{type(error).__name__}: {error}'})",
+                "            if key in exclusions and not exclusions[key]['instantiable']:",
+                "                excluded.append({'key': key, 'reason': exclusions[key]['reason'], 'error': f'{type(error).__name__}: {error}'})",
                 "            else:",
                 "                failures.append({'key': key, 'stage': 'instantiate', 'error': f'{type(error).__name__}: {error}'})",
                 "            continue",
                 "        if key in exclusions:",
-                "            failures.append({'key': key, 'stage': 'exclusion', 'error': 'documented exclusion unexpectedly instantiated'})",
+                "            if exclusions[key]['instantiable']:",
+                "                excluded.append({'key': key, 'reason': exclusions[key]['reason']})",
+                "            else:",
+                "                failures.append({'key': key, 'stage': 'exclusion', 'error': 'documented exclusion unexpectedly instantiated'})",
                 "            continue",
                 "        if node_type in {'ShaderNodeGroup', 'GeometryNodeGroup'}:",
                 "            nested = bpy.data.node_groups.new(f'{key}_NESTED', tree_type)",
@@ -505,6 +571,32 @@ def _run_allowlist_compatibility_audit(
     return result, payload
 
 
+def _write_real_fixture_proof(
+    root: Path, slug: str
+) -> tuple[Path, ProofContract, Path]:
+    scene_path, scene = build_scene_fixture("valid", root)
+    source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+    scene_contract_path = _write_scene_contract(
+        root, scene, f"scenes/fixtures/{slug}-scene.json"
+    )
+    contract = dataclasses.replace(
+        composition_contract(),
+        scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+        scene_sha256=sha256_file(scene_path),
+        master_sha256=scene.master_sha256,
+        material_library_sha256=scene.material_library_sha256,
+        resolution_percentage=12.5,
+        samples=16,
+    )
+    proof_path = root / "scenes" / "fixtures" / f"{slug}-proof.json"
+    proof_path.write_text(
+        json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+    )
+    return scene_path, contract, proof_path
+
+
 def _fingerprint_record(path: str, sha256: str) -> dict[str, object]:
     return {"path": path, "bytes": 1, "mtime_ns": 1, "sha256": sha256}
 
@@ -513,6 +605,7 @@ def _recompute_dependency_digest(authored: dict[str, object]) -> None:
     dependency_payload = {
         field: authored[field]
         for field in (
+            "scene_identity",
             "objects",
             "materials",
             "images",
@@ -612,6 +705,119 @@ def _valid_dependency_node_tree() -> dict[str, object]:
                 "data": {},
             }
         ],
+        "links": [],
+    }
+
+
+def _valid_compositor_node_tree(
+    node_type: str, *, scene_name: str = "Scene"
+) -> dict[str, object]:
+    common_properties: dict[str, object] = {
+        "bl_height_default": 100.0,
+        "bl_height_max": 3.4028234663852886e38,
+        "bl_height_min": 30.0,
+        "bl_icon": "NONE",
+        "bl_width_max": 700.0,
+        "bl_width_min": 100.0,
+        "hide": False,
+        "mute": False,
+        "use_custom_color": False,
+        "warning_propagation": "ALL",
+    }
+    if node_type == "CompositorNodeOutputFile":
+        node = {
+            "name": "File Output",
+            "type": node_type,
+            "mute": False,
+            "properties": {
+                **common_properties,
+                "active_item_index": 0,
+                "bl_description": "Write image file to disk",
+                "bl_idname": node_type,
+                "bl_label": "File Output",
+                "bl_static_type": "OUTPUT_FILE",
+                "bl_width_default": 140.0,
+                "color_tag": "OUTPUT",
+                "directory": "C:\\unsafe-external-output\\",
+                "file_name": "UNSAFE_{frame}",
+                "save_as_render": True,
+                "type": "OUTPUT_FILE",
+                "use_file_extension": True,
+            },
+            "inputs": [
+                {
+                    "name": "",
+                    "identifier": "__extend__",
+                    "type": "NodeSocketVirtual",
+                    "enabled": True,
+                    "is_linked": False,
+                    "default": None,
+                }
+            ],
+            "outputs": [],
+            "data": {
+                "parent": None,
+                "format": {
+                    "name": "",
+                    "type": "ImageFormatSettings",
+                    "library": None,
+                },
+            },
+        }
+    elif node_type == "CompositorNodeRLayers":
+        node = {
+            "name": "Render Layers",
+            "type": node_type,
+            "mute": False,
+            "properties": {
+                **common_properties,
+                "bl_description": "Input render passes from a scene render",
+                "bl_idname": node_type,
+                "bl_label": "Render Layers",
+                "bl_static_type": "R_LAYERS",
+                "bl_width_default": 240.0,
+                "color_tag": "INPUT",
+                "layer": "ViewLayer",
+                "type": "R_LAYERS",
+            },
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "Image",
+                    "identifier": "Image",
+                    "type": "NodeSocketColor",
+                    "enabled": True,
+                    "is_linked": False,
+                    "default": [
+                        0.800000011921,
+                        0.800000011921,
+                        0.800000011921,
+                        1.0,
+                    ],
+                },
+                {
+                    "name": "Alpha",
+                    "identifier": "Alpha",
+                    "type": "NodeSocketFloat",
+                    "enabled": True,
+                    "is_linked": False,
+                    "default": 0.0,
+                },
+            ],
+            "data": {
+                "parent": None,
+                "scene": {"name": scene_name, "type": "Scene", "library": None},
+            },
+        }
+    else:
+        raise ValueError(f"unsupported compositor fixture node: {node_type}")
+    return {
+        "identity": {
+            "name": "AUTHORED_COMPOSITOR",
+            "type": "CompositorNodeTree",
+            "library": None,
+        },
+        "nodes": [node],
         "links": [],
     }
 
@@ -766,6 +972,7 @@ def _valid_render_metadata(
         "children": [],
     }
     authored_settings: dict[str, object] = {
+        "scene_identity": {"name": "Scene", "type": "Scene", "library": None},
         "camera": {
             "identity": {"name": "CAM_HERO", "type": "Object", "library": None},
             "transform": {
@@ -1144,6 +1351,8 @@ class ProofContractTests(unittest.TestCase):
             "material-socket-wrong-pointer-type",
             "material-socket-unknown-identity",
             "material-socket-identity-null-kind",
+            "unsafe-compositor-file-output",
+            "render-layers-unknown-scene",
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
@@ -1401,6 +1610,23 @@ class ProofContractTests(unittest.TestCase):
                         socket_default["value"]["name"] = "UNKNOWN_SOCKET_MATERIAL"
                     else:
                         socket_default["value"] = None
+                elif mutation == "unsafe-compositor-file-output":
+                    unsafe_tree = _valid_compositor_node_tree(
+                        "CompositorNodeOutputFile"
+                    )
+                    unsafe_tree["nodes"][0]["mute"] = True
+                    unsafe_tree["nodes"][0]["properties"]["mute"] = True
+                    authored["compositor"] = {
+                        "enabled": True,
+                        "node_tree": unsafe_tree,
+                    }
+                elif mutation == "render-layers-unknown-scene":
+                    authored["compositor"] = {
+                        "enabled": True,
+                        "node_tree": _valid_compositor_node_tree(
+                            "CompositorNodeRLayers", scene_name="UNKNOWN_SCENE"
+                        ),
+                    }
                 if mutation != "inconsistent-digest":
                     _recompute_dependency_digest(authored)
                 else:
@@ -1430,6 +1656,8 @@ class ProofContractTests(unittest.TestCase):
                     "material-socket-wrong-pointer-type": "parent context",
                     "material-socket-unknown-identity": "captured registry",
                     "material-socket-identity-null-kind": "exact data-block identity",
+                    "unsafe-compositor-file-output": "unsafe external writer",
+                    "render-layers-unknown-scene": "current proof scene",
                 }
                 with patch.object(proof_module, "ASSET_ROOT", root):
                     with self.assertRaisesRegex(
@@ -1754,7 +1982,10 @@ class ProofContractTests(unittest.TestCase):
         expected = {
             f"{tree_type}:{node_type}"
             for tree_type, node_types in proof_module._NODE_TYPES_BY_TREE.items()
-            for node_type in node_types
+            for node_type in (
+                set(node_types)
+                | set(_BLENDER_52_UNSAFE_AUDIT_NODE_TYPES.get(tree_type, ()))
+            )
         }
         self.assertEqual(
             payload["failures"],
@@ -1769,6 +2000,124 @@ class ProofContractTests(unittest.TestCase):
             {entry["key"] for entry in payload["excluded"]},
             set(_BLENDER_52_ALLOWLIST_INSTANTIATION_EXCLUSIONS),
         )
+        self.assertNotIn(
+            "CompositorNodeOutputFile",
+            proof_module._NODE_TYPES_BY_TREE["CompositorNodeTree"],
+        )
+        self.assertEqual(
+            proof_module._UNSAFE_NODE_TYPES_BY_TREE,
+            _BLENDER_52_UNSAFE_AUDIT_NODE_TYPES,
+        )
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_blender_52_file_output_is_blocked_before_render_and_writes_nothing(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, contract, proof_path = _write_real_fixture_proof(
+                root, "unsafe-file-output"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_compositor_file_output=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
+            self.assertEqual(rows[0]["status"], "failed")
+            self.assertRegex(" ".join(rows[0]["errors"]), "unsafe external writer")
+            external_files = [
+                path
+                for path in (root / "unsafe-compositor-output").rglob("*")
+                if path.is_file()
+            ]
+            self.assertEqual(external_files, [])
+            output_root = root / contract.output_root
+            for name in (
+                f"{scene_contract_fixture().scene_id}--rgba.png",
+                "render-metadata.json",
+                "manifest.json",
+                "contact-sheet.png",
+                "contact-sheet.json",
+                ".manifest.pending.json",
+                ".contact-sheet.pending.png",
+                ".contact-sheet.pending.json",
+            ):
+                self.assertFalse((output_root / name).exists(), msg=name)
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_blender_52_render_layers_current_scene_capture_and_finalizer_succeed(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, _contract, proof_path = _write_real_fixture_proof(
+                root, "current-scene-render-layers"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_compositor_render_layers="current",
+            )
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                msg=f"stdout={result.stdout}\nstderr={result.stderr}",
+            )
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "pass")
+            capture = json.loads(
+                (root / "compositor-capture.json").read_text(encoding="utf-8")
+            )
+            expected_scene = {"name": "Scene", "type": "Scene", "library": None}
+            self.assertEqual(capture["scene_identity"], expected_scene)
+            render_layers = next(
+                node
+                for node in capture["compositor"]["node_tree"]["nodes"]
+                if node["type"] == "CompositorNodeRLayers"
+            )
+            self.assertEqual(render_layers["data"]["scene"], expected_scene)
+            changed_scene = json.loads(json.dumps(capture))
+            changed_scene["scene_identity"]["name"] = "SECOND_PROOF_SCENE"
+            self.assertNotEqual(
+                capture["dependency_sha256"],
+                render_module._dependency_sha256(changed_scene),
+            )
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_blender_52_render_layers_other_scene_is_blocked_before_publication(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, contract, proof_path = _write_real_fixture_proof(
+                root, "other-scene-render-layers"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_compositor_render_layers="second",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
+            self.assertEqual(rows[0]["status"], "failed")
+            self.assertRegex(" ".join(rows[0]["errors"]), "current proof scene")
+            output_root = root / contract.output_root
+            for name in (
+                f"{scene_contract_fixture().scene_id}--rgba.png",
+                "render-metadata.json",
+                "manifest.json",
+                "contact-sheet.png",
+                "contact-sheet.json",
+                ".manifest.pending.json",
+                ".contact-sheet.pending.png",
+                ".contact-sheet.pending.json",
+            ):
+                self.assertFalse((output_root / name).exists(), msg=name)
 
     @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
     def test_blender_52_minimal_geometry_nodes_capture_and_finalizer_succeed(self):
