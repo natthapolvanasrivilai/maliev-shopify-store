@@ -47,6 +47,7 @@ class MaterialLibraryContractTests(unittest.TestCase):
                 "RED_SIGNAL_POLYMER",
                 "GREEN_SIGNAL_POLYMER",
                 "WARM_WHITE_MARKING",
+                "SINTERED_BRONZE_POROUS",
             },
         )
 
@@ -63,6 +64,10 @@ class MaterialLibraryContractTests(unittest.TestCase):
         self.assertGreater(MATERIAL_SPECS["INACTIVE_NUMERIC_SEGMENT"].roughness, 0.25)
         self.assertEqual(MATERIAL_SPECS["CHARCOAL_TEXTURED_POLYMER"].microstructure, "powder_grain")
         self.assertEqual(MATERIAL_SPECS["WARM_WHITE_MARKING"].microstructure, "none")
+        sintered = MATERIAL_SPECS["SINTERED_BRONZE_POROUS"]
+        self.assertEqual(sintered.microstructure, "sintered_porous")
+        self.assertGreater(sintered.metallic, 0.5)
+        self.assertGreater(sintered.roughness, 0.35)
         self.assertEqual(MATERIAL_SPECS["WHITE_TEXTILE_CABLE"].microstructure, "textile")
         self.assertEqual(MATERIAL_SPECS["ASA_3D_PRINT_0_2MM"].microstructure, "layer_lines")
 

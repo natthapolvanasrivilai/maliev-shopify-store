@@ -148,6 +148,9 @@ MATERIAL_SPECS: dict[str, MaterialSpec] = {
     "WARM_WHITE_MARKING": MaterialSpec(
         (0.72, 0.62, 0.40, 1.0), 0.05, 0.33, 0.0, 0.04, "none"
     ),
+    "SINTERED_BRONZE_POROUS": MaterialSpec(
+        (0.42, 0.20, 0.045, 1.0), 0.72, 0.44, 0.12, 0.04, "sintered_porous"
+    ),
 }
 
 
@@ -207,6 +210,7 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         "textile": 240.0,
         "braided": 180.0,
         "layer_lines": 700.0,
+        "sintered_porous": 260.0,
     }[spec.microstructure]
     texture.inputs["Scale"].default_value = scale
     texture.inputs["Detail"].default_value = 2.0
@@ -222,6 +226,7 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         "textile": 0.035,
         "braided": 0.040,
         "layer_lines": 0.012,
+        "sintered_porous": 0.095,
     }[spec.microstructure]
     bump.inputs["Distance"].default_value = 0.018
     links.new(texture.outputs["Fac"], bump.inputs["Height"])
