@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 from typing import Any, Sequence
@@ -40,8 +41,12 @@ except ImportError:  # Blender may execute this checked-in script directly.
         validate_scene_contract,
     )
 
+from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
+
 
 VALIDATION_MARKER = "PIMM_SCENE_VALIDATION_JSON="
+_MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
 
 
 def _library_path(bpy: Any, library: object | None) -> Path | None:
@@ -51,19 +56,11 @@ def _library_path(bpy: Any, library: object | None) -> Path | None:
     if not filepath:
         return None
     if filepath.startswith("//"):
+        abspath = getattr(getattr(bpy, "path", None), "abspath", None)
+        if callable(abspath):
+            return Path(str(abspath(filepath))).resolve()
         scene_base = Path(str(getattr(bpy.data, "filepath", ""))).resolve().parent
-        scene_relative = (scene_base / filepath[2:]).resolve()
-        if scene_relative.exists():
-            return scene_relative
-        parent = getattr(library, "parent", None)
-        if parent is None:
-            base = scene_base
-        else:
-            parent_path = _library_path(bpy, parent)
-            if parent_path is None:
-                return None
-            base = parent_path.parent
-        return (base / filepath[2:]).resolve()
+        return (scene_base / filepath[2:]).resolve()
     return Path(filepath).resolve()
 
 
@@ -145,6 +142,7 @@ def _validate_materials(
     product: object,
     expected_master: Path,
     expected_material_library: Path,
+    material_registry: dict[str, object],
 ) -> list[str]:
     errors: list[str] = []
     name = str(getattr(product, "name", ""))
@@ -152,13 +150,48 @@ def _validate_materials(
         product, "pimm_product_material_override"
     ) is True:
         errors.append(f"approved product material override is forbidden: {name}")
-    for slot in getattr(product, "material_slots", ()):
-        material = getattr(slot, "material", None)
-        if material is None:
-            continue
+    materials = [
+        material
+        for material in (
+            getattr(slot, "material", None)
+            for slot in getattr(product, "material_slots", ())
+        )
+        if material is not None
+    ]
+    if not materials:
+        errors.append(f"approved product has no exact material datablock: {name}")
+    for material in materials:
         scope = _property(material, "pimm_material_scope", "unknown")
         origin = _datablock_library_path(bpy, material)
         material_name = str(getattr(material, "name", ""))
+        material_id = _property(material, "pimm_material_id")
+        if (
+            not isinstance(material_id, str)
+            or material_id != material_id.strip()
+            or _MATERIAL_ID.fullmatch(material_id) is None
+            or material_id == "UNASSIGNED"
+        ):
+            errors.append(
+                f"product material requires exact pimm_material_id: {name}/{material_name}"
+            )
+        else:
+            prior = material_registry.setdefault(material_id, material)
+            if prior is not material:
+                errors.append(
+                    f"pimm_material_id must identify one exact material datablock: {material_id}"
+                )
+            if scope == "shared" and material_name != f"PIMM_{material_id}":
+                errors.append(
+                    f"shared material name/pimm_material_id mismatch: {name}/{material_name}"
+                )
+            if (
+                scope == "shared"
+                and material_id not in _APPROVED_SHARED_MATERIAL_IDS
+            ):
+                errors.append(
+                    f"shared pimm_material_id is outside the canonical material catalog: "
+                    f"{name}/{material_id}"
+                )
         if scope == "shared" and origin != expected_material_library:
             errors.append(
                 f"linked product material made local or resolved outside material library: {name}/{material_name} origin={origin}"
@@ -250,6 +283,15 @@ def validate_open_render_scene(
         errors.append(
             f"missing expected material-library dependency: {expected_material_library}; found={sorted(str(path) for path in library_paths)}"
         )
+    unexpected_library_paths = library_paths - {
+        expected_master,
+        expected_material_library,
+    }
+    if unexpected_library_paths:
+        errors.append(
+            "render scene contains linked libraries outside the exact master/material-library "
+            f"authority: {sorted(str(path) for path in unexpected_library_paths)}"
+        )
 
     candidates = [
         collection
@@ -277,6 +319,52 @@ def validate_open_render_scene(
         key=lambda obj: str(getattr(obj, "name", "")),
     )
     expected_products = set(getattr(published, "all_objects", ())) if published else set()
+    material_registry: dict[str, object] = {}
+    # Validate every used material datablock, not only object slots. Geometry
+    # Nodes and node-socket pointers can contribute a material to rendering
+    # without placing it in ``Object.material_slots``.
+    for material in getattr(bpy.data, "materials", ()):
+        if int(getattr(material, "users", 0)) <= 0:
+            continue
+        material_name = str(getattr(material, "name", ""))
+        material_id = _property(material, "pimm_material_id")
+        if (
+            not isinstance(material_id, str)
+            or material_id != material_id.strip()
+            or _MATERIAL_ID.fullmatch(material_id) is None
+            or material_id == "UNASSIGNED"
+        ):
+            errors.append(
+                f"used material requires exact pimm_material_id: {material_name}"
+            )
+            continue
+        prior = material_registry.setdefault(material_id, material)
+        if prior is not material:
+            errors.append(
+                f"pimm_material_id must identify one exact material datablock: {material_id}"
+            )
+        origin = _datablock_library_path(bpy, material)
+        if origin == expected_material_library:
+            if material_id not in _APPROVED_SHARED_MATERIAL_IDS:
+                errors.append(
+                    "material-library pimm_material_id is outside the canonical shared "
+                    f"catalog: {material_name}/{material_id}"
+                )
+            elif material_name != f"PIMM_{material_id}":
+                errors.append(
+                    "shared material name/pimm_material_id mismatch: "
+                    f"{material_name}/{material_id}"
+                )
+        elif origin == expected_master and material_id in _APPROVED_SHARED_MATERIAL_IDS:
+            errors.append(
+                "shared material resolved from master instead of material library: "
+                f"{material_name}/{material_id}"
+            )
+        elif origin not in {expected_master, expected_material_library}:
+            errors.append(
+                "used material is scene-local or outside the exact master/material-library "
+                f"authority: {material_name}/{material_id} origin={origin}"
+            )
     for product in products:
         name = str(getattr(product, "name", ""))
         object_library = _datablock_library_path(bpy, product)
@@ -294,7 +382,11 @@ def validate_open_render_scene(
             )
         errors.extend(
             _validate_materials(
-                bpy, product, expected_master, expected_material_library
+                bpy,
+                product,
+                expected_master,
+                expected_material_library,
+                material_registry,
             )
         )
 

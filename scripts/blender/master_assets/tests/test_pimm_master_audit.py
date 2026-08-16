@@ -92,6 +92,13 @@ class MasterAuditContractTests(unittest.TestCase):
         self.assertTrue(any("duplicate stable solid ID" in error for error in result.errors))
         self.assertEqual(result.disconnected_geometry, ["30G-0123456789abcdef"])
 
+    def test_missing_material_id_never_falls_back_to_a_display_name(self):
+        result = evaluate_records(
+            [record(material_state="approved", material_ids=("",))], "working"
+        )
+
+        self.assertTrue(any("pimm_material_id" in error for error in result.errors))
+
 
 if __name__ == "__main__":
     unittest.main()

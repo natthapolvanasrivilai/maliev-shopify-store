@@ -13,6 +13,8 @@ import re
 from statistics import fmean, pstdev
 from typing import Literal, Mapping, Sequence
 
+from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
+
 from .io_contract import atomic_write_json, sha256_file
 from .paths import ASSET_ROOT, require_within
 from .scene_contract import SceneContract
@@ -35,6 +37,8 @@ _FIELDS = {
 }
 _GENERATION_ID = re.compile(r"^proof-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7}$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
+_PIMM_MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_CANONICAL_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
 _BACKGROUNDS = frozenset({"white", "checker", "dark"})
 _STAGES = frozenset({"composition", "material-lighting"})
 _IMAGE_KINDS = frozenset(
@@ -915,10 +919,25 @@ def _validate_identity(
         _validate_absolute_safe_path(library, f"{label} library")
     if "pimm_stable_id" in value:
         _require_string(value["pimm_stable_id"], f"{label} pimm_stable_id")
-    if "pimm_material_id" in value:
-        if value["type"] != "Material":
-            raise ValueError(f"{label} pimm_material_id is valid only for Material identities")
-        _require_string(value["pimm_material_id"], f"{label} pimm_material_id")
+    if value["type"] == "Material":
+        if "pimm_material_id" not in value:
+            raise ValueError(f"{label} requires an exact pimm_material_id")
+        material_id = _require_string(
+            value["pimm_material_id"], f"{label} pimm_material_id"
+        )
+        if material_id != material_id.strip() or _PIMM_MATERIAL_ID.fullmatch(material_id) is None:
+            raise ValueError(f"{label} pimm_material_id must be canonical uppercase authority")
+        if material_id == "UNASSIGNED":
+            raise ValueError(f"{label} pimm_material_id cannot equal UNASSIGNED")
+        if (
+            material_id in _CANONICAL_SHARED_MATERIAL_IDS
+            and value["name"] != f"PIMM_{material_id}"
+        ):
+            raise ValueError(
+                f"{label} shared material name/pimm_material_id mapping is invalid"
+            )
+    elif "pimm_material_id" in value:
+        raise ValueError(f"{label} pimm_material_id is valid only for Material identities")
     return value
 
 
@@ -2120,6 +2139,14 @@ def _validate_authored_settings(value: object, label: str) -> Mapping[str, objec
     )
     for index, material in enumerate(materials):
         _validate_material(material, f"{label} materials[{index}]")
+    material_ids: dict[str, str] = {}
+    for material in materials:
+        identity = material["identity"]
+        material_id = str(identity["pimm_material_id"])
+        identity_key = _identity_key(identity)
+        prior = material_ids.setdefault(material_id, identity_key)
+        if prior != identity_key:
+            raise ValueError(f"{label} pimm_material_id values must be unique per datablock")
     images = _validate_sorted_unique(
         authored["images"], label + " images", lambda item: _canonical_key(
             {field: item.get(field) for field in _identity_fields(item)}
@@ -2133,6 +2160,14 @@ def _validate_authored_settings(value: object, label: str) -> Mapping[str, objec
     if digest != _dependency_digest(authored):
         raise ValueError(f"{label} dependency digest is inconsistent with dependency records")
     return authored
+
+
+def validate_authored_settings(
+    value: object, label: str = "authored settings"
+) -> Mapping[str, object]:
+    """Validate one complete Task 5 authored dependency graph and its digest."""
+
+    return _validate_authored_settings(value, label)
 
 
 def _validate_render_metadata(

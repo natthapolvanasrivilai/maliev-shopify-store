@@ -130,20 +130,29 @@ def _install_approved_components_in_render_metadata(metadata: dict[str, object])
 
     authored = metadata["authored_settings"]["before"]
     material_specs = (
-        ("PIMM_POWDER_COAT_BLACK", "PIMM-MAT-POWDER-COAT-BLACK"),
-        ("CONTROLLER_ACTIVE", None),
-        ("CONTROLLER_INACTIVE", None),
+        (
+            "PIMM_BLACK_POWDERCOAT",
+            "PIMM-MAT-BLACK-POWDERCOAT",
+            "BLACK_POWDERCOAT",
+        ),
+        ("DISPLAY_LIT_RED", None, "CONTROLLER_ACTIVE"),
+        ("DISPLAY_UNLIT_RED", None, "CONTROLLER_INACTIVE"),
     )
     material_identities: dict[str, dict[str, object]] = {}
     materials = []
-    for name, stable_id in material_specs:
+    for name, stable_id, material_id in material_specs:
         material = proof_fixtures._valid_dependency_material()
-        identity: dict[str, object] = {"name": name, "type": "Material", "library": None}
+        identity: dict[str, object] = {
+            "name": name,
+            "type": "Material",
+            "library": None,
+            "pimm_material_id": material_id,
+        }
         if stable_id:
             identity["pimm_stable_id"] = stable_id
         material["identity"] = identity
         material["node_tree"] = None
-        material_identities[name] = identity
+        material_identities[material_id] = identity
         materials.append(material)
 
     objects = [proof_fixtures._valid_camera_dependency_object()]
@@ -163,7 +172,7 @@ def _install_approved_components_in_render_metadata(metadata: dict[str, object])
 
     objects.append(
         component_object(
-            "PIMM_30G_MATERIAL_BODY", "30G-material-body", "PIMM_POWDER_COAT_BLACK"
+            "PIMM_30G_MATERIAL_BODY", "30G-material-body", "BLACK_POWDERCOAT"
         )
     )
     machine = _approved_component_machine_contract()
@@ -193,22 +202,48 @@ def _approved_component_authored_state() -> dict[str, object]:
     machine = _approved_component_machine_contract()
     segments = machine["controller"]["approved_segments"]
     material_identity = {
-        "name": "PIMM_POWDER_COAT_BLACK",
+        "name": "PIMM_BLACK_POWDERCOAT",
         "type": "Material",
-        "library": "PIMM-MATERIAL-LIBRARY.blend",
-        "pimm_stable_id": "PIMM-MAT-POWDER-COAT-BLACK",
+        "library": None,
+        "pimm_stable_id": "PIMM-MAT-BLACK-POWDERCOAT",
+        "pimm_material_id": "BLACK_POWDERCOAT",
+    }
+    active_identity = {
+        "name": "DISPLAY_LIT_RED",
+        "type": "Material",
+        "library": None,
+        "pimm_material_id": "CONTROLLER_ACTIVE",
+    }
+    inactive_identity = {
+        "name": "DISPLAY_UNLIT_RED",
+        "type": "Material",
+        "library": None,
+        "pimm_material_id": "CONTROLLER_INACTIVE",
+    }
+    material_identities = {
+        "BLACK_POWDERCOAT": material_identity,
+        "CONTROLLER_ACTIVE": active_identity,
+        "CONTROLLER_INACTIVE": inactive_identity,
     }
     objects: list[dict[str, object]] = [
         {
             "identity": {
                 "name": "PIMM_30G_MATERIAL_BODY",
                 "type": "Object",
-                "library": "PIMM-30G-MASTER.blend",
+                "library": None,
                 "pimm_stable_id": "30G-material-body",
             },
             "object_type": "MESH",
+            "data": {
+                "identity": {
+                    "name": "PIMM_30G_MATERIAL_BODY_MESH",
+                    "type": "Mesh",
+                    "library": None,
+                }
+            },
             "hide_render": False,
             "material_slots": [{"material": material_identity}],
+            "modifiers": [],
         }
     ]
     for segment in segments:
@@ -217,23 +252,149 @@ def _approved_component_authored_state() -> dict[str, object]:
                 "identity": {
                     "name": segment["stable_object_id"],
                     "type": "Object",
-                    "library": "PIMM-30G-MASTER.blend",
+                    "library": None,
                     "pimm_stable_id": segment["stable_object_id"],
                 },
                 "object_type": "MESH",
+                "data": {
+                    "identity": {
+                        "name": f"{segment['stable_object_id']}_MESH",
+                        "type": "Mesh",
+                        "library": None,
+                    }
+                },
                 "hide_render": False,
                 "material_slots": [
                     {
-                        "material": {
-                            "name": segment["material_id"],
-                            "type": "Material",
-                            "library": "PIMM-30G-MASTER.blend",
-                        }
+                        "material": material_identities[str(segment["material_id"])]
                     }
                 ],
+                "modifiers": [],
             }
         )
-    return {"objects": objects}
+    return {
+        "objects": objects,
+        "materials": [
+            {"identity": identity, "properties": {}, "node_tree": None}
+            for identity in material_identities.values()
+        ],
+        "images": [],
+    }
+
+
+def _set_component_library_authorities(
+    authored: dict[str, object], master: Path, material_library: Path
+) -> None:
+    """Model a master-linked component with a nested shared material library."""
+
+    master_text = str(master.resolve())
+    material_text = str(material_library.resolve())
+    materials_by_id = {
+        str(record["identity"]["pimm_material_id"]): record["identity"]
+        for record in authored["materials"]
+    }
+    for record in authored["materials"]:
+        identity = record["identity"]
+        identity["library"] = (
+            material_text
+            if identity["pimm_material_id"] == "BLACK_POWDERCOAT"
+            else master_text
+        )
+    for obj in authored["objects"]:
+        if obj.get("object_type") != "MESH":
+            continue
+        obj["identity"]["library"] = master_text
+        obj["data"]["identity"]["library"] = master_text
+        for slot in obj["material_slots"]:
+            material_id = slot["material"]["pimm_material_id"]
+            slot["material"] = materials_by_id[material_id]
+    authored["materials"].sort(
+        key=lambda item: json.dumps(
+            item["identity"], sort_keys=True, separators=(",", ":")
+        )
+    )
+    authored["objects"].sort(
+        key=lambda item: json.dumps(
+            [
+                item["identity"]["name"],
+                item["object_type"],
+                item["identity"]["library"],
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+    if "collection_tree" in authored:
+        authored["collection_tree"]["objects"].sort(
+            key=lambda identity: json.dumps(
+                identity, sort_keys=True, separators=(",", ":")
+            )
+        )
+
+
+def _component_authority_fixture(
+    root: Path,
+) -> tuple[
+    dict[str, object],
+    dict[str, object],
+    dict[str, str],
+    dict[str, dict[str, object]],
+    Path,
+    Path,
+]:
+    """Return approved component state tied only to pinned master/material files."""
+
+    master = root / "inputs" / "PIMM-30G-MASTER.blend"
+    material_library = root / "inputs" / "PIMM-MATERIAL-LIBRARY.blend"
+    master.parent.mkdir(parents=True)
+    master.write_bytes(b"pinned component master")
+    material_library.write_bytes(b"pinned component material library")
+    authored = _approved_component_authored_state()
+    _set_component_library_authorities(authored, master, material_library)
+    component_contract = approval_module.build_component_contract(
+        _approved_component_machine_contract(), authored
+    )
+    roots = {
+        "asset": str(root.resolve()),
+        "repository": str(REPO_ROOT.resolve()),
+        "tool": str((root / "tools").resolve()),
+    }
+    evidence = {
+        "master": approval_module.stable_file_record(
+            master, root, "asset", "master"
+        ),
+        "material_library": approval_module.stable_file_record(
+            material_library, root, "asset", "material library"
+        ),
+    }
+    return (
+        authored,
+        component_contract,
+        roots,
+        evidence,
+        master,
+        material_library,
+    )
+
+
+def _rewrite_proof_authored_settings(
+    proof_path: Path, mutation: Callable[[dict[str, object]], None]
+) -> None:
+    """Apply one schema-valid authored-state mutation to both Task 5 copies."""
+
+    metadata_path = proof_path.parent / "render-metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    before = copy.deepcopy(metadata["authored_settings"]["before"])
+    mutation(before)
+    proof_fixtures._recompute_dependency_digest(before)
+    metadata["authored_settings"] = {
+        "before": before,
+        "after": copy.deepcopy(before),
+    }
+    _write_json(metadata_path, metadata)
+    proof = json.loads(proof_path.read_text(encoding="utf-8"))
+    proof["render"] = metadata
+    _write_json(proof_path, proof)
 
 
 def _png_bytes(image: Image.Image) -> bytes:
@@ -333,8 +494,10 @@ def _proof_manifest(
     scene_path = inputs / "scene.blend"
     native_scene = scene_path.exists()
     source.write_bytes(b"authoritative STEP")
-    master.write_bytes(b"authoritative master")
-    material.write_bytes(b"authoritative material library")
+    if not master.exists():
+        master.write_bytes(b"authoritative master")
+    if not material.exists():
+        material.write_bytes(b"authoritative material library")
     if not scene_path.exists():
         scene_path.write_bytes(b"authoritative fixture scene")
 
@@ -361,6 +524,10 @@ def _proof_manifest(
     metadata["base_dimensions"] = [64, 48]
     if not native_scene:
         _install_approved_components_in_render_metadata(metadata)
+        authored = metadata["authored_settings"]["before"]
+        _set_component_library_authorities(authored, master, material)
+        proof_fixtures._recompute_dependency_digest(authored)
+        metadata["authored_settings"]["after"] = copy.deepcopy(authored)
     tool_binary = BLENDER if native_scene else root / "tools" / "blender.exe"
     if tool_binary != BLENDER:
         tool_binary.parent.mkdir(parents=True)
@@ -879,6 +1046,9 @@ class ApprovalReleaseTests(unittest.TestCase):
             shot_id: str,
             component_contract: dict[str, object],
             samples: int,
+            *,
+            repository_root: Path,
+            expected_dependency_sha256: str,
         ) -> tuple[bytes, bytes, dict[str, bytes]]:
             if blender_binary.resolve() == BLENDER.resolve():
                 return native_regenerator(
@@ -888,6 +1058,8 @@ class ApprovalReleaseTests(unittest.TestCase):
                     shot_id,
                     component_contract,
                     samples,
+                    repository_root=repository_root,
+                    expected_dependency_sha256=expected_dependency_sha256,
                 )
             png, masks = _structured_component_pixels()
             return (
@@ -911,6 +1083,494 @@ class ApprovalReleaseTests(unittest.TestCase):
         """Catches a final gate that authorizes data but cannot render native evidence."""
 
         self.assertTrue(callable(run_authorized_final))
+
+    def test_component_dependencies_accept_only_pinned_master_or_material_library(self) -> None:
+        """Catches linked object/data/material/node/image bytes outside approval authority."""
+
+        validator = getattr(
+            approval_module, "build_authorized_component_contract", None
+        )
+        self.assertTrue(
+            callable(validator),
+            "Task 6 requires a component builder that resolves linked libraries to pinned evidence",
+        )
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            (
+                authored,
+                expected_contract,
+                roots,
+                evidence,
+                master,
+                material_library,
+            ) = _component_authority_fixture(root)
+            self.assertEqual(
+                validator(
+                    _approved_component_machine_contract(), authored, roots, evidence
+                ),
+                expected_contract,
+            )
+
+            same_name = root / "other" / master.name
+            same_name.parent.mkdir()
+            same_name.write_bytes(master.read_bytes())
+            sidecar = root / "other" / "linked-components.blend"
+            sidecar.write_bytes(b"unapproved linked dependency")
+
+            def object_library(candidate: dict[str, object]) -> None:
+                candidate["objects"][0]["identity"]["library"] = str(sidecar.resolve())
+
+            def mesh_library(candidate: dict[str, object]) -> None:
+                candidate["objects"][0]["data"]["identity"]["library"] = str(
+                    sidecar.resolve()
+                )
+
+            def same_name_library(candidate: dict[str, object]) -> None:
+                candidate["objects"][0]["identity"]["library"] = str(
+                    same_name.resolve()
+                )
+
+            def linked_material_library(candidate: dict[str, object]) -> None:
+                identity = candidate["materials"][0]["identity"]
+                identity["library"] = str(sidecar.resolve())
+                candidate["objects"][0]["material_slots"][0]["material"] = identity
+
+            def localized_shared_material(candidate: dict[str, object]) -> None:
+                identity = candidate["materials"][0]["identity"]
+                identity["library"] = None
+                candidate["objects"][0]["material_slots"][0]["material"] = identity
+
+            def localized_machine_material(candidate: dict[str, object]) -> None:
+                identity = next(
+                    material["identity"]
+                    for material in candidate["materials"]
+                    if material["identity"]["pimm_material_id"]
+                    == "CONTROLLER_ACTIVE"
+                )
+                identity["library"] = None
+                for obj in candidate["objects"]:
+                    for slot in obj["material_slots"]:
+                        if (
+                            slot["material"]["pimm_material_id"]
+                            == "CONTROLLER_ACTIVE"
+                        ):
+                            slot["material"] = identity
+
+            def node_library(candidate: dict[str, object]) -> None:
+                candidate["materials"][0]["node_tree"] = {
+                    "identity": {
+                        "name": "UNPINNED_NESTED_GROUP",
+                        "type": "ShaderNodeTree",
+                        "library": str(sidecar.resolve()),
+                    },
+                    "nodes": [],
+                    "links": [],
+                }
+
+            def image_library(candidate: dict[str, object]) -> None:
+                candidate["materials"][0]["node_tree"] = {
+                    "identity": {
+                        "name": "SCENE_LOCAL_TREE",
+                        "type": "ShaderNodeTree",
+                        "library": None,
+                    },
+                    "nodes": [
+                        {
+                            "data": {
+                                "image": {
+                                    "name": "UNPINNED_IMAGE",
+                                    "type": "Image",
+                                    "library": str(sidecar.resolve()),
+                                    "source": "GENERATED",
+                                    "external_files": [],
+                                }
+                            }
+                        }
+                    ],
+                    "links": [],
+                }
+
+            mutations = {
+                "object": object_library,
+                "mesh": mesh_library,
+                "same-name path": same_name_library,
+                "material": linked_material_library,
+                "localized shared material": localized_shared_material,
+                "localized machine material": localized_machine_material,
+                "nested node group": node_library,
+                "nested image": image_library,
+            }
+            for label, mutate in mutations.items():
+                with self.subTest(dependency=label):
+                    candidate = copy.deepcopy(authored)
+                    mutate(candidate)
+                    with self.assertRaisesRegex(
+                        ValueError, "linked Blender library|pinned master|material-library"
+                    ):
+                        validator(
+                            _approved_component_machine_contract(),
+                            candidate,
+                            roots,
+                            evidence,
+                        )
+
+            master.write_bytes(b"mutated master with stable datablock names and IDs")
+            with self.assertRaisesRegex(ValueError, "master.*(drift|identity|SHA-256)"):
+                validator(
+                    _approved_component_machine_contract(), authored, roots, evidence
+                )
+            (
+                material_authored,
+                _,
+                material_roots,
+                material_evidence,
+                _,
+                material_library,
+            ) = _component_authority_fixture(root / "material-byte-drift")
+            material_library.write_bytes(
+                b"mutated material library with stable material and node names"
+            )
+            with self.assertRaisesRegex(
+                ValueError, "material library.*(drift|identity|SHA-256)"
+            ):
+                validator(
+                    _approved_component_machine_contract(),
+                    material_authored,
+                    material_roots,
+                    material_evidence,
+                )
+
+    def test_component_contract_requires_exact_unique_pimm_material_ids(self) -> None:
+        """Catches fallback, wrong, swapped, or duplicate material authority."""
+
+        machine = _approved_component_machine_contract()
+        valid = _approved_component_authored_state()
+
+        def rewrite_all(
+            candidate: dict[str, object], old: str, new: str | None
+        ) -> None:
+            def visit(value: object) -> None:
+                if isinstance(value, dict):
+                    if (
+                        value.get("type") == "Material"
+                        and value.get("pimm_material_id") == old
+                    ):
+                        if new is None:
+                            value.pop("pimm_material_id", None)
+                        else:
+                            value["pimm_material_id"] = new
+                    for nested in value.values():
+                        visit(nested)
+                elif isinstance(value, list):
+                    for nested in value:
+                        visit(nested)
+
+            visit(candidate)
+
+        mutations: dict[str, Callable[[dict[str, object]], None]] = {
+            "missing": lambda candidate: rewrite_all(
+                candidate, "BLACK_POWDERCOAT", None
+            ),
+            "blank": lambda candidate: rewrite_all(
+                candidate, "BLACK_POWDERCOAT", ""
+            ),
+            "wrong": lambda candidate: rewrite_all(
+                candidate, "BLACK_POWDERCOAT", "WRONG_SHARED_MATERIAL"
+            ),
+        }
+
+        def swap(candidate: dict[str, object]) -> None:
+            rewrite_all(candidate, "CONTROLLER_ACTIVE", "__SWAP__")
+            rewrite_all(candidate, "CONTROLLER_INACTIVE", "CONTROLLER_ACTIVE")
+            rewrite_all(candidate, "__SWAP__", "CONTROLLER_INACTIVE")
+
+        def duplicate(candidate: dict[str, object]) -> None:
+            duplicate_identity = {
+                "name": "PIMM_BLACK_POWDERCOAT_COPY",
+                "type": "Material",
+                "library": None,
+                "pimm_material_id": "BLACK_POWDERCOAT",
+            }
+            candidate["materials"].append(
+                {"identity": duplicate_identity, "properties": {}, "node_tree": None}
+            )
+            candidate["objects"][0]["material_slots"].append(
+                {"material": duplicate_identity}
+            )
+
+        def coordinated_wrong_shared_id(candidate: dict[str, object]) -> None:
+            rewrite_all(candidate, "BLACK_POWDERCOAT", "NOT_IN_SHARED_CATALOG")
+
+            def rename(value: object) -> None:
+                if isinstance(value, dict):
+                    if (
+                        value.get("type") == "Material"
+                        and value.get("pimm_material_id")
+                        == "NOT_IN_SHARED_CATALOG"
+                    ):
+                        value["name"] = "PIMM_NOT_IN_SHARED_CATALOG"
+                    for nested in value.values():
+                        rename(nested)
+                elif isinstance(value, list):
+                    for nested in value:
+                        rename(nested)
+
+            rename(candidate)
+
+        def add_unassigned_material(candidate: dict[str, object]) -> None:
+            unassigned = {
+                "name": "PIMM_UNASSIGNED",
+                "type": "Material",
+                "library": None,
+                "pimm_material_id": "UNASSIGNED",
+            }
+            candidate["materials"].append(
+                {"identity": unassigned, "properties": {}, "node_tree": None}
+            )
+            candidate["objects"].append(
+                {
+                    "identity": {
+                        "name": "PIMM_UNASSIGNED_BODY",
+                        "type": "Object",
+                        "library": None,
+                        "pimm_stable_id": "30G-unassigned-body",
+                    },
+                    "object_type": "MESH",
+                    "data": {
+                        "identity": {
+                            "name": "PIMM_UNASSIGNED_BODY_MESH",
+                            "type": "Mesh",
+                            "library": None,
+                        }
+                    },
+                    "hide_render": False,
+                    "material_slots": [{"material": unassigned}],
+                    "modifiers": [],
+                }
+            )
+
+        mutations["swapped"] = swap
+        mutations["duplicate"] = duplicate
+        mutations["coordinated wrong shared ID"] = coordinated_wrong_shared_id
+        mutations["unassigned"] = add_unassigned_material
+        for label, mutate in mutations.items():
+            with self.subTest(material_id=label):
+                candidate = copy.deepcopy(valid)
+                mutate(candidate)
+                with self.assertRaisesRegex(
+                    ValueError, "pimm_material_id|material.*(mismatch|unique|duplicate)"
+                ):
+                    approval_module.build_component_contract(machine, candidate)
+
+    def test_owner_approval_rejects_same_name_unpinned_component_library(self) -> None:
+        """Catches genuine Task 5 evidence approving a same-name sidecar library."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            proof = _proof_manifest(root, "a" * 64)
+            sidecar = root / "sidecar" / "PIMM-30G-MASTER.blend"
+            sidecar.parent.mkdir()
+            sidecar.write_bytes(b"unapproved master bytes with familiar datablock names")
+
+            def mutate(authored: dict[str, object]) -> None:
+                for obj in authored["objects"]:
+                    if obj["identity"].get("pimm_stable_id") != "30G-material-body":
+                        continue
+                    obj["identity"]["library"] = str(sidecar.resolve())
+                    obj["data"]["identity"]["library"] = str(sidecar.resolve())
+                    replacement = obj["identity"]
+                    for identity in authored["collection_tree"]["objects"]:
+                        if identity.get("pimm_stable_id") == "30G-material-body":
+                            identity.clear()
+                            identity.update(replacement)
+                authored["collection_tree"]["objects"].sort(
+                    key=lambda identity: json.dumps(
+                        identity, sort_keys=True, separators=(",", ":")
+                    )
+                )
+
+            _rewrite_proof_authored_settings(proof, mutate)
+            with self.assertRaisesRegex(
+                ValueError, "linked Blender library|pinned master|material-library"
+            ):
+                record_decision(
+                    proof, SHOT_ID, "approved", "natth", "must remain pinned"
+                )
+            self.assertFalse((proof.parent / "approvals").exists())
+
+    def test_linked_library_drift_after_authorization_blocks_before_native_blender(
+        self,
+    ) -> None:
+        """Catches a master/material race between authorization and native reopen."""
+
+        for evidence_name in ("master", "material_library"):
+            with self.subTest(evidence=evidence_name), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                approval, final_contract = write_approval_fixture(
+                    root, "approved", "a" * 64
+                )
+                final_payload = json.loads(final_contract.read_text(encoding="utf-8"))
+                dependency = Path(final_payload["evidence"][evidence_name]["path"])
+                native_builder = final_module.build_authorized_component_contract
+                injected = False
+
+                def inject_after_component_authorization(
+                    *args: object, **kwargs: object
+                ) -> dict[str, object]:
+                    nonlocal injected
+                    contract = native_builder(*args, **kwargs)
+                    if not injected:
+                        injected = True
+                        dependency.write_bytes(
+                            b"mutated linked library with retained names and stable IDs"
+                        )
+                    return contract
+
+                with (
+                    patch.object(
+                        final_module,
+                        "build_authorized_component_contract",
+                        side_effect=inject_after_component_authorization,
+                    ),
+                    patch.object(final_module.subprocess, "run") as blender_run,
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        rf"{evidence_name.replace('_', '[ _]')}.*drift|evidence drift",
+                    ):
+                        run_authorized_final(approval, final_contract)
+
+                self.assertTrue(injected)
+                blender_run.assert_not_called()
+                release_parent = root / "renders" / "final"
+                self.assertFalse((release_parent / RELEASE_ID).exists())
+                self.assertEqual(
+                    list(release_parent.glob(f".{RELEASE_ID}-*.stage")), []
+                )
+
+    @unittest.skipUnless(os.name == "nt", "Windows sharing authority is required")
+    def test_native_blender_holds_linked_library_bytes_against_in_process_swap(
+        self,
+    ) -> None:
+        """Catches a same-path library rewrite while Blender is resolving links."""
+
+        for evidence_name in ("master", "material_library"):
+            with self.subTest(evidence=evidence_name), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                approval, final_contract = write_approval_fixture(
+                    root, "approved", "a" * 64
+                )
+                final_payload = json.loads(final_contract.read_text(encoding="utf-8"))
+                dependency = Path(final_payload["evidence"][evidence_name]["path"])
+                original = dependency.read_bytes()
+                attempted = False
+
+                def inject_while_blender_has_authority(
+                    *args: object, **kwargs: object
+                ) -> SimpleNamespace:
+                    nonlocal attempted
+                    del args, kwargs
+                    attempted = True
+                    dependency.write_bytes(
+                        b"same stable IDs and names, different linked-library bytes"
+                    )
+                    return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+                with patch.object(
+                    final_module.subprocess,
+                    "run",
+                    side_effect=inject_while_blender_has_authority,
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError, "evidence drift|held-authority"
+                    ):
+                        run_authorized_final(approval, final_contract)
+
+                self.assertTrue(attempted)
+                self.assertEqual(dependency.read_bytes(), original)
+                release_parent = root / "renders" / "final"
+                self.assertFalse((release_parent / RELEASE_ID).exists())
+                self.assertEqual(
+                    list(release_parent.glob(f".{RELEASE_ID}-*.stage")), []
+                )
+
+    def test_linked_library_drift_blocks_before_and_during_release_regeneration(
+        self,
+    ) -> None:
+        """Catches independent regeneration consuming raced master/material bytes."""
+
+        for evidence_name in ("master", "material_library"):
+            with self.subTest(phase="before", evidence=evidence_name), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                payload = json.loads(output.read_text(encoding="utf-8"))
+                final_payload = json.loads(
+                    Path(payload["authorized_final_contract_path"]).read_text(
+                        encoding="utf-8"
+                    )
+                )
+                dependency = Path(final_payload["evidence"][evidence_name]["path"])
+                native_builder = release_module.build_authorized_component_contract
+                injected = False
+
+                def inject_before_regeneration(
+                    *args: object, **kwargs: object
+                ) -> dict[str, object]:
+                    nonlocal injected
+                    contract = native_builder(*args, **kwargs)
+                    if not injected:
+                        injected = True
+                        dependency.write_bytes(b"raced before independent regeneration")
+                    return contract
+
+                release_module._regenerate_component_evidence.reset_mock()
+                with patch.object(
+                    release_module,
+                    "build_authorized_component_contract",
+                    side_effect=inject_before_regeneration,
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        rf"{evidence_name.replace('_', '[ _]')}.*drift|evidence drift",
+                    ):
+                        build_release_manifest(RELEASE_ID, [output])
+                self.assertTrue(injected)
+                release_module._regenerate_component_evidence.assert_not_called()
+                self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+            with self.subTest(phase="during", evidence=evidence_name), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                payload = json.loads(output.read_text(encoding="utf-8"))
+                final_payload = json.loads(
+                    Path(payload["authorized_final_contract_path"]).read_text(
+                        encoding="utf-8"
+                    )
+                )
+                dependency = Path(final_payload["evidence"][evidence_name]["path"])
+
+                def inject_during_regeneration(
+                    *args: object, **kwargs: object
+                ) -> tuple[bytes, bytes, dict[str, bytes]]:
+                    del args, kwargs
+                    dependency.write_bytes(b"raced during independent regeneration")
+                    png, masks = _structured_component_pixels()
+                    return png, _float_exr_bytes(64, 48), masks
+
+                with patch.object(
+                    release_module,
+                    "_regenerate_component_evidence",
+                    side_effect=inject_during_regeneration,
+                ) as regenerator:
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        rf"{evidence_name.replace('_', '[ _]')}.*drift|evidence drift",
+                    ):
+                        build_release_manifest(RELEASE_ID, [output])
+                regenerator.assert_called_once()
+                self.assertFalse((output.parents[1] / "release-manifest.json").exists())
 
     def test_final_qa_binds_approved_component_identities_to_exact_masked_pixels(self) -> None:
         """Catches whole-frame regions or copied claims without approved object masks."""
@@ -1041,16 +1701,14 @@ class ApprovalReleaseTests(unittest.TestCase):
                 f"""
                 import bpy
 
-                bpy.ops.object.select_all(action='SELECT')
-                bpy.ops.object.delete(use_global=False)
-                for material in list(bpy.data.materials):
-                    bpy.data.materials.remove(material)
-
-                bpy.context.scene.collection.children[0].name = 'PIMM_PUBLISHED'
+                material_library_path = {str(root / 'inputs' / 'PIMM-MATERIAL-LIBRARY.blend')!r}
+                master_path = {str(root / 'inputs' / 'PIMM-30G-MASTER.blend')!r}
+                bpy.ops.wm.read_factory_settings(use_empty=True)
 
                 def component_material(name, color, stable_id=None, material_id=None):
                     material = bpy.data.materials.new(name)
                     material.use_nodes = True
+                    material.use_fake_user = True
                     if stable_id is not None:
                         material['pimm_stable_id'] = stable_id
                     if material_id is not None:
@@ -1062,9 +1720,15 @@ class ApprovalReleaseTests(unittest.TestCase):
                     return material
 
                 body_material = component_material(
-                    'PIMM_POWDER_COAT_BLACK', (0.08, 0.18, 0.35),
-                    'PIMM-MAT-POWDER-COAT-BLACK'
+                    'PIMM_BLACK_POWDERCOAT', (0.08, 0.18, 0.35),
+                    'PIMM-MAT-BLACK-POWDERCOAT', 'BLACK_POWDERCOAT'
                 )
+                bpy.ops.wm.save_as_mainfile(filepath=material_library_path)
+
+                bpy.ops.wm.read_factory_settings(use_empty=True)
+                with bpy.data.libraries.load(material_library_path, link=True) as (data_from, data_to):
+                    data_to.materials = ['PIMM_BLACK_POWDERCOAT']
+                body_material = data_to.materials[0]
                 active_material = component_material(
                     'DISPLAY_LIT_RED', (1.0, 0.05, 0.01),
                     material_id='CONTROLLER_ACTIVE'
@@ -1073,12 +1737,20 @@ class ApprovalReleaseTests(unittest.TestCase):
                     'DISPLAY_UNLIT_RED', (0.02, 0.002, 0.001),
                     material_id='CONTROLLER_INACTIVE'
                 )
+                published = bpy.data.collections.new('PIMM_PUBLISHED')
+                bpy.context.scene.collection.children.link(published)
+
+                def move_to_published(obj):
+                    for collection in list(obj.users_collection):
+                        collection.objects.unlink(obj)
+                    published.objects.link(obj)
 
                 bpy.ops.mesh.primitive_cube_add(location=(-1.6, 0.0, 0.0), scale=(1.15, 1.55, 0.18))
                 body = bpy.context.object
                 body.name = 'PIMM_30G_MATERIAL_BODY'
                 body['pimm_stable_id'] = '30G-material-body'
                 body.data.materials.append(body_material)
+                move_to_published(body)
 
                 labels = ('a', 'b', 'c', 'd', 'e', 'f', 'g')
                 patterns = ('1011011', '1110111', '1110111', '1011011', '1110111', '1110111')
@@ -1109,11 +1781,11 @@ class ApprovalReleaseTests(unittest.TestCase):
                     obj.name = segment['stable_object_id']
                     obj['pimm_stable_id'] = segment['stable_object_id']
                     obj.data.materials.append(active_material if segment['active'] else inactive_material)
+                    move_to_published(obj)
 
-                component_library_path = {str(root / 'inputs' / 'linked-components.blend')!r}
-                bpy.ops.wm.save_as_mainfile(filepath=component_library_path)
+                bpy.ops.wm.save_as_mainfile(filepath=master_path)
                 bpy.ops.wm.read_factory_settings(use_empty=True)
-                with bpy.data.libraries.load(component_library_path, link=True) as (data_from, data_to):
+                with bpy.data.libraries.load(master_path, link=True) as (data_from, data_to):
                     data_to.collections = ['PIMM_PUBLISHED']
                 bpy.context.scene.collection.children.link(data_to.collections[0])
 
@@ -1160,21 +1832,40 @@ class ApprovalReleaseTests(unittest.TestCase):
                 )
             )
             authored_before = render_metadata["authored_settings"]["before"]
+            expected_master = Path(
+                approval_payload["evidence"]["master"]["path"]
+            )
+            expected_material_library = Path(
+                approval_payload["evidence"]["material_library"]["path"]
+            )
             linked_segments = [
                 obj for obj in authored_before["objects"]
                 if str(obj["identity"].get("pimm_stable_id", "")).startswith("30G-display-")
             ]
             self.assertEqual(len(linked_segments), 42)
-            self.assertTrue(all(obj["identity"]["library"] for obj in linked_segments))
+            self.assertEqual(
+                {Path(obj["identity"]["library"]) for obj in linked_segments},
+                {expected_master},
+            )
+            self.assertEqual(
+                {Path(obj["data"]["identity"]["library"]) for obj in linked_segments},
+                {expected_master},
+            )
             material_by_id = {
                 material["identity"].get("pimm_material_id"): material["identity"]
                 for material in authored_before["materials"]
             }
-            self.assertTrue(
-                material_by_id["CONTROLLER_ACTIVE"]["name"].startswith("DISPLAY_LIT_RED")
+            self.assertEqual(
+                material_by_id["BLACK_POWDERCOAT"]["library"],
+                str(expected_material_library),
             )
-            self.assertTrue(
-                material_by_id["CONTROLLER_INACTIVE"]["name"].startswith("DISPLAY_UNLIT_RED")
+            self.assertEqual(
+                material_by_id["CONTROLLER_ACTIVE"]["library"],
+                str(expected_master),
+            )
+            self.assertEqual(
+                material_by_id["CONTROLLER_INACTIVE"]["library"],
+                str(expected_master),
             )
             manifest_path = run_authorized_final(approval_path, final_contract_path)
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -1314,6 +2005,7 @@ class ApprovalReleaseTests(unittest.TestCase):
             "compositor_sha256": "compositor SHA-256 drift",
             "render_settings_sha256": "render settings SHA-256 drift",
             "composition_sha256": "composition SHA-256 drift",
+            "dependency_sha256": "dependency SHA-256 drift",
         }
         for field, expected_error in mutations.items():
             with self.subTest(field=field), TemporaryDirectory() as root_text:
@@ -1809,6 +2501,7 @@ class ApprovalReleaseTests(unittest.TestCase):
                 "compositor_sha256",
                 "render_settings_sha256",
                 "animation_sha256",
+                "dependency_sha256",
             ):
                 with self.subTest(state=field):
                     changed = copy.deepcopy(final)
@@ -2186,6 +2879,56 @@ class ApprovalReleaseTests(unittest.TestCase):
             self.assertTrue(injected)
             self.assertEqual(source.read_bytes(), original)
             self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_commit_revalidates_linked_library_identity_before_marker(
+        self,
+    ) -> None:
+        """Catches restored master/material bytes raced at the marker commit point."""
+
+        for evidence_name in ("master", "material_library"):
+            with self.subTest(evidence=evidence_name), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                payload = json.loads(output.read_text(encoding="utf-8"))
+                approval_payload = json.loads(
+                    Path(payload["approval_path"]).read_text(encoding="utf-8")
+                )
+                dependency = Path(
+                    approval_payload["evidence"][evidence_name]["path"]
+                )
+                original = dependency.read_bytes()
+                original_stat = dependency.stat()
+                injected = False
+                original_create = release_module._create_new_json
+
+                def inject_transient_drift(
+                    path: Path, manifest: dict[str, object], **kwargs: object
+                ) -> dict[str, object]:
+                    nonlocal injected
+                    injected = True
+                    dependency.write_bytes(b"transient linked-library attacker bytes")
+                    dependency.write_bytes(original)
+                    os.utime(
+                        dependency,
+                        ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+                    )
+                    return original_create(path, manifest, **kwargs)
+
+                with patch.object(
+                    release_module,
+                    "_create_new_json",
+                    side_effect=inject_transient_drift,
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        rf"{evidence_name.replace('_', '[ _]')}.*drift|evidence drift|identity",
+                    ):
+                        build_release_manifest(RELEASE_ID, [output])
+
+                self.assertTrue(injected)
+                self.assertEqual(dependency.read_bytes(), original)
+                self.assertFalse((output.parents[1] / "release-manifest.json").exists())
 
     def test_release_commit_rescan_rejects_late_file_and_directory(self) -> None:
         """Catches a release tree rescan performed only before marker staging."""

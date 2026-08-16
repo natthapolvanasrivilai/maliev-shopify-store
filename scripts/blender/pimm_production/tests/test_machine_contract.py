@@ -145,22 +145,27 @@ class MachineContractTests(unittest.TestCase):
         return contract
 
     def _approved_segments(self) -> list[_Object]:
-        return [
-            _Object(
-                "Active display segment",
-                "MESH",
-                stable_id="30G-segment-active",
-                cad_name="Display",
-                materials=("CONTROLLER_GREEN_EMISSIVE",),
+        active = _Object(
+            "Active display segment",
+            "MESH",
+            stable_id="30G-segment-active",
+            cad_name="Display",
+        )
+        active.material_slots = (
+            _MaterialSlot(
+                _Material("DISPLAY_LIT_GREEN", "CONTROLLER_GREEN_EMISSIVE")
             ),
-            _Object(
-                "Inactive display segment",
-                "MESH",
-                stable_id="30G-segment-inactive",
-                cad_name="Display",
-                materials=("CONTROLLER_OFF",),
-            ),
-        ]
+        )
+        inactive = _Object(
+            "Inactive display segment",
+            "MESH",
+            stable_id="30G-segment-inactive",
+            cad_name="Display",
+        )
+        inactive.material_slots = (
+            _MaterialSlot(_Material("DISPLAY_UNLIT", "CONTROLLER_OFF")),
+        )
+        return [active, inactive]
 
     def test_controller_values_are_machine_specific(self) -> None:
         """Catches a copied display temperature between the two master contracts."""
@@ -296,8 +301,12 @@ class MachineContractTests(unittest.TestCase):
             "MESH",
             stable_id="30G-controller-segment-a",
             cad_name="Display - PV (Process Value)",
-            materials=("MALIEV_Controller_Green_Emissive",),
             collections=("PIMM_PUBLISHED", "Electronic Box", "Controller"),
+        )
+        controller.material_slots = (
+            _MaterialSlot(
+                _Material("DISPLAY_LIT_GREEN", "CONTROLLER_GREEN_EMISSIVE")
+            ),
         )
 
         candidates = discover_controller_candidates([controller, _Object("Frame", "MESH")])
@@ -310,7 +319,7 @@ class MachineContractTests(unittest.TestCase):
                     "cad_name": "Display - PV (Process Value)",
                     "object_name": "Controller segment",
                     "object_type": "MESH",
-                    "material_ids": ["MALIEV_Controller_Green_Emissive"],
+                    "material_ids": ["CONTROLLER_GREEN_EMISSIVE"],
                     "bounds": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
                     "collection_path": ["PIMM_PUBLISHED", "Electronic Box", "Controller"],
                 }
@@ -356,6 +365,26 @@ class MachineContractTests(unittest.TestCase):
         candidates = discover_controller_candidates([controller])
 
         self.assertEqual(candidates[0]["material_ids"], ["CONTROLLER_GREEN_EMISSIVE"])
+
+    def test_discovery_never_falls_back_to_material_display_names(self) -> None:
+        """Catches missing or blank material authority being synthesized from names."""
+
+        for material_id in (None, ""):
+            with self.subTest(material_id=material_id):
+                controller = _Object(
+                    "Controller segment",
+                    "MESH",
+                    stable_id="30G-segment",
+                    cad_name="Display",
+                )
+                controller.material_slots = (
+                    _MaterialSlot(_Material("PIMM_CONTROLLER_ACTIVE", material_id)),
+                )
+
+                self.assertEqual(
+                    discover_controller_candidates([controller])[0]["material_ids"],
+                    [],
+                )
 
     def test_scene_rejects_unknown_animation_and_nonphysical_display_replacements(self) -> None:
         """Catches an animation or display replacement entering a blocked master scene."""

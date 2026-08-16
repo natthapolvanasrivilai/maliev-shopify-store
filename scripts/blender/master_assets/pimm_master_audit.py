@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -28,6 +29,7 @@ MACHINE_LOCAL_TOKENS = (
     "AIRTAC",
     "LOGO",
 )
+_MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 from scripts.blender.master_assets.pimm_master_builder import (
     BLENDER_LENGTH_UNIT,
@@ -35,6 +37,10 @@ from scripts.blender.master_assets.pimm_master_builder import (
     BLENDER_UNIT_SYSTEM,
     SOURCE_TO_BLENDER_SCALE,
 )
+from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
+
+
+_APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
 
 
 @dataclass(frozen=True)
@@ -104,6 +110,16 @@ def evaluate_records(
         for material_id, scope, linked in zip(
             record.material_ids, record.material_scopes, record.material_linked
         ):
+            if (
+                not isinstance(material_id, str)
+                or not material_id
+                or material_id != material_id.strip()
+                or _MATERIAL_ID.fullmatch(material_id) is None
+            ):
+                errors.append(
+                    f"material requires exact pimm_material_id: {record.stable_id}"
+                )
+                continue
             if any(token in material_id.upper() for token in MACHINE_LOCAL_TOKENS):
                 if scope == "shared":
                     errors.append(
@@ -112,6 +128,14 @@ def evaluate_records(
                 machine_local.add(material_id)
             if scope == "shared":
                 linked_shared.add(material_id)
+                if (
+                    material_id != "UNASSIGNED"
+                    and material_id not in _APPROVED_SHARED_MATERIAL_IDS
+                ):
+                    errors.append(
+                        f"shared pimm_material_id is outside canonical catalog: "
+                        f"{record.stable_id}/{material_id}"
+                    )
                 if not linked:
                     errors.append(
                         f"local copy of shared material: {record.stable_id}/{material_id}"
@@ -254,7 +278,7 @@ def audit_open_master(
 
         materials = tuple(material for material in obj.data.materials if material)
         material_ids = tuple(
-            material.get("pimm_material_id", material.name.removeprefix("PIMM_"))
+            material.get("pimm_material_id", "")
             for material in materials
         )
         material_scopes = tuple(

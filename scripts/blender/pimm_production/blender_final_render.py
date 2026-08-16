@@ -26,16 +26,18 @@ from .approval_manifest import (
     _validate_created_at_utc,
     _validate_roots,
     approval_head_lock,
-    build_component_contract,
+    build_authorized_component_contract,
     canonical_absolute_path,
     canonical_json_sha256,
     compute_final_qa,
+    held_evidence_authority,
     _stable_file,
     stable_file_record,
     stable_json,
     validate_approval,
     validate_evidence_records,
 )
+from .proof_contract import validate_authored_settings
 
 
 _RELEASE_ID = re.compile(r"^release-[0-9]{4}-[0-9]{2}-[0-9]{2}-r[0-9]{2}$")
@@ -48,6 +50,7 @@ _FINAL_FIELDS = {
 _STATE_HASH_FIELDS = {
     "camera_sha256", "lights_sha256", "world_sha256", "compositor_sha256",
     "render_settings_sha256", "animation_sha256", "composition_sha256",
+    "dependency_sha256",
 }
 
 
@@ -118,6 +121,7 @@ def _contract_errors(approval: Mapping[str, object], final: Mapping[str, object]
             "compositor_sha256": "compositor SHA-256 drift",
             "render_settings_sha256": "render settings SHA-256 drift",
             "animation_sha256": "animation SHA-256 drift",
+            "dependency_sha256": "dependency SHA-256 drift",
             "composition_sha256": "composition SHA-256 drift",
             "output_dimensions": "output dimensions drift",
             "base_dimensions": "base dimensions drift",
@@ -481,6 +485,8 @@ def _component_mask_specs(
 
 def _blender_component_mask_script(
     output_root: Path,
+    audit_path: Path,
+    repository_root: Path,
     dimensions: list[object],
     shot_id: str,
     component_contract: Mapping[str, object],
@@ -493,7 +499,10 @@ def _blender_component_mask_script(
     specs = _component_mask_specs(component_contract, shot_id)
     return "\n".join(
         (
-            "import bpy, json, pathlib",
+            "import bpy, json, pathlib, sys",
+            f"sys.path.insert(0, {str(repository_root)!r})",
+            "from scripts.blender.pimm_production.blender_proof_render import _capture_authored_settings",
+            f"pathlib.Path({str(audit_path)!r}).write_text(json.dumps(_capture_authored_settings(bpy), sort_keys=True), encoding='utf-8')",
             "scene = bpy.context.scene",
             "if scene.render.engine != 'CYCLES': raise RuntimeError('authorized final scene must retain CYCLES')",
             "scene.render.film_transparent = True",
@@ -534,6 +543,9 @@ def _live_state_hashes(
             "animation_contract": animation_contract,
             "objects": authored.get("objects"),
         }),
+        "dependency_sha256": _sha(
+            authored.get("dependency_sha256"), "native dependency SHA-256"
+        ),
     }
 
 
@@ -616,12 +628,14 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             approved_render_metadata.get("authored_settings"),
             "approved authored settings evidence",
         )
-        approved_component_contract = build_component_contract(
+        approved_component_contract = build_authorized_component_contract(
             approved_machine_contract,
             _mapping(
                 approved_authored_settings.get("before"),
                 "approved authored settings before",
             ),
+            final.get("authority_roots"),
+            final_evidence,
         )
         release_parent = authorization.asset_root / "renders" / "final"
         _lexically_within(release_parent, authorization.asset_root, "final release parent")
@@ -668,12 +682,18 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             script_identity = _owned_identity(script)
             blender_record = _mapping(final.get("evidence"), "final evidence").get("blender_binary")
             blender = Path(str(_mapping(blender_record, "Blender evidence").get("path")))
-            result = subprocess.run(
-                [str(blender), "--factory-startup", "-b", str(authorization.scene_path), "-P", str(script)],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
+            # Hold the exact scene/master/material authority from its last
+            # rehash until Blender exits.  This denies same-path byte swaps and
+            # rename/delete replacement while linked datablocks are resolving.
+            with held_evidence_authority(
+                final.get("authority_roots"), final.get("evidence")
+            ):
+                result = subprocess.run(
+                    [str(blender), "--factory-startup", "-b", str(authorization.scene_path), "-P", str(script)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
             if result.returncode:
                 raise ValueError("native Blender final render failed: " + result.stderr[-1000:])
             if not all(
@@ -689,6 +709,9 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                     f"stdout={result.stdout[-1000:]}, stderr={result.stderr[-2000:]})"
                 )
             authored, _ = stable_json(audit, stage, "asset", "native authored state")
+            authored = validate_authored_settings(
+                authored, "native authored state"
+            )
             scene_contract_record = _mapping(final.get("evidence"), "final evidence").get("scene_contract")
             scene_contract_path = Path(str(_mapping(scene_contract_record, "scene contract evidence").get("path")))
             scene_contract, _ = stable_json(
@@ -702,7 +725,12 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 "current machine contract",
                 machine_contract_record,
             )
-            live_component_contract = build_component_contract(machine_contract, authored)
+            live_component_contract = build_authorized_component_contract(
+                machine_contract,
+                authored,
+                final.get("authority_roots"),
+                final_evidence,
+            )
             if live_component_contract != approved_component_contract:
                 raise ValueError("native component identities drifted from approved scene/machine")
             live_hashes = _live_state_hashes(authored, scene_contract.get("animation_contract"))

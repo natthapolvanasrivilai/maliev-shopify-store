@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import sys
@@ -47,6 +48,7 @@ AUDIT_MARKER = "PIMM_SCENE_PUBLISH_AUDIT_JSON="
 BUILD_MARKER = "PIMM_SCENE_BUILD_JSON="
 VALIDATION_MARKER = "PIMM_SCENE_VALIDATION_JSON="
 _CANONICAL_ASSET_ROOT = ASSET_ROOT
+_MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 
 def _material_gate_errors(objects: list[object]) -> tuple[list[str], list[str]]:
@@ -66,10 +68,18 @@ def _material_gate_errors(objects: list[object]) -> tuple[list[str], list[str]]:
         if not materials:
             errors.append(f"product object has no material: {stable_id}")
         for material in materials:
-            material_id = material.get(
-                "pimm_material_id", getattr(material, "name", "")
-            )
-            if str(material_id).upper().removeprefix("PIMM_") == "UNASSIGNED":
+            material_id = material.get("pimm_material_id")
+            if (
+                not isinstance(material_id, str)
+                or material_id != material_id.strip()
+                or _MATERIAL_ID.fullmatch(material_id) is None
+            ):
+                errors.append(
+                    f"product material requires exact pimm_material_id: {stable_id}/"
+                    f"{getattr(material, 'name', '')}"
+                )
+                continue
+            if material_id == "UNASSIGNED":
                 if str(stable_id) not in unassigned:
                     unassigned.append(str(stable_id))
     return errors, sorted(unassigned)

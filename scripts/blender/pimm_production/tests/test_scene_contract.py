@@ -3,8 +3,10 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import textwrap
+from types import SimpleNamespace
 import unittest
 
+from scripts.blender.pimm_production import blender_scene_validator
 from scripts.blender.pimm_production.scene_contract import (
     SceneContract,
     canonical_scene_contract_json,
@@ -61,16 +63,26 @@ def _write_fixture_builder(path: Path) -> None:
             scene_path = scenes / f"{kind}.blend"
 
             bpy.ops.wm.read_factory_settings(use_empty=True)
-            shared = bpy.data.materials.new("PIMM_TEST_SHARED")
+            shared = bpy.data.materials.new("PIMM_BLACK_POWDERCOAT")
             shared.use_fake_user = True
-            shared["pimm_material_id"] = "TEST_SHARED"
+            if kind != "missing-material-id":
+                shared["pimm_material_id"] = "BLACK_POWDERCOAT"
             shared["pimm_material_scope"] = "shared"
+            if kind == "node-only-wrong-shared-id":
+                wrong_node_material = bpy.data.materials.new(
+                    "PIMM_BLACK_POWDERCOAT_NODE_POINTER"
+                )
+                wrong_node_material.use_fake_user = True
+                wrong_node_material["pimm_material_id"] = "NOT_IN_SHARED_CATALOG"
+                wrong_node_material["pimm_material_scope"] = "shared"
             bpy.ops.wm.save_as_mainfile(filepath=str(material_path), check_existing=False)
 
             bpy.ops.wm.read_factory_settings(use_empty=True)
             with bpy.data.libraries.load(str(material_path), link=True, relative=True) as (available, requested):
-                requested.materials = ["PIMM_TEST_SHARED"]
-            linked_material = bpy.data.materials["PIMM_TEST_SHARED"]
+                requested.materials = ["PIMM_BLACK_POWDERCOAT"]
+                if kind == "node-only-wrong-shared-id":
+                    requested.materials.append("PIMM_BLACK_POWDERCOAT_NODE_POINTER")
+            linked_material = bpy.data.materials["PIMM_BLACK_POWDERCOAT"]
             published_name = "PIMM_WORKING" if kind == "unpublished-master" else "PIMM_PUBLISHED"
             published = bpy.data.collections.new(published_name)
             bpy.context.scene.collection.children.link(published)
@@ -79,6 +91,7 @@ def _write_fixture_builder(path: Path) -> None:
                 withheld = bpy.data.collections.new("PIMM_WITHHELD")
                 bpy.context.scene.collection.children.link(withheld)
             stable_ids = ["30G-fixture-product-1", "30G-fixture-product-2"]
+            products = []
             for index, stable_id in enumerate(stable_ids, start=1):
                 mesh = bpy.data.meshes.new(f"PIMM_TEST_PRODUCT_MESH_{index}")
                 mesh.from_pydata(
@@ -92,6 +105,19 @@ def _write_fixture_builder(path: Path) -> None:
                 product["pimm_material_state"] = "approved"
                 target = withheld if index == 2 and withheld is not None else published
                 target.objects.link(product)
+                products.append(product)
+            if kind == "node-only-wrong-shared-id":
+                node_group = bpy.data.node_groups.new(
+                    "PIMM_NODE_ONLY_MATERIAL_POINTER", "GeometryNodeTree"
+                )
+                set_material = node_group.nodes.new("GeometryNodeSetMaterial")
+                set_material.inputs["Material"].default_value = bpy.data.materials[
+                    "PIMM_BLACK_POWDERCOAT_NODE_POINTER"
+                ]
+                modifier = products[0].modifiers.new(
+                    "PIMM_NODE_ONLY_MATERIAL_POINTER", "NODES"
+                )
+                modifier.node_group = node_group
             evidence_payload = "\\n".join(sorted(stable_ids)) + "\\n"
             if kind != "collection-evidence-absent":
                 published["pimm_published_stable_id_count"] = (
@@ -147,6 +173,34 @@ def _write_fixture_builder(path: Path) -> None:
                 else:
                     bpy.context.scene.collection.children.link(bpy.data.collections["PIMM_PUBLISHED"])
 
+            if kind in {
+                "node-only-local-shared-material",
+                "node-only-local-machine-material",
+            }:
+                local_node_material = bpy.data.materials.new(
+                    "PIMM_NODE_ONLY_LOCAL_MATERIAL"
+                )
+                local_node_material["pimm_material_id"] = (
+                    "BLACK_POWDERCOAT"
+                    if kind == "node-only-local-shared-material"
+                    else "CONTROLLER_ACTIVE"
+                )
+                local_node_material["pimm_material_scope"] = (
+                    "shared"
+                    if kind == "node-only-local-shared-material"
+                    else "machine-local"
+                )
+                local_node_group = bpy.data.node_groups.new(
+                    "PIMM_NODE_ONLY_LOCAL_POINTER", "GeometryNodeTree"
+                )
+                local_node_group.use_fake_user = True
+                local_set_material = local_node_group.nodes.new(
+                    "GeometryNodeSetMaterial"
+                )
+                local_set_material.inputs[
+                    "Material"
+                ].default_value = local_node_material
+
             camera_data = bpy.data.cameras.new("CAM_HERO")
             camera = bpy.data.objects.new("CAM_HERO", camera_data)
             bpy.context.scene.collection.objects.link(camera)
@@ -172,8 +226,8 @@ def _write_fixture_builder(path: Path) -> None:
                     private["pimm_product_material_override"] = kind == "overridden-product-material"
                 bpy.context.scene.collection.objects.link(private)
                 if kind != "private-product-copy":
-                    local_material = bpy.data.materials.new("PIMM_TEST_SHARED_LOCAL")
-                    local_material["pimm_material_id"] = "TEST_SHARED"
+                    local_material = bpy.data.materials.new("PIMM_BLACK_POWDERCOAT_LOCAL")
+                    local_material["pimm_material_id"] = "BLACK_POWDERCOAT"
                     local_material["pimm_material_scope"] = "shared"
                     private_mesh.materials.append(local_material)
 
@@ -194,8 +248,8 @@ def _write_fixture_builder(path: Path) -> None:
                     raise RuntimeError("Blender override_hierarchy_create produced no object override")
                 override = overrides[0]
                 override.name = "PIMM_TEST_PRODUCT_OVERRIDE"
-                override_material = bpy.data.materials.new("PIMM_TEST_SHARED_OVERRIDE")
-                override_material["pimm_material_id"] = "TEST_SHARED"
+                override_material = bpy.data.materials.new("PIMM_BLACK_POWDERCOAT_OVERRIDE")
+                override_material["pimm_material_id"] = "BLACK_POWDERCOAT"
                 override_material["pimm_material_scope"] = "shared"
                 override.data.materials.clear()
                 override.data.materials.append(override_material)
@@ -268,6 +322,10 @@ def build_scene_fixture(kind: str, root: Path) -> tuple[Path, SceneContract]:
         "output-escape",
         "wrong-master-sha",
         "wrong-material-library-sha",
+        "missing-material-id",
+        "node-only-wrong-shared-id",
+        "node-only-local-shared-material",
+        "node-only-local-machine-material",
         "unpublished-master",
     }
     if kind not in allowed:
@@ -443,6 +501,61 @@ def run_scene_fixture_build(
 
 
 class SceneContractTests(unittest.TestCase):
+    def test_scene_publication_material_gate_requires_explicit_material_ids(self) -> None:
+        """Catches approved material state falling back to a datablock display name."""
+
+        from scripts.blender.pimm_production import blender_scene_template
+
+        for material_id in (None, ""):
+            with self.subTest(material_id=material_id):
+                properties = (
+                    {}
+                    if material_id is None
+                    else {"pimm_material_id": material_id}
+                )
+                material = SimpleNamespace(
+                    name="PIMM_CONTROLLER_ACTIVE",
+                    get=lambda key, default=None, values=properties: values.get(
+                        key, default
+                    ),
+                )
+                product_properties = {
+                    "pimm_stable_id": "30G-controller-a",
+                    "pimm_material_state": "approved",
+                }
+                product = SimpleNamespace(
+                    name="controller-a",
+                    data=SimpleNamespace(materials=[material]),
+                    get=lambda key, default=None: product_properties.get(key, default),
+                )
+
+                errors, _ = blender_scene_template._material_gate_errors([product])
+                self.assertIn("pimm_material_id", "\n".join(errors))
+
+    def test_relative_library_resolution_uses_blender_scene_semantics_not_file_existence(
+        self,
+    ) -> None:
+        """Catches authority capture guessing a different relative-library base."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene = root / "scenes" / "scene.blend"
+            master = root / "masters" / "PIMM-30G-MASTER.blend"
+            material = root / "masters" / "PIMM-MATERIAL-LIBRARY.blend"
+            for path in (scene, master, material):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(path.name.encode("utf-8"))
+            bpy = SimpleNamespace(data=SimpleNamespace(filepath=str(scene)))
+            parent = SimpleNamespace(filepath=str(master), parent=None)
+            indirect = SimpleNamespace(
+                filepath=f"//../masters/{material.name}", parent=parent
+            )
+
+            self.assertEqual(
+                blender_scene_validator._library_path(bpy, indirect),
+                material.resolve(),
+            )
+
     def test_scene_contract_requires_published_master_collection(self):
         payload = _base_payload("a" * 64, "b" * 64)
         payload["master_collection"] = "PIMM_WORKING"
@@ -609,6 +722,42 @@ class SceneContractTests(unittest.TestCase):
                 path, contract = build_scene_fixture(kind, Path(root))
                 self.assertIn(
                     message,
+                    "\n".join(run_scene_fixture_validation(path, contract)),
+                )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_render_preflight_requires_explicit_material_id(self):
+        with TemporaryDirectory() as root:
+            path, contract = build_scene_fixture("missing-material-id", Path(root))
+
+            self.assertIn(
+                "pimm_material_id",
+                "\n".join(run_scene_fixture_validation(path, contract)),
+            )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_render_preflight_rejects_wrong_node_only_shared_material_id(self):
+        with TemporaryDirectory() as root:
+            path, contract = build_scene_fixture(
+                "node-only-wrong-shared-id", Path(root)
+            )
+
+            self.assertIn(
+                "canonical shared catalog",
+                "\n".join(run_scene_fixture_validation(path, contract)),
+            )
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_render_preflight_rejects_local_node_only_component_materials(self):
+        for kind in (
+            "node-only-local-shared-material",
+            "node-only-local-machine-material",
+        ):
+            with self.subTest(kind=kind), TemporaryDirectory() as root:
+                path, contract = build_scene_fixture(kind, Path(root))
+
+                self.assertIn(
+                    "scene-local or outside the exact master/material-library authority",
                     "\n".join(run_scene_fixture_validation(path, contract)),
                 )
 

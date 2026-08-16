@@ -26,10 +26,11 @@ from .approval_manifest import (
     _rgba_pixel_evidence,
     _stable_file,
     approval_head_lock,
-    build_component_contract,
+    build_authorized_component_contract,
     canonical_absolute_path,
     canonical_json_sha256,
     compute_final_qa,
+    held_evidence_authority,
     stable_file_record,
     stable_json,
 )
@@ -39,6 +40,7 @@ from .blender_final_render import (
     _component_mask_specs,
     authorize_final_render,
 )
+from .proof_contract import validate_authored_settings
 
 
 _RELEASE_ID = re.compile(r"^release-[0-9]{4}-[0-9]{2}-[0-9]{2}-r[0-9]{2}$")
@@ -75,6 +77,9 @@ def _regenerate_component_evidence(
     shot_id: str,
     component_contract: Mapping[str, object],
     samples: int,
+    *,
+    repository_root: Path,
+    expected_dependency_sha256: str,
 ) -> tuple[bytes, bytes, dict[str, bytes]]:
     """Independently regenerate final media and masks from the approved Blender scene."""
 
@@ -85,10 +90,13 @@ def _regenerate_component_evidence(
         output_root.mkdir()
         combined_filename = "approved-final.png"
         combined_exr_filename = "approved-final.exr"
+        audit = root / "approved-authored-state.json"
         script = root / "verify-component-masks.py"
         script.write_text(
             _blender_component_mask_script(
                 output_root,
+                audit,
+                repository_root,
                 dimensions,
                 shot_id,
                 component_contract,
@@ -118,7 +126,7 @@ def _regenerate_component_evidence(
         combined_path = output_root / combined_filename
         combined_exr_path = output_root / combined_exr_filename
         actual_paths = set(output_root.iterdir())
-        if result.returncode or actual_paths != set(expected_paths) | {
+        if result.returncode or not audit.is_file() or actual_paths != set(expected_paths) | {
             combined_path,
             combined_exr_path,
         }:
@@ -126,6 +134,19 @@ def _regenerate_component_evidence(
                 "release could not independently regenerate approved Blender pixels/masks "
                 f"(returncode={result.returncode}, files={sorted(path.name for path in actual_paths)}, "
                 f"stderr={result.stderr[-2000:]})"
+            )
+        try:
+            live_authored = validate_authored_settings(
+                json.loads(audit.read_text(encoding="utf-8")),
+                "independently regenerated authored state",
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError(
+                "release independent authored-state audit is invalid"
+            ) from error
+        if live_authored.get("dependency_sha256") != expected_dependency_sha256:
+            raise ValueError(
+                "release independent linked dependency state drift"
             )
         return (
             combined_path.read_bytes(),
@@ -597,9 +618,11 @@ def _validate_manifest(
     authored_settings = _mapping(
         render_metadata.get("authored_settings"), "approved authored settings evidence"
     )
-    approved_components = build_component_contract(
+    approved_components = build_authorized_component_contract(
         machine_contract,
         _mapping(authored_settings.get("before"), "approved authored settings before"),
+        _mapping(authorized_final.get("authority_roots"), "authorized roots"),
+        final_evidence,
     )
     component_evidence = _mapping(
         payload.get("component_evidence"), "final component evidence"
@@ -658,14 +681,41 @@ def _validate_manifest(
     blender_record = _mapping(
         final_evidence.get("blender_binary"), "Blender binary evidence"
     )
-    regenerated_png, regenerated_exr, regenerated_masks = _regenerate_component_evidence(
-        authorization.scene_path,
-        Path(str(blender_record.get("path"))),
-        list(expected_dimensions),
-        shot_id,
-        approved_components,
-        int(authorized_final["samples"]),
+    # This is deliberately adjacent to native regeneration: no earlier approval
+    # snapshot can authorize Blender to reopen changed linked-library bytes.
+    current_components = build_authorized_component_contract(
+        machine_contract,
+        _mapping(authored_settings.get("before"), "approved authored settings before"),
+        _mapping(authorized_final.get("authority_roots"), "authorized roots"),
+        final_evidence,
     )
+    if current_components != approved_components:
+        raise ValueError("approved component dependency authority drift before regeneration")
+    with held_evidence_authority(
+        authorized_final.get("authority_roots"), final_evidence
+    ):
+        regenerated_png, regenerated_exr, regenerated_masks = _regenerate_component_evidence(
+            authorization.scene_path,
+            Path(str(blender_record.get("path"))),
+            list(expected_dimensions),
+            shot_id,
+            approved_components,
+            int(authorized_final["samples"]),
+            repository_root=repository_root,
+            expected_dependency_sha256=str(
+                _mapping(
+                    authorized_final.get("render_settings"),
+                    "authorized final render settings",
+                ).get("dependency_sha256")
+            ),
+        )
+    if build_authorized_component_contract(
+        machine_contract,
+        _mapping(authored_settings.get("before"), "approved authored settings before"),
+        _mapping(authorized_final.get("authority_roots"), "authorized roots"),
+        final_evidence,
+    ) != approved_components:
+        raise ValueError("approved component dependency authority drift during regeneration")
     regenerated_pixels = _rgba_pixel_evidence(
         regenerated_png,
         list(expected_dimensions),
@@ -965,33 +1015,46 @@ def _build_release_manifest_locked(
     # marker is the last write. O_EXCL handles an injected competing marker race.
     for path, record in all_stable_records:
         stable_file_record(path, release_root, "asset", "release input", record)
+    marker_authorization = _authorize_final_render(
+        approval_path, final_path, head_locked=True
+    )
+    marker_final, _ = stable_json(
+        final_path,
+        marker_authorization.asset_root,
+        "asset",
+        "marker authorized final contract",
+        marker_authorization.final_contract_record,
+    )
     try:
-        created = _create_new_json(
-            destination,
-            payload,
-            before_commit=lambda pending: _release_commit_revalidate(
-                pending,
-                release_root,
-                expected_children,
-                expected_families,
-                all_stable_records,
-                approval_path,
-                final_path,
-                next(iter(approvals))[1],
-                next(iter(authorizations)),
-            ),
-            after_commit=lambda marker: _release_postcommit_validate(
-                marker,
-                release_root,
-                expected_children,
-                expected_families,
-                all_stable_records,
-                approval_path,
-                final_path,
-                next(iter(approvals))[1],
-                next(iter(authorizations)),
-            ),
-        )
+        with held_evidence_authority(
+            marker_final.get("authority_roots"), marker_final.get("evidence")
+        ):
+            created = _create_new_json(
+                destination,
+                payload,
+                before_commit=lambda pending: _release_commit_revalidate(
+                    pending,
+                    release_root,
+                    expected_children,
+                    expected_families,
+                    all_stable_records,
+                    approval_path,
+                    final_path,
+                    next(iter(approvals))[1],
+                    next(iter(authorizations)),
+                ),
+                after_commit=lambda marker: _release_postcommit_validate(
+                    marker,
+                    release_root,
+                    expected_children,
+                    expected_families,
+                    all_stable_records,
+                    approval_path,
+                    final_path,
+                    next(iter(approvals))[1],
+                    next(iter(authorizations)),
+                ),
+            )
     except FileExistsError as error:
         raise ValueError("release manifest already exists; releases are immutable") from error
     published, record = stable_json(destination, release_root, "asset", "release manifest")

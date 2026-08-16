@@ -18,6 +18,8 @@ from typing import Callable, Iterator, Mapping
 
 from PIL import Image
 
+from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
+
 from .proof_contract import (
     ProofContract,
     _entry as proof_output_entry,
@@ -75,6 +77,8 @@ _RESERVED_WINDOWS_NAMES = {
 }
 _REPARSE_ATTRIBUTE = 0x400
 _CANONICAL_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+_MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
 _SEGMENT_LABELS = ("a", "b", "c", "d", "e", "f", "g")
 _DIGIT_SEGMENTS = {
     "0": "1110111",
@@ -298,6 +302,107 @@ def stable_file_record(
     return _stable_file(str(path), str(root), authority, label, expected=expected)[0]
 
 
+@contextlib.contextmanager
+def held_evidence_authority(
+    authority_roots: object,
+    evidence_value: object,
+    *,
+    names: tuple[str, ...] = ("source", "master", "material_library", "scene"),
+) -> Iterator[tuple[dict[str, Path], dict[str, dict[str, object]]]]:
+    """Hold approval-bound inputs against write/delete races for one operation.
+
+    Blender opens linked libraries after its process starts.  A closed-handle
+    preflight hash therefore cannot prove which bytes Blender actually loaded.
+    On Windows, read handles whose share mode is FILE_SHARE_READ deny both
+    writes and path replacement until every protected consumer has exited.
+    """
+
+    roots, current = validate_evidence_records(authority_roots, evidence_value)
+    missing = set(names) - set(current)
+    if missing:
+        raise ValueError(
+            "held evidence authority is missing: " + ", ".join(sorted(missing))
+        )
+    if os.name != "nt":
+        raise ValueError(
+            "held evidence authority requires Windows deny-write/delete handles"
+        )
+
+    import ctypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        ctypes.c_wchar_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+    )
+    create_file.restype = ctypes.c_void_p
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (ctypes.c_void_p,)
+    close_handle.restype = ctypes.c_int
+    generic_read = 0x80000000
+    file_share_read = 0x00000001
+    open_existing = 3
+    file_attribute_normal = 0x00000080
+    invalid_handle = ctypes.c_void_p(-1).value
+    handles: list[int] = []
+    try:
+        for name in names:
+            record = current[name]
+            handle = create_file(
+                str(record["path"]),
+                generic_read,
+                file_share_read,
+                None,
+                open_existing,
+                file_attribute_normal,
+                None,
+            )
+            if handle in (None, invalid_handle):
+                error = ctypes.get_last_error()
+                raise OSError(
+                    error,
+                    f"cannot hold {name} evidence authority",
+                    str(record["path"]),
+                )
+            handles.append(int(handle))
+
+        # Close the acquisition race only after every path is protected.  The
+        # evidence record includes NTFS ChangeTime, so mutate-and-restore also
+        # fails even when bytes and mtime are restored.
+        for name in names:
+            record = current[name]
+            stable_file_record(
+                Path(str(record["path"])),
+                roots[str(record["authority"])],
+                str(record["authority"]),
+                f"held {name} evidence",
+                record,
+            )
+        yield roots, current
+        for name in names:
+            record = current[name]
+            stable_file_record(
+                Path(str(record["path"])),
+                roots[str(record["authority"])],
+                str(record["authority"]),
+                f"held {name} evidence",
+                record,
+            )
+    except PermissionError as error:
+        raise ValueError(
+            "evidence drift or held-authority write/delete race"
+        ) from error
+    finally:
+        for handle in reversed(handles):
+            close_handle(ctypes.c_void_p(handle))
+
+
 def stable_json(
     path: Path,
     root: Path,
@@ -489,6 +594,9 @@ def _state_from_proof(
         "animation_sha256": canonical_json_sha256(
             {"animation_contract": scene.animation_contract, "objects": current.get("objects")}
         ),
+        "dependency_sha256": _sha(
+            current.get("dependency_sha256"), "proof authored dependency SHA-256"
+        ),
         "composition_sha256": canonical_json_sha256(proof.get("qa")),
         "base_dimensions": base_dimensions,
         "effective_proof_dimensions": effective_dimensions,
@@ -568,7 +676,54 @@ def _identity_sha256(value: object, label: str) -> str:
     return canonical_json_sha256(identity)
 
 
-def _material_ids_from_object(obj: Mapping[str, object]) -> tuple[list[str], list[str]]:
+def _exact_material_id(identity: Mapping[str, object], label: str) -> str:
+    """Return one explicit canonical material ID without name/stable-ID fallback."""
+
+    material_id = identity.get("pimm_material_id")
+    if (
+        not isinstance(material_id, str)
+        or not material_id
+        or material_id != material_id.strip()
+        or _MATERIAL_ID.fullmatch(material_id) is None
+    ):
+        raise ValueError(f"{label} requires one exact nonempty pimm_material_id")
+    return material_id
+
+
+def _material_registry(
+    authored_settings: Mapping[str, object],
+) -> tuple[dict[str, Mapping[str, object]], dict[str, str]]:
+    raw_materials = authored_settings.get("materials")
+    if not isinstance(raw_materials, list):
+        raise ValueError("approved authored settings materials must be a list")
+    identities: dict[str, Mapping[str, object]] = {}
+    identifiers: dict[str, str] = {}
+    for index, raw_material in enumerate(raw_materials):
+        material = _mapping(raw_material, f"approved authored material {index}")
+        identity = _mapping(
+            material.get("identity"), f"approved authored material {index} identity"
+        )
+        if identity.get("type") != "Material":
+            raise ValueError("approved authored material identity type must equal Material")
+        material_id = _exact_material_id(
+            identity, f"approved authored material {index} identity"
+        )
+        if material_id == "UNASSIGNED":
+            raise ValueError("approved pimm_material_id cannot equal UNASSIGNED")
+        identity_key = canonical_json_sha256(identity)
+        if identity_key in identities:
+            raise ValueError("approved material datablock identities must be unique")
+        prior = identifiers.setdefault(material_id, identity_key)
+        if prior != identity_key:
+            raise ValueError("approved pimm_material_id values must be unique per datablock")
+        identities[identity_key] = identity
+    return identities, identifiers
+
+
+def _material_ids_from_object(
+    obj: Mapping[str, object],
+    material_registry: Mapping[str, Mapping[str, object]],
+) -> tuple[list[str], list[str]]:
     slots = obj.get("material_slots")
     if not isinstance(slots, list):
         raise ValueError("approved component object material_slots must be a list")
@@ -580,11 +735,18 @@ def _material_ids_from_object(obj: Mapping[str, object]) -> tuple[list[str], lis
         if raw_material is None:
             continue
         material = _mapping(raw_material, "approved component material identity")
-        name = material.get("pimm_material_id") or material.get("pimm_stable_id") or material.get("name")
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("approved component material identity is missing")
-        identifiers.append(name.removeprefix("PIMM_"))
-        identities.append(canonical_json_sha256(material))
+        if material.get("type") != "Material":
+            raise ValueError("approved component material identity type must equal Material")
+        material_id = _exact_material_id(
+            material, "approved component material identity"
+        )
+        identity_hash = canonical_json_sha256(material)
+        if identity_hash not in material_registry:
+            raise ValueError(
+                "approved component material identity does not match Task 5 captured material evidence"
+            )
+        identifiers.append(material_id)
+        identities.append(identity_hash)
     return sorted(set(identifiers)), sorted(set(identities))
 
 
@@ -611,10 +773,25 @@ def build_component_contract(
         raise ValueError(
             f"approved physical controller segment map requires exactly {expected_count} identities"
         )
+    machine_local = set(controller.get("approved_machine_local_material_ids", []))
 
     raw_objects = authored_settings.get("objects")
     if not isinstance(raw_objects, list):
         raise ValueError("approved authored settings objects must be a list")
+    material_registry, _ = _material_registry(authored_settings)
+    for identity in material_registry.values():
+        material_id = _exact_material_id(identity, "approved material identity")
+        if material_id in machine_local:
+            continue
+        if material_id not in _APPROVED_SHARED_MATERIAL_IDS:
+            raise ValueError(
+                "approved shared pimm_material_id is outside the canonical material catalog"
+            )
+        if identity.get("name") != f"PIMM_{material_id}":
+            raise ValueError(
+                "approved shared pimm_material_id does not match its canonical material "
+                f"datablock name: {identity.get('name')!r} != 'PIMM_{material_id}'"
+            )
     objects: dict[str, Mapping[str, object]] = {}
     for raw_object in raw_objects:
         obj = _mapping(raw_object, "approved authored object")
@@ -642,7 +819,9 @@ def build_component_contract(
             raise ValueError(f"approved controller segment object is absent from scene: {stable_id}")
         if obj.get("object_type") != "MESH" or obj.get("hide_render") is not False:
             raise ValueError(f"approved controller segment is not a visible physical MESH: {stable_id}")
-        material_ids, material_identity_hashes = _material_ids_from_object(obj)
+        material_ids, material_identity_hashes = _material_ids_from_object(
+            obj, material_registry
+        )
         if segment.get("material_id") not in material_ids:
             raise ValueError(f"approved controller segment material mismatch: {stable_id}")
         object_identity = _mapping(obj.get("identity"), "approved segment object identity")
@@ -662,12 +841,17 @@ def build_component_contract(
         )
         segment_ids.add(stable_id)
 
-    machine_local = set(controller.get("approved_machine_local_material_ids", []))
     material_objects: list[dict[str, object]] = []
     for stable_id, obj in sorted(objects.items()):
         if stable_id in segment_ids or obj.get("object_type") != "MESH" or obj.get("hide_render") is not False:
             continue
-        material_ids, material_identity_hashes = _material_ids_from_object(obj)
+        material_ids, material_identity_hashes = _material_ids_from_object(
+            obj, material_registry
+        )
+        if not material_ids:
+            raise ValueError(
+                f"approved visible MESH requires an exact material identity: {stable_id}"
+            )
         approved_material_ids = [
             material_id
             for material_id in material_ids
@@ -700,6 +884,134 @@ def build_component_contract(
     }
     payload["sha256"] = canonical_json_sha256(payload)
     return payload
+
+
+def _identity_mapping(value: Mapping[str, object]) -> Mapping[str, object] | None:
+    if not {"name", "type", "library"}.issubset(value):
+        return None
+    if not isinstance(value.get("name"), str) or not isinstance(value.get("type"), str):
+        return None
+    return value
+
+
+def _validate_component_library_paths(
+    authored_settings: Mapping[str, object],
+    roots: Mapping[str, Path],
+    evidence: Mapping[str, Mapping[str, object]],
+    machine_local_material_ids: frozenset[str],
+) -> None:
+    """Resolve every captured Blender library to an existing approval authority."""
+
+    allowed: dict[str, tuple[str, Path, Mapping[str, object]]] = {}
+    authorities_by_name: dict[str, tuple[Path, Mapping[str, object]]] = {}
+    for name in ("master", "material_library"):
+        record = _mapping(evidence.get(name), f"{name} evidence")
+        if set(record) != _FILE_RECORD_FIELDS or record.get("authority") != "asset":
+            raise ValueError(f"{name} evidence is not an exact approval-bound file record")
+        path = canonical_absolute_path(record.get("path"), f"{name} evidence path")
+        refreshed = stable_file_record(
+            path, roots["asset"], "asset", name.replace("_", " "), record
+        )
+        allowed[ntpath.normcase(str(path))] = (name, path, refreshed)
+        authorities_by_name[name] = (path, refreshed)
+
+    observed_authorities: set[str] = set()
+
+    def visit(value: object, label: str) -> None:
+        if isinstance(value, Mapping):
+            identity = _identity_mapping(value)
+            if identity is not None:
+                material_id: str | None = None
+                if identity.get("type") == "Material":
+                    material_id = _exact_material_id(identity, label)
+                library_value = identity.get("library")
+                if material_id is not None and library_value is None:
+                    expected_name = (
+                        "master"
+                        if material_id in machine_local_material_ids
+                        else "material_library"
+                    )
+                    raise ValueError(
+                        f"{label} material is local instead of resolving to its exact "
+                        f"pinned {expected_name.replace('_', '-')} authority"
+                    )
+                if library_value is not None:
+                    library_path = canonical_absolute_path(
+                        library_value, f"{label} linked Blender library"
+                    )
+                    authority = allowed.get(ntpath.normcase(str(library_path)))
+                    if authority is None or library_path != authority[1]:
+                        raise ValueError(
+                            f"{label} linked Blender library is not the exact pinned master "
+                            "or material-library authority"
+                        )
+                    name, _, record = authority
+                    if material_id is not None:
+                        expected_name = (
+                            "master"
+                            if material_id in machine_local_material_ids
+                            else "material_library"
+                        )
+                        if name != expected_name:
+                            raise ValueError(
+                                f"{label} material library role is outside its exact "
+                                f"{expected_name.replace('_', '-')} authority"
+                            )
+                    stable_file_record(
+                        library_path,
+                        roots["asset"],
+                        "asset",
+                        f"approved component {name.replace('_', ' ')} library",
+                        record,
+                    )
+                    observed_authorities.add(name)
+                if identity.get("type") == "Image" and value.get("external_files"):
+                    raise ValueError(
+                        f"{label} external image bytes are not pinned master/material-library authority"
+                    )
+            for key, nested in value.items():
+                visit(nested, f"{label}.{key}")
+        elif isinstance(value, list):
+            for index, nested in enumerate(value):
+                visit(nested, f"{label}[{index}]")
+
+    visit(authored_settings, "approved component dependency")
+    for name in observed_authorities:
+        path, record = authorities_by_name[name]
+        stable_file_record(
+            path,
+            roots["asset"],
+            "asset",
+            f"observed approved component {name.replace('_', ' ')} library",
+            record,
+        )
+
+
+def build_authorized_component_contract(
+    machine_contract: Mapping[str, object],
+    authored_settings: Mapping[str, object],
+    authority_roots: Mapping[str, object],
+    evidence: Mapping[str, object],
+) -> dict[str, object]:
+    """Build the component contract only under pinned master/material authority."""
+
+    roots = _validate_roots(
+        {name: str(value) for name, value in authority_roots.items()}
+    )
+    contract = build_component_contract(machine_contract, authored_settings)
+    controller = _mapping(
+        machine_contract.get("controller"), "component controller contract"
+    )
+    _validate_component_library_paths(
+        authored_settings,
+        roots,
+        {
+            name: _mapping(evidence.get(name), f"{name} evidence")
+            for name in ("master", "material_library")
+        },
+        frozenset(controller.get("approved_machine_local_material_ids", [])),
+    )
+    return contract
 
 
 def _validated_component_contract(value: Mapping[str, object]) -> Mapping[str, object]:
@@ -1205,6 +1517,16 @@ def extract_current_approval_evidence(proof_manifest_path: Path) -> dict[str, ob
     for name, record in evidence.items():
         authority = str(record["authority"])
         stable_file_record(Path(str(record["path"])), root_paths[authority], authority, name, record)
+    approved_authored = _mapping(
+        _mapping(metadata.get("authored_settings"), "proof authored settings").get("before"),
+        "proof authored settings before",
+    )
+    build_authorized_component_contract(
+        machine_payload,
+        approved_authored,
+        roots,
+        evidence,
+    )
 
     inputs = {
         "source_sha256": str(evidence["source"]["sha256"]),
@@ -1265,6 +1587,32 @@ def validate_evidence_records(
             raise ValueError("evidence contains duplicate physical paths")
         physical.add(identity)
         current[name] = refreshed
+    render_metadata, _ = stable_json(
+        Path(str(current["render_metadata"]["path"])),
+        roots["asset"],
+        "asset",
+        "final approved render metadata",
+        current["render_metadata"],
+    )
+    machine_contract, _ = stable_json(
+        Path(str(current["machine_contract"]["path"])),
+        roots["repository"],
+        "repository",
+        "final approved machine contract",
+        current["machine_contract"],
+    )
+    authored_settings = _mapping(
+        _mapping(
+            render_metadata.get("authored_settings"), "final approved authored settings"
+        ).get("before"),
+        "final approved authored settings before",
+    )
+    build_authorized_component_contract(
+        machine_contract,
+        authored_settings,
+        {name: str(path) for name, path in roots.items()},
+        current,
+    )
     return roots, current
 
 

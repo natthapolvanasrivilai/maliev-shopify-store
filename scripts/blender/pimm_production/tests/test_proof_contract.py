@@ -208,8 +208,10 @@ def _run_fixture_proofs(
                             "        fixture_output = fixture_group.nodes.new('NodeGroupOutput')",
                             *(
                                 [
-                                    "        fixture_material_a = bpy.data.materials.new('SOCKET_MATERIAL_A')",
-                                    "        fixture_material_b = bpy.data.materials.new('SOCKET_MATERIAL_B')",
+                            "        fixture_material_a = bpy.data.materials.new('SOCKET_MATERIAL_A')",
+                            "        fixture_material_a['pimm_material_id'] = 'SOCKET_MATERIAL_A'",
+                            "        fixture_material_b = bpy.data.materials.new('SOCKET_MATERIAL_B')",
+                            "        fixture_material_b['pimm_material_id'] = 'SOCKET_MATERIAL_B'",
                                     "        fixture_set_material.name = 'SET_MATERIAL_A'",
                                     "        fixture_set_material.inputs['Material'].default_value = fixture_material_a",
                                     "        fixture_set_material_b = fixture_group.nodes.new('GeometryNodeSetMaterial')",
@@ -288,6 +290,7 @@ def _run_fixture_proofs(
                             "        bpy.context.scene.collection.children.link(authored_collection)",
                             "        authored_layer_collection = bpy.context.view_layer.layer_collection.children[authored_collection.name]",
                             "        authored_material = bpy.data.materials.new('AUTHORED_RENDER_MATERIAL')",
+                            "        authored_material['pimm_material_id'] = 'AUTHORED_RENDER_MATERIAL'",
                             "        authored_material.use_nodes = True",
                             "        authored_material.diffuse_color = (0.2,0.3,0.4,1.0)",
                             "        authored_material.roughness = 0.35",
@@ -327,6 +330,7 @@ def _run_fixture_proofs(
                             "        authored_geometry_link = authored_geometry_group.links.new(authored_geometry_value.outputs[0], authored_geometry_math.inputs[0])",
                             "        authored_mesh.materials.append(authored_material)",
                             "        alternate_material = bpy.data.materials.new('AUTHORED_ALTERNATE_MATERIAL')",
+                            "        alternate_material['pimm_material_id'] = 'AUTHORED_ALTERNATE_MATERIAL'",
                             "    return original_capture(bpy_arg)",
                             "proof_render._capture_authored_settings = capture_with_fixture_dependencies",
                             "original_environment_errors = proof_render._proof_environment_errors",
@@ -824,7 +828,12 @@ def _valid_compositor_node_tree(
 
 def _valid_dependency_material() -> dict[str, object]:
     return {
-        "identity": {"name": "AUTHORED_MATERIAL", "type": "Material", "library": None},
+        "identity": {
+            "name": "AUTHORED_MATERIAL",
+            "type": "Material",
+            "library": None,
+            "pimm_material_id": "AUTHORED_MATERIAL",
+        },
         "properties": {},
         "node_tree": _valid_dependency_node_tree(),
     }
@@ -1353,6 +1362,7 @@ class ProofContractTests(unittest.TestCase):
             "material-socket-identity-null-kind",
             "unsafe-compositor-file-output",
             "render-layers-unknown-scene",
+            "shared-material-id-name-swap",
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
@@ -1557,6 +1567,7 @@ class ProofContractTests(unittest.TestCase):
                                 "name": "AUTHORED_UNKNOWN_MATERIAL",
                                 "type": "Material",
                                 "library": None,
+                                "pimm_material_id": "AUTHORED_UNKNOWN_MATERIAL",
                             },
                         }
                     ]
@@ -1577,6 +1588,7 @@ class ProofContractTests(unittest.TestCase):
                         "name": "AUTHORED_SOCKET_MATERIAL",
                         "type": "Material",
                         "library": None,
+                        "pimm_material_id": "AUTHORED_SOCKET_MATERIAL",
                     }
                     record = _valid_dependency_object()
                     record["modifiers"] = [
@@ -1627,6 +1639,15 @@ class ProofContractTests(unittest.TestCase):
                             "CompositorNodeRLayers", scene_name="UNKNOWN_SCENE"
                         ),
                     }
+                elif mutation == "shared-material-id-name-swap":
+                    record = _valid_dependency_material()
+                    record["identity"] = {
+                        "name": "PIMM_BLACK_POWDERCOAT",
+                        "type": "Material",
+                        "library": None,
+                        "pimm_material_id": "DIE_CAST_ALUMINUM",
+                    }
+                    authored["materials"] = [record]
                 if mutation != "inconsistent-digest":
                     _recompute_dependency_digest(authored)
                 else:
@@ -1658,6 +1679,7 @@ class ProofContractTests(unittest.TestCase):
                     "material-socket-identity-null-kind": "exact data-block identity",
                     "unsafe-compositor-file-output": "unsafe external writer",
                     "render-layers-unknown-scene": "current proof scene",
+                    "shared-material-id-name-swap": "name/pimm_material_id mapping",
                 }
                 with patch.object(proof_module, "ASSET_ROOT", root):
                     with self.assertRaisesRegex(
@@ -2318,6 +2340,7 @@ class ProofContractTests(unittest.TestCase):
                             "name": f"SOCKET_MATERIAL_{suffix}",
                             "type": "Material",
                             "library": None,
+                            "pimm_material_id": f"SOCKET_MATERIAL_{suffix}",
                         },
                     },
                 )

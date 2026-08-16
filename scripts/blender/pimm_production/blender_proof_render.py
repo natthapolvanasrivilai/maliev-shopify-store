@@ -342,11 +342,27 @@ def _stable_value(value: object) -> object:
 def _data_identity(value: object | None) -> dict[str, object] | None:
     if value is None:
         return None
+    if getattr(value, "override_library", None) is not None:
+        raise ValueError("Blender library overrides are outside pinned component authority")
     library = getattr(value, "library", None)
+    library_path: str | None = None
+    if library is not None:
+        library_path = str(getattr(library, "filepath", ""))
+        try:
+            import bpy  # type: ignore[import-not-found]
+
+            resolved_library = blender_scene_validator._library_path(bpy, library)
+        except ImportError:
+            resolved_library = None
+        if resolved_library is not None:
+            library_path = str(resolved_library)
     result: dict[str, object] = {
-        "name": str(getattr(value, "name_full", getattr(value, "name", ""))),
+        # ``name_full`` decorates linked IDs with their library filename in
+        # Blender 5.2.  The stable datablock authority is its exact ID name;
+        # library provenance is captured independently below.
+        "name": str(getattr(value, "name", getattr(value, "name_full", ""))),
         "type": type(value).__name__,
-        "library": str(getattr(library, "filepath", "")) if library else None,
+        "library": library_path,
     }
     stable_properties: dict[str, str] = {}
     if hasattr(value, "get"):
@@ -1247,6 +1263,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
         "collection_tree": collection_tree,
     }
     settings["dependency_sha256"] = _dependency_sha256(settings)
+    proof_module.validate_authored_settings(settings, "captured authored settings")
     return settings
 
 
@@ -1731,6 +1748,11 @@ def _run_one(
             }
         paths = _protected_paths(asset_root, scene, scene_path)
         before = _snapshot(paths)
+        scene_context = bpy.context.scene
+        camera = scene_context.camera
+        if camera is None:
+            raise ValueError("proof scene has no active camera")
+        authored_before = _capture_authored_settings(bpy)
         output_root = (
             asset_root / Path(*PurePosixPath(contract.output_root).parts)
         ).resolve()
@@ -1743,11 +1765,6 @@ def _run_one(
         scene_snapshot.write_bytes(scene_contract_path.read_bytes())
         tool_snapshot.write_bytes(tool_lock.read_bytes())
 
-        scene_context = bpy.context.scene
-        camera = scene_context.camera
-        if camera is None:
-            raise ValueError("proof scene has no active camera")
-        authored_before = _capture_authored_settings(bpy)
         camera_location = camera.location.copy()
         camera_rotation = camera.rotation_euler.copy()
         camera_lens = camera.data.lens
@@ -1812,7 +1829,14 @@ def _run_one(
             scene_context.cycles.samples = saved["cycles_samples"]
             scene_context.cycles.use_denoising = saved["cycles_use_denoising"]
         after_render = _snapshot(paths)
-        authored_after = _capture_authored_settings(bpy)
+        try:
+            authored_after = _capture_authored_settings(bpy)
+        except ValueError as error:
+            return {
+                "status": "blocked_settings_drift",
+                "generation_id": contract.generation_id,
+                "errors": [f"authored dependency state became invalid during render: {error}"],
+            }
         if before != after_render:
             return {
                 "status": "blocked_fingerprint_drift",
@@ -1859,7 +1883,17 @@ def _run_one(
             }
         # This is the final gate. No pass-labelled artifact exists before it.
         after_prepare = _snapshot(paths)
-        authored_after_prepare = _capture_authored_settings(bpy)
+        try:
+            authored_after_prepare = _capture_authored_settings(bpy)
+        except ValueError as error:
+            _cleanup_pending_artifacts(output_root)
+            return {
+                "status": "blocked_settings_drift",
+                "generation_id": contract.generation_id,
+                "errors": [
+                    f"authored dependency state became invalid during proof finalization: {error}"
+                ],
+            }
         if before != after_prepare:
             _cleanup_pending_artifacts(output_root)
             return {

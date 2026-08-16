@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Iterable, Mapping, Sequence
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any, Literal
 
@@ -50,6 +51,7 @@ _CONTROL_KEYS = {
 }
 _TRANSFORM_CHANNELS = {"location", "rotation_euler", "scale"}
 _AXIS_INDICES = {"X": 0, "Y": 1, "Z": 2}
+_MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 
 def load_machine_contract(machine: MachineName) -> dict[str, object]:
@@ -294,12 +296,13 @@ def _material_ids(object_value: object) -> list[str]:
     identifiers: list[str] = []
     for slot in getattr(object_value, "material_slots", ()):
         material = getattr(slot, "material", None)
-        name = getattr(material, "name", None)
         getter = getattr(material, "get", None)
         identifier = getter("pimm_material_id", None) if callable(getter) else None
-        if not _is_nonempty_string(identifier) and _is_nonempty_string(name):
-            identifier = name.removeprefix("PIMM_")
-        if _is_nonempty_string(identifier):
+        if (
+            isinstance(identifier, str)
+            and identifier == identifier.strip()
+            and _MATERIAL_ID.fullmatch(identifier) is not None
+        ):
             identifiers.append(identifier)
     return sorted(set(identifiers))
 
