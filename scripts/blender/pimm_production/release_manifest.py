@@ -12,6 +12,8 @@ from .io_contract import atomic_write_json, sha256_file
 
 
 _RELEASE_ID = re.compile(r"^release-[0-9]{4}-[0-9]{2}-[0-9]{2}-r[0-9]{2}$")
+_GENERATION_ID = re.compile(r"^proof-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7}$")
+_SHOT_ID = re.compile(r"^pimm-(?:30g|50g)(?:--[a-z0-9]+(?:-[a-z0-9]+)*)+$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _MIME_BY_SUFFIX = {".exr": "image/x-exr", ".png": "image/png", ".webp": "image/webp", ".mp4": "video/mp4"}
 
@@ -62,7 +64,7 @@ def _validate_manifest(path: Path, release_id: str) -> tuple[str, str, list[dict
         raise ValueError("final output manifest release ID drift")
     generation = payload.get("generation_id")
     shot_id = payload.get("shot_id")
-    if not isinstance(generation, str) or not generation.startswith("proof-") or not isinstance(shot_id, str) or not shot_id:
+    if not isinstance(generation, str) or _GENERATION_ID.fullmatch(generation) is None or not isinstance(shot_id, str) or _SHOT_ID.fullmatch(shot_id) is None:
         raise ValueError("final output manifest generation or shot is invalid")
     _safe_output_root(payload.get("output_root"), release_id)
     approval = payload.get("approval_sha256")
@@ -85,6 +87,9 @@ def _validate_manifest(path: Path, release_id: str) -> tuple[str, str, list[dict
         relative_path = PurePosixPath(relative) if isinstance(relative, str) else None
         if not isinstance(logical_id, str) or not logical_id or relative_path is None or relative_path.is_absolute() or ".." in relative_path.parts or len(relative_path.parts) != 1:
             raise ValueError("final output asset identity/path is invalid")
+        expected_logical = f"{shot_id}--transparent-{relative_path.suffix.lower().lstrip('.')}"
+        if logical_id != expected_logical:
+            raise ValueError("final output logical asset ID is not canonical")
         if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
             raise ValueError("final output SHA-256 is invalid")
         if not isinstance(dimensions, list) or len(dimensions) != 2 or not all(isinstance(value, int) and not isinstance(value, bool) and value > 0 for value in dimensions):
@@ -111,8 +116,13 @@ def _validate_manifest(path: Path, release_id: str) -> tuple[str, str, list[dict
             "release_id": release_id,
             "shot_id": shot_id,
         })
+    logical_ids = [str(record["logical_asset_id"]) for record in records]
+    if len(logical_ids) != len(set(logical_ids)):
+        raise ValueError("duplicate logical asset ID")
     if not {"exr", "png", "webp"}.issubset(observed_suffixes):
         raise ValueError("absent EXR or contracted transparent deliverable")
+    if observed_suffixes != {"exr", "png", "webp"} or len(records) != 3:
+        raise ValueError("final output family must contain exactly EXR, PNG, and WebP")
     return generation, shot_id, records
 
 

@@ -378,6 +378,15 @@ class ApprovalReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "proof/archive/mutable"):
                 build_release_manifest(RELEASE_ID, [output])
 
+    def test_release_rejects_noncanonical_logical_asset_and_extra_family_member(self) -> None:
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(Path(root_text), "proof-20260815T153000Z-a1b2c3d")
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            payload["outputs"][0]["logical_asset_id"] = "counterfeit"
+            _write_json(output, payload)
+            with self.assertRaisesRegex(ValueError, "logical asset ID"):
+                build_release_manifest(RELEASE_ID, [output])
+
     def test_approved_fixture_creates_atomic_release_manifest_last(self) -> None:
         with TemporaryDirectory() as root_text:
             root = Path(root_text)
