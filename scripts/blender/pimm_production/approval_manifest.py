@@ -75,6 +75,19 @@ _RESERVED_WINDOWS_NAMES = {
 }
 _REPARSE_ATTRIBUTE = 0x400
 _CANONICAL_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+_SEGMENT_LABELS = ("a", "b", "c", "d", "e", "f", "g")
+_DIGIT_SEGMENTS = {
+    "0": "1110111",
+    "1": "0010010",
+    "2": "1011101",
+    "3": "1011011",
+    "4": "0111010",
+    "5": "1101011",
+    "6": "1101111",
+    "7": "1010010",
+    "8": "1111111",
+    "9": "1111011",
+}
 
 
 def canonical_json_sha256(value: object) -> str:
@@ -434,6 +447,13 @@ def _authority_roots(asset_root: Path, blender_binary: Path) -> dict[str, str]:
     }
 
 
+def _machine_contract_path(repository: Path, scene: SceneContract) -> Path:
+    """Return the one checked-in machine contract selected by approved scene identity."""
+
+    filename = "30g.json" if scene.scene_id.startswith("pimm-30g") else "50g.json"
+    return repository / "scripts" / "blender" / "pimm_production" / "contracts" / "machines" / filename
+
+
 def _validate_roots(value: object) -> dict[str, Path]:
     roots = _mapping(value, "authority roots")
     if set(roots) != _AUTHORITY_NAMES:
@@ -541,64 +561,232 @@ def _rgba_pixel_evidence(
     }
 
 
-def _region_pixel_evidence(
-    pixels: list[tuple[int, int, int, int]],
-    width: int,
-    box: list[int],
-    label: str,
+def _identity_sha256(value: object, label: str) -> str:
+    identity = _mapping(value, label)
+    if not isinstance(identity.get("name"), str) or not str(identity["name"]):
+        raise ValueError(f"{label} name is required")
+    return canonical_json_sha256(identity)
+
+
+def _material_ids_from_object(obj: Mapping[str, object]) -> tuple[list[str], list[str]]:
+    slots = obj.get("material_slots")
+    if not isinstance(slots, list):
+        raise ValueError("approved component object material_slots must be a list")
+    identifiers: list[str] = []
+    identities: list[str] = []
+    for raw_slot in slots:
+        slot = _mapping(raw_slot, "approved component material slot")
+        raw_material = slot.get("material")
+        if raw_material is None:
+            continue
+        material = _mapping(raw_material, "approved component material identity")
+        name = material.get("pimm_material_id") or material.get("pimm_stable_id") or material.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("approved component material identity is missing")
+        identifiers.append(name.removeprefix("PIMM_"))
+        identities.append(canonical_json_sha256(material))
+    return sorted(set(identifiers)), sorted(set(identities))
+
+
+def build_component_contract(
+    machine_contract: Mapping[str, object], authored_settings: Mapping[str, object]
 ) -> dict[str, object]:
-    left, top, right, bottom = box
-    region = [
-        pixels[y * width + x]
-        for y in range(top, bottom + 1)
-        for x in range(left, right + 1)
-    ]
-    visible = [pixel for pixel in region if pixel[3] > 0]
-    if not visible:
-        raise ValueError(f"final {label} region contains no visible product pixels")
-    rgba_bytes = bytes(channel for pixel in region for channel in pixel)
-    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in region)
-    visible_rgb = bytes(channel for pixel in visible for channel in pixel[:3])
-    return {
-        "region": box,
-        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
-        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
-        "visible_rgb_sha256": hashlib.sha256(visible_rgb).hexdigest().upper(),
-        "visible_pixels": len(visible),
-        "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+    """Bind approved scene identities to exact material and physical segment roles."""
+
+    errors = validate_machine_contract(machine_contract)
+    if errors:
+        raise ValueError("component machine contract is invalid: " + "; ".join(errors))
+    machine = machine_contract.get("machine")
+    controller = _mapping(machine_contract.get("controller"), "component controller contract")
+    values = controller.get("display_values")
+    if not isinstance(values, list) or not values or any(
+        not isinstance(value, str) or not value or any(digit not in _DIGIT_SEGMENTS for digit in value)
+        for value in values
+    ):
+        raise ValueError("component controller display values must contain decimal digit strings")
+    expected_patterns = [_DIGIT_SEGMENTS[digit] for value in values for digit in value]
+    raw_segments = controller.get("approved_segments")
+    expected_count = len(expected_patterns) * len(_SEGMENT_LABELS)
+    if not isinstance(raw_segments, list) or len(raw_segments) != expected_count:
+        raise ValueError(
+            f"approved physical controller segment map requires exactly {expected_count} identities"
+        )
+
+    raw_objects = authored_settings.get("objects")
+    if not isinstance(raw_objects, list):
+        raise ValueError("approved authored settings objects must be a list")
+    objects: dict[str, Mapping[str, object]] = {}
+    for raw_object in raw_objects:
+        obj = _mapping(raw_object, "approved authored object")
+        identity = _mapping(obj.get("identity"), "approved authored object identity")
+        stable_id = identity.get("pimm_stable_id")
+        if stable_id is None:
+            continue
+        if not isinstance(stable_id, str) or not stable_id.strip() or stable_id in objects:
+            raise ValueError("approved authored component stable object identities must be unique")
+        objects[stable_id] = obj
+
+    segment_ids: set[str] = set()
+    segments: list[dict[str, object]] = []
+    for ordinal, raw_segment in enumerate(raw_segments):
+        segment = _mapping(raw_segment, f"approved controller segment {ordinal}")
+        digit_index, label_index = divmod(ordinal, len(_SEGMENT_LABELS))
+        expected_active = expected_patterns[digit_index][label_index] == "1"
+        stable_id = segment.get("stable_object_id")
+        if not isinstance(stable_id, str) or stable_id in segment_ids:
+            raise ValueError("approved physical controller segment identities must be unique")
+        if segment.get("active") is not expected_active:
+            raise ValueError("approved controller segment state does not encode exact display values")
+        obj = objects.get(stable_id)
+        if obj is None:
+            raise ValueError(f"approved controller segment object is absent from scene: {stable_id}")
+        if obj.get("object_type") != "MESH" or obj.get("hide_render") is not False:
+            raise ValueError(f"approved controller segment is not a visible physical MESH: {stable_id}")
+        material_ids, material_identity_hashes = _material_ids_from_object(obj)
+        if segment.get("material_id") not in material_ids:
+            raise ValueError(f"approved controller segment material mismatch: {stable_id}")
+        object_identity = _mapping(obj.get("identity"), "approved segment object identity")
+        segments.append(
+            {
+                "ordinal": ordinal,
+                "digit_index": digit_index,
+                "segment": _SEGMENT_LABELS[label_index],
+                "stable_object_id": stable_id,
+                "material_id": segment["material_id"],
+                "expected_active": expected_active,
+                "object_identity_sha256": _identity_sha256(
+                    object_identity, "approved segment object identity"
+                ),
+                "material_identity_sha256": canonical_json_sha256(material_identity_hashes),
+            }
+        )
+        segment_ids.add(stable_id)
+
+    machine_local = set(controller.get("approved_machine_local_material_ids", []))
+    material_objects: list[dict[str, object]] = []
+    for stable_id, obj in sorted(objects.items()):
+        if stable_id in segment_ids or obj.get("object_type") != "MESH" or obj.get("hide_render") is not False:
+            continue
+        material_ids, material_identity_hashes = _material_ids_from_object(obj)
+        approved_material_ids = [
+            material_id
+            for material_id in material_ids
+            if material_id not in machine_local
+            and material_id.casefold().removeprefix("pimm_") != "unassigned"
+        ]
+        if not approved_material_ids:
+            continue
+        identity = _mapping(obj.get("identity"), "approved material object identity")
+        material_objects.append(
+            {
+                "stable_object_id": stable_id,
+                "object_identity_sha256": _identity_sha256(
+                    identity, "approved material object identity"
+                ),
+                "material_ids": approved_material_ids,
+                "material_identity_sha256": canonical_json_sha256(material_identity_hashes),
+            }
+        )
+    if not material_objects:
+        raise ValueError("approved scene has no exact assigned material-bearing object identities")
+
+    payload: dict[str, object] = {
+        "schema": "pimm-final-component-contract/v1",
+        "machine": machine,
+        "display_values": list(values),
+        "expected_digit_patterns": expected_patterns,
+        "material_objects": material_objects,
+        "segments": segments,
+    }
+    payload["sha256"] = canonical_json_sha256(payload)
+    return payload
+
+
+def _validated_component_contract(value: Mapping[str, object]) -> Mapping[str, object]:
+    required = {
+        "schema", "machine", "display_values", "expected_digit_patterns",
+        "material_objects", "segments", "sha256",
+    }
+    if set(value) != required or value.get("schema") != "pimm-final-component-contract/v1":
+        raise ValueError("final component contract fields are invalid")
+    unsigned = {key: value[key] for key in required - {"sha256"}}
+    if value.get("sha256") != canonical_json_sha256(unsigned):
+        raise ValueError("final component contract identity hash drift")
+    return value
+
+
+def _decode_component_mask(
+    data: bytes, dimensions: list[object], label: str
+) -> tuple[list[int], dict[str, object]]:
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+            if image.format != "PNG" or list(image.size) != dimensions or image.mode not in {"L", "RGBA"}:
+                raise ValueError(f"{label} must be an exact original-resolution PNG mask")
+            channel = image if image.mode == "L" else image.getchannel("A")
+            values = list(channel.get_flattened_data())
+    except OSError as error:
+        raise ValueError(f"{label} is not genuine PNG mask evidence: {error}") from error
+    selected = [index for index, value in enumerate(values) if value > 0]
+    if not selected:
+        raise ValueError(f"{label} contains no component pixels")
+    width = int(dimensions[0])
+    xs = [index % width for index in selected]
+    ys = [index // width for index in selected]
+    return values, {
+        "file_sha256": hashlib.sha256(data).hexdigest().upper(),
+        "channel_sha256": hashlib.sha256(bytes(values)).hexdigest().upper(),
+        "dimensions": list(dimensions),
+        "nonzero_pixels": len(selected),
+        "bounds": [min(xs), min(ys), max(xs), max(ys)],
+        "centroid": [
+            round(sum(xs) / len(xs), 8),
+            round(sum(ys) / len(ys), 8),
+        ],
     }
 
 
-def _controller_digit_patterns(
-    pixels: list[tuple[int, int, int, int]],
-    width: int,
-    box: list[int],
-    digit_count: int,
-) -> list[str]:
-    left, top, right, bottom = box
-    visible_luma = [
-        sum(pixels[y * width + x][:3])
-        for y in range(top, bottom + 1)
-        for x in range(left, right + 1)
-        if pixels[y * width + x][3] > 0
-    ]
-    threshold = (min(visible_luma) + max(visible_luma)) / 2
-    samples = ((0.5, 0.1), (0.2, 0.3), (0.8, 0.3), (0.5, 0.5),
-               (0.2, 0.7), (0.8, 0.7), (0.5, 0.9))
-    region_width = right - left + 1
-    region_height = bottom - top + 1
-    patterns: list[str] = []
-    for digit in range(digit_count):
-        digit_left = left + digit * region_width / digit_count
-        digit_right = left + (digit + 1) * region_width / digit_count - 1
-        bits = []
-        for x_fraction, y_fraction in samples:
-            x = round(digit_left + max(0, digit_right - digit_left) * x_fraction)
-            y = round(top + max(0, region_height - 1) * y_fraction)
-            pixel = pixels[y * width + min(right, max(left, x))]
-            bits.append("1" if pixel[3] > 0 and sum(pixel[:3]) > threshold else "0")
-        patterns.append("".join(bits))
-    return patterns
+def _masked_pixel_evidence(
+    pixels: list[tuple[int, int, int, int]], mask: list[int], label: str
+) -> dict[str, object]:
+    selected = [pixel for pixel, value in zip(pixels, mask) if value > 0]
+    visible = [pixel for pixel in selected if pixel[3] > 0]
+    if not visible:
+        raise ValueError(f"{label} has no visible overlap with final product pixels")
+    rgba = bytes(channel for pixel in selected for channel in pixel)
+    visible_rgb = bytes(channel for pixel in visible for channel in pixel[:3])
+    return {
+        "masked_rgba_sha256": hashlib.sha256(rgba).hexdigest().upper(),
+        "visible_rgb_sha256": hashlib.sha256(visible_rgb).hexdigest().upper(),
+        "visible_overlap_pixels": len(visible),
+        "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+        "mean_luma": round(sum(sum(pixel[:3]) / 3 for pixel in visible) / len(visible), 8),
+    }
+
+
+def _validate_segment_layout(records: list[dict[str, object]]) -> None:
+    digit_centroids: list[float] = []
+    for digit_index in range(len(records) // len(_SEGMENT_LABELS)):
+        digit = records[
+            digit_index * len(_SEGMENT_LABELS):(digit_index + 1) * len(_SEGMENT_LABELS)
+        ]
+        points = {
+            str(record["segment"]): record["mask"]["centroid"] for record in digit
+        }
+        if set(points) != set(_SEGMENT_LABELS):
+            raise ValueError("controller physical segment identity set is incomplete")
+        a, b, c, d, e, f, g = (points[label] for label in _SEGMENT_LABELS)
+        if not (
+            a[1] < min(b[1], c[1])
+            and max(b[1], c[1]) < d[1] < min(e[1], f[1])
+            and max(e[1], f[1]) < g[1]
+            and b[0] < c[0]
+            and e[0] < f[0]
+        ):
+            raise ValueError("controller physical segment mask identity/layout is swapped")
+        digit_centroids.append(sum(float(point[0]) for point in points.values()) / 7)
+    if any(left >= right for left, right in zip(digit_centroids, digit_centroids[1:])):
+        raise ValueError("controller physical digit mask order is swapped")
 
 
 def compute_final_qa(
@@ -608,6 +796,8 @@ def compute_final_qa(
     machine_contract: Mapping[str, object],
     scene_contract: Mapping[str, object],
     *,
+    component_contract: Mapping[str, object],
+    component_mask_bytes: Mapping[str, bytes],
     material_library_sha256: str,
     scene_contract_sha256: str,
     machine_contract_sha256: str,
@@ -626,26 +816,103 @@ def compute_final_qa(
         raise ValueError("final animation QA requires a supported owner-approved endpoint contract")
     if set(endpoint_png_bytes) != {"start", "end"}:
         raise ValueError("final animation QA requires exact start and end endpoint renders")
-    width, _, pixels = _decode_rgba_pixels(png_bytes, dimensions, "final product")
+    _, _, pixels = _decode_rgba_pixels(png_bytes, dimensions, "final product")
     main = _rgba_pixel_evidence(png_bytes, dimensions, "final product")
-    left, top, right, bottom = main["subject_bounds"]
-    if right - left + 1 < 4:
-        raise ValueError("final product is too narrow for dedicated material/controller regions")
-    split = left + max(1, ((right - left + 1) * 2) // 3)
-    material = _region_pixel_evidence(
-        pixels, width, [left, top, split - 1, bottom], "material"
+    components = _validated_component_contract(component_contract)
+    if (
+        components.get("machine") != machine_contract.get("machine")
+        or components.get("display_values") != controller.get("display_values")
+    ):
+        raise ValueError("final component contract machine/controller identity drift")
+    expected_patterns = components.get("expected_digit_patterns")
+    if not isinstance(expected_patterns, list) or expected_patterns != [
+        _DIGIT_SEGMENTS[digit]
+        for value in controller.get("display_values", [])
+        for digit in str(value)
+    ]:
+        raise ValueError("final component contract display pattern drift")
+    raw_segments = components.get("segments")
+    material_objects = components.get("material_objects")
+    if not isinstance(raw_segments, list) or not isinstance(material_objects, list):
+        raise ValueError("final component contract object identities are invalid")
+    segment_ids = [
+        str(_mapping(item, "final component segment").get("stable_object_id"))
+        for item in raw_segments
+    ]
+    expected_mask_ids = {"material", *segment_ids}
+    if set(component_mask_bytes) != expected_mask_ids:
+        raise ValueError("final component masks are missing, extra, or bound to wrong identities")
+
+    material_mask, material_mask_evidence = _decode_component_mask(
+        component_mask_bytes["material"], dimensions, "final material object mask"
     )
-    controller_pixels = _region_pixel_evidence(
-        pixels, width, [split, top, right, bottom], "controller"
+    material_pixels = _masked_pixel_evidence(
+        pixels, material_mask, "final material object mask"
     )
-    if material["unique_rgb_values"] < 2 or controller_pixels["unique_rgb_values"] < 2:
-        raise ValueError("final material/controller evidence cannot be a uniform whole frame")
-    display_values = controller.get("display_values")
-    assert isinstance(display_values, list)
-    digit_count = sum(len(str(value)) for value in display_values)
-    patterns = _controller_digit_patterns(
-        pixels, width, list(controller_pixels["region"]), digit_count
-    )
+    if material_pixels["unique_rgb_values"] < 2:
+        raise ValueError("final material object pixels cannot be uniform")
+
+    occupied = [False] * len(pixels)
+    segment_records: list[dict[str, object]] = []
+    for ordinal, raw_segment in enumerate(raw_segments):
+        segment = _mapping(raw_segment, f"final component segment {ordinal}")
+        if segment.get("ordinal") != ordinal:
+            raise ValueError("final controller segment order/identity drift")
+        stable_id = str(segment.get("stable_object_id"))
+        mask, mask_evidence = _decode_component_mask(
+            component_mask_bytes[stable_id], dimensions,
+            f"final controller segment mask {stable_id}",
+        )
+        if any(existing and value > 0 for existing, value in zip(occupied, mask)):
+            raise ValueError("final controller physical segment masks overlap or are duplicated")
+        for index, value in enumerate(mask):
+            if value > 0:
+                occupied[index] = True
+        pixel_evidence = _masked_pixel_evidence(
+            pixels, mask, f"final controller segment mask {stable_id}"
+        )
+        segment_records.append(
+            {
+                "ordinal": ordinal,
+                "digit_index": segment.get("digit_index"),
+                "segment": segment.get("segment"),
+                "stable_object_id": stable_id,
+                "material_id": segment.get("material_id"),
+                "expected_active": segment.get("expected_active"),
+                "object_identity_sha256": segment.get("object_identity_sha256"),
+                "material_identity_sha256": segment.get("material_identity_sha256"),
+                "mask": mask_evidence,
+                "pixels": pixel_evidence,
+            }
+        )
+    if any(value > 0 and occupied[index] for index, value in enumerate(material_mask)):
+        raise ValueError("final material and controller component masks overlap")
+    _validate_segment_layout(segment_records)
+
+    active_luma = [
+        float(record["pixels"]["mean_luma"])
+        for record in segment_records if record["expected_active"] is True
+    ]
+    inactive_luma = [
+        float(record["pixels"]["mean_luma"])
+        for record in segment_records if record["expected_active"] is False
+    ]
+    if not active_luma or not inactive_luma or min(active_luma) <= max(inactive_luma):
+        raise ValueError("controller active/inactive physical segment states are not distinguishable")
+    threshold = (min(active_luma) + max(inactive_luma)) / 2
+    observed_patterns: list[str] = []
+    for digit_index in range(len(expected_patterns)):
+        digit = segment_records[
+            digit_index * len(_SEGMENT_LABELS):(digit_index + 1) * len(_SEGMENT_LABELS)
+        ]
+        observed_patterns.append(
+            "".join(
+                "1" if float(record["pixels"]["mean_luma"]) > threshold else "0"
+                for record in digit
+            )
+        )
+    if observed_patterns != expected_patterns:
+        raise ValueError("controller physical segment state pattern does not match exact display values")
     endpoints: list[dict[str, object]] = []
     for label in ("start", "end"):
         evidence = _rgba_pixel_evidence(
@@ -680,7 +947,14 @@ def compute_final_qa(
         "material": {
             "material_library_sha256": _sha(material_library_sha256, "material library SHA-256"),
             "scene_contract_sha256": _sha(scene_contract_sha256, "scene contract SHA-256"),
-            **material,
+            "component_contract_sha256": components["sha256"],
+            "stable_object_ids": [
+                _mapping(item, "final material object")["stable_object_id"]
+                for item in material_objects
+            ],
+            "object_identity_sha256": canonical_json_sha256(material_objects),
+            "mask": material_mask_evidence,
+            **material_pixels,
         },
         "alpha": {
             "channel_sha256": main["alpha_sha256"],
@@ -692,12 +966,15 @@ def compute_final_qa(
         "controller": {
             "machine_contract_sha256": _sha(machine_contract_sha256, "machine contract SHA-256"),
             "controller_contract_sha256": canonical_json_sha256(controller),
-            **controller_pixels,
-            "digit_patterns": patterns,
-            "active_segment_count": sum(pattern.count("1") for pattern in patterns),
-            "segment_mask_sha256": hashlib.sha256(
-                "".join(patterns).encode("ascii")
-            ).hexdigest().upper(),
+            "component_contract_sha256": components["sha256"],
+            "display_values": list(controller["display_values"]),
+            "expected_digit_patterns": expected_patterns,
+            "observed_digit_patterns": observed_patterns,
+            "active_segment_count": sum(record["expected_active"] is True for record in segment_records),
+            "inactive_segment_count": sum(record["expected_active"] is False for record in segment_records),
+            "illumination_threshold": round(threshold, 8),
+            "segment_identity_sha256": canonical_json_sha256(raw_segments),
+            "segments": segment_records,
         },
         "animation": {
             "contract_sha256": canonical_json_sha256({
@@ -898,8 +1175,7 @@ def extract_current_approval_evidence(proof_manifest_path: Path) -> dict[str, ob
         "proof_runner": repository / "scripts" / "blender" / "pimm_production" / "blender_proof_render.py",
         "final_runner": repository / "scripts" / "blender" / "pimm_production" / "blender_final_render.py",
         "blender_binary": blender_binary,
-        "machine_contract": repository / "scripts" / "blender" / "pimm_production"
-        / "contracts" / "machines" / ("30g.json" if scene.scene_id.startswith("pimm-30g") else "50g.json"),
+        "machine_contract": _machine_contract_path(repository, scene),
     }
     for name, path in static_paths.items():
         authority = _BASE_EVIDENCE_AUTHORITIES[name]

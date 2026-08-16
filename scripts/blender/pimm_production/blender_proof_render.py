@@ -348,14 +348,16 @@ def _data_identity(value: object | None) -> dict[str, object] | None:
         "type": type(value).__name__,
         "library": str(getattr(library, "filepath", "")) if library else None,
     }
-    stable_id = None
+    stable_properties: dict[str, str] = {}
     if hasattr(value, "get"):
-        try:
-            stable_id = value.get("pimm_stable_id")
-        except (AttributeError, RuntimeError, TypeError, ValueError):
-            stable_id = None
-    if stable_id is not None:
-        result["pimm_stable_id"] = str(stable_id)
+        for property_name in ("pimm_stable_id", "pimm_material_id"):
+            try:
+                property_value = value.get(property_name)
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                property_value = None
+            if property_value is not None:
+                stable_properties[property_name] = str(property_value)
+    result.update(stable_properties)
     return result
 
 

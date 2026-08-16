@@ -5,17 +5,21 @@ from __future__ import annotations
 import copy
 import dataclasses
 import hashlib
+import io
 import json
 import os
 import struct
 import subprocess
+import textwrap
+import zlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Callable
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from scripts.blender.pimm_production.approval_manifest import (
     record_decision,
@@ -36,6 +40,9 @@ SHOT_ID = "pimm-30g--hero--three-quarter"
 RELEASE_ID = "release-2026-08-15-r01"
 BLENDER = Path(r"D:\Blender 5.2\blender.exe")
 REPO_ROOT = Path(__file__).resolve().parents[4]
+APPROVED_COMPONENT_MACHINE_FIXTURE = (
+    Path(__file__).resolve().parent / "fixtures" / "approved-30g-component-machine.json"
+)
 
 
 def _sha256(path: Path) -> str:
@@ -64,150 +71,249 @@ def _canonical_fixture_sha(value: object) -> str:
     ).hexdigest().upper()
 
 
-def _fixture_region_metrics(
-    pixels: list[tuple[int, int, int, int]], width: int, box: list[int]
-) -> dict[str, object]:
-    """Independently derive exact pixel/mask evidence for one fixture region."""
+_SEGMENT_LABELS = ("a", "b", "c", "d", "e", "f", "g")
+_DIGIT_SEGMENTS = {
+    "0": "1110111",
+    "1": "0010010",
+    "2": "1011101",
+    "3": "1011011",
+    "4": "0111010",
+    "5": "1101011",
+    "6": "1101111",
+    "7": "1010010",
+    "8": "1111111",
+    "9": "1111011",
+}
 
-    left, top, right, bottom = box
-    region = [
-        pixels[y * width + x]
-        for y in range(top, bottom + 1)
-        for x in range(left, right + 1)
-    ]
-    visible = [pixel for pixel in region if pixel[3] > 0]
-    rgba_bytes = bytes(channel for pixel in region for channel in pixel)
-    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in region)
-    visible_rgb_bytes = bytes(channel for pixel in visible for channel in pixel[:3])
+
+def _approved_component_machine_contract() -> dict[str, object]:
+    """Return a schema-compatible approved physical 30G segment map."""
+
+    values = ["300", "300"]
+    patterns = [_DIGIT_SEGMENTS[digit] for value in values for digit in value]
+    segments = []
+    for digit_index, pattern in enumerate(patterns):
+        for segment_index, (label, bit) in enumerate(zip(_SEGMENT_LABELS, pattern)):
+            active = bit == "1"
+            segments.append(
+                {
+                    "stable_object_id": f"30G-display-d{digit_index}-{label}",
+                    "material_id": "CONTROLLER_ACTIVE" if active else "CONTROLLER_INACTIVE",
+                    "object_type": "MESH",
+                    "active": active,
+                }
+            )
     return {
-        "region": box,
-        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
-        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
-        "visible_rgb_sha256": hashlib.sha256(visible_rgb_bytes).hexdigest().upper(),
-        "visible_pixels": len(visible),
-        "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+        "schema_version": 1,
+        "machine": "30G",
+        "controller": {
+            "display_values": values,
+            "geometry_mode": "physical-seven-segment-mesh",
+            "allow_font": False,
+            "allow_image_overlay": False,
+            "inactive_segments_required": True,
+            "approved_machine_local_material_ids": [
+                "CONTROLLER_ACTIVE",
+                "CONTROLLER_INACTIVE",
+            ],
+            "approved_segments": segments,
+        },
+        "animation": {
+            "status": "blocked_pending_owner_motion_map",
+            "allowed_controls": [],
+        },
     }
 
 
-def _fixture_controller_patterns(
-    pixels: list[tuple[int, int, int, int]],
-    width: int,
-    box: list[int],
-    digit_count: int,
-) -> list[str]:
-    """Sample seven physical regions per controller digit from real fixture pixels."""
+def _install_approved_components_in_render_metadata(metadata: dict[str, object]) -> None:
+    """Install complete proof-schema records for the approved fixture components."""
 
-    left, top, right, bottom = box
-    visible_luma = [
-        sum(pixels[y * width + x][:3])
-        for y in range(top, bottom + 1)
-        for x in range(left, right + 1)
-        if pixels[y * width + x][3] > 0
+    authored = metadata["authored_settings"]["before"]
+    material_specs = (
+        ("PIMM_POWDER_COAT_BLACK", "PIMM-MAT-POWDER-COAT-BLACK"),
+        ("CONTROLLER_ACTIVE", None),
+        ("CONTROLLER_INACTIVE", None),
+    )
+    material_identities: dict[str, dict[str, object]] = {}
+    materials = []
+    for name, stable_id in material_specs:
+        material = proof_fixtures._valid_dependency_material()
+        identity: dict[str, object] = {"name": name, "type": "Material", "library": None}
+        if stable_id:
+            identity["pimm_stable_id"] = stable_id
+        material["identity"] = identity
+        material["node_tree"] = None
+        material_identities[name] = identity
+        materials.append(material)
+
+    objects = [proof_fixtures._valid_camera_dependency_object()]
+
+    def component_object(name: str, stable_id: str, material_name: str) -> dict[str, object]:
+        obj = proof_fixtures._valid_dependency_object(name)
+        obj["identity"]["pimm_stable_id"] = stable_id
+        obj["material_slots"] = [
+            {
+                "index": 0,
+                "name": material_name,
+                "link": "DATA",
+                "material": material_identities[material_name],
+            }
+        ]
+        return obj
+
+    objects.append(
+        component_object(
+            "PIMM_30G_MATERIAL_BODY", "30G-material-body", "PIMM_POWDER_COAT_BLACK"
+        )
+    )
+    machine = _approved_component_machine_contract()
+    for segment in machine["controller"]["approved_segments"]:
+        objects.append(
+            component_object(
+                str(segment["stable_object_id"]),
+                str(segment["stable_object_id"]),
+                str(segment["material_id"]),
+            )
+        )
+    objects.sort(key=lambda obj: json.dumps(obj["identity"], sort_keys=True, separators=(",", ":")))
+    materials.sort(key=lambda item: json.dumps(item["identity"], sort_keys=True, separators=(",", ":")))
+    authored["objects"] = objects
+    authored["materials"] = materials
+    authored["collection_tree"]["objects"] = [obj["identity"] for obj in objects]
+    authored["collection_tree"]["objects"].sort(
+        key=lambda identity: json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    )
+    proof_fixtures._recompute_dependency_digest(authored)
+    metadata["authored_settings"]["after"] = copy.deepcopy(authored)
+
+
+def _approved_component_authored_state() -> dict[str, object]:
+    """Model the exact approved scene object/material identities used by masks."""
+
+    machine = _approved_component_machine_contract()
+    segments = machine["controller"]["approved_segments"]
+    material_identity = {
+        "name": "PIMM_POWDER_COAT_BLACK",
+        "type": "Material",
+        "library": "PIMM-MATERIAL-LIBRARY.blend",
+        "pimm_stable_id": "PIMM-MAT-POWDER-COAT-BLACK",
+    }
+    objects: list[dict[str, object]] = [
+        {
+            "identity": {
+                "name": "PIMM_30G_MATERIAL_BODY",
+                "type": "Object",
+                "library": "PIMM-30G-MASTER.blend",
+                "pimm_stable_id": "30G-material-body",
+            },
+            "object_type": "MESH",
+            "hide_render": False,
+            "material_slots": [{"material": material_identity}],
+        }
     ]
-    threshold = (min(visible_luma) + max(visible_luma)) / 2
-    samples = ((0.5, 0.1), (0.2, 0.3), (0.8, 0.3), (0.5, 0.5),
-               (0.2, 0.7), (0.8, 0.7), (0.5, 0.9))
-    region_width = right - left + 1
-    region_height = bottom - top + 1
-    patterns: list[str] = []
-    for digit in range(digit_count):
-        digit_left = left + digit * region_width / digit_count
-        digit_right = left + (digit + 1) * region_width / digit_count - 1
-        bits = []
-        for x_fraction, y_fraction in samples:
-            x = round(digit_left + max(0, digit_right - digit_left) * x_fraction)
-            y = round(top + max(0, region_height - 1) * y_fraction)
-            pixel = pixels[y * width + min(right, max(left, x))]
-            bits.append("1" if pixel[3] > 0 and sum(pixel[:3]) > threshold else "0")
-        patterns.append("".join(bits))
-    return patterns
+    for segment in segments:
+        objects.append(
+            {
+                "identity": {
+                    "name": segment["stable_object_id"],
+                    "type": "Object",
+                    "library": "PIMM-30G-MASTER.blend",
+                    "pimm_stable_id": segment["stable_object_id"],
+                },
+                "object_type": "MESH",
+                "hide_render": False,
+                "material_slots": [
+                    {
+                        "material": {
+                            "name": segment["material_id"],
+                            "type": "Material",
+                            "library": "PIMM-30G-MASTER.blend",
+                        }
+                    }
+                ],
+            }
+        )
+    return {"objects": objects}
 
 
-def _fixture_png_evidence(path: Path) -> tuple[int, int, list[tuple[int, int, int, int]], dict[str, object]]:
-    with Image.open(path) as image:
-        rgba = image.convert("RGBA")
-        width, height = rgba.size
-        pixels = list(rgba.get_flattened_data())
-    visible = [pixel for pixel in pixels if pixel[3] > 0]
-    visible_indices = [index for index, pixel in enumerate(pixels) if pixel[3] > 0]
-    xs = [index % width for index in visible_indices]
-    ys = [index // width for index in visible_indices]
-    rgba_bytes = bytes(channel for pixel in pixels for channel in pixel)
-    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in pixels)
-    return width, height, pixels, {
-        "file_sha256": _sha256(path),
-        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
-        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
-        "subject_bounds": [min(xs), min(ys), max(xs), max(ys)],
-        "visible_pixels": len(visible),
-        "visible_fraction": round(len(visible) / len(pixels), 8),
+def _png_bytes(image: Image.Image) -> bytes:
+    output = io.BytesIO()
+    image.save(output, format="PNG")
+    return output.getvalue()
+
+
+def _structured_component_pixels(
+    *, invert_segment_states: bool = False
+) -> tuple[bytes, dict[str, bytes]]:
+    """Depict an irregular material body and six physical seven-segment digits."""
+
+    machine = _approved_component_machine_contract()
+    segments = machine["controller"]["approved_segments"]
+    image = Image.new("RGBA", (64, 48), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    material_mask = Image.new("L", image.size, 0)
+    material_draw = ImageDraw.Draw(material_mask)
+    material_shape = [(4, 9), (28, 7), (34, 15), (32, 38), (10, 41), (3, 28)]
+    material_draw.polygon(material_shape, fill=255)
+    for y in range(image.height):
+        for x in range(image.width):
+            if material_mask.getpixel((x, y)):
+                image.putpixel((x, y), (45 + x * 2, 65 + y, 90 + (x + y) % 55, 220))
+    draw.rectangle((36, 9, 63, 21), fill=(18, 20, 24, 255))
+
+    masks: dict[str, bytes] = {"material": _png_bytes(material_mask)}
+    digit_x = (38, 42, 46, 51, 55, 59)
+    segment_pixels = {
+        "a": lambda x: [(x + 1, 11)],
+        "b": lambda x: [(x, 12), (x, 13)],
+        "c": lambda x: [(x + 2, 12), (x + 2, 13)],
+        "d": lambda x: [(x + 1, 14)],
+        "e": lambda x: [(x, 15), (x, 16)],
+        "f": lambda x: [(x + 2, 15), (x + 2, 16)],
+        "g": lambda x: [(x + 1, 17)],
     }
+    for index, segment in enumerate(segments):
+        digit_index, label_index = divmod(index, len(_SEGMENT_LABELS))
+        label = _SEGMENT_LABELS[label_index]
+        mask = Image.new("L", image.size, 0)
+        for coordinate in segment_pixels[label](digit_x[digit_index]):
+            mask.putpixel(coordinate, 255)
+        active = bool(segment["active"]) ^ invert_segment_states
+        color = (245, 70, 25, 255) if active else (24, 8, 6, 255)
+        for coordinate in segment_pixels[label](digit_x[digit_index]):
+            image.putpixel(coordinate, color)
+        masks[str(segment["stable_object_id"])] = _png_bytes(mask)
+    return _png_bytes(image), masks
 
 
 def _fixture_final_qa(
     png: Path,
     approval: dict[str, object],
     endpoints: dict[str, Path],
+    component_contract: dict[str, object],
+    component_masks: dict[str, Path],
 ) -> dict[str, object]:
-    """Hand-derived Task 6 QA fixture, independent of the production builder."""
+    """Build fixture QA from persisted pixels, masks, and approved authorities."""
 
-    width, height, pixels, product = _fixture_png_evidence(png)
-    bounds = product["subject_bounds"]
-    assert isinstance(bounds, list)
-    left, top, right, bottom = bounds
-    split = left + max(1, ((right - left + 1) * 2) // 3)
-    material_box = [left, top, split - 1, bottom]
-    controller_box = [split, top, right, bottom]
-    material = _fixture_region_metrics(pixels, width, material_box)
-    controller = _fixture_region_metrics(pixels, width, controller_box)
-    alpha_bytes = bytes(pixel[3] for pixel in pixels)
-    machine_path = (
-        REPO_ROOT / "scripts" / "blender" / "pimm_production" / "contracts" / "machines" / "30g.json"
-    )
-    machine = json.loads(machine_path.read_text(encoding="utf-8"))
     evidence = approval["evidence"]
     assert isinstance(evidence, dict)
+    machine_path = Path(evidence["machine_contract"]["path"])
+    machine = json.loads(machine_path.read_text(encoding="utf-8"))
     scene_contract = json.loads(Path(evidence["scene_contract"]["path"]).read_text(encoding="utf-8"))
-    digit_count = sum(len(value) for value in machine["controller"]["display_values"])
-    patterns = _fixture_controller_patterns(pixels, width, controller_box, digit_count)
-    endpoint_records = []
-    for label in ("start", "end"):
-        endpoint_width, endpoint_height, _, endpoint = _fixture_png_evidence(endpoints[label])
-        assert (endpoint_width, endpoint_height) == (width, height)
-        endpoint_records.append({"label": label, **endpoint})
-    return {
-        "schema": "pimm-final-qa/v1",
-        "dimensions": [width, height],
-        "product": {key: value for key, value in product.items() if key != "file_sha256"},
-        "material": {
-            "material_library_sha256": approval["inputs"]["material_library_sha256"],
-            "scene_contract_sha256": evidence["scene_contract"]["sha256"],
-            **material,
+    return approval_module.compute_final_qa(
+        png.read_bytes(),
+        {label: path.read_bytes() for label, path in endpoints.items()},
+        [64, 48],
+        machine,
+        scene_contract,
+        component_contract=component_contract,
+        component_mask_bytes={
+            mask_id: path.read_bytes() for mask_id, path in component_masks.items()
         },
-        "alpha": {
-            "channel_sha256": hashlib.sha256(alpha_bytes).hexdigest().upper(),
-            "minimum": min(alpha_bytes),
-            "maximum": max(alpha_bytes),
-            "nonzero_pixels": sum(value > 0 for value in alpha_bytes),
-            "partial_pixels": sum(0 < value < 255 for value in alpha_bytes),
-        },
-        "controller": {
-            "machine_contract_sha256": _sha256(machine_path),
-            "controller_contract_sha256": _canonical_fixture_sha(machine["controller"]),
-            **controller,
-            "digit_patterns": patterns,
-            "active_segment_count": sum(pattern.count("1") for pattern in patterns),
-            "segment_mask_sha256": hashlib.sha256("".join(patterns).encode("ascii")).hexdigest().upper(),
-        },
-        "animation": {
-            "contract_sha256": _canonical_fixture_sha(
-                {"machine": machine["animation"], "scene": scene_contract["animation_contract"]}
-            ),
-            "status": machine["animation"]["status"],
-            "endpoints": endpoint_records,
-            "identical": True,
-        },
-    }
+        material_library_sha256=approval["inputs"]["material_library_sha256"],
+        scene_contract_sha256=evidence["scene_contract"]["sha256"],
+        machine_contract_sha256=evidence["machine_contract"]["sha256"],
+    )
 
 
 def _proof_manifest(
@@ -253,6 +359,8 @@ def _proof_manifest(
     proof_root.mkdir(parents=True)
     metadata = proof_fixtures._valid_render_metadata(contract, actual_dimensions=[16, 12])
     metadata["base_dimensions"] = [64, 48]
+    if not native_scene:
+        _install_approved_components_in_render_metadata(metadata)
     tool_binary = BLENDER if native_scene else root / "tools" / "blender.exe"
     if tool_binary != BLENDER:
         tool_binary.parent.mkdir(parents=True)
@@ -286,8 +394,8 @@ def _proof_manifest(
             text=True,
             check=False,
         )
-        if result.returncode:
-            raise AssertionError(result.stderr)
+        if result.returncode or not capture_path.is_file():
+            raise AssertionError(result.stdout + result.stderr)
         authored = json.loads(capture_path.read_text(encoding="utf-8"))
         metadata["authored_settings"] = {"before": authored, "after": copy.deepcopy(authored)}
 
@@ -318,7 +426,15 @@ def write_approval_fixture(
     """Write a complete approval and matching final contract for fixture tests."""
 
     proof_path = _proof_manifest(root, scene_sha256, generation_id)
-    approval_path = record_decision(proof_path, SHOT_ID, decision, "natth", "fixture review")
+    with patch.object(
+        approval_module,
+        "_machine_contract_path",
+        return_value=APPROVED_COMPONENT_MACHINE_FIXTURE,
+        create=True,
+    ):
+        approval_path = record_decision(
+            proof_path, SHOT_ID, decision, "natth", "fixture review"
+        )
     approval = json.loads(approval_path.read_text(encoding="utf-8"))
     final = {
         "schema": "pimm-final-render-contract/v1",
@@ -340,18 +456,29 @@ def write_approval_fixture(
 
 
 def _write_nonuniform_final_fixture(path: Path) -> None:
-    """Write explicit material and controller pixel regions without production helpers."""
+    """Write the semantically structured material/body and physical display fixture."""
 
-    pixels: list[tuple[int, int, int, int]] = []
-    for y in range(48):
-        for x in range(64):
-            if x < 42:
-                pixels.append((40 + (x * 3) % 90, 70 + (y * 5) % 80, 120 + (x + y) % 80, 160))
-            else:
-                bright = (x + 2 * y) % 7 in {0, 1, 4}
-                pixels.append((220, 45 + y % 20, 20, 220) if bright else (15, 20, 25 + x % 12, 180))
+    png, _ = _structured_component_pixels()
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.frombytes("RGBA", (64, 48), bytes(channel for pixel in pixels for channel in pixel)).save(path)
+    path.write_bytes(png)
+
+
+def _write_native_component_mask_fixture(family: Path) -> None:
+    """Write the exact canonical mask family expected from the mocked Blender call."""
+
+    _, masks = _structured_component_pixels()
+    segments = _approved_component_machine_contract()["controller"]["approved_segments"]
+    ordinals = {
+        str(segment["stable_object_id"]): ordinal
+        for ordinal, segment in enumerate(segments)
+    }
+    for mask_id, data in masks.items():
+        filename = (
+            f"{SHOT_ID}--material-objects-mask.png"
+            if mask_id == "material"
+            else f"{SHOT_ID}--controller-segment-{ordinals[mask_id]:02d}-mask.png"
+        )
+        (family / filename).write_bytes(data)
 
 
 def write_release_output_fixture(root: Path, generation_id: str) -> Path:
@@ -361,6 +488,13 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
         root, "approved", "a" * 64, generation_id=generation_id
     )
     authorization = authorize_final_render(approval_path, final_contract_path)
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    evidence = approval["evidence"]
+    machine = json.loads(Path(evidence["machine_contract"]["path"]).read_text(encoding="utf-8"))
+    metadata = json.loads(Path(evidence["render_metadata"]["path"]).read_text(encoding="utf-8"))
+    component_contract = approval_module.build_component_contract(
+        machine, metadata["authored_settings"]["before"]
+    )
     output_root = root / "renders" / "final" / RELEASE_ID / SHOT_ID
     output_root.mkdir(parents=True, exist_ok=True)
     outputs: list[dict[str, object]] = []
@@ -397,6 +531,30 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
         }
         for label in ("start", "end")
     ]
+    _, mask_bytes = _structured_component_pixels()
+    component_masks: dict[str, Path] = {}
+    component_entries: list[dict[str, object]] = []
+    for mask_id, data in mask_bytes.items():
+        if mask_id == "material":
+            filename = f"{SHOT_ID}--material-objects-mask.png"
+        else:
+            segment = next(
+                item for item in component_contract["segments"]
+                if item["stable_object_id"] == mask_id
+            )
+            filename = f"{SHOT_ID}--controller-segment-{segment['ordinal']:02d}-mask.png"
+        path = output_root / filename
+        path.write_bytes(data)
+        component_masks[mask_id] = path
+        component_entries.append(
+            {
+                "mask_id": mask_id,
+                "path": filename,
+                "sha256": _sha256(path),
+                "dimensions": [64, 48],
+                "mime_type": "image/png",
+            }
+        )
     exr = output_root / f"{SHOT_ID}--transparent.exr"
     _write_float_exr(exr, 64, 48)
     outputs.append(
@@ -422,11 +580,14 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
         "output_root": f"renders/final/{RELEASE_ID}",
         "required_deliverables": ["exr", "png", "webp"],
         "qa": _fixture_final_qa(
-            png,
-            json.loads(approval_path.read_text(encoding="utf-8")),
-            endpoints,
+            png, approval, endpoints, component_contract, component_masks
         ),
         "qa_evidence": qa_evidence,
+        "component_evidence": {
+            "schema": "pimm-final-component-evidence/v1",
+            "contract": component_contract,
+            "masks": sorted(component_entries, key=lambda item: str(item["mask_id"])),
+        },
         "outputs": outputs,
     }
     return _write_json(output_root / "final-output-manifest.json", manifest)
@@ -449,12 +610,20 @@ def _refresh_final_fixture_manifest(
     }
     for record in payload["qa_evidence"]:
         record["sha256"] = _sha256(family / record["path"])
+    component = payload["component_evidence"]
+    component_masks = {
+        record["mask_id"]: family / record["path"] for record in component["masks"]
+    }
+    for record in component["masks"]:
+        record["sha256"] = _sha256(family / record["path"])
     old_section = copy.deepcopy(payload["qa"].get(preserve_qa_section)) if preserve_qa_section else None
     approval = json.loads(Path(payload["approval_path"]).read_text(encoding="utf-8"))
     payload["qa"] = _fixture_final_qa(
         family / f"{SHOT_ID}--transparent.png",
         approval,
         endpoints,
+        component["contract"],
+        component_masks,
     )
     if preserve_qa_section:
         payload["qa"][preserve_qa_section] = old_section
@@ -493,8 +662,55 @@ def _write_uniform_fixture_family(output: Path) -> None:
     uniform.save(family / f"{SHOT_ID}--animation-end.png", format="PNG")
 
 
-def _write_float_exr(path: Path, width: int, height: int) -> None:
-    """Write a minimal valid uncompressed scanline float-RGBA OpenEXR fixture."""
+def _zip_shuffle(raw: bytes) -> bytes:
+    return raw[0::2] + raw[1::2]
+
+
+def _zip_unshuffle(raw: bytes) -> bytes:
+    split = (len(raw) + 1) // 2
+    decoded = bytearray(len(raw))
+    decoded[0::2] = raw[:split]
+    decoded[1::2] = raw[split:]
+    return bytes(decoded)
+
+
+def _zip_predict(raw: bytes) -> bytes:
+    predicted = bytearray(raw)
+    for index in range(1, len(raw)):
+        predicted[index] = (raw[index] - raw[index - 1] + 128) & 0xFF
+    return bytes(predicted)
+
+
+def _zip_inverse_predict(raw: bytes) -> bytes:
+    decoded = bytearray(raw)
+    for index in range(1, len(decoded)):
+        decoded[index] = (decoded[index - 1] + decoded[index] - 128) & 0xFF
+    return bytes(decoded)
+
+
+def _wrong_exr_decoder_collision(raw: bytes) -> bytes:
+    """Return different channel bytes that collide under the former decode order."""
+
+    return _zip_unshuffle(_zip_inverse_predict(_zip_shuffle(_zip_predict(raw))))
+
+
+def _former_wrong_zip_decode(raw: bytes) -> bytes:
+    """Model the former unshuffle-before-inverse-predict decoder for regression proof."""
+
+    return _zip_inverse_predict(_zip_unshuffle(_zip_predict(_zip_shuffle(raw))))
+
+
+def _float_exr_bytes(
+    width: int,
+    height: int,
+    *,
+    pixel_value: float = 0.5,
+    compression: int = 0,
+    vary_pixels: bool = False,
+    raw_transform: Callable[[bytes], bytes] | None = None,
+    raw_fallback: bool = False,
+) -> bytes:
+    """Build a minimal valid uncompressed scanline float-RGBA OpenEXR fixture."""
 
     def attribute(name: str, kind: str, value: bytes) -> bytes:
         return name.encode("ascii") + b"\0" + kind.encode("ascii") + b"\0" + struct.pack("<I", len(value)) + value
@@ -506,7 +722,7 @@ def _write_float_exr(path: Path, width: int, height: int) -> None:
     window = struct.pack("<iiii", 0, 0, width - 1, height - 1)
     header = b"v/1\x01" + struct.pack("<I", 2)
     header += attribute("channels", "chlist", channels)
-    header += attribute("compression", "compression", b"\0")
+    header += attribute("compression", "compression", bytes([compression]))
     header += attribute("dataWindow", "box2i", window)
     header += attribute("displayWindow", "box2i", window)
     header += attribute("lineOrder", "lineOrder", b"\0")
@@ -514,14 +730,83 @@ def _write_float_exr(path: Path, width: int, height: int) -> None:
     header += attribute("screenWindowCenter", "v2f", struct.pack("<ff", 0.0, 0.0))
     header += attribute("screenWindowWidth", "float", struct.pack("<f", 1.0))
     header += b"\0"
-    scanline_data = struct.pack("<f", 0.5) * (width * 4)
-    chunks = [struct.pack("<iI", y, len(scanline_data)) + scanline_data for y in range(height)]
+    chunks: list[bytes] = []
+    for y in range(height):
+        if vary_pixels:
+            scanline_data = b"".join(
+                struct.pack("<f", pixel_value + ((y * width * 4 + index) % 23) / 32.0)
+                for index in range(width * 4)
+            )
+        else:
+            scanline_data = struct.pack("<f", pixel_value) * (width * 4)
+        if raw_transform is not None:
+            scanline_data = raw_transform(scanline_data)
+        if compression == 0 or raw_fallback:
+            payload = scanline_data
+        elif compression == 2:
+            payload = zlib.compress(_zip_predict(_zip_shuffle(scanline_data)))
+        else:
+            raise AssertionError("fixture supports only uncompressed and ZIPS EXR")
+        chunks.append(struct.pack("<iI", y, len(payload)) + payload)
     cursor = len(header) + height * 8
     offsets: list[int] = []
     for chunk in chunks:
         offsets.append(cursor)
         cursor += len(chunk)
-    path.write_bytes(header + struct.pack(f"<{height}Q", *offsets) + b"".join(chunks))
+    return header + struct.pack(f"<{height}Q", *offsets) + b"".join(chunks)
+
+
+def _write_float_exr(
+    path: Path,
+    width: int,
+    height: int,
+    *,
+    pixel_value: float = 0.5,
+    compression: int = 0,
+    vary_pixels: bool = False,
+    raw_transform: Callable[[bytes], bytes] | None = None,
+    raw_fallback: bool = False,
+) -> None:
+    """Write a minimal valid uncompressed scanline float-RGBA OpenEXR fixture."""
+
+    path.write_bytes(
+        _float_exr_bytes(
+            width,
+            height,
+            pixel_value=pixel_value,
+            compression=compression,
+            vary_pixels=vary_pixels,
+            raw_transform=raw_transform,
+            raw_fallback=raw_fallback,
+        )
+    )
+
+
+def _replace_only_exr_payload(
+    data: bytes, transform: Callable[[bytes], bytes]
+) -> bytes:
+    """Replace the single scanline chunk payload in a one-row EXR fixture."""
+
+    cursor = 8
+    while True:
+        name_end = data.index(0, cursor)
+        if name_end == cursor:
+            cursor += 1
+            break
+        cursor = name_end + 1
+        kind_end = data.index(0, cursor)
+        cursor = kind_end + 1
+        size = struct.unpack_from("<I", data, cursor)[0]
+        cursor += 4 + size
+    chunk_offset = struct.unpack_from("<Q", data, cursor)[0]
+    y, size = struct.unpack_from("<iI", data, chunk_offset)
+    payload = data[chunk_offset + 8 : chunk_offset + 8 + size]
+    replacement = transform(payload)
+    return (
+        data[:chunk_offset]
+        + struct.pack("<iI", y, len(replacement))
+        + replacement
+    )
 
 
 def _write_repeated_empty_chunk_exr(path: Path, width: int, height: int) -> None:
@@ -578,30 +863,283 @@ def _declare_fake_zip_compression(path: Path) -> None:
 
 
 class ApprovalReleaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._machine_contract_patch = patch.object(
+            approval_module,
+            "_machine_contract_path",
+            return_value=APPROVED_COMPONENT_MACHINE_FIXTURE,
+        )
+        self._machine_contract_patch.start()
+        native_regenerator = release_module._regenerate_component_evidence
+
+        def regenerate_fixture_masks(
+            scene_path: Path,
+            blender_binary: Path,
+            dimensions: list[object],
+            shot_id: str,
+            component_contract: dict[str, object],
+            samples: int,
+        ) -> tuple[bytes, bytes, dict[str, bytes]]:
+            if blender_binary.resolve() == BLENDER.resolve():
+                return native_regenerator(
+                    scene_path,
+                    blender_binary,
+                    dimensions,
+                    shot_id,
+                    component_contract,
+                    samples,
+                )
+            png, masks = _structured_component_pixels()
+            return (
+                png,
+                _float_exr_bytes(int(dimensions[0]), int(dimensions[1])),
+                masks,
+            )
+
+        self._component_regeneration_patch = patch.object(
+            release_module,
+            "_regenerate_component_evidence",
+            side_effect=regenerate_fixture_masks,
+        )
+        self._component_regeneration_patch.start()
+
+    def tearDown(self) -> None:
+        self._component_regeneration_patch.stop()
+        self._machine_contract_patch.stop()
+
     def test_native_final_runner_is_an_explicit_authorized_operation(self) -> None:
         """Catches a final gate that authorizes data but cannot render native evidence."""
 
         self.assertTrue(callable(run_authorized_final))
 
+    def test_final_qa_binds_approved_component_identities_to_exact_masked_pixels(self) -> None:
+        """Catches whole-frame regions or copied claims without approved object masks."""
+
+        machine = _approved_component_machine_contract()
+        authored = _approved_component_authored_state()
+        component_contract = approval_module.build_component_contract(machine, authored)
+        png, masks = _structured_component_pixels()
+        qa = approval_module.compute_final_qa(
+            png,
+            {"start": png, "end": png},
+            [64, 48],
+            machine,
+            {"animation_contract": None},
+            component_contract=component_contract,
+            component_mask_bytes=masks,
+            material_library_sha256="A" * 64,
+            scene_contract_sha256="B" * 64,
+            machine_contract_sha256="C" * 64,
+        )
+        self.assertEqual(qa["material"]["stable_object_ids"], ["30G-material-body"])
+        self.assertGreater(qa["material"]["visible_overlap_pixels"], 0)
+        self.assertEqual(qa["controller"]["display_values"], ["300", "300"])
+        self.assertEqual(
+            qa["controller"]["observed_digit_patterns"],
+            [_DIGIT_SEGMENTS[digit] for value in ("300", "300") for digit in value],
+        )
+        self.assertGreater(qa["controller"]["active_segment_count"], 0)
+        self.assertGreater(qa["controller"]["inactive_segment_count"], 0)
+
+    def test_final_qa_rejects_rehashed_nonuniform_wrong_component_pattern(self) -> None:
+        """Catches a nonuniform counterfeit whose hashes match pixels but digits are wrong."""
+
+        machine = _approved_component_machine_contract()
+        component_contract = approval_module.build_component_contract(
+            machine, _approved_component_authored_state()
+        )
+        png, masks = _structured_component_pixels(invert_segment_states=True)
+        with self.assertRaisesRegex(ValueError, "controller.*pattern|segment.*state"):
+            approval_module.compute_final_qa(
+                png,
+                {"start": png, "end": png},
+                [64, 48],
+                machine,
+                {"animation_contract": None},
+                component_contract=component_contract,
+                component_mask_bytes=masks,
+                material_library_sha256="A" * 64,
+                scene_contract_sha256="B" * 64,
+                machine_contract_sha256="C" * 64,
+            )
+
+    def test_final_qa_rejects_incomplete_swapped_and_unrelated_component_evidence(self) -> None:
+        """Catches mask-set drift, swapped identities, all-one states, and arbitrary gradients."""
+
+        machine = _approved_component_machine_contract()
+        component_contract = approval_module.build_component_contract(
+            machine, _approved_component_authored_state()
+        )
+        png, masks = _structured_component_pixels()
+
+        def compute(candidate_png: bytes, candidate_masks: dict[str, bytes]) -> None:
+            approval_module.compute_final_qa(
+                candidate_png,
+                {"start": candidate_png, "end": candidate_png},
+                [64, 48],
+                machine,
+                {"animation_contract": None},
+                component_contract=component_contract,
+                component_mask_bytes=candidate_masks,
+                material_library_sha256="A" * 64,
+                scene_contract_sha256="B" * 64,
+                machine_contract_sha256="C" * 64,
+            )
+
+        first_id = str(component_contract["segments"][0]["stable_object_id"])
+        second_id = str(component_contract["segments"][1]["stable_object_id"])
+        mutations: list[tuple[str, bytes, dict[str, bytes], str]] = []
+        missing = dict(masks)
+        del missing[first_id]
+        mutations.append(("missing", png, missing, "missing|extra"))
+        extra = dict(masks)
+        extra["unapproved-segment"] = masks[first_id]
+        mutations.append(("extra", png, extra, "missing|extra"))
+        swapped = dict(masks)
+        swapped[first_id], swapped[second_id] = swapped[second_id], swapped[first_id]
+        mutations.append(("swapped", png, swapped, "layout|swapped|pattern|state"))
+
+        for state_name, color in (
+            ("all active", (245, 70, 25, 255)),
+            ("all inactive", (24, 8, 6, 255)),
+        ):
+            with Image.open(io.BytesIO(png)) as source:
+                recolored = source.convert("RGBA")
+            for segment in component_contract["segments"]:
+                stable_id = str(segment["stable_object_id"])
+                with Image.open(io.BytesIO(masks[stable_id])) as raw_mask:
+                    segment_mask = raw_mask.convert("L")
+                for y in range(segment_mask.height):
+                    for x in range(segment_mask.width):
+                        if segment_mask.getpixel((x, y)):
+                            recolored.putpixel((x, y), color)
+            mutations.append(
+                (state_name, _png_bytes(recolored), dict(masks), "active/inactive|pattern|state")
+            )
+
+        gradient = Image.new("RGBA", (64, 48), (0, 0, 0, 255))
+        for y in range(gradient.height):
+            for x in range(gradient.width):
+                gradient.putpixel((x, y), (x * 3, y * 4, (x + y) * 2, 255))
+        mutations.append(
+            ("unrelated gradient", _png_bytes(gradient), dict(masks), "active/inactive|pattern|state")
+        )
+
+        for label, candidate_png, candidate_masks, expected in mutations:
+            with self.subTest(mutation=label), self.assertRaisesRegex(ValueError, expected):
+                compute(candidate_png, candidate_masks)
+
     @unittest.skipUnless(BLENDER.is_file(), "fixture Blender runtime unavailable")
     def test_native_final_runner_emits_real_exr_png_webp_and_manifest(self) -> None:
-        """Catches a final runner that claims release evidence without native media."""
+        """Catches native evidence claims that fail on approved linked components."""
 
         with TemporaryDirectory() as root_text:
             root = Path(root_text)
             scene_path = root / "inputs" / "scene.blend"
             scene_path.parent.mkdir(parents=True)
-            setup = "\n".join((
-                "import bpy",
-                "bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))",
-                "bpy.ops.object.camera_add(location=(0, -6, 0))",
-                "camera = bpy.context.object",
-                "camera.rotation_euler = (1.5708, 0, 0)",
-                "bpy.context.scene.camera = camera",
-                "bpy.context.scene.world = None",
-                "bpy.context.scene.render.engine = 'CYCLES'",
-                "bpy.ops.wm.save_as_mainfile(filepath=" + repr(str(scene_path)) + ")",
-            ))
+            setup = textwrap.dedent(
+                f"""
+                import bpy
+
+                bpy.ops.object.select_all(action='SELECT')
+                bpy.ops.object.delete(use_global=False)
+                for material in list(bpy.data.materials):
+                    bpy.data.materials.remove(material)
+
+                bpy.context.scene.collection.children[0].name = 'PIMM_PUBLISHED'
+
+                def component_material(name, color, stable_id=None, material_id=None):
+                    material = bpy.data.materials.new(name)
+                    material.use_nodes = True
+                    if stable_id is not None:
+                        material['pimm_stable_id'] = stable_id
+                    if material_id is not None:
+                        material['pimm_material_id'] = material_id
+                    material.node_tree['pimm_stable_id'] = f'{{name}}-node-tree'
+                    principled = material.node_tree.nodes.get('Principled BSDF')
+                    principled.inputs['Base Color'].default_value = (*color, 1.0)
+                    principled.inputs['Roughness'].default_value = 0.45
+                    return material
+
+                body_material = component_material(
+                    'PIMM_POWDER_COAT_BLACK', (0.08, 0.18, 0.35),
+                    'PIMM-MAT-POWDER-COAT-BLACK'
+                )
+                active_material = component_material(
+                    'DISPLAY_LIT_RED', (1.0, 0.05, 0.01),
+                    material_id='CONTROLLER_ACTIVE'
+                )
+                inactive_material = component_material(
+                    'DISPLAY_UNLIT_RED', (0.02, 0.002, 0.001),
+                    material_id='CONTROLLER_INACTIVE'
+                )
+
+                bpy.ops.mesh.primitive_cube_add(location=(-1.6, 0.0, 0.0), scale=(1.15, 1.55, 0.18))
+                body = bpy.context.object
+                body.name = 'PIMM_30G_MATERIAL_BODY'
+                body['pimm_stable_id'] = '30G-material-body'
+                body.data.materials.append(body_material)
+
+                labels = ('a', 'b', 'c', 'd', 'e', 'f', 'g')
+                patterns = ('1011011', '1110111', '1110111', '1011011', '1110111', '1110111')
+                segments = [
+                    {{'stable_object_id': f'30G-display-d{{digit}}-{{label}}', 'active': bit == '1'}}
+                    for digit, pattern in enumerate(patterns)
+                    for label, bit in zip(labels, pattern)
+                ]
+                digit_x = (0.25, 0.70, 1.15, 1.75, 2.20, 2.65)
+                positions = {{
+                    'a': (0.0, 0.38, 0.14, 0.06),
+                    'b': (-0.17, 0.20, 0.07, 0.11),
+                    'c': (0.17, 0.20, 0.07, 0.11),
+                    'd': (0.0, 0.0, 0.14, 0.06),
+                    'e': (-0.17, -0.20, 0.07, 0.11),
+                    'f': (0.17, -0.20, 0.07, 0.11),
+                    'g': (0.0, -0.38, 0.14, 0.06),
+                }}
+                for index, segment in enumerate(segments):
+                    digit_index, label_index = divmod(index, 7)
+                    label = labels[label_index]
+                    offset_x, offset_y, scale_x, scale_y = positions[label]
+                    bpy.ops.mesh.primitive_cube_add(
+                        location=(digit_x[digit_index] + offset_x, offset_y, 0.0),
+                        scale=(scale_x, scale_y, 0.05),
+                    )
+                    obj = bpy.context.object
+                    obj.name = segment['stable_object_id']
+                    obj['pimm_stable_id'] = segment['stable_object_id']
+                    obj.data.materials.append(active_material if segment['active'] else inactive_material)
+
+                component_library_path = {str(root / 'inputs' / 'linked-components.blend')!r}
+                bpy.ops.wm.save_as_mainfile(filepath=component_library_path)
+                bpy.ops.wm.read_factory_settings(use_empty=True)
+                with bpy.data.libraries.load(component_library_path, link=True) as (data_from, data_to):
+                    data_to.collections = ['PIMM_PUBLISHED']
+                bpy.context.scene.collection.children.link(data_to.collections[0])
+
+                bpy.ops.object.camera_add(location=(0, 0, 10))
+                camera = bpy.context.object
+                camera.name = 'CAM_HERO'
+                camera.data.type = 'ORTHO'
+                camera.data.ortho_scale = 6.5
+                bpy.context.scene.camera = camera
+                bpy.ops.object.light_add(type='AREA', location=(0, 0, 8))
+                light = bpy.context.object
+                light.name = 'PIMM_FIXTURE_KEY'
+                light.data.energy = 1200
+                light.data.shape = 'DISK'
+                light.data.size = 6
+                scene = bpy.context.scene
+                scene.world = None
+                scene.render.engine = 'CYCLES'
+                scene.cycles.samples = 1
+                scene.render.film_transparent = True
+                scene.render.resolution_x = 64
+                scene.render.resolution_y = 48
+                scene.render.resolution_percentage = 100
+                bpy.ops.wm.save_as_mainfile(filepath={str(scene_path)!r})
+                """
+            )
             result = subprocess.run(
                 [str(BLENDER), "--factory-startup", "-b", "--python-expr", setup],
                 capture_output=True,
@@ -609,7 +1147,35 @@ class ApprovalReleaseTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(scene_path.is_file(), result.stdout + result.stderr)
             approval_path, final_contract_path = write_approval_fixture(root, "approved", "a" * 64)
+            approval_payload = json.loads(approval_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                Path(approval_payload["evidence"]["blender_binary"]["path"]),
+                BLENDER.resolve(),
+            )
+            render_metadata = json.loads(
+                Path(approval_payload["evidence"]["render_metadata"]["path"]).read_text(
+                    encoding="utf-8"
+                )
+            )
+            authored_before = render_metadata["authored_settings"]["before"]
+            linked_segments = [
+                obj for obj in authored_before["objects"]
+                if str(obj["identity"].get("pimm_stable_id", "")).startswith("30G-display-")
+            ]
+            self.assertEqual(len(linked_segments), 42)
+            self.assertTrue(all(obj["identity"]["library"] for obj in linked_segments))
+            material_by_id = {
+                material["identity"].get("pimm_material_id"): material["identity"]
+                for material in authored_before["materials"]
+            }
+            self.assertTrue(
+                material_by_id["CONTROLLER_ACTIVE"]["name"].startswith("DISPLAY_LIT_RED")
+            )
+            self.assertTrue(
+                material_by_id["CONTROLLER_INACTIVE"]["name"].startswith("DISPLAY_UNLIT_RED")
+            )
             manifest_path = run_authorized_final(approval_path, final_contract_path)
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual({item["mime_type"] for item in manifest["outputs"]}, {"image/x-exr", "image/png", "image/webp"})
@@ -628,6 +1194,15 @@ class ApprovalReleaseTests(unittest.TestCase):
             )
             for record in manifest["qa_evidence"]:
                 self.assertEqual(_sha256(manifest_path.parent / record["path"]), record["sha256"])
+            component = manifest["component_evidence"]
+            self.assertEqual(component["schema"], "pimm-final-component-evidence/v1")
+            self.assertEqual(len(component["masks"]), 43)
+            for record in component["masks"]:
+                self.assertEqual(_sha256(manifest_path.parent / record["path"]), record["sha256"])
+            self.assertEqual(
+                manifest["qa"]["controller"]["observed_digit_patterns"],
+                [_DIGIT_SEGMENTS[digit] for value in ("300", "300") for digit in value],
+            )
             release_path = build_release_manifest(RELEASE_ID, [manifest_path])
             self.assertTrue(release_path.is_file())
             release_module._validate_release_tree_authority(release_path)
@@ -913,24 +1488,243 @@ class ApprovalReleaseTests(unittest.TestCase):
                     _write_json(output, payload)
                     expected = "controller"
                 elif mutation == "changed controller pixels":
-                    _mutate_fixture_region_family(output, 50, 20, (0, 255, 0, 255))
+                    _mutate_fixture_region_family(output, 39, 11, (0, 255, 0, 255))
                     _refresh_final_fixture_manifest(
                         output, payload, preserve_qa_section="controller"
                     )
-                    expected = "controller"
+                    expected = "controller|final pixels"
                 elif mutation == "changed material pixels":
                     _mutate_fixture_region_family(output, 10, 20, (255, 255, 0, 255))
                     _refresh_final_fixture_manifest(
                         output, payload, preserve_qa_section="material"
                     )
-                    expected = "material"
+                    expected = "material|final pixels"
                 else:
                     _write_uniform_fixture_family(output)
-                    _refresh_final_fixture_manifest(output, payload)
                     expected = "uniform|material|controller|dedicated"
+                    with self.assertRaisesRegex(ValueError, expected):
+                        _refresh_final_fixture_manifest(output, payload)
+                    self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+                    continue
                 with self.assertRaisesRegex(ValueError, expected):
                     build_release_manifest(RELEASE_ID, [output])
                 self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_rejects_fully_rehashed_component_identity_counterfeit(self) -> None:
+        """Catches wrong physical mask identities even when every hash and QA is refreshed."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            component = payload["component_evidence"]
+            contract = component["contract"]
+            first = contract["segments"][0]
+            other = contract["segments"][7]
+            first_id = first["stable_object_id"]
+            other_id = other["stable_object_id"]
+            for field in (
+                "stable_object_id",
+                "object_identity_sha256",
+                "material_identity_sha256",
+            ):
+                first[field], other[field] = other[field], first[field]
+            records = {record["mask_id"]: record for record in component["masks"]}
+            records[first_id]["mask_id"] = other_id
+            records[other_id]["mask_id"] = first_id
+            unsigned = {key: value for key, value in contract.items() if key != "sha256"}
+            contract["sha256"] = _canonical_fixture_sha(unsigned)
+            _refresh_final_fixture_manifest(output, payload)
+
+            refreshed = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(refreshed["qa"]["controller"]["observed_digit_patterns"], [
+                _DIGIT_SEGMENTS[digit] for value in ("300", "300") for digit in value
+            ])
+            with self.assertRaisesRegex(ValueError, "component.*contract|identity|mask"):
+                build_release_manifest(RELEASE_ID, [output])
+
+    def test_release_rejects_fully_rehashed_fabricated_component_regions(self) -> None:
+        """Catches fabricated masks/pixels that retain the exact approved contract."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            original_contract = copy.deepcopy(payload["component_evidence"]["contract"])
+            family = output.parent
+            translated_paths = [
+                family / f"{SHOT_ID}--transparent.png",
+                family / f"{SHOT_ID}--animation-start.png",
+                family / f"{SHOT_ID}--animation-end.png",
+            ]
+            for path in translated_paths:
+                with Image.open(path) as source:
+                    translated = Image.new("RGBA", source.size, (0, 0, 0, 0))
+                    translated.alpha_composite(source.convert("RGBA"), (0, 3))
+                translated.save(path, format="PNG")
+            with Image.open(translated_paths[0]) as source:
+                source.save(
+                    family / f"{SHOT_ID}--transparent.webp",
+                    format="WEBP",
+                    lossless=True,
+                )
+            for record in payload["component_evidence"]["masks"]:
+                path = family / record["path"]
+                with Image.open(path) as source:
+                    translated = Image.new("L", source.size, 0)
+                    translated.paste(source.convert("L"), (0, 3))
+                translated.save(path, format="PNG")
+            _refresh_final_fixture_manifest(output, payload)
+            refreshed = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(
+                refreshed["component_evidence"]["contract"], original_contract
+            )
+            with self.assertRaisesRegex(
+                ValueError, "component mask.*approved|regenerated|Blender object"
+            ):
+                build_release_manifest(RELEASE_ID, [output])
+
+    def test_release_rejects_repainted_pixels_under_authentic_component_masks(self) -> None:
+        """Catches semantic repainting that retains every authentic object mask."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            family = output.parent
+            final_png = family / f"{SHOT_ID}--transparent.png"
+            with Image.open(final_png) as source:
+                repainted = source.convert("RGBA")
+            mask_records = {
+                record["mask_id"]: family / record["path"]
+                for record in payload["component_evidence"]["masks"]
+            }
+            with Image.open(mask_records["material"]) as source:
+                material_mask = source.convert("L")
+            for y in range(material_mask.height):
+                for x in range(material_mask.width):
+                    if material_mask.getpixel((x, y)):
+                        repainted.putpixel(
+                            (x, y),
+                            (210 if (x + y) % 2 else 25, 180 if x % 2 else 35, 75, 220),
+                        )
+            for segment in payload["component_evidence"]["contract"]["segments"]:
+                stable_id = str(segment["stable_object_id"])
+                color = (
+                    (30, 245, 40, 255)
+                    if segment["expected_active"] else (5, 9, 12, 255)
+                )
+                with Image.open(mask_records[stable_id]) as source:
+                    segment_mask = source.convert("L")
+                for y in range(segment_mask.height):
+                    for x in range(segment_mask.width):
+                        if segment_mask.getpixel((x, y)):
+                            repainted.putpixel((x, y), color)
+            for path in (
+                final_png,
+                family / f"{SHOT_ID}--animation-start.png",
+                family / f"{SHOT_ID}--animation-end.png",
+            ):
+                repainted.save(path, format="PNG")
+            repainted.save(
+                family / f"{SHOT_ID}--transparent.webp", format="WEBP", lossless=True
+            )
+            _refresh_final_fixture_manifest(output, payload)
+            with self.assertRaisesRegex(
+                ValueError, "final pixels.*approved|regenerated.*pixels|Blender render"
+            ):
+                build_release_manifest(RELEASE_ID, [output])
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_rejects_fully_rehashed_webp_only_counterfeit(self) -> None:
+        """Catches a storefront WebP that no longer depicts the approved render."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            family = output.parent
+            webp = family / f"{SHOT_ID}--transparent.webp"
+            counterfeit = Image.new("RGBA", (64, 48), (0, 0, 0, 0))
+            for y in range(8, 40):
+                for x in range(5, 59):
+                    counterfeit.putpixel(
+                        (x, y),
+                        ((x * 17 + y * 3) % 256, (x * 5) % 256, (y * 11) % 256, 255),
+                    )
+            counterfeit.save(webp, format="WEBP", lossless=True)
+            webp_record = next(
+                item for item in payload["outputs"] if item["mime_type"] == "image/webp"
+            )
+            webp_record["sha256"] = _sha256(webp)
+            _write_json(output, payload)
+
+            with self.assertRaisesRegex(
+                ValueError, "WebP.*approved|approved.*WebP|deliverable pixels"
+            ):
+                build_release_manifest(RELEASE_ID, [output])
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_rejects_fully_rehashed_exr_only_counterfeit(self) -> None:
+        """Catches a valid float EXR whose channels no longer match the approved render."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            family = output.parent
+            exr = family / f"{SHOT_ID}--transparent.exr"
+            _write_float_exr(exr, 64, 48, pixel_value=0.25)
+            exr_record = next(
+                item for item in payload["outputs"] if item["mime_type"] == "image/x-exr"
+            )
+            exr_record["sha256"] = _sha256(exr)
+            _write_json(output, payload)
+
+            with self.assertRaisesRegex(
+                ValueError, "EXR.*approved|approved.*EXR|deliverable pixels"
+            ):
+                build_release_manifest(RELEASE_ID, [output])
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_rejects_cross_encoding_exr_digest_collision(self) -> None:
+        """Catches a ZIPS counterfeit colliding with approved uncompressed channels."""
+
+        approved_scanline = struct.pack("<f", 0.5) * (64 * 4)
+        malicious_scanline = _wrong_exr_decoder_collision(approved_scanline)
+        self.assertNotEqual(malicious_scanline, approved_scanline)
+        self.assertEqual(
+            _former_wrong_zip_decode(malicious_scanline), approved_scanline
+        )
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            exr = output.parent / f"{SHOT_ID}--transparent.exr"
+            _write_float_exr(
+                exr,
+                64,
+                48,
+                compression=2,
+                raw_transform=_wrong_exr_decoder_collision,
+            )
+            exr_record = next(
+                item for item in payload["outputs"] if item["mime_type"] == "image/x-exr"
+            )
+            exr_record["sha256"] = _sha256(exr)
+            _write_json(output, payload)
+
+            with self.assertRaisesRegex(
+                ValueError, "EXR.*approved|approved.*EXR|deliverable pixels"
+            ):
+                build_release_manifest(RELEASE_ID, [output])
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
 
     def test_atomic_json_never_exposes_a_partial_final_path(self) -> None:
         """Catches writing directly into the authoritative JSON filename."""
@@ -1110,10 +1904,63 @@ class ApprovalReleaseTests(unittest.TestCase):
 
         with TemporaryDirectory() as root_text:
             path = Path(root_text) / "fake-zip.exr"
-            _write_float_exr(path, 64, 48)
+            _write_float_exr(path, 64, 1)
             _declare_fake_zip_compression(path)
+            path.write_bytes(
+                _replace_only_exr_payload(
+                    path.read_bytes(), lambda payload: payload[:-1]
+                )
+            )
             with self.assertRaisesRegex(ValueError, "EXR.*(compressed|payload|ZIP)"):
-                release_module._validate_float_exr(path.read_bytes(), [64, 48])
+                release_module._validate_float_exr(path.read_bytes(), [64, 1])
+
+    def test_exr_pixel_evidence_matches_uncompressed_and_zips_pixels(self) -> None:
+        """Catches inverse predictor/unshuffle operations applied in the wrong order."""
+
+        uncompressed = _float_exr_bytes(64, 1, vary_pixels=True)
+        zips = _float_exr_bytes(64, 1, compression=2, vary_pixels=True)
+        expected = release_module._validate_float_exr(uncompressed, [64, 1])
+        actual = release_module._validate_float_exr(zips, [64, 1])
+        self.assertEqual(
+            actual["decoded_channels_sha256"], expected["decoded_channels_sha256"]
+        )
+
+    def test_exr_parser_accepts_and_authenticates_zips_raw_fallback(self) -> None:
+        """Catches rejecting OpenEXR's equal-size uncompressed ZIP fallback chunks."""
+
+        uncompressed = _float_exr_bytes(64, 1, vary_pixels=True)
+        raw_fallback = _float_exr_bytes(
+            64, 1, compression=2, vary_pixels=True, raw_fallback=True
+        )
+        expected = release_module._validate_float_exr(uncompressed, [64, 1])
+        actual = release_module._validate_float_exr(raw_fallback, [64, 1])
+        self.assertEqual(
+            actual["decoded_channels_sha256"], expected["decoded_channels_sha256"]
+        )
+
+    def test_exr_parser_does_not_inflate_equal_size_zip_payload(self) -> None:
+        """Catches treating a raw-fallback chunk as a zlib prefix with ignored padding."""
+
+        zips = _float_exr_bytes(64, 1, compression=2, vary_pixels=True)
+        expected_size = 64 * 4 * 4
+        padded = _replace_only_exr_payload(
+            zips,
+            lambda payload: payload + b"\0" * (expected_size - len(payload)),
+        )
+        genuine = release_module._validate_float_exr(zips, [64, 1])
+        raw_fallback = release_module._validate_float_exr(padded, [64, 1])
+        self.assertNotEqual(
+            raw_fallback["decoded_channels_sha256"],
+            genuine["decoded_channels_sha256"],
+        )
+
+    def test_exr_parser_rejects_unconsumed_zlib_tail(self) -> None:
+        """Catches accepting bytes after an otherwise complete compressed stream."""
+
+        zips = _float_exr_bytes(64, 1, compression=2, vary_pixels=True)
+        tailed = _replace_only_exr_payload(zips, lambda payload: payload + b"X")
+        with self.assertRaisesRegex(ValueError, "EXR.*(ZIP|trailing|compressed|payload)"):
+            release_module._validate_float_exr(tailed, [64, 1])
 
     def test_release_rejects_unmanifested_files_before_publishing_marker(self) -> None:
         """Catches a pass marker that ignores extra mutable release contents."""
@@ -1145,8 +1992,8 @@ class ApprovalReleaseTests(unittest.TestCase):
                 Path(root_text), "proof-20260815T153000Z-a1b2c3d"
             )
             payload = json.loads(output.read_text(encoding="utf-8"))
-            payload["qa"]["alpha"]["minimum"] = 0
-            payload["qa"]["alpha"]["maximum"] = 255
+            payload["qa"]["alpha"]["minimum"] = 1
+            payload["qa"]["alpha"]["maximum"] = 254
             _write_json(output, payload)
             with self.assertRaisesRegex(ValueError, "alpha QA|alpha.*drift"):
                 build_release_manifest(RELEASE_ID, [output])
@@ -1192,6 +2039,7 @@ class ApprovalReleaseTests(unittest.TestCase):
                 _write_json(family / ".native-state.json", authored)
                 png = family / f"{SHOT_ID}--transparent.png"
                 _write_nonuniform_final_fixture(png)
+                _write_native_component_mask_fixture(family)
                 (family / f"{SHOT_ID}--animation-start.png").write_bytes(png.read_bytes())
                 (family / f"{SHOT_ID}--animation-end.png").write_bytes(png.read_bytes())
                 _write_float_exr(
@@ -1238,6 +2086,7 @@ class ApprovalReleaseTests(unittest.TestCase):
                 _write_json(family / ".native-state.json", authored)
                 png = family / f"{SHOT_ID}--transparent.png"
                 _write_nonuniform_final_fixture(png)
+                _write_native_component_mask_fixture(family)
                 _write_float_exr(
                     family / f"{SHOT_ID}--transparent.exr", dimensions[0], dimensions[1]
                 )

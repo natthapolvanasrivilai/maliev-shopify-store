@@ -26,6 +26,7 @@ from .approval_manifest import (
     _validate_created_at_utc,
     _validate_roots,
     approval_head_lock,
+    build_component_contract,
     canonical_absolute_path,
     canonical_json_sha256,
     compute_final_qa,
@@ -324,8 +325,11 @@ def _blender_render_script(
     dimensions: list[object],
     samples: int,
     shot_id: str,
+    component_contract: Mapping[str, object],
 ) -> str:
     """Return a native Blender script that audits current state before its only mutation."""
+
+    component_specs = _component_mask_specs(component_contract, shot_id)
 
     return "\n".join((
         "import bpy, json, pathlib, sys",
@@ -358,7 +362,158 @@ def _blender_render_script(
         "scene.render.image_settings.color_depth = '8'",
         f"scene.render.filepath = {str(output_root / f'{shot_id}--transparent.png')!r}",
         "bpy.ops.render.render(write_still=True)",
+        *_component_mask_script_lines(output_root, component_specs),
     ))
+
+
+def _component_mask_script_lines(
+    output_root: Path, component_specs: list[dict[str, object]]
+) -> tuple[str, ...]:
+    """Render exact visible Object Index masks without saving the opened scene."""
+
+    return (
+        f"component_specs = json.loads({json.dumps(component_specs, sort_keys=True)!r})",
+        "expected_ids = {stable_id for spec in component_specs for stable_id in spec['stable_object_ids']}",
+        "objects_by_id = {}",
+        "for obj in scene.objects:",
+        "    stable_id = obj.get('pimm_stable_id') if hasattr(obj, 'get') else None",
+        "    if stable_id in expected_ids:",
+        "        objects_by_id.setdefault(str(stable_id), []).append(obj)",
+        "if set(objects_by_id) != expected_ids or any(len(items) != 1 for items in objects_by_id.values()):",
+        "    raise RuntimeError('approved component object identities are missing or ambiguous in native scene')",
+        "if any(items[0].type != 'MESH' or items[0].hide_render for items in objects_by_id.values()):",
+        "    raise RuntimeError('approved component object identities are not visible physical meshes')",
+        "view_layer = bpy.context.view_layer",
+        "original_pass_indices = {obj: obj.pass_index for obj in scene.objects}",
+        "original_object_index_pass = view_layer.use_pass_object_index",
+        "original_mask_samples = scene.cycles.samples",
+        "original_compositor = scene.compositing_node_group",
+        "mask_compositor = None",
+        "try:",
+        "    for obj in scene.objects:",
+        "        obj.pass_index = 0",
+        "    for spec in component_specs:",
+        "        for stable_id in spec['stable_object_ids']:",
+        "            objects_by_id[stable_id][0].pass_index = spec['pass_index']",
+        "    view_layer.use_pass_object_index = True",
+        "    view_layer.update_render_passes()",
+        "    scene.cycles.samples = 1",
+        "    mask_compositor = bpy.data.node_groups.new('PIMM_COMPONENT_MASKS', 'CompositorNodeTree')",
+        "    scene.compositing_node_group = mask_compositor",
+        "    render_layers = mask_compositor.nodes.new('CompositorNodeRLayers')",
+        "    object_index_output = render_layers.outputs.get('Object Index') or render_layers.outputs.get('IndexOB')",
+        "    if object_index_output is None:",
+        "        raise RuntimeError('native component object-index compositor pass is absent')",
+        "    for spec in component_specs:",
+        "        id_mask = mask_compositor.nodes.new('CompositorNodeIDMask')",
+        "        id_mask.inputs['Index'].default_value = spec['pass_index']",
+        "        file_output = mask_compositor.nodes.new('CompositorNodeOutputFile')",
+        "        file_output.directory = " + repr(str(output_root)),
+        "        spec['temporary_prefix'] = '.pimm-component-' + str(spec['pass_index']) + '-'",
+        "        file_output.file_name = spec['temporary_prefix']",
+        "        output_item = file_output.file_output_items.new('FLOAT', 'Mask')",
+        "        output_item.override_node_format = True",
+        "        output_item.format.file_format = 'OPEN_EXR'",
+        "        output_item.format.color_mode = 'BW'",
+        "        output_item.format.color_depth = '32'",
+        "        mask_compositor.links.new(object_index_output, id_mask.inputs['ID value'])",
+        "        mask_compositor.links.new(id_mask.outputs['Alpha'], file_output.inputs['Mask'])",
+        "    bpy.ops.render.render()",
+        "    scene.render.image_settings.file_format = 'PNG'",
+        "    scene.render.image_settings.color_mode = 'BW'",
+        "    scene.render.image_settings.color_depth = '8'",
+        "    for spec in component_specs:",
+        "        matches = list(pathlib.Path(" + repr(str(output_root)) + ").glob(spec['temporary_prefix'] + '*.exr'))",
+        "        if len(matches) != 1:",
+        "            raise RuntimeError('native component compositor mask output is missing or ambiguous: ' + spec['mask_id'])",
+        "        mask_image = bpy.data.images.load(str(matches[0]), check_existing=False)",
+        "        try:",
+        "            mask_image.save_render(str(pathlib.Path(" + repr(str(output_root)) + ") / spec['path']), scene=scene)",
+        "        finally:",
+        "            bpy.data.images.remove(mask_image)",
+        "            matches[0].unlink()",
+        "    scene.render.image_settings.color_mode = 'RGBA'",
+        "finally:",
+        "    for obj, pass_index in original_pass_indices.items():",
+        "        obj.pass_index = pass_index",
+        "    view_layer.use_pass_object_index = original_object_index_pass",
+        "    scene.cycles.samples = original_mask_samples",
+        "    scene.compositing_node_group = original_compositor",
+        "    if mask_compositor is not None:",
+        "        bpy.data.node_groups.remove(mask_compositor)",
+    )
+
+
+def _component_mask_specs(
+    component_contract: Mapping[str, object], shot_id: str
+) -> list[dict[str, object]]:
+    """Return canonical mask names and render-pass identities for one component contract."""
+
+    material_objects = component_contract.get("material_objects")
+    segments = component_contract.get("segments")
+    if not isinstance(material_objects, list) or not isinstance(segments, list):
+        raise ValueError("final component contract object identities are invalid")
+    specs: list[dict[str, object]] = [
+        {
+            "mask_id": "material",
+            "path": f"{shot_id}--material-objects-mask.png",
+            "pass_index": 1,
+            "stable_object_ids": [
+                str(_mapping(item, "approved material component")["stable_object_id"])
+                for item in material_objects
+            ],
+        }
+    ]
+    for ordinal, raw_segment in enumerate(segments):
+        segment = _mapping(raw_segment, f"approved controller segment {ordinal}")
+        if segment.get("ordinal") != ordinal:
+            raise ValueError("final component contract segment order drift")
+        specs.append(
+            {
+                "mask_id": str(segment["stable_object_id"]),
+                "path": f"{shot_id}--controller-segment-{ordinal:02d}-mask.png",
+                "pass_index": ordinal + 2,
+                "stable_object_ids": [str(segment["stable_object_id"])],
+            }
+        )
+    return specs
+
+
+def _blender_component_mask_script(
+    output_root: Path,
+    dimensions: list[object],
+    shot_id: str,
+    component_contract: Mapping[str, object],
+    samples: int,
+    combined_filename: str,
+    combined_exr_filename: str,
+) -> str:
+    """Return a standalone Blender script for independent media/mask regeneration."""
+
+    specs = _component_mask_specs(component_contract, shot_id)
+    return "\n".join(
+        (
+            "import bpy, json, pathlib",
+            "scene = bpy.context.scene",
+            "if scene.render.engine != 'CYCLES': raise RuntimeError('authorized final scene must retain CYCLES')",
+            "scene.render.film_transparent = True",
+            f"scene.render.resolution_x = {int(dimensions[0])}",
+            f"scene.render.resolution_y = {int(dimensions[1])}",
+            "scene.render.resolution_percentage = 100",
+            f"scene.cycles.samples = {samples}",
+            "scene.render.image_settings.file_format = 'OPEN_EXR'",
+            "scene.render.image_settings.color_mode = 'RGBA'",
+            "scene.render.image_settings.color_depth = '32'",
+            f"scene.render.filepath = {str(output_root / combined_exr_filename)!r}",
+            "bpy.ops.render.render(write_still=True)",
+            "scene.render.image_settings.file_format = 'PNG'",
+            "scene.render.image_settings.color_mode = 'RGBA'",
+            "scene.render.image_settings.color_depth = '8'",
+            f"scene.render.filepath = {str(output_root / combined_filename)!r}",
+            "bpy.ops.render.render(write_still=True)",
+            *_component_mask_script_lines(output_root, specs),
+        )
+    )
 
 
 def _live_state_hashes(
@@ -435,6 +590,39 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             or not all(isinstance(value, int) and not isinstance(value, bool) and value > 0 for value in dimensions)
         ):
             raise ValueError("native final output dimensions are invalid")
+        final_evidence = _mapping(final.get("evidence"), "final evidence")
+        machine_contract_record = _mapping(
+            final_evidence.get("machine_contract"), "machine contract evidence"
+        )
+        machine_contract_path = Path(str(machine_contract_record.get("path")))
+        approved_machine_contract, _ = stable_json(
+            machine_contract_path,
+            roots["repository"],
+            "repository",
+            "approved machine contract",
+            machine_contract_record,
+        )
+        render_metadata_record = _mapping(
+            final_evidence.get("render_metadata"), "render metadata evidence"
+        )
+        approved_render_metadata, _ = stable_json(
+            Path(str(render_metadata_record.get("path"))),
+            roots["asset"],
+            "asset",
+            "approved render metadata",
+            render_metadata_record,
+        )
+        approved_authored_settings = _mapping(
+            approved_render_metadata.get("authored_settings"),
+            "approved authored settings evidence",
+        )
+        approved_component_contract = build_component_contract(
+            approved_machine_contract,
+            _mapping(
+                approved_authored_settings.get("before"),
+                "approved authored settings before",
+            ),
+        )
         release_parent = authorization.asset_root / "renders" / "final"
         _lexically_within(release_parent, authorization.asset_root, "final release parent")
         _reject_reparse_ancestors(release_parent, "final release parent")
@@ -456,8 +644,16 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
         png = family / f"{authorization.shot_id}--transparent.png"
         webp = family / f"{authorization.shot_id}--transparent.webp"
         manifest = family / "final-output-manifest.json"
+        component_specs = _component_mask_specs(
+            approved_component_contract, authorization.shot_id
+        )
+        component_paths = {
+            str(spec["mask_id"]): family / str(spec["path"])
+            for spec in component_specs
+        }
         expected_stage_files = {
             script, audit, endpoint_start, endpoint_end, exr, png, webp, manifest,
+            *component_paths.values(),
         }
         try:
             repository_root = roots["repository"]
@@ -465,6 +661,7 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 _blender_render_script(
                     family, audit, repository_root, dimensions,
                     int(final["samples"]), authorization.shot_id,
+                    approved_component_contract,
                 ),
                 encoding="utf-8",
             )
@@ -479,11 +676,17 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             )
             if result.returncode:
                 raise ValueError("native Blender final render failed: " + result.stderr[-1000:])
-            if not all(path.is_file() for path in (audit, endpoint_start, endpoint_end, exr, png)):
+            if not all(
+                path.is_file()
+                for path in (
+                    audit, endpoint_start, endpoint_end, exr, png,
+                    *component_paths.values(),
+                )
+            ):
                 raise ValueError(
-                    "native final did not produce audited EXR and PNG outputs "
+                    "native final did not produce audited media and component-mask outputs "
                     f"(files={sorted(child.name for child in family.iterdir())}, "
-                    f"stdout={result.stdout[-1000:]})"
+                    f"stdout={result.stdout[-1000:]}, stderr={result.stderr[-2000:]})"
                 )
             authored, _ = stable_json(audit, stage, "asset", "native authored state")
             scene_contract_record = _mapping(final.get("evidence"), "final evidence").get("scene_contract")
@@ -492,19 +695,16 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 scene_contract_path, roots["asset"], "asset", "current scene contract",
                 _mapping(scene_contract_record, "scene contract evidence"),
             )
-            machine_contract_record = _mapping(
-                final.get("evidence"), "final evidence"
-            ).get("machine_contract")
-            machine_contract_path = Path(
-                str(_mapping(machine_contract_record, "machine contract evidence").get("path"))
-            )
             machine_contract, _ = stable_json(
                 machine_contract_path,
                 roots["repository"],
                 "repository",
                 "current machine contract",
-                _mapping(machine_contract_record, "machine contract evidence"),
+                machine_contract_record,
             )
+            live_component_contract = build_component_contract(machine_contract, authored)
+            if live_component_contract != approved_component_contract:
+                raise ValueError("native component identities drifted from approved scene/machine")
             live_hashes = _live_state_hashes(authored, scene_contract.get("animation_contract"))
             expected_settings = _mapping(final.get("render_settings"), "final render settings")
             for field, actual in live_hashes.items():
@@ -526,12 +726,33 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             end_record, end_bytes = _stable_file(
                 str(endpoint_end), str(stage), "asset", "animation end endpoint", capture=True
             )
+            component_mask_bytes: dict[str, bytes] = {}
+            component_mask_records: list[dict[str, object]] = []
+            component_publication_records: list[tuple[Path, dict[str, object]]] = []
+            for spec in component_specs:
+                mask_id = str(spec["mask_id"])
+                path = component_paths[mask_id]
+                record, data = _stable_file(
+                    str(path), str(stage), "asset",
+                    f"native component mask {mask_id}", capture=True,
+                )
+                component_mask_bytes[mask_id] = data or b""
+                component_publication_records.append((path, record))
+                component_mask_records.append({
+                    "mask_id": mask_id,
+                    "path": path.name,
+                    "sha256": record["sha256"],
+                    "dimensions": dimensions,
+                    "mime_type": "image/png",
+                })
             qa = compute_final_qa(
                 png_bytes or b"",
                 {"start": start_bytes or b"", "end": end_bytes or b""},
                 dimensions,
                 machine_contract,
                 scene_contract,
+                component_contract=approved_component_contract,
+                component_mask_bytes=component_mask_bytes,
                 material_library_sha256=str(_mapping(final.get("inputs"), "final inputs")["material_library_sha256"]),
                 scene_contract_sha256=str(_mapping(scene_contract_record, "scene contract evidence")["sha256"]),
                 machine_contract_sha256=str(_mapping(machine_contract_record, "machine contract evidence")["sha256"]),
@@ -554,6 +775,7 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             qa_evidence: list[dict[str, object]] = []
             published_records: list[tuple[Path, dict[str, object]]] = [
                 (endpoint_start, start_record), (endpoint_end, end_record),
+                *component_publication_records,
             ]
             for label, path, record in (
                 ("start", endpoint_start, start_record),
@@ -595,6 +817,11 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 "required_deliverables": ["exr", "png", "webp"],
                 "qa": qa,
                 "qa_evidence": qa_evidence,
+                "component_evidence": {
+                    "schema": "pimm-final-component-evidence/v1",
+                    "contract": approved_component_contract,
+                    "masks": component_mask_records,
+                },
                 "outputs": outputs,
             })
             manifest_record = stable_file_record(

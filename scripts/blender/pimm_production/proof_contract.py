@@ -116,6 +116,7 @@ _CAMERA_SETTINGS_FIELDS = {
 _COMPOSITOR_SETTINGS_FIELDS = {"enabled", "node_tree"}
 _MASK_METRIC_FIELDS = {"bounds", "nonzero_fraction", "unique_values", "unique_value_count"}
 _IDENTITY_FIELDS = {"name", "type", "library"}
+_OPTIONAL_IDENTITY_FIELDS = {"pimm_stable_id", "pimm_material_id"}
 _TRANSFORM_FIELDS = {
     "location",
     "rotation_mode",
@@ -893,7 +894,7 @@ def _validate_absolute_safe_path(value: object, label: str) -> str:
 
 
 def _identity_fields(value: Mapping[str, object]) -> set[str]:
-    return _IDENTITY_FIELDS | ({"pimm_stable_id"} if "pimm_stable_id" in value else set())
+    return _IDENTITY_FIELDS | (_OPTIONAL_IDENTITY_FIELDS & set(value))
 
 
 def _validate_identity(
@@ -914,6 +915,10 @@ def _validate_identity(
         _validate_absolute_safe_path(library, f"{label} library")
     if "pimm_stable_id" in value:
         _require_string(value["pimm_stable_id"], f"{label} pimm_stable_id")
+    if "pimm_material_id" in value:
+        if value["type"] != "Material":
+            raise ValueError(f"{label} pimm_material_id is valid only for Material identities")
+        _require_string(value["pimm_material_id"], f"{label} pimm_material_id")
     return value
 
 

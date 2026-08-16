@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import ntpath
@@ -9,6 +10,8 @@ import os
 import re
 import stat
 import struct
+import subprocess
+import tempfile
 import zlib
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -18,16 +21,24 @@ from PIL import Image
 from .approval_manifest import (
     _canonical_component,
     _create_new_json,
+    _decode_component_mask,
     _mapping,
+    _rgba_pixel_evidence,
     _stable_file,
     approval_head_lock,
+    build_component_contract,
     canonical_absolute_path,
     canonical_json_sha256,
     compute_final_qa,
     stable_file_record,
     stable_json,
 )
-from .blender_final_render import _authorize_final_render, authorize_final_render
+from .blender_final_render import (
+    _authorize_final_render,
+    _blender_component_mask_script,
+    _component_mask_specs,
+    authorize_final_render,
+)
 
 
 _RELEASE_ID = re.compile(r"^release-[0-9]{4}-[0-9]{2}-[0-9]{2}-r[0-9]{2}$")
@@ -37,13 +48,16 @@ _OUTPUT_FIELDS = {
     "schema", "release_id", "generation_id", "shot_id", "approval_path",
     "approval_sha256", "authorized_final_contract_path",
     "authorized_final_contract_sha256", "final_authorization_sha256",
-    "output_root", "required_deliverables", "qa", "qa_evidence", "outputs",
+    "output_root", "required_deliverables", "qa", "qa_evidence",
+    "component_evidence", "outputs",
 }
 _OUTPUT_ENTRY_FIELDS = {
     "logical_asset_id", "path", "sha256", "dimensions", "alpha", "mime_type",
 }
 _QA_FIELDS = {"schema", "dimensions", "product", "material", "alpha", "controller", "animation"}
 _QA_EVIDENCE_FIELDS = {"role", "path", "sha256", "dimensions", "mime_type"}
+_COMPONENT_EVIDENCE_FIELDS = {"schema", "contract", "masks"}
+_COMPONENT_MASK_FIELDS = {"mask_id", "path", "sha256", "dimensions", "mime_type"}
 _TREE_AUTHORITY_FIELDS = {"schema", "entries", "sha256"}
 _TREE_FILE_IDENTITY_FIELDS = {
     "sha256", "bytes", "mtime_ns", "ctime_ns", "change_time_ns", "device", "inode", "links",
@@ -52,6 +66,72 @@ _MIME_BY_EXTENSION = {
     "exr": "image/x-exr", "png": "image/png", "webp": "image/webp",
 }
 _FORBIDDEN_OUTPUT_COMPONENTS = {"proof", "proofs", "archive", "archives", "mutable"}
+
+
+def _regenerate_component_evidence(
+    scene_path: Path,
+    blender_binary: Path,
+    dimensions: list[object],
+    shot_id: str,
+    component_contract: Mapping[str, object],
+    samples: int,
+) -> tuple[bytes, bytes, dict[str, bytes]]:
+    """Independently regenerate final media and masks from the approved Blender scene."""
+
+    specs = _component_mask_specs(component_contract, shot_id)
+    with tempfile.TemporaryDirectory(prefix="pimm-component-verify-") as root_text:
+        root = Path(root_text)
+        output_root = root / "masks"
+        output_root.mkdir()
+        combined_filename = "approved-final.png"
+        combined_exr_filename = "approved-final.exr"
+        script = root / "verify-component-masks.py"
+        script.write_text(
+            _blender_component_mask_script(
+                output_root,
+                dimensions,
+                shot_id,
+                component_contract,
+                samples,
+                combined_filename,
+                combined_exr_filename,
+            ),
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [
+                str(blender_binary),
+                "--factory-startup",
+                "-b",
+                str(scene_path),
+                "-P",
+                str(script),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        expected_paths = {
+            output_root / str(spec["path"]): str(spec["mask_id"])
+            for spec in specs
+        }
+        combined_path = output_root / combined_filename
+        combined_exr_path = output_root / combined_exr_filename
+        actual_paths = set(output_root.iterdir())
+        if result.returncode or actual_paths != set(expected_paths) | {
+            combined_path,
+            combined_exr_path,
+        }:
+            raise ValueError(
+                "release could not independently regenerate approved Blender pixels/masks "
+                f"(returncode={result.returncode}, files={sorted(path.name for path in actual_paths)}, "
+                f"stderr={result.stderr[-2000:]})"
+            )
+        return (
+            combined_path.read_bytes(),
+            combined_exr_path.read_bytes(),
+            {mask_id: path.read_bytes() for path, mask_id in expected_paths.items()},
+        )
 
 
 def _cstring(data: bytes, offset: int, label: str) -> tuple[str, int]:
@@ -65,8 +145,10 @@ def _cstring(data: bytes, offset: int, label: str) -> tuple[str, int]:
     return value, end + 1
 
 
-def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
-    """Parse the EXR header, float RGBA chlist, windows, offsets, and chunks."""
+def _validate_float_exr(
+    data: bytes, dimensions: list[object]
+) -> dict[str, object]:
+    """Parse EXR structure and return decoded float-channel pixel evidence."""
 
     if len(data) < 9 or data[:4] != b"v/1\x01":
         raise ValueError("final output EXR magic header is not genuine")
@@ -97,6 +179,7 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
     if channel_kind != "chlist":
         raise ValueError("final output EXR channels declaration is invalid")
     channels: dict[str, int] = {}
+    channel_order: list[str] = []
     cursor = 0
     while cursor < len(channel_data):
         name, cursor = _cstring(channel_data, cursor, "channel name")
@@ -118,6 +201,7 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
         ):
             raise ValueError("final output EXR channel sampling is invalid")
         channels[name] = pixel_type
+        channel_order.append(name)
     if cursor != len(channel_data):
         raise ValueError("final output EXR channel list has trailing payload")
     if channels != {"R": 2, "G": 2, "B": 2, "A": 2}:
@@ -156,6 +240,7 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
     ranges: list[tuple[int, int]] = []
     table_y: list[int] = []
     physical_chunks: list[tuple[int, int]] = []
+    decoded_chunks: list[tuple[int, bytes]] = []
     for chunk_offset in offsets:
         if chunk_offset < table_end or chunk_offset + 8 > len(data):
             raise ValueError("final output EXR scanline chunk offset is invalid")
@@ -172,16 +257,44 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
         if compression_value[0] == 0:
             if size != expected_payload_bytes:
                 raise ValueError("final output EXR uncompressed scanline payload length is invalid")
+            decoded = payload
+        elif size == expected_payload_bytes:
+            # OpenEXR stores the original channel bytes when ZIP/ZIPS would not
+            # make the block smaller. Equal-size chunks are therefore raw data,
+            # even when they happen to begin with a valid zlib stream.
+            decoded = payload
         else:
+            if size > expected_payload_bytes:
+                raise ValueError("final output EXR compressed payload length is invalid")
             try:
-                decoded = zlib.decompress(payload)
+                inflater = zlib.decompressobj()
+                transformed = inflater.decompress(payload, expected_payload_bytes + 1)
             except zlib.error as error:
                 raise ValueError("final output EXR ZIP payload is invalid") from error
-            if len(decoded) != expected_payload_bytes:
+            if (
+                len(transformed) != expected_payload_bytes
+                or not inflater.eof
+                or inflater.unused_data
+                or inflater.unconsumed_tail
+            ):
                 raise ValueError("final output EXR compressed payload length is invalid")
+            # OpenEXR ZIP shuffles the source bytes, applies a byte predictor,
+            # then DEFLATEs. Invert the predictor on the inflated shuffled
+            # stream before interleaving even/odd bytes back into channel data.
+            shuffled = bytearray(transformed)
+            for index in range(1, len(shuffled)):
+                shuffled[index] = (
+                    shuffled[index - 1] + shuffled[index] - 128
+                ) & 0xFF
+            split = (len(shuffled) + 1) // 2
+            decoded_buffer = bytearray(len(shuffled))
+            decoded_buffer[0::2] = shuffled[:split]
+            decoded_buffer[1::2] = shuffled[split:]
+            decoded = bytes(decoded_buffer)
         observed_y.add(y)
         table_y.append(y)
         physical_chunks.append((int(chunk_offset), y))
+        decoded_chunks.append((y, decoded))
         ranges.append((int(chunk_offset), int(chunk_offset + 8 + size)))
     expected_y = list(range(0, expected_height, scanlines_per_block))
     if observed_y != set(expected_y):
@@ -204,14 +317,24 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
         or line_order_value[0] == 1 and physical_y != list(reversed(expected_y))
     ):
         raise ValueError("final output EXR physical scanline order is invalid")
+    channel_digest = hashlib.sha256()
+    channel_digest.update(struct.pack("<II", expected_width, expected_height))
+    channel_digest.update("\0".join(channel_order).encode("ascii") + b"\0")
+    for y, decoded in sorted(decoded_chunks):
+        channel_digest.update(struct.pack("<iI", y, len(decoded)))
+        channel_digest.update(decoded)
+    return {
+        "channels": channel_order,
+        "dimensions": [expected_width, expected_height],
+        "decoded_channels_sha256": channel_digest.hexdigest().upper(),
+    }
 
 
 def _validate_media_bytes(
     data: bytes, dimensions: list[object], mime_type: str
-) -> tuple[int, int] | None:
+) -> dict[str, object]:
     if mime_type == "image/x-exr":
-        _validate_float_exr(data, dimensions)
-        return None
+        return _validate_float_exr(data, dimensions)
     expected_format = "PNG" if mime_type == "image/png" else "WEBP"
     try:
         with Image.open(io.BytesIO(data)) as image:
@@ -221,7 +344,19 @@ def _validate_media_bytes(
             alpha_min, alpha_max = image.getchannel("A").getextrema()
             if alpha_max == 0:
                 raise ValueError("final output alpha contains no visible product")
-            return int(alpha_min), int(alpha_max)
+            rgba = bytearray(image.tobytes())
+            # Lossless WebP is permitted to normalize RGB beneath alpha=0.
+            # Canonicalize only those invisible channels while retaining every
+            # visible RGBA value and the complete alpha plane.
+            for offset in range(0, len(rgba), 4):
+                if rgba[offset + 3] == 0:
+                    rgba[offset : offset + 3] = b"\0\0\0"
+            return {
+                "format": expected_format,
+                "dimensions": list(image.size),
+                "rgba_sha256": hashlib.sha256(rgba).hexdigest().upper(),
+                "alpha_extrema": [int(alpha_min), int(alpha_max)],
+            }
     except OSError as error:
         raise ValueError(f"final output {expected_format} bytes are invalid: {error}") from error
 
@@ -363,6 +498,7 @@ def _validate_manifest(
     logical_ids: set[str] = set()
     physical_paths: set[str] = set()
     media_bytes: dict[str, bytes] = {}
+    media_pixel_evidence: dict[str, dict[str, object]] = {}
     for item in outputs:
         entry = _mapping(item, "final output entry")
         if set(entry) != _OUTPUT_ENTRY_FIELDS:
@@ -392,7 +528,9 @@ def _validate_manifest(
         )
         if record["sha256"] != str(entry.get("sha256", "")).upper():
             raise ValueError("final output bytes or SHA-256 drift")
-        _validate_media_bytes(data or b"", dimensions, str(entry["mime_type"]))
+        media_pixel_evidence[extension] = _validate_media_bytes(
+            data or b"", dimensions, str(entry["mime_type"])
+        )
         media_bytes[extension] = data or b""
         logical = str(entry["logical_asset_id"])
         physical = ntpath.normcase(str(actual))
@@ -446,6 +584,137 @@ def _validate_manifest(
         "release machine contract",
         machine_record,
     )
+    metadata_record = _mapping(
+        final_evidence.get("render_metadata"), "render metadata evidence"
+    )
+    render_metadata, _ = stable_json(
+        Path(str(metadata_record.get("path"))),
+        authorization.asset_root,
+        "asset",
+        "release approved render metadata",
+        metadata_record,
+    )
+    authored_settings = _mapping(
+        render_metadata.get("authored_settings"), "approved authored settings evidence"
+    )
+    approved_components = build_component_contract(
+        machine_contract,
+        _mapping(authored_settings.get("before"), "approved authored settings before"),
+    )
+    component_evidence = _mapping(
+        payload.get("component_evidence"), "final component evidence"
+    )
+    if (
+        set(component_evidence) != _COMPONENT_EVIDENCE_FIELDS
+        or component_evidence.get("schema") != "pimm-final-component-evidence/v1"
+        or component_evidence.get("contract") != approved_components
+    ):
+        raise ValueError("final component contract identity drift from approved scene/machine")
+    expected_component_paths = {
+        "material": f"{shot_id}--material-objects-mask.png"
+    }
+    for raw_segment in approved_components["segments"]:
+        segment = _mapping(raw_segment, "approved component segment")
+        expected_component_paths[str(segment["stable_object_id"])] = (
+            f"{shot_id}--controller-segment-{int(segment['ordinal']):02d}-mask.png"
+        )
+    raw_masks = component_evidence.get("masks")
+    if not isinstance(raw_masks, list) or len(raw_masks) != len(expected_component_paths):
+        raise ValueError("final component masks are missing or contain extras")
+    component_mask_bytes: dict[str, bytes] = {}
+    component_physical_paths: set[str] = set()
+    for raw_mask in raw_masks:
+        entry = _mapping(raw_mask, "final component mask evidence")
+        if set(entry) != _COMPONENT_MASK_FIELDS:
+            raise ValueError("final component mask evidence fields are invalid")
+        mask_id = entry.get("mask_id")
+        if not isinstance(mask_id, str) or mask_id not in expected_component_paths:
+            raise ValueError("final component mask identity is missing, extra, or unknown")
+        if mask_id in component_mask_bytes:
+            raise ValueError("final component mask identities must be unique")
+        relative = _canonical_component(entry.get("path"), f"component mask {mask_id} path")
+        if relative != expected_component_paths[mask_id]:
+            raise ValueError("final component mask path/identity relationship is not canonical")
+        if entry.get("dimensions") != expected_dimensions or entry.get("mime_type") != "image/png":
+            raise ValueError("final component mask dimensions or MIME type drift")
+        actual = path.parent / relative
+        physical = ntpath.normcase(str(actual))
+        if physical in component_physical_paths:
+            raise ValueError("final component masks cannot share physical paths")
+        try:
+            record, data = _stable_file(
+                str(actual), str(release_root), "asset", f"component mask {mask_id}", capture=True
+            )
+        except OSError as error:
+            raise ValueError(f"final component mask is missing or unreadable: {mask_id}") from error
+        if record["sha256"] != str(entry.get("sha256", "")).upper():
+            raise ValueError(f"final component mask bytes or SHA-256 drift: {mask_id}")
+        component_mask_bytes[mask_id] = data or b""
+        component_physical_paths.add(physical)
+        expected_files.add(actual)
+        stable_records.append((actual, record))
+    if set(component_mask_bytes) != set(expected_component_paths):
+        raise ValueError("final component masks are missing or contain extras")
+    blender_record = _mapping(
+        final_evidence.get("blender_binary"), "Blender binary evidence"
+    )
+    regenerated_png, regenerated_exr, regenerated_masks = _regenerate_component_evidence(
+        authorization.scene_path,
+        Path(str(blender_record.get("path"))),
+        list(expected_dimensions),
+        shot_id,
+        approved_components,
+        int(authorized_final["samples"]),
+    )
+    regenerated_pixels = _rgba_pixel_evidence(
+        regenerated_png,
+        list(expected_dimensions),
+        "independently regenerated approved Blender final",
+    )
+    persisted_pixels = _rgba_pixel_evidence(
+        media_bytes["png"], list(expected_dimensions), "persisted final PNG"
+    )
+    if regenerated_pixels["rgba_sha256"] != persisted_pixels["rgba_sha256"]:
+        raise ValueError(
+            "final pixels do not match independently regenerated approved Blender render"
+        )
+    if (
+        media_pixel_evidence["webp"]["rgba_sha256"]
+        != media_pixel_evidence["png"]["rgba_sha256"]
+    ):
+        raise ValueError(
+            "final WebP pixels do not match independently regenerated approved Blender render"
+        )
+    regenerated_exr_evidence = _validate_float_exr(
+        regenerated_exr,
+        list(expected_dimensions),
+    )
+    if (
+        media_pixel_evidence["exr"]["decoded_channels_sha256"]
+        != regenerated_exr_evidence["decoded_channels_sha256"]
+    ):
+        raise ValueError(
+            "final EXR decoded channels do not match independently regenerated approved Blender render"
+        )
+    if set(regenerated_masks) != set(component_mask_bytes):
+        raise ValueError("regenerated approved Blender object mask identities drift")
+    for mask_id, persisted in component_mask_bytes.items():
+        _, persisted_evidence = _decode_component_mask(
+            persisted, list(expected_dimensions), f"persisted component mask {mask_id}"
+        )
+        _, regenerated_evidence = _decode_component_mask(
+            regenerated_masks[mask_id],
+            list(expected_dimensions),
+            f"regenerated approved Blender object mask {mask_id}",
+        )
+        if (
+            persisted_evidence["channel_sha256"]
+            != regenerated_evidence["channel_sha256"]
+        ):
+            raise ValueError(
+                "component mask does not match regenerated approved Blender object: "
+                f"{mask_id} (persisted={persisted_evidence}, regenerated={regenerated_evidence})"
+            )
     final_inputs = _mapping(authorized_final.get("inputs"), "authorized final inputs")
     recomputed_qa = compute_final_qa(
         media_bytes["png"],
@@ -453,6 +722,8 @@ def _validate_manifest(
         list(expected_dimensions),
         machine_contract,
         scene_contract,
+        component_contract=approved_components,
+        component_mask_bytes=component_mask_bytes,
         material_library_sha256=str(final_inputs["material_library_sha256"]),
         scene_contract_sha256=str(scene_record["sha256"]),
         machine_contract_sha256=str(machine_record["sha256"]),
