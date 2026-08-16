@@ -178,7 +178,7 @@ test('Task 7 inventory schema accounts once for blend recovery and nested render
     'from scripts.blender.master_assets.pimm_legacy_inventory import inventory_workspace, inventory_payload',
     'with TemporaryDirectory() as root_text:',
     '    root = Path(root_text)',
-    "    for relative in ('legacy/PIMM-old.blend1', 'renders/proofs/gen-a/nested/hero.png'):",
+    "    for relative in ('legacy/PIMM-old.blend1', 'renders/proofs/gen-a/nested/hero.png', 'archive/manifests/consumer-graph.json', 'manifests/blender-project-inventory.json', 'manifests/render-generation-inventory.json', 'manifests/consumer-graph.json', 'manifests/blender-project-migration-report.md'):",
     '        path = root / relative',
     '        path.parent.mkdir(parents=True, exist_ok=True)',
     "        path.write_bytes(b'fixture')",
@@ -191,9 +191,19 @@ test('Task 7 inventory schema accounts once for blend recovery and nested render
 
   assert.equal(payload.schema, 'pimm-asset-inventory/v2');
   assert.deepEqual(payload.discovered_paths, [
+    'archive/manifests/consumer-graph.json',
     'legacy/PIMM-old.blend1',
     'renders/proofs/gen-a/nested/hero.png',
   ]);
   assert.deepEqual(payload.records.map((record) => record.path), payload.discovered_paths);
+  assert.deepEqual(payload.generated_path_policy, {
+    excluded_paths: [
+      'manifests/blender-project-inventory.json',
+      'manifests/blender-project-migration-report.md',
+      'manifests/consumer-graph.json',
+      'manifests/render-generation-inventory.json',
+    ],
+    rule: 'exact-path exclusion; generated children are hash-bound by the inventory authority',
+  });
   assert.equal(payload.records.some((record) => record.proposed_disposition === 'delete'), false);
 });

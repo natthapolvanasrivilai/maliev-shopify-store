@@ -11,8 +11,10 @@ from typing import Literal, Mapping, Sequence
 
 from scripts.blender.master_assets.pimm_legacy_inventory import (
     ASSET_ROOT,
+    AUTHORITATIVE_PATHS,
     DEFAULT_GRAPH,
     DEFAULT_INVENTORY,
+    GENERATED_ARTIFACT_PATHS,
     REPOSITORY_ROOT,
     AssetRecord,
     _ExactReferenceMatcher,
@@ -26,9 +28,7 @@ _TEXT_SUFFIXES = frozenset(
     {".liquid", ".json", ".jsonl", ".css", ".js", ".mjs", ".py", ".ps1", ".bat", ".cmd", ".yaml", ".yml"}
 )
 _IGNORED_PARTS = frozenset({".git", ".worktrees", "node_modules", ".venv", "venv", "__pycache__"})
-_GENERATED_GRAPH_INPUTS = frozenset(
-    {"blender-project-inventory.json", "render-generation-inventory.json", "consumer-graph.json"}
-)
+_GENERATED_GRAPH_INPUTS = frozenset(path.casefold() for path in GENERATED_ARTIFACT_PATHS)
 _PRODUCER_HINT = re.compile(r"(?:output|destination|render|write|publish|release|target)", re.IGNORECASE)
 
 
@@ -40,13 +40,21 @@ def _normalize_values(values: Sequence[str] | None) -> tuple[str, ...]:
 class ConsumerGraph:
     consumers: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     producers: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    unresolved_references: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    authoritative_paths: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "consumers", {key: _normalize_values(values) for key, values in self.consumers.items()})
         object.__setattr__(self, "producers", {key: _normalize_values(values) for key, values in self.producers.items()})
+        object.__setattr__(
+            self,
+            "unresolved_references",
+            {key: _normalize_values(values) for key, values in self.unresolved_references.items()},
+        )
+        object.__setattr__(self, "authoritative_paths", _normalize_values(self.authoritative_paths))
 
 
-def _text_files(root: Path):
+def _text_files(root: Path, *, exclude_generated: bool = False):
     if not root.exists():
         return
     for path in root.rglob("*"):
@@ -64,7 +72,7 @@ def _text_files(root: Path):
                 break
         if in_virtual_environment:
             continue
-        if path.name.casefold() in _GENERATED_GRAPH_INPUTS:
+        if exclude_generated and relative.as_posix().casefold() in _GENERATED_GRAPH_INPUTS:
             continue
         yield path
 
@@ -80,16 +88,19 @@ def _scan_text_root(
     matcher: _ExactReferenceMatcher,
     consumers: dict[str, set[str]],
     producers: dict[str, set[str]],
+    unresolved_references: dict[str, set[str]],
 ) -> None:
-    for text_path in _text_files(root):
+    for text_path in _text_files(root, exclude_generated=root_name == "asset"):
         try:
             lines = text_path.read_text(encoding="utf-8", errors="ignore").splitlines()
         except OSError:
             continue
         for line_number, line in enumerate(lines, start=1):
-            matched_paths = matcher.matches(line)
+            matched_paths, ambiguous = matcher.match_details(line)
+            evidence = _display(root_name, root, text_path, line_number)
+            for basename in ambiguous:
+                unresolved_references.setdefault(basename, set()).add(evidence)
             for record_path in matched_paths:
-                evidence = _display(root_name, root, text_path, line_number)
                 consumers[record_path].add(evidence)
                 if _PRODUCER_HINT.search(line):
                     producers[record_path].add(evidence)
@@ -104,18 +115,37 @@ def build_consumer_graph(
 
     consumers = {record.path: set() for record in records}
     producers = {record.path: set() for record in records}
+    unresolved_references: dict[str, set[str]] = {}
     by_path = {record.path.casefold(): record.path for record in records}
     candidates = {
         record.path: asset_root / PurePosixPath(record.path) for record in records
     }
     matcher = _ExactReferenceMatcher(candidates)
-    _scan_text_root("repo", repo_root, records, matcher, consumers, producers)
-    _scan_text_root("asset", asset_root, records, matcher, consumers, producers)
+    _scan_text_root("repo", repo_root, records, matcher, consumers, producers, unresolved_references)
+    _scan_text_root("asset", asset_root, records, matcher, consumers, producers, unresolved_references)
 
     for record in records:
         for dependency in record.dependencies:
-            canonical_dependency = by_path.get(dependency.casefold(), dependency)
             evidence_values = record.dependency_evidence.get(dependency, ("datablock:untyped",))
+            normalized_dependency = dependency.replace("\\", "/")
+            dependency_path = Path(dependency)
+            if dependency_path.is_absolute():
+                try:
+                    normalized_dependency = dependency_path.relative_to(asset_root).as_posix()
+                except ValueError:
+                    normalized_dependency = dependency.replace("\\", "/")
+            canonical_dependency = by_path.get(normalized_dependency.casefold())
+            if canonical_dependency is None:
+                basename = PurePosixPath(normalized_dependency).name.casefold()
+                matches = [path for path in by_path.values() if PurePosixPath(path).name.casefold() == basename]
+                if "/" not in normalized_dependency and len(matches) == 1:
+                    canonical_dependency = matches[0]
+                else:
+                    for evidence in evidence_values:
+                        unresolved_references.setdefault(normalized_dependency, set()).add(
+                            f"asset:{record.path}#{evidence}"
+                        )
+                    continue
             for evidence in evidence_values:
                 consumers.setdefault(canonical_dependency, set()).add(f"asset:{record.path}#{evidence}")
                 producers[record.path].add(f"dependency:{canonical_dependency}#{evidence}")
@@ -123,6 +153,15 @@ def build_consumer_graph(
     return ConsumerGraph(
         consumers={key: tuple(sorted(values, key=str.casefold)) for key, values in sorted(consumers.items())},
         producers={key: tuple(sorted(values, key=str.casefold)) for key, values in sorted(producers.items())},
+        unresolved_references={
+            key: tuple(sorted(values, key=str.casefold))
+            for key, values in sorted(unresolved_references.items())
+        },
+        authoritative_paths=tuple(
+            path
+            for path in sorted(AUTHORITATIVE_PATHS, key=str.casefold)
+            if path.casefold() in by_path
+        ),
     )
 
 
@@ -132,37 +171,44 @@ def classify_record(
 ) -> Literal["authoritative", "active-linked-scene", "migrate", "pending-archive", "unresolved"]:
     """Apply fail-closed archive classification to one current record."""
 
+    authoritative_paths = {path.casefold() for path in graph.authoritative_paths}
+    if record.path.casefold() in authoritative_paths and record.path in AUTHORITATIVE_PATHS:
+        return "authoritative"
     missing_dependencies = record.blender_inspection.get("missing_dependencies", ())
     if record.blender_inspection.get("inspection_error") or missing_dependencies:
         return "unresolved"
-    if record.kind == "authoritative-master" or (
-        PurePosixPath(record.path).name
-        in {"PIMM-30G-MASTER.blend", "PIMM-50G-MASTER.blend", "PIMM-MATERIAL-LIBRARY.blend"}
-        and PurePosixPath(record.path).parent.as_posix().casefold() == "masters"
-    ):
-        return "authoritative"
-    authoritative_dependencies = {
-        "PIMM-30G-MASTER.blend",
-        "PIMM-50G-MASTER.blend",
-        "PIMM-MATERIAL-LIBRARY.blend",
-    }
     if record.kind == "blend-project" and any(
-        PurePosixPath(dependency).name in authoritative_dependencies for dependency in record.dependencies
+        dependency.replace("\\", "/").casefold() in authoritative_paths
+        for dependency in record.dependencies
     ):
         return "active-linked-scene"
-    if graph.consumers.get(record.path) or record.consumers or record.unique_content:
+    summary_has_unique_content = bool(
+        int(record.blender_inspection.get("object_count", 0) or 0)
+        or int(record.blender_inspection.get("mesh_datablock_count", 0) or 0)
+        or int(record.blender_inspection.get("material_count", 0) or 0)
+    )
+    if graph.consumers.get(record.path) or record.consumers or record.unique_content or summary_has_unique_content:
         return "migrate"
     if record.kind == "blend-recovery" or record.path.casefold().endswith(".blend1"):
         return "pending-archive"
     return "unresolved"
 
 
-def consumer_graph_payload(graph: ConsumerGraph) -> dict[str, object]:
-    return {
+def consumer_graph_payload(
+    graph: ConsumerGraph, *, publication_id: str | None = None
+) -> dict[str, object]:
+    payload: dict[str, object] = {
         "schema": CONSUMER_GRAPH_SCHEMA,
         "consumers": {key: list(values) for key, values in graph.consumers.items()},
         "producers": {key: list(values) for key, values in graph.producers.items()},
+        "unresolved_references": {
+            key: list(values) for key, values in graph.unresolved_references.items()
+        },
+        "authoritative_paths": list(graph.authoritative_paths),
     }
+    if publication_id is not None:
+        payload["publication_id"] = publication_id
+    return payload
 
 
 def parse_args() -> argparse.Namespace:

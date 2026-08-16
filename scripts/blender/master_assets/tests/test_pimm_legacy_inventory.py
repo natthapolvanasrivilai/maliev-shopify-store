@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -10,6 +11,8 @@ from scripts.blender.master_assets.pimm_legacy_inventory import (
     AssetRecord,
     InventoryManifest,
     LEGACY_DISPOSITION_ALIASES,
+    atomic_write_json,
+    finalize_inventory,
     inventory_payload,
     inventory_workspace,
     migration_report,
@@ -65,6 +68,70 @@ class LegacyInventoryContractTests(unittest.TestCase):
             self.assertEqual(len(paths), len(set(paths)))
             self.assertEqual(set(paths), set(inventory.discovered_paths))
             self.assertEqual(set(paths), expected)
+
+    def test_generated_outputs_are_excluded_by_exact_schema_path(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            _write(root, "scripts/render.py")
+            _write(
+                root,
+                "archive/manifests/consumer-graph.json",
+                b'{"source": "scripts/render.py"}',
+            )
+            for relative in (
+                "manifests/blender-project-inventory.json",
+                "manifests/render-generation-inventory.json",
+                "manifests/consumer-graph.json",
+                "manifests/blender-project-migration-report.md",
+            ):
+                _write(root, relative, b"generated")
+
+            inventory = inventory_workspace(root)
+
+            self.assertEqual(
+                inventory.discovered_paths,
+                ("archive/manifests/consumer-graph.json", "scripts/render.py"),
+            )
+            nested = next(
+                record
+                for record in inventory.records
+                if record.path == "archive/manifests/consumer-graph.json"
+            )
+            self.assertEqual(nested.dependencies, ("scripts/render.py",))
+
+    def test_finalize_publishes_hash_bound_children_before_inventory_authority(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            render_path = manifest_root / "render-generation-inventory.json"
+            graph_path = manifest_root / "consumer-graph.json"
+            report_path = manifest_root / "blender-project-migration-report.md"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+
+            finalize_inventory(
+                inventory_path,
+                report_path,
+                graph_path,
+                render_path,
+                Path(repo_text),
+                root,
+            )
+
+            authority = json.loads(inventory_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                set(authority["generated_artifacts"]),
+                {
+                    "manifests/render-generation-inventory.json",
+                    "manifests/consumer-graph.json",
+                    "manifests/blender-project-migration-report.md",
+                },
+            )
+            for relative, expected in authority["generated_artifacts"].items():
+                artifact = root / Path(relative)
+                self.assertEqual(expected["size"], artifact.stat().st_size)
+                self.assertEqual(expected["sha256"], hashlib.sha256(artifact.read_bytes()).hexdigest().upper())
 
     def test_inventory_refreshes_stale_authoritative_hash_and_records_metadata(self):
         with TemporaryDirectory() as root_text:
@@ -161,6 +228,146 @@ class LegacyInventoryContractTests(unittest.TestCase):
             self.assertIn(expected, report)
         self.assertIn("after material publication", report)
 
+    def test_migration_report_enumerates_every_migrate_and_unresolved_path(self):
+        records = (
+            AssetRecord(path="textures/orphan.png", kind="texture", proposed_disposition="unresolved"),
+            AssetRecord(path="artwork/controller.svg", kind="artwork", proposed_disposition="migrate"),
+            AssetRecord(path="renders/approved.webp", kind="render-image", proposed_disposition="active-linked-scene"),
+        )
+
+        report = migration_report(
+            InventoryManifest(records=records, discovered_paths=tuple(record.path for record in records))
+        )
+
+        self.assertIn("- Migrate records: 1", report)
+        self.assertIn("- Unresolved records: 1", report)
+        self.assertIn("### `textures/orphan.png`", report)
+        self.assertIn("### `artwork/controller.svg`", report)
+        self.assertNotIn("### `renders/approved.webp`", report)
+
+    def test_asset_record_rejects_absolute_and_parent_escape_paths(self):
+        for path in ("../escape.blend", "C:/escape.blend", "/escape.blend"):
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, "relative contained path"):
+                AssetRecord(path=path)
+
+    def test_finalize_rejects_empty_manifest_for_nonempty_root(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(
+                inventory_path,
+                inventory_payload(InventoryManifest(records=(), discovered_paths=(), root=str(root.resolve()))),
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "stale inventory"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_finalize_rejects_replaced_file_with_same_bytes_and_mtime(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"same bytes")
+            inventory = inventory_workspace(root)
+            original = source.stat()
+            source.unlink()
+            source.write_bytes(b"same bytes")
+            os.utime(source, ns=(original.st_atime_ns, original.st_mtime_ns))
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory))
+
+            with self.assertRaisesRegex(RuntimeError, "filesystem identity"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_finalize_rejects_file_added_after_scan(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py")
+            inventory = inventory_workspace(root)
+            _write(root, "textures/late.png")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory))
+
+            with self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
+    def test_finalize_rejects_competing_publication_lock_without_writes(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            original = inventory_path.read_bytes()
+            _write(root, "manifests/.pimm-inventory-publish.lock", b"competitor")
+
+            with self.assertRaisesRegex(RuntimeError, "publication lock"):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+            self.assertEqual(inventory_path.read_bytes(), original)
+
+    def test_finalize_rejects_arbitrary_output_destination(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text, TemporaryDirectory() as outside_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            outside_report = Path(outside_text) / "report.md"
+
+            with self.assertRaisesRegex(ValueError, "canonical generated output"):
+                finalize_inventory(
+                    inventory_path,
+                    outside_report,
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+            self.assertFalse(outside_report.exists())
+
+    def test_inventory_rejects_symlinked_asset_without_following_it(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            target = _write(root, "targets/real.blend")
+            alias = root / "alias.blend"
+            try:
+                alias.symlink_to(target)
+            except OSError as error:
+                self.skipTest(f"symlink creation unavailable: {error}")
+
+            with self.assertRaisesRegex(ValueError, "reparse|symbolic link"):
+                inventory_workspace(root)
+
     def test_delete_disposition_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "delete disposition"):
             AssetRecord(path="legacy.blend1", proposed_disposition="delete")
@@ -177,7 +384,7 @@ class LegacyInventoryContractTests(unittest.TestCase):
             manifest_root.mkdir()
             inventory_path = manifest_root / "blender-project-inventory.json"
             inventory_path.write_text(
-                json.dumps(inventory_payload(InventoryManifest(records=(), discovered_paths=(), root=str(root)))),
+                json.dumps(inventory_payload(inventory_workspace(root))),
                 encoding="utf-8",
             )
 
@@ -197,7 +404,7 @@ class LegacyInventoryContractTests(unittest.TestCase):
                     "--graph",
                     str(manifest_root / "consumer-graph.json"),
                     "--report",
-                    str(manifest_root / "migration.md"),
+                    str(manifest_root / "blender-project-migration-report.md"),
                 ],
                 cwd=root,
                 capture_output=True,
