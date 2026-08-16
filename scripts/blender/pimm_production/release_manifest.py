@@ -16,6 +16,24 @@ _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _MIME_BY_SUFFIX = {".exr": "image/x-exr", ".png": "image/png", ".webp": "image/webp", ".mp4": "video/mp4"}
 
 
+def _validate_media(path: Path, dimensions: list[object], mime_type: str) -> None:
+    """Verify declared local media facts rather than trusting manifest declarations."""
+
+    if mime_type == "image/x-exr":
+        header = path.read_bytes()[:4]
+        if header != b"v/1\x01":
+            raise ValueError("final output EXR header is not genuine")
+        return
+    from PIL import Image
+    with Image.open(path) as image:
+        image.load()
+        expected_format = "PNG" if mime_type == "image/png" else "WEBP"
+        if image.format != expected_format or list(image.size) != dimensions or image.mode != "RGBA":
+            raise ValueError("final output declared dimensions, MIME type, or alpha mode drift")
+        if image.getchannel("A").getextrema()[1] == 0:
+            raise ValueError("final output alpha contains no visible product")
+
+
 def _load(path: Path) -> Mapping[str, object]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -79,6 +97,7 @@ def _validate_manifest(path: Path, release_id: str) -> tuple[str, str, list[dict
         actual = path.parent / Path(*relative_path.parts)
         if not actual.is_file() or actual.is_symlink() or sha256_file(actual) != digest.upper():
             raise ValueError("final output bytes or SHA-256 drift")
+        _validate_media(actual, dimensions, str(mime))
         observed_suffixes.add(relative_path.suffix.lower().lstrip("."))
         records.append({
             "logical_asset_id": logical_id,
