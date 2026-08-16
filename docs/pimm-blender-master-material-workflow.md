@@ -23,7 +23,7 @@ Each master contains 478 separate, selectable STEP-solid objects. They are inten
 
 1. In the Material properties, remove `PIMM_UNASSIGNED` only after identifying the body.
 2. Link the required material from `PIMM-MATERIAL-LIBRARY.blend`; do not append or duplicate it.
-3. Choose the physically correct family from the shared library: CNC milled aluminum, die-cast aluminum, satin sheet aluminum, polished stainless, nickel-plated shaft, black oxide steel, brass, black powder coat, rubber, blue pneumatic tube, engineering plastic, stainless brushed hairline, aluminum satin extrusion, pink powder-coat steel, nylon PA6, PEEK, ASA 3D print (0.2 mm layer), white textile cable, steel braided cable, stainless steel fasteners, steel satin, heat-oxidized blue-black steel, green illuminated numeric, red illuminated numeric, or red illuminated transparent.
+3. Choose the physically correct family from the shared library: CNC milled aluminum, die-cast aluminum, satin sheet aluminum, polished stainless, nickel-plated shaft, black oxide steel, brass, black powder coat, rubber, blue pneumatic tube, engineering plastic, stainless brushed hairline, aluminum satin extrusion, pink powder-coat steel, nylon PA6, PEEK, ASA 3D print (0.2 mm layer), white textile cable, steel braided cable, stainless steel fasteners, steel satin, heat-oxidized blue-black steel, clear acrylic, red illuminated numeric, red illuminated transparent, or red transparent power switch.
 4. Set the object custom property `pimm_material_state` to `approved`.
 5. Save the machine master.
 

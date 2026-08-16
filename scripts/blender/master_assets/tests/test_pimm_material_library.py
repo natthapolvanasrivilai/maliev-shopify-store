@@ -39,6 +39,7 @@ class MaterialLibraryContractTests(unittest.TestCase):
                 "GREEN_ILLUMINATED_NUMERIC",
                 "RED_ILLUMINATED_NUMERIC",
                 "RED_ILLUMINATED_TRANSPARENT",
+                "RED_TRANSPARENT_POWER_SWITCH",
                 "WHITE_POWDERCOAT_STEEL",
                 "BLACK_GLOSS_GLASS",
                 "INACTIVE_NUMERIC_SEGMENT",
@@ -58,10 +59,18 @@ class MaterialLibraryContractTests(unittest.TestCase):
         green = MATERIAL_SPECS["GREEN_ILLUMINATED_NUMERIC"]
         red = MATERIAL_SPECS["RED_ILLUMINATED_NUMERIC"]
         transparent = MATERIAL_SPECS["RED_ILLUMINATED_TRANSPARENT"]
+        power_switch = MATERIAL_SPECS["RED_TRANSPARENT_POWER_SWITCH"]
         self.assertGreater(green.emission_strength, 0.0)
         self.assertGreater(red.emission_strength, 0.0)
         self.assertGreater(transparent.transmission, 0.0)
         self.assertLess(transparent.alpha, 1.0)
+        self.assertEqual(power_switch.metallic, 0.0)
+        self.assertGreaterEqual(power_switch.transmission, 0.45)
+        self.assertLessEqual(power_switch.transmission, 0.70)
+        self.assertEqual(power_switch.alpha, 1.0)
+        self.assertGreater(power_switch.base_color[0], power_switch.base_color[1])
+        self.assertLess(power_switch.emission_strength, transparent.emission_strength)
+        self.assertLessEqual(power_switch.roughness, 0.20)
         self.assertGreater(MATERIAL_SPECS["GREEN_ILLUMINATED_TRANSPARENT"].emission_strength, 0.0)
         self.assertGreater(MATERIAL_SPECS["BLACK_GLOSS_GLASS"].coat_weight, 0.0)
         acrylic = MATERIAL_SPECS["CLEAR_ACRYLIC"]

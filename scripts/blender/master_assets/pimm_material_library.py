@@ -117,6 +117,14 @@ MATERIAL_SPECS: dict[str, MaterialSpec] = {
         (0.30, 0.008, 0.004, 1.0), 0.0, 0.20, 0.0, 0.04, "none",
         (1.0, 0.012, 0.006, 1.0), 1.8, 0.38, 0.78
     ),
+    # Translucent red rocker/switch plastic. This is intentionally separate
+    # from the higher-emission indicator-lens profile above: the switch body
+    # should show red depth and edge transmission without glowing like a
+    # powered numeric display.
+    "RED_TRANSPARENT_POWER_SWITCH": MaterialSpec(
+        (0.46, 0.008, 0.005, 1.0), 0.0, 0.16, 0.0, 0.14, "none",
+        (1.0, 0.008, 0.004, 1.0), 0.12, 0.54, 1.0
+    ),
     # Clear PMMA/acrylic: non-metallic, high-transmission and lightly cool so
     # transparent guards and covers retain readable edge highlights without
     # becoming grey glass. Alpha stays opaque because Cycles transmission
