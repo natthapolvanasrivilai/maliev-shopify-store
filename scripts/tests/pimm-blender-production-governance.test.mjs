@@ -169,3 +169,31 @@ test('Task 6 fixture approvals fail closed and publish only immutable release ma
 
   assert.equal(result.trim(), 'release-manifest.json');
 });
+
+test('Task 7 inventory schema accounts once for blend recovery and nested render assets', () => {
+  const program = [
+    'import json',
+    'from pathlib import Path',
+    'from tempfile import TemporaryDirectory',
+    'from scripts.blender.master_assets.pimm_legacy_inventory import inventory_workspace, inventory_payload',
+    'with TemporaryDirectory() as root_text:',
+    '    root = Path(root_text)',
+    "    for relative in ('legacy/PIMM-old.blend1', 'renders/proofs/gen-a/nested/hero.png'):",
+    '        path = root / relative',
+    '        path.parent.mkdir(parents=True, exist_ok=True)',
+    "        path.write_bytes(b'fixture')",
+    '    print(json.dumps(inventory_payload(inventory_workspace(root))))',
+  ].join('\n');
+  const payload = JSON.parse(execFileSync('python', ['-c', program], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }));
+
+  assert.equal(payload.schema, 'pimm-asset-inventory/v2');
+  assert.deepEqual(payload.discovered_paths, [
+    'legacy/PIMM-old.blend1',
+    'renders/proofs/gen-a/nested/hero.png',
+  ]);
+  assert.deepEqual(payload.records.map((record) => record.path), payload.discovered_paths);
+  assert.equal(payload.records.some((record) => record.proposed_disposition === 'delete'), false);
+});
