@@ -307,6 +307,7 @@ def _create_new_json(
     payload: Mapping[str, object],
     *,
     before_commit: Callable[[Path], None] | None = None,
+    after_commit: Callable[[Path], None] | None = None,
 ) -> dict[str, object]:
     """Stage complete JSON privately, then atomically claim its absent final name."""
 
@@ -354,6 +355,8 @@ def _create_new_json(
             or int(final.st_size) != len(encoded)
         ):
             raise ValueError("exclusive JSON final identity changed")
+        if after_commit is not None:
+            after_commit(path)
         return {
             "device": int(final.st_dev),
             "inode": int(final.st_ino),
@@ -363,15 +366,17 @@ def _create_new_json(
             "ctime_ns": int(final.st_ctime_ns),
         }
     except BaseException:
-        # A final-name competitor is never removed. Clean only the exact hidden
-        # pending inode created by this call.
-        if not pending_published:
-            try:
-                current = os.stat(pending, follow_symlinks=False)
-                if (int(current.st_dev), int(current.st_ino), int(current.st_nlink)) == created_identity:
-                    pending.unlink()
-            except OSError:
-                pass
+        # A final-name competitor is never removed. Clean only the exact pending
+        # or final inode created by this call.
+        cleanup_path = path if pending_published else pending
+        try:
+            current = os.stat(cleanup_path, follow_symlinks=False)
+            if (
+                int(current.st_dev), int(current.st_ino), int(current.st_nlink)
+            ) == created_identity:
+                cleanup_path.unlink()
+        except OSError:
+            pass
         raise
 
 
@@ -491,9 +496,9 @@ def _state_from_proof(
     return state
 
 
-def _rgba_pixel_evidence(
+def _decode_rgba_pixels(
     data: bytes, dimensions: list[object], label: str
-) -> dict[str, object]:
+) -> tuple[int, int, list[tuple[int, int, int, int]]]:
     try:
         with Image.open(io.BytesIO(data)) as image:
             image.load()
@@ -503,6 +508,13 @@ def _rgba_pixel_evidence(
             pixels = list(image.get_flattened_data())
     except OSError as error:
         raise ValueError(f"{label} is not genuine PNG pixel evidence: {error}") from error
+    return width, height, pixels
+
+
+def _rgba_pixel_evidence(
+    data: bytes, dimensions: list[object], label: str
+) -> dict[str, object]:
+    width, _, pixels = _decode_rgba_pixels(data, dimensions, label)
     visible = [pixel for pixel in pixels if pixel[3] > 0]
     if not visible:
         raise ValueError(f"{label} contains no visible product pixels")
@@ -527,6 +539,66 @@ def _rgba_pixel_evidence(
         "alpha_nonzero_pixels": sum(value > 0 for value in alpha),
         "alpha_partial_pixels": sum(0 < value < 255 for value in alpha),
     }
+
+
+def _region_pixel_evidence(
+    pixels: list[tuple[int, int, int, int]],
+    width: int,
+    box: list[int],
+    label: str,
+) -> dict[str, object]:
+    left, top, right, bottom = box
+    region = [
+        pixels[y * width + x]
+        for y in range(top, bottom + 1)
+        for x in range(left, right + 1)
+    ]
+    visible = [pixel for pixel in region if pixel[3] > 0]
+    if not visible:
+        raise ValueError(f"final {label} region contains no visible product pixels")
+    rgba_bytes = bytes(channel for pixel in region for channel in pixel)
+    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in region)
+    visible_rgb = bytes(channel for pixel in visible for channel in pixel[:3])
+    return {
+        "region": box,
+        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
+        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
+        "visible_rgb_sha256": hashlib.sha256(visible_rgb).hexdigest().upper(),
+        "visible_pixels": len(visible),
+        "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+    }
+
+
+def _controller_digit_patterns(
+    pixels: list[tuple[int, int, int, int]],
+    width: int,
+    box: list[int],
+    digit_count: int,
+) -> list[str]:
+    left, top, right, bottom = box
+    visible_luma = [
+        sum(pixels[y * width + x][:3])
+        for y in range(top, bottom + 1)
+        for x in range(left, right + 1)
+        if pixels[y * width + x][3] > 0
+    ]
+    threshold = (min(visible_luma) + max(visible_luma)) / 2
+    samples = ((0.5, 0.1), (0.2, 0.3), (0.8, 0.3), (0.5, 0.5),
+               (0.2, 0.7), (0.8, 0.7), (0.5, 0.9))
+    region_width = right - left + 1
+    region_height = bottom - top + 1
+    patterns: list[str] = []
+    for digit in range(digit_count):
+        digit_left = left + digit * region_width / digit_count
+        digit_right = left + (digit + 1) * region_width / digit_count - 1
+        bits = []
+        for x_fraction, y_fraction in samples:
+            x = round(digit_left + max(0, digit_right - digit_left) * x_fraction)
+            y = round(top + max(0, region_height - 1) * y_fraction)
+            pixel = pixels[y * width + min(right, max(left, x))]
+            bits.append("1" if pixel[3] > 0 and sum(pixel[:3]) > threshold else "0")
+        patterns.append("".join(bits))
+    return patterns
 
 
 def compute_final_qa(
@@ -554,7 +626,26 @@ def compute_final_qa(
         raise ValueError("final animation QA requires a supported owner-approved endpoint contract")
     if set(endpoint_png_bytes) != {"start", "end"}:
         raise ValueError("final animation QA requires exact start and end endpoint renders")
+    width, _, pixels = _decode_rgba_pixels(png_bytes, dimensions, "final product")
     main = _rgba_pixel_evidence(png_bytes, dimensions, "final product")
+    left, top, right, bottom = main["subject_bounds"]
+    if right - left + 1 < 4:
+        raise ValueError("final product is too narrow for dedicated material/controller regions")
+    split = left + max(1, ((right - left + 1) * 2) // 3)
+    material = _region_pixel_evidence(
+        pixels, width, [left, top, split - 1, bottom], "material"
+    )
+    controller_pixels = _region_pixel_evidence(
+        pixels, width, [split, top, right, bottom], "controller"
+    )
+    if material["unique_rgb_values"] < 2 or controller_pixels["unique_rgb_values"] < 2:
+        raise ValueError("final material/controller evidence cannot be a uniform whole frame")
+    display_values = controller.get("display_values")
+    assert isinstance(display_values, list)
+    digit_count = sum(len(str(value)) for value in display_values)
+    patterns = _controller_digit_patterns(
+        pixels, width, list(controller_pixels["region"]), digit_count
+    )
     endpoints: list[dict[str, object]] = []
     for label in ("start", "end"):
         evidence = _rgba_pixel_evidence(
@@ -562,10 +653,12 @@ def compute_final_qa(
         )
         endpoints.append({
             "label": label,
+            "file_sha256": hashlib.sha256(endpoint_png_bytes[label]).hexdigest().upper(),
             "rgba_sha256": evidence["rgba_sha256"],
             "product_mask_sha256": evidence["product_mask_sha256"],
             "subject_bounds": evidence["subject_bounds"],
             "visible_pixels": evidence["visible_pixels"],
+            "visible_fraction": evidence["visible_fraction"],
         })
     if any(
         endpoint["rgba_sha256"] != main["rgba_sha256"]
@@ -587,9 +680,7 @@ def compute_final_qa(
         "material": {
             "material_library_sha256": _sha(material_library_sha256, "material library SHA-256"),
             "scene_contract_sha256": _sha(scene_contract_sha256, "scene contract SHA-256"),
-            "visible_rgb_sha256": main["visible_rgb_sha256"],
-            "visible_pixels": main["visible_pixels"],
-            "unique_rgb_values": main["unique_rgb_values"],
+            **material,
         },
         "alpha": {
             "channel_sha256": main["alpha_sha256"],
@@ -601,9 +692,12 @@ def compute_final_qa(
         "controller": {
             "machine_contract_sha256": _sha(machine_contract_sha256, "machine contract SHA-256"),
             "controller_contract_sha256": canonical_json_sha256(controller),
-            "visible_rgb_sha256": main["visible_rgb_sha256"],
-            "display_values": controller.get("display_values"),
-            "approved_segment_count": len(controller.get("approved_segments", [])),
+            **controller_pixels,
+            "digit_patterns": patterns,
+            "active_segment_count": sum(pattern.count("1") for pattern in patterns),
+            "segment_mask_sha256": hashlib.sha256(
+                "".join(patterns).encode("ascii")
+            ).hexdigest().upper(),
         },
         "animation": {
             "contract_sha256": canonical_json_sha256({

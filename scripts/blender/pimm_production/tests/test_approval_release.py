@@ -64,10 +64,67 @@ def _canonical_fixture_sha(value: object) -> str:
     ).hexdigest().upper()
 
 
-def _fixture_final_qa(png: Path, approval: dict[str, object]) -> dict[str, object]:
-    """Hand-derived Task 6 QA fixture, independent of the production builder."""
+def _fixture_region_metrics(
+    pixels: list[tuple[int, int, int, int]], width: int, box: list[int]
+) -> dict[str, object]:
+    """Independently derive exact pixel/mask evidence for one fixture region."""
 
-    with Image.open(png) as image:
+    left, top, right, bottom = box
+    region = [
+        pixels[y * width + x]
+        for y in range(top, bottom + 1)
+        for x in range(left, right + 1)
+    ]
+    visible = [pixel for pixel in region if pixel[3] > 0]
+    rgba_bytes = bytes(channel for pixel in region for channel in pixel)
+    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in region)
+    visible_rgb_bytes = bytes(channel for pixel in visible for channel in pixel[:3])
+    return {
+        "region": box,
+        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
+        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
+        "visible_rgb_sha256": hashlib.sha256(visible_rgb_bytes).hexdigest().upper(),
+        "visible_pixels": len(visible),
+        "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+    }
+
+
+def _fixture_controller_patterns(
+    pixels: list[tuple[int, int, int, int]],
+    width: int,
+    box: list[int],
+    digit_count: int,
+) -> list[str]:
+    """Sample seven physical regions per controller digit from real fixture pixels."""
+
+    left, top, right, bottom = box
+    visible_luma = [
+        sum(pixels[y * width + x][:3])
+        for y in range(top, bottom + 1)
+        for x in range(left, right + 1)
+        if pixels[y * width + x][3] > 0
+    ]
+    threshold = (min(visible_luma) + max(visible_luma)) / 2
+    samples = ((0.5, 0.1), (0.2, 0.3), (0.8, 0.3), (0.5, 0.5),
+               (0.2, 0.7), (0.8, 0.7), (0.5, 0.9))
+    region_width = right - left + 1
+    region_height = bottom - top + 1
+    patterns: list[str] = []
+    for digit in range(digit_count):
+        digit_left = left + digit * region_width / digit_count
+        digit_right = left + (digit + 1) * region_width / digit_count - 1
+        bits = []
+        for x_fraction, y_fraction in samples:
+            x = round(digit_left + max(0, digit_right - digit_left) * x_fraction)
+            y = round(top + max(0, region_height - 1) * y_fraction)
+            pixel = pixels[y * width + min(right, max(left, x))]
+            bits.append("1" if pixel[3] > 0 and sum(pixel[:3]) > threshold else "0")
+        patterns.append("".join(bits))
+    return patterns
+
+
+def _fixture_png_evidence(path: Path) -> tuple[int, int, list[tuple[int, int, int, int]], dict[str, object]]:
+    with Image.open(path) as image:
         rgba = image.convert("RGBA")
         width, height = rgba.size
         pixels = list(rgba.get_flattened_data())
@@ -75,10 +132,34 @@ def _fixture_final_qa(png: Path, approval: dict[str, object]) -> dict[str, objec
     visible_indices = [index for index, pixel in enumerate(pixels) if pixel[3] > 0]
     xs = [index % width for index in visible_indices]
     ys = [index // width for index in visible_indices]
-    bounds = [min(xs), min(ys), max(xs), max(ys)] if visible_indices else None
     rgba_bytes = bytes(channel for pixel in pixels for channel in pixel)
     mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in pixels)
-    visible_rgb_bytes = bytes(channel for pixel in visible for channel in pixel[:3])
+    return width, height, pixels, {
+        "file_sha256": _sha256(path),
+        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
+        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
+        "subject_bounds": [min(xs), min(ys), max(xs), max(ys)],
+        "visible_pixels": len(visible),
+        "visible_fraction": round(len(visible) / len(pixels), 8),
+    }
+
+
+def _fixture_final_qa(
+    png: Path,
+    approval: dict[str, object],
+    endpoints: dict[str, Path],
+) -> dict[str, object]:
+    """Hand-derived Task 6 QA fixture, independent of the production builder."""
+
+    width, height, pixels, product = _fixture_png_evidence(png)
+    bounds = product["subject_bounds"]
+    assert isinstance(bounds, list)
+    left, top, right, bottom = bounds
+    split = left + max(1, ((right - left + 1) * 2) // 3)
+    material_box = [left, top, split - 1, bottom]
+    controller_box = [split, top, right, bottom]
+    material = _fixture_region_metrics(pixels, width, material_box)
+    controller = _fixture_region_metrics(pixels, width, controller_box)
     alpha_bytes = bytes(pixel[3] for pixel in pixels)
     machine_path = (
         REPO_ROOT / "scripts" / "blender" / "pimm_production" / "contracts" / "machines" / "30g.json"
@@ -87,31 +168,21 @@ def _fixture_final_qa(png: Path, approval: dict[str, object]) -> dict[str, objec
     evidence = approval["evidence"]
     assert isinstance(evidence, dict)
     scene_contract = json.loads(Path(evidence["scene_contract"]["path"]).read_text(encoding="utf-8"))
-    rgba_sha = hashlib.sha256(rgba_bytes).hexdigest().upper()
-    mask_sha = hashlib.sha256(mask_bytes).hexdigest().upper()
-    visible_rgb_sha = hashlib.sha256(visible_rgb_bytes).hexdigest().upper()
-    endpoint = {
-        "rgba_sha256": rgba_sha,
-        "product_mask_sha256": mask_sha,
-        "subject_bounds": bounds,
-        "visible_pixels": len(visible),
-    }
+    digit_count = sum(len(value) for value in machine["controller"]["display_values"])
+    patterns = _fixture_controller_patterns(pixels, width, controller_box, digit_count)
+    endpoint_records = []
+    for label in ("start", "end"):
+        endpoint_width, endpoint_height, _, endpoint = _fixture_png_evidence(endpoints[label])
+        assert (endpoint_width, endpoint_height) == (width, height)
+        endpoint_records.append({"label": label, **endpoint})
     return {
         "schema": "pimm-final-qa/v1",
         "dimensions": [width, height],
-        "product": {
-            "rgba_sha256": rgba_sha,
-            "product_mask_sha256": mask_sha,
-            "subject_bounds": bounds,
-            "visible_pixels": len(visible),
-            "visible_fraction": round(len(visible) / max(1, len(pixels)), 8),
-        },
+        "product": {key: value for key, value in product.items() if key != "file_sha256"},
         "material": {
             "material_library_sha256": approval["inputs"]["material_library_sha256"],
             "scene_contract_sha256": evidence["scene_contract"]["sha256"],
-            "visible_rgb_sha256": visible_rgb_sha,
-            "visible_pixels": len(visible),
-            "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+            **material,
         },
         "alpha": {
             "channel_sha256": hashlib.sha256(alpha_bytes).hexdigest().upper(),
@@ -123,19 +194,17 @@ def _fixture_final_qa(png: Path, approval: dict[str, object]) -> dict[str, objec
         "controller": {
             "machine_contract_sha256": _sha256(machine_path),
             "controller_contract_sha256": _canonical_fixture_sha(machine["controller"]),
-            "visible_rgb_sha256": visible_rgb_sha,
-            "display_values": machine["controller"]["display_values"],
-            "approved_segment_count": len(machine["controller"].get("approved_segments", [])),
+            **controller,
+            "digit_patterns": patterns,
+            "active_segment_count": sum(pattern.count("1") for pattern in patterns),
+            "segment_mask_sha256": hashlib.sha256("".join(patterns).encode("ascii")).hexdigest().upper(),
         },
         "animation": {
             "contract_sha256": _canonical_fixture_sha(
                 {"machine": machine["animation"], "scene": scene_contract["animation_contract"]}
             ),
             "status": machine["animation"]["status"],
-            "endpoints": [
-                {"label": "start", **endpoint},
-                {"label": "end", **endpoint},
-            ],
+            "endpoints": endpoint_records,
             "identical": True,
         },
     }
@@ -270,6 +339,21 @@ def write_approval_fixture(
     return approval_path, final_path
 
 
+def _write_nonuniform_final_fixture(path: Path) -> None:
+    """Write explicit material and controller pixel regions without production helpers."""
+
+    pixels: list[tuple[int, int, int, int]] = []
+    for y in range(48):
+        for x in range(64):
+            if x < 42:
+                pixels.append((40 + (x * 3) % 90, 70 + (y * 5) % 80, 120 + (x + y) % 80, 160))
+            else:
+                bright = (x + 2 * y) % 7 in {0, 1, 4}
+                pixels.append((220, 45 + y % 20, 20, 220) if bright else (15, 20, 25 + x % 12, 180))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.frombytes("RGBA", (64, 48), bytes(channel for pixel in pixels for channel in pixel)).save(path)
+
+
 def write_release_output_fixture(root: Path, generation_id: str) -> Path:
     """Write one complete final-output manifest with a transparent delivery family."""
 
@@ -280,9 +364,13 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
     output_root = root / "renders" / "final" / RELEASE_ID / SHOT_ID
     output_root.mkdir(parents=True, exist_ok=True)
     outputs: list[dict[str, object]] = []
+    png = output_root / f"{SHOT_ID}--transparent.png"
+    _write_nonuniform_final_fixture(png)
     for extension, mime in (("png", "image/png"), ("webp", "image/webp")):
         path = output_root / f"{SHOT_ID}--transparent.{extension}"
-        Image.new("RGBA", (64, 48), (30, 40, 50, 160)).save(path)
+        if extension == "webp":
+            with Image.open(png) as image:
+                image.save(path, format="WEBP", lossless=True)
         outputs.append(
             {
                 "logical_asset_id": f"{SHOT_ID}--transparent-{extension}",
@@ -293,6 +381,22 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
                 "mime_type": mime,
             }
         )
+    endpoints = {
+        label: output_root / f"{SHOT_ID}--animation-{label}.png"
+        for label in ("start", "end")
+    }
+    for path in endpoints.values():
+        path.write_bytes(png.read_bytes())
+    qa_evidence = [
+        {
+            "role": f"animation-{label}",
+            "path": endpoints[label].name,
+            "sha256": _sha256(endpoints[label]),
+            "dimensions": [64, 48],
+            "mime_type": "image/png",
+        }
+        for label in ("start", "end")
+    ]
     exr = output_root / f"{SHOT_ID}--transparent.exr"
     _write_float_exr(exr, 64, 48)
     outputs.append(
@@ -317,10 +421,76 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
         "final_authorization_sha256": authorization.authorization_sha256,
         "output_root": f"renders/final/{RELEASE_ID}",
         "required_deliverables": ["exr", "png", "webp"],
-        "qa": _fixture_final_qa(output_root / f"{SHOT_ID}--transparent.png", json.loads(approval_path.read_text(encoding="utf-8"))),
+        "qa": _fixture_final_qa(
+            png,
+            json.loads(approval_path.read_text(encoding="utf-8")),
+            endpoints,
+        ),
+        "qa_evidence": qa_evidence,
         "outputs": outputs,
     }
     return _write_json(output_root / "final-output-manifest.json", manifest)
+
+
+def _refresh_final_fixture_manifest(
+    output: Path,
+    payload: dict[str, object],
+    *,
+    preserve_qa_section: str | None = None,
+) -> None:
+    """Refresh fixture hashes/QA independently after an intentional pixel mutation."""
+
+    family = output.parent
+    for record in payload["outputs"]:
+        record["sha256"] = _sha256(family / record["path"])
+    endpoints = {
+        record["role"].removeprefix("animation-"): family / record["path"]
+        for record in payload["qa_evidence"]
+    }
+    for record in payload["qa_evidence"]:
+        record["sha256"] = _sha256(family / record["path"])
+    old_section = copy.deepcopy(payload["qa"].get(preserve_qa_section)) if preserve_qa_section else None
+    approval = json.loads(Path(payload["approval_path"]).read_text(encoding="utf-8"))
+    payload["qa"] = _fixture_final_qa(
+        family / f"{SHOT_ID}--transparent.png",
+        approval,
+        endpoints,
+    )
+    if preserve_qa_section:
+        payload["qa"][preserve_qa_section] = old_section
+    _write_json(output, payload)
+
+
+def _mutate_fixture_region_family(
+    output: Path,
+    x: int,
+    y: int,
+    color: tuple[int, int, int, int],
+) -> None:
+    """Apply one real pixel mutation to final and both contracted endpoints."""
+
+    family = output.parent
+    png_paths = [
+        family / f"{SHOT_ID}--transparent.png",
+        family / f"{SHOT_ID}--animation-start.png",
+        family / f"{SHOT_ID}--animation-end.png",
+    ]
+    for path in png_paths:
+        with Image.open(path) as image:
+            rgba = image.convert("RGBA")
+        rgba.putpixel((x, y), color)
+        rgba.save(path, format="PNG")
+    with Image.open(png_paths[0]) as image:
+        image.save(family / f"{SHOT_ID}--transparent.webp", format="WEBP", lossless=True)
+
+
+def _write_uniform_fixture_family(output: Path) -> None:
+    family = output.parent
+    uniform = Image.new("RGBA", (64, 48), (30, 40, 50, 160))
+    uniform.save(family / f"{SHOT_ID}--transparent.png", format="PNG")
+    uniform.save(family / f"{SHOT_ID}--transparent.webp", format="WEBP", lossless=True)
+    uniform.save(family / f"{SHOT_ID}--animation-start.png", format="PNG")
+    uniform.save(family / f"{SHOT_ID}--animation-end.png", format="PNG")
 
 
 def _write_float_exr(path: Path, width: int, height: int) -> None:
@@ -452,8 +622,15 @@ class ApprovalReleaseTests(unittest.TestCase):
                 [endpoint["label"] for endpoint in manifest["qa"]["animation"]["endpoints"]],
                 ["start", "end"],
             )
+            self.assertEqual(
+                [record["role"] for record in manifest["qa_evidence"]],
+                ["animation-start", "animation-end"],
+            )
+            for record in manifest["qa_evidence"]:
+                self.assertEqual(_sha256(manifest_path.parent / record["path"]), record["sha256"])
             release_path = build_release_manifest(RELEASE_ID, [manifest_path])
             self.assertTrue(release_path.is_file())
+            release_module._validate_release_tree_authority(release_path)
 
     def test_final_authorization_binds_native_and_effective_proof_dimensions_separately(self) -> None:
         """Catches a final contract that promotes reduced proof pixels to final resolution."""
@@ -666,7 +843,7 @@ class ApprovalReleaseTests(unittest.TestCase):
         """Catches caller-selected state hashes or mutable controller/endpoint metrics."""
 
         mutations = (
-            ("controller", "approved_segment_count", 99, "controller QA drift"),
+            ("controller", "active_segment_count", 99, "controller QA drift"),
             ("animation", "contract_sha256", "F" * 64, "animation QA drift"),
             ("product", "visible_pixels", 1, "product QA drift"),
         )
@@ -680,6 +857,80 @@ class ApprovalReleaseTests(unittest.TestCase):
                 _write_json(output, payload)
                 with self.assertRaisesRegex(ValueError, expected):
                     build_release_manifest(RELEASE_ID, [output])
+
+    def test_release_independently_authenticates_distinct_animation_endpoint_files(self) -> None:
+        """Catches missing, substituted, swapped, or changed endpoint pixel evidence."""
+
+        for mutation in ("missing", "final-as-both", "swapped", "changed"):
+            with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                payload = json.loads(output.read_text(encoding="utf-8"))
+                evidence = payload["qa_evidence"]
+                start = output.parent / evidence[0]["path"]
+                if mutation == "missing":
+                    start.unlink()
+                elif mutation == "final-as-both":
+                    final_png = output.parent / f"{SHOT_ID}--transparent.png"
+                    for record in evidence:
+                        record["path"] = final_png.name
+                        record["sha256"] = _sha256(final_png)
+                    _write_json(output, payload)
+                elif mutation == "swapped":
+                    evidence[0]["path"], evidence[1]["path"] = (
+                        evidence[1]["path"], evidence[0]["path"]
+                    )
+                    _write_json(output, payload)
+                else:
+                    with Image.open(start) as image:
+                        changed = image.convert("RGBA")
+                    changed.putpixel((5, 5), (255, 0, 255, 255))
+                    changed.save(start, format="PNG")
+                    evidence[0]["sha256"] = _sha256(start)
+                    _write_json(output, payload)
+                with self.assertRaisesRegex(ValueError, "endpoint|animation"):
+                    build_release_manifest(RELEASE_ID, [output])
+                self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_derives_material_and_controller_qa_from_dedicated_regions(self) -> None:
+        """Catches copied controller claims, region drift, and uniform-frame counterfeits."""
+
+        for mutation in (
+            "false controller segments",
+            "changed controller pixels",
+            "changed material pixels",
+            "uniform whole frame",
+        ):
+            with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                payload = json.loads(output.read_text(encoding="utf-8"))
+                if mutation == "false controller segments":
+                    payload["qa"]["controller"]["digit_patterns"] = ["1111111"] * 6
+                    payload["qa"]["controller"]["active_segment_count"] = 42
+                    _write_json(output, payload)
+                    expected = "controller"
+                elif mutation == "changed controller pixels":
+                    _mutate_fixture_region_family(output, 50, 20, (0, 255, 0, 255))
+                    _refresh_final_fixture_manifest(
+                        output, payload, preserve_qa_section="controller"
+                    )
+                    expected = "controller"
+                elif mutation == "changed material pixels":
+                    _mutate_fixture_region_family(output, 10, 20, (255, 255, 0, 255))
+                    _refresh_final_fixture_manifest(
+                        output, payload, preserve_qa_section="material"
+                    )
+                    expected = "material"
+                else:
+                    _write_uniform_fixture_family(output)
+                    _refresh_final_fixture_manifest(output, payload)
+                    expected = "uniform|material|controller|dedicated"
+                with self.assertRaisesRegex(ValueError, expected):
+                    build_release_manifest(RELEASE_ID, [output])
+                self.assertFalse((output.parents[1] / "release-manifest.json").exists())
 
     def test_atomic_json_never_exposes_a_partial_final_path(self) -> None:
         """Catches writing directly into the authoritative JSON filename."""
@@ -939,15 +1190,10 @@ class ApprovalReleaseTests(unittest.TestCase):
                 stage = next((root / "renders" / "final").glob(f".{RELEASE_ID}-*.stage"))
                 family = stage / SHOT_ID
                 _write_json(family / ".native-state.json", authored)
-                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
-                    family / f"{SHOT_ID}--transparent.png"
-                )
-                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
-                    family / ".qa-animation-start.png"
-                )
-                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
-                    family / ".qa-animation-end.png"
-                )
+                png = family / f"{SHOT_ID}--transparent.png"
+                _write_nonuniform_final_fixture(png)
+                (family / f"{SHOT_ID}--animation-start.png").write_bytes(png.read_bytes())
+                (family / f"{SHOT_ID}--animation-end.png").write_bytes(png.read_bytes())
                 _write_float_exr(
                     family / f"{SHOT_ID}--transparent.exr", dimensions[0], dimensions[1]
                 )
@@ -990,18 +1236,19 @@ class ApprovalReleaseTests(unittest.TestCase):
                 stage = next((root / "renders" / "final").glob(f".{RELEASE_ID}-*.stage"))
                 family = stage / SHOT_ID
                 _write_json(family / ".native-state.json", authored)
-                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
-                    family / f"{SHOT_ID}--transparent.png"
-                )
+                png = family / f"{SHOT_ID}--transparent.png"
+                _write_nonuniform_final_fixture(png)
                 _write_float_exr(
                     family / f"{SHOT_ID}--transparent.exr", dimensions[0], dimensions[1]
                 )
-                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
-                    family / ".qa-animation-start.png"
-                )
-                Image.new("RGBA", dimensions, (200, 1, 2, 160)).save(
-                    family / ".qa-animation-end.png"
-                )
+                start = family / f"{SHOT_ID}--animation-start.png"
+                end = family / f"{SHOT_ID}--animation-end.png"
+                start.write_bytes(png.read_bytes())
+                end.write_bytes(png.read_bytes())
+                with Image.open(end) as image:
+                    changed = image.convert("RGBA")
+                changed.putpixel((5, 5), (200, 1, 2, 160))
+                changed.save(end, format="PNG")
                 return SimpleNamespace(returncode=0, stderr="", stdout="fixture Blender")
 
             with patch.object(final_module.subprocess, "run", side_effect=fake_blender):
@@ -1117,6 +1364,53 @@ class ApprovalReleaseTests(unittest.TestCase):
                         build_release_manifest(RELEASE_ID, [output])
                 self.assertTrue(injected)
                 self.assertFalse((release_root / "release-manifest.json").exists())
+
+    def test_release_marker_rename_boundary_never_certifies_injected_tree_entries(self) -> None:
+        """Catches additions after the precommit rescan but inside marker rename."""
+
+        variants = (
+            ("root file", lambda output: output.parents[1] / "rename-race-extra.txt", False),
+            ("family file", lambda output: output.parent / "rename-race-extra.txt", False),
+            ("family directory", lambda output: output.parent / "rename-race-extra", True),
+        )
+        for label, target_for, is_directory in variants:
+            with self.subTest(mutation=label), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                release_root = output.parents[1]
+                marker = release_root / "release-manifest.json"
+                injected = target_for(output)
+                original_rename = approval_module.os.rename
+                validity_during_rename: list[bool] = []
+
+                def inject_at_marker_rename(source: object, destination: object) -> None:
+                    if Path(destination) != marker:
+                        original_rename(source, destination)
+                        return
+                    if is_directory:
+                        injected.mkdir()
+                    else:
+                        injected.write_bytes(b"rename-boundary competitor")
+                    original_rename(source, destination)
+                    validator = getattr(release_module, "_validate_release_tree_authority", None)
+                    if validator is None:
+                        validity_during_rename.append(True)
+                    else:
+                        try:
+                            validator(marker)
+                        except ValueError:
+                            validity_during_rename.append(False)
+                        else:
+                            validity_during_rename.append(True)
+
+                with patch.object(approval_module.os, "rename", side_effect=inject_at_marker_rename):
+                    with self.assertRaisesRegex(ValueError, "tree|rescan|rename-boundary"):
+                        build_release_manifest(RELEASE_ID, [output])
+                self.assertEqual(validity_during_rename, [False])
+                self.assertTrue(injected.exists())
+                self.assertFalse(marker.exists())
+                self.assertEqual(list(release_root.glob(".release-manifest.json.*.pending")), [])
 
     def test_release_rejects_windows_alias_reserved_and_ads_output_names(self) -> None:
         """Catches cross-platform aliases before any external path can be opened."""

@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import json
 import ntpath
+import os
 import re
+import stat
 import struct
 import zlib
 from pathlib import Path
@@ -20,6 +22,7 @@ from .approval_manifest import (
     _stable_file,
     approval_head_lock,
     canonical_absolute_path,
+    canonical_json_sha256,
     compute_final_qa,
     stable_file_record,
     stable_json,
@@ -34,12 +37,17 @@ _OUTPUT_FIELDS = {
     "schema", "release_id", "generation_id", "shot_id", "approval_path",
     "approval_sha256", "authorized_final_contract_path",
     "authorized_final_contract_sha256", "final_authorization_sha256",
-    "output_root", "required_deliverables", "qa", "outputs",
+    "output_root", "required_deliverables", "qa", "qa_evidence", "outputs",
 }
 _OUTPUT_ENTRY_FIELDS = {
     "logical_asset_id", "path", "sha256", "dimensions", "alpha", "mime_type",
 }
 _QA_FIELDS = {"schema", "dimensions", "product", "material", "alpha", "controller", "animation"}
+_QA_EVIDENCE_FIELDS = {"role", "path", "sha256", "dimensions", "mime_type"}
+_TREE_AUTHORITY_FIELDS = {"schema", "entries", "sha256"}
+_TREE_FILE_IDENTITY_FIELDS = {
+    "sha256", "bytes", "mtime_ns", "ctime_ns", "change_time_ns", "device", "inode", "links",
+}
 _MIME_BY_EXTENSION = {
     "exr": "image/x-exr", "png": "image/png", "webp": "image/webp",
 }
@@ -303,6 +311,44 @@ def _validate_manifest(
     if set(qa) != _QA_FIELDS or qa.get("schema") != "pimm-final-qa/v1":
         raise ValueError("final output QA evidence is incomplete")
 
+    records: list[dict[str, object]] = []
+    expected_files = {path}
+    stable_records: list[tuple[Path, dict[str, object]]] = [(path, dict(manifest_record))]
+    endpoint_bytes: dict[str, bytes] = {}
+    qa_evidence = payload.get("qa_evidence")
+    if not isinstance(qa_evidence, list) or len(qa_evidence) != 2:
+        raise ValueError("final animation endpoint evidence must contain exact start and end files")
+    for item in qa_evidence:
+        entry = _mapping(item, "final animation endpoint evidence")
+        if set(entry) != _QA_EVIDENCE_FIELDS:
+            raise ValueError("final animation endpoint evidence fields are invalid")
+        role = entry.get("role")
+        if role not in {"animation-start", "animation-end"}:
+            raise ValueError("final animation endpoint role is invalid")
+        label = str(role).removeprefix("animation-")
+        if label in endpoint_bytes:
+            raise ValueError("final animation endpoint roles must be unique")
+        relative = _canonical_component(entry.get("path"), f"animation {label} endpoint path")
+        if relative != f"{shot_id}--animation-{label}.png":
+            raise ValueError("final animation endpoint path/role relationship is not canonical")
+        if entry.get("dimensions") != expected_dimensions or entry.get("mime_type") != "image/png":
+            raise ValueError("final animation endpoint dimensions or MIME type drift")
+        actual = path.parent / relative
+        try:
+            record, data = _stable_file(
+                str(actual), str(release_root), "asset", f"animation {label} endpoint", capture=True
+            )
+        except OSError as error:
+            raise ValueError(f"final animation {label} endpoint is missing or unreadable") from error
+        if record["sha256"] != str(entry.get("sha256", "")).upper():
+            raise ValueError(f"final animation {label} endpoint bytes or SHA-256 drift")
+        _validate_media_bytes(data or b"", list(expected_dimensions), "image/png")
+        endpoint_bytes[label] = data or b""
+        expected_files.add(actual)
+        stable_records.append((actual, record))
+    if set(endpoint_bytes) != {"start", "end"}:
+        raise ValueError("final animation endpoint evidence must contain exact start and end files")
+
     outputs = payload.get("outputs")
     if not isinstance(outputs, list):
         raise ValueError("final output family must contain exactly EXR, PNG, and WebP")
@@ -313,9 +359,6 @@ def _validate_manifest(
         raise ValueError("duplicate logical asset ID")
     if len(outputs) != 3:
         raise ValueError("absent EXR or contracted transparent deliverable")
-    records: list[dict[str, object]] = []
-    expected_files = {path}
-    stable_records: list[tuple[Path, dict[str, object]]] = [(path, dict(manifest_record))]
     observed_extensions: set[str] = set()
     logical_ids: set[str] = set()
     physical_paths: set[str] = set()
@@ -406,7 +449,7 @@ def _validate_manifest(
     final_inputs = _mapping(authorized_final.get("inputs"), "authorized final inputs")
     recomputed_qa = compute_final_qa(
         media_bytes["png"],
-        {"start": media_bytes["png"], "end": media_bytes["png"]},
+        endpoint_bytes,
         list(expected_dimensions),
         machine_contract,
         scene_contract,
@@ -429,6 +472,110 @@ def _validate_manifest(
         expected_files,
         stable_records,
     )
+
+
+def _directory_tree_identity(status: os.stat_result) -> dict[str, int]:
+    return {
+        "mtime_ns": int(status.st_mtime_ns),
+        "ctime_ns": int(status.st_ctime_ns),
+        "device": int(status.st_dev),
+        "inode": int(status.st_ino),
+        "links": int(status.st_nlink),
+    }
+
+
+def _tree_authority_from_records(
+    release_root: Path,
+    expected_children: set[Path],
+    stable_records: Sequence[tuple[Path, Mapping[str, object]]],
+) -> dict[str, object]:
+    """Bind every pre-marker directory/file entry to exact immutable evidence."""
+
+    entries: list[dict[str, object]] = []
+    for directory in expected_children:
+        status = os.stat(directory, follow_symlinks=False)
+        entry: dict[str, object] = {
+            "kind": "directory",
+            "path": directory.relative_to(release_root).as_posix(),
+        }
+        entry.update(_directory_tree_identity(status))
+        entries.append(entry)
+    for path, record in stable_records:
+        entry: dict[str, object] = {
+            "kind": "file",
+            "path": path.relative_to(release_root).as_posix(),
+        }
+        for field in _TREE_FILE_IDENTITY_FIELDS:
+            entry[field] = record[field]
+        entries.append(entry)
+    entries.sort(key=lambda entry: (str(entry["path"]), str(entry["kind"])))
+    paths = [str(entry["path"]) for entry in entries]
+    if len(paths) != len(set(paths)):
+        raise ValueError("release tree authority contains duplicate paths")
+    return {
+        "schema": "pimm-release-tree-authority/v1",
+        "entries": entries,
+        "sha256": canonical_json_sha256(entries),
+    }
+
+
+def _current_tree_authority(release_root: Path, marker: Path) -> dict[str, object]:
+    entries: list[dict[str, object]] = []
+    root_entries = sorted(release_root.iterdir(), key=lambda item: item.name.casefold())
+    paths: list[Path] = []
+    for path in root_entries:
+        if path == marker:
+            continue
+        status = os.stat(path, follow_symlinks=False)
+        if path.is_symlink() or int(getattr(status, "st_file_attributes", 0)) & 0x400:
+            raise ValueError("release tree authority rejects reparse entries")
+        relative = path.relative_to(release_root).as_posix()
+        if stat.S_ISDIR(status.st_mode):
+            entry: dict[str, object] = {"kind": "directory", "path": relative}
+            entry.update(_directory_tree_identity(status))
+            entries.append(entry)
+            paths.extend(sorted(path.iterdir(), key=lambda item: item.name.casefold()))
+            continue
+        raise ValueError("release tree authority contains an unexpected root entry")
+    for path in paths:
+        status = os.stat(path, follow_symlinks=False)
+        if (
+            path.is_symlink()
+            or int(getattr(status, "st_file_attributes", 0)) & 0x400
+            or not stat.S_ISREG(status.st_mode)
+        ):
+            raise ValueError("release tree authority contains a non-file family entry")
+        relative = path.relative_to(release_root).as_posix()
+        record = stable_file_record(path, release_root, "asset", "release tree authority file")
+        entry: dict[str, object] = {"kind": "file", "path": relative}
+        for field in _TREE_FILE_IDENTITY_FIELDS:
+            entry[field] = record[field]
+        entries.append(entry)
+    entries.sort(key=lambda entry: (str(entry["path"]), str(entry["kind"])))
+    return {
+        "schema": "pimm-release-tree-authority/v1",
+        "entries": entries,
+        "sha256": canonical_json_sha256(entries),
+    }
+
+
+def _validate_release_tree_authority(marker: Path) -> Mapping[str, object]:
+    """Reject any marker whose exact immutable tree differs at observation time."""
+
+    release_root = marker.parent
+    if marker.name != "release-manifest.json" or _RELEASE_ID.fullmatch(release_root.name) is None:
+        raise ValueError("release tree authority marker path is invalid")
+    payload, _ = stable_json(marker, release_root, "asset", "release manifest")
+    authority = _mapping(payload.get("tree_authority"), "release tree authority")
+    if set(authority) != _TREE_AUTHORITY_FIELDS:
+        raise ValueError("release tree authority fields are invalid")
+    entries = authority.get("entries")
+    if not isinstance(entries, list) or authority.get("sha256") != canonical_json_sha256(entries):
+        raise ValueError("release tree authority hash is invalid")
+    current = _current_tree_authority(release_root, marker)
+    if authority != current:
+        raise ValueError("release tree authority drift at marker observation")
+    return payload
 
 
 def _release_commit_revalidate(
@@ -459,6 +606,31 @@ def _release_commit_revalidate(
             raise ValueError("release tree rescan found extra or missing family entries")
     if set(release_root.iterdir()) != expected_children | {pending}:
         raise ValueError("release tree rescan found extra or missing root entries")
+
+
+def _release_postcommit_validate(
+    marker: Path,
+    release_root: Path,
+    expected_children: set[Path],
+    expected_families: Mapping[Path, set[Path]],
+    stable_records: Sequence[tuple[Path, Mapping[str, object]]],
+    approval_path: Path,
+    final_path: Path,
+    expected_approval_sha256: str,
+    expected_authorization_sha256: str,
+) -> None:
+    _release_commit_revalidate(
+        marker,
+        release_root,
+        expected_children,
+        expected_families,
+        stable_records,
+        approval_path,
+        final_path,
+        expected_approval_sha256,
+        expected_authorization_sha256,
+    )
+    _validate_release_tree_authority(marker)
 
 
 def _build_release_manifest_locked(
@@ -514,6 +686,9 @@ def _build_release_manifest_locked(
         "final_authorization_sha256": next(iter(authorizations)),
         "shot_ids": sorted(shot_ids),
         "assets": sorted(all_records, key=lambda record: str(record["logical_asset_id"])),
+        "tree_authority": _tree_authority_from_records(
+            release_root, expected_children, all_stable_records
+        ),
     }
     # Revalidate every manifest/output identity immediately before the immutable
     # marker is the last write. O_EXCL handles an injected competing marker race.
@@ -534,12 +709,24 @@ def _build_release_manifest_locked(
                 next(iter(approvals))[1],
                 next(iter(authorizations)),
             ),
+            after_commit=lambda marker: _release_postcommit_validate(
+                marker,
+                release_root,
+                expected_children,
+                expected_families,
+                all_stable_records,
+                approval_path,
+                final_path,
+                next(iter(approvals))[1],
+                next(iter(authorizations)),
+            ),
         )
     except FileExistsError as error:
         raise ValueError("release manifest already exists; releases are immutable") from error
     published, record = stable_json(destination, release_root, "asset", "release manifest")
     if published != payload or any(record[key] != value for key, value in created.items()):
         raise ValueError("release manifest publication identity or payload drift")
+    _validate_release_tree_authority(destination)
     return destination
 
 

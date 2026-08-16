@@ -344,10 +344,10 @@ def _blender_render_script(
         "scene.render.image_settings.file_format = 'PNG'",
         "scene.render.image_settings.color_depth = '8'",
         "scene.frame_set(scene.frame_start)",
-        f"scene.render.filepath = {str(output_root / '.qa-animation-start.png')!r}",
+        f"scene.render.filepath = {str(output_root / f'{shot_id}--animation-start.png')!r}",
         "bpy.ops.render.render(write_still=True)",
         "scene.frame_set(scene.frame_end)",
-        f"scene.render.filepath = {str(output_root / '.qa-animation-end.png')!r}",
+        f"scene.render.filepath = {str(output_root / f'{shot_id}--animation-end.png')!r}",
         "bpy.ops.render.render(write_still=True)",
         "scene.frame_set(original_frame)",
         "scene.render.image_settings.file_format = 'OPEN_EXR'",
@@ -450,8 +450,8 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
         os.mkdir(family)
         script = family / ".native-final.py"
         audit = family / ".native-state.json"
-        endpoint_start = family / ".qa-animation-start.png"
-        endpoint_end = family / ".qa-animation-end.png"
+        endpoint_start = family / f"{authorization.shot_id}--animation-start.png"
+        endpoint_end = family / f"{authorization.shot_id}--animation-end.png"
         exr = family / f"{authorization.shot_id}--transparent.exr"
         png = family / f"{authorization.shot_id}--transparent.png"
         webp = family / f"{authorization.shot_id}--transparent.webp"
@@ -538,8 +538,6 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             )
             _unlink_owned(script, script_identity, "native final script")
             _unlink_owned(audit, _owned_identity(audit), "native state audit")
-            _unlink_owned(endpoint_start, start_record, "animation start endpoint")
-            _unlink_owned(endpoint_end, end_record, "animation end endpoint")
 
             # Revalidate all authorities and both authorization records immediately
             # before hashing output and publishing evidence.
@@ -553,7 +551,24 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 "final contract", authorization.final_contract_record,
             )
             outputs: list[dict[str, object]] = []
-            published_records: list[tuple[Path, dict[str, object]]] = []
+            qa_evidence: list[dict[str, object]] = []
+            published_records: list[tuple[Path, dict[str, object]]] = [
+                (endpoint_start, start_record), (endpoint_end, end_record),
+            ]
+            for label, path, record in (
+                ("start", endpoint_start, start_record),
+                ("end", endpoint_end, end_record),
+            ):
+                stable_file_record(
+                    path, stage, "asset", f"animation {label} endpoint", record
+                )
+                qa_evidence.append({
+                    "role": f"animation-{label}",
+                    "path": path.name,
+                    "sha256": record["sha256"],
+                    "dimensions": dimensions,
+                    "mime_type": "image/png",
+                })
             for path, mime in ((exr, "image/x-exr"), (png, "image/png"), (webp, "image/webp")):
                 record = stable_file_record(path, stage, "asset", f"final {path.suffix}")
                 published_records.append((path, record))
@@ -579,6 +594,7 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 "output_root": f"renders/final/{authorization.release_id}",
                 "required_deliverables": ["exr", "png", "webp"],
                 "qa": qa,
+                "qa_evidence": qa_evidence,
                 "outputs": outputs,
             })
             manifest_record = stable_file_record(
