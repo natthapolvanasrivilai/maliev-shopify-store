@@ -46,6 +46,7 @@ class MaterialLibraryContractTests(unittest.TestCase):
                 "CONTROL_PANEL_SATIN_GRAY",
                 "BLUE_ACCENT_POLYMER",
                 "GREEN_ILLUMINATED_TRANSPARENT",
+                "CLEAR_ACRYLIC",
                 "RED_SIGNAL_POLYMER",
                 "GREEN_SIGNAL_POLYMER",
                 "WARM_WHITE_MARKING",
@@ -63,6 +64,13 @@ class MaterialLibraryContractTests(unittest.TestCase):
         self.assertLess(transparent.alpha, 1.0)
         self.assertGreater(MATERIAL_SPECS["GREEN_ILLUMINATED_TRANSPARENT"].emission_strength, 0.0)
         self.assertGreater(MATERIAL_SPECS["BLACK_GLOSS_GLASS"].coat_weight, 0.0)
+        acrylic = MATERIAL_SPECS["CLEAR_ACRYLIC"]
+        self.assertEqual(acrylic.metallic, 0.0)
+        self.assertEqual(acrylic.microstructure, "none")
+        self.assertGreaterEqual(acrylic.transmission, 0.90)
+        self.assertEqual(acrylic.alpha, 1.0)
+        self.assertGreaterEqual(acrylic.base_color[2], acrylic.base_color[1])
+        self.assertLessEqual(acrylic.roughness, 0.12)
         self.assertGreater(MATERIAL_SPECS["INACTIVE_NUMERIC_SEGMENT"].roughness, 0.25)
         self.assertEqual(MATERIAL_SPECS["CHARCOAL_TEXTURED_POLYMER"].microstructure, "powder_grain")
         self.assertEqual(MATERIAL_SPECS["WARM_WHITE_MARKING"].microstructure, "none")
