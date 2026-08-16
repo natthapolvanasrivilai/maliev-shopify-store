@@ -468,6 +468,178 @@ class LegacyInventoryContractTests(unittest.TestCase):
                 ), self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
                     inventory_module._verify_inventory_fresh(inventory, root)
 
+    def test_tail_create_after_last_discovery_fails_current_verification(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            _write(root, "scripts/render.py", b"original")
+            inventory = inventory_workspace(root)
+            real_discover = inventory_module._discover
+            discovery_calls = 0
+
+            def discover_then_create(value: Path):
+                nonlocal discovery_calls
+                discovered = real_discover(value)
+                discovery_calls += 1
+                if discovery_calls == 3:
+                    _write(root, "textures/tail.png")
+                return discovered
+
+            with patch.object(
+                inventory_module,
+                "_discover",
+                side_effect=discover_then_create,
+            ), self.assertRaisesRegex(
+                RuntimeError, "governed directory changed during verification"
+            ):
+                inventory_module._verify_inventory_fresh(inventory, root)
+
+    def test_kernel_boundary_rejects_every_tail_filesystem_event(self):
+        for race in (
+            "create",
+            "delete",
+            "rename",
+            "byte-write",
+            "identity-replacement",
+            "nested-generated-basename",
+            "unknown-path",
+        ):
+            with self.subTest(race=race), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                source = _write(root, "scripts/render.py", b"same bytes")
+                original_stat = source.stat()
+                inventory = inventory_workspace(root)
+                real_state = inventory_module._freshness_state
+                state_calls = 0
+
+                def state_then_race(*args, **kwargs):
+                    nonlocal state_calls
+                    state = real_state(*args, **kwargs)
+                    state_calls += 1
+                    if state_calls == 4:
+                        if race == "create":
+                            _write(root, "textures/tail.png")
+                        elif race == "delete":
+                            source.unlink()
+                        elif race == "rename":
+                            source.rename(root / "scripts/renamed.py")
+                        elif race == "byte-write":
+                            source.write_bytes(b"new bytes!")
+                        elif race == "identity-replacement":
+                            source.unlink()
+                            source.write_bytes(b"same bytes")
+                            os.utime(
+                                source,
+                                ns=(
+                                    original_stat.st_atime_ns,
+                                    original_stat.st_mtime_ns,
+                                ),
+                            )
+                        elif race == "nested-generated-basename":
+                            _write(root, "archive/manifests/consumer-graph.json")
+                        else:
+                            _write(root, "notes.tmp")
+                    return state
+
+                with patch.object(
+                    inventory_module,
+                    "_freshness_state",
+                    side_effect=state_then_race,
+                ), self.assertRaisesRegex(
+                    RuntimeError, "governed directory changed during verification"
+                ):
+                    inventory_module._verify_inventory_fresh(inventory, root)
+
+    def test_kernel_boundary_ignores_only_exact_owned_generated_paths(self):
+        ignored_paths = (
+            "manifests/blender-project-inventory.json",
+            "manifests/render-generation-inventory.json",
+            "manifests/consumer-graph.json",
+            "manifests/blender-project-migration-report.md",
+            "manifests/.pimm-inventory-publish.lock",
+            "manifests/.consumer-graph.json.tmp.0123456789abcdef0123456789abcdef",
+        )
+        for relative in ignored_paths:
+            with self.subTest(relative=relative), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                (root / "manifests").mkdir()
+                _write(root, "scripts/render.py", b"original")
+                inventory = inventory_workspace(root)
+                real_state = inventory_module._freshness_state
+                state_calls = 0
+
+                def state_then_write(*args, **kwargs):
+                    nonlocal state_calls
+                    state = real_state(*args, **kwargs)
+                    state_calls += 1
+                    if state_calls == 4:
+                        _write(root, relative, b"owned generated bytes")
+                    return state
+
+                with patch.object(
+                    inventory_module,
+                    "_freshness_state",
+                    side_effect=state_then_write,
+                ):
+                    inventory_module._verify_inventory_fresh(inventory, root)
+
+    def test_kernel_boundary_fails_closed_on_overflow_status_and_non_windows(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            watcher = inventory_module._WindowsDirectoryChangeAuthority(root)
+            with patch.object(watcher, "_wait", return_value=0), patch.object(
+                watcher, "_get_result", return_value=True
+            ), self.assertRaisesRegex(RuntimeError, "watcher overflow"):
+                watcher.assert_quiet()
+            watcher.close()
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            watcher = inventory_module._WindowsDirectoryChangeAuthority(root)
+            with patch.object(
+                watcher, "_wait", return_value=0xFFFFFFFF
+            ), self.assertRaisesRegex(RuntimeError, "ambiguous .* watcher status"):
+                watcher.assert_quiet()
+            watcher.close()
+
+        with patch.object(inventory_module.os, "name", "posix"), self.assertRaisesRegex(
+            RuntimeError, "kernel directory change authority is required"
+        ):
+            inventory_module._directory_change_authority(Path("governed-root"))
+
+    def test_finalizer_postcommit_watcher_rejects_tail_create(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            _write(root, "scripts/render.py", b"original")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            real_state = inventory_module._freshness_state
+            state_calls = 0
+
+            def state_then_create(*args, **kwargs):
+                nonlocal state_calls
+                state = real_state(*args, **kwargs)
+                state_calls += 1
+                if state_calls == 12:
+                    _write(root, "textures/postcommit-tail.png")
+                return state
+
+            with patch.object(
+                inventory_module,
+                "_freshness_state",
+                side_effect=state_then_create,
+            ), self.assertRaisesRegex(
+                RuntimeError, "governed directory changed during verification"
+            ):
+                finalize_inventory(
+                    inventory_path,
+                    manifest_root / "blender-project-migration-report.md",
+                    manifest_root / "consumer-graph.json",
+                    manifest_root / "render-generation-inventory.json",
+                    Path(repo_text),
+                    root,
+                )
+
     def test_drift_after_successful_verification_is_rejected_by_next_verification(self):
         with TemporaryDirectory() as root_text:
             root = Path(root_text)
@@ -476,6 +648,31 @@ class LegacyInventoryContractTests(unittest.TestCase):
 
             inventory_module._verify_inventory_fresh(inventory, root)
             source.write_bytes(b"later external drift")
+
+            with self.assertRaisesRegex(RuntimeError, "asset .*changed"):
+                inventory_module._verify_inventory_fresh(inventory, root)
+
+    def test_drift_after_kernel_poll_is_later_drift_rejected_by_next_verification(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            source = _write(root, "scripts/render.py", b"original")
+            inventory = inventory_workspace(root)
+            real_poll = inventory_module._WindowsDirectoryChangeAuthority.assert_quiet
+            mutated = False
+
+            def mutate_after_poll(authority):
+                nonlocal mutated
+                real_poll(authority)
+                if not mutated:
+                    mutated = True
+                    source.write_bytes(b"later external drift")
+
+            with patch.object(
+                inventory_module._WindowsDirectoryChangeAuthority,
+                "assert_quiet",
+                mutate_after_poll,
+            ):
+                inventory_module._verify_inventory_fresh(inventory, root)
 
             with self.assertRaisesRegex(RuntimeError, "asset .*changed"):
                 inventory_module._verify_inventory_fresh(inventory, root)

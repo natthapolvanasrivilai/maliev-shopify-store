@@ -244,6 +244,377 @@ def _windows_change_time(path: Path) -> int | None:
         close_handle(handle)
 
 
+@functools.lru_cache(maxsize=1)
+def _windows_directory_change_api():
+    pointer_integer = (
+        ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
+    )
+
+    class OVERLAPPED(ctypes.Structure):
+        _fields_ = (
+            ("Internal", pointer_integer),
+            ("InternalHigh", pointer_integer),
+            ("Offset", wintypes.DWORD),
+            ("OffsetHigh", wintypes.DWORD),
+            ("hEvent", wintypes.HANDLE),
+        )
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    create_file.restype = wintypes.HANDLE
+    create_event = kernel32.CreateEventW
+    create_event.argtypes = (
+        wintypes.LPVOID,
+        wintypes.BOOL,
+        wintypes.BOOL,
+        wintypes.LPCWSTR,
+    )
+    create_event.restype = wintypes.HANDLE
+    reset_event = kernel32.ResetEvent
+    reset_event.argtypes = (wintypes.HANDLE,)
+    reset_event.restype = wintypes.BOOL
+    read_changes = kernel32.ReadDirectoryChangesW
+    read_changes.argtypes = (
+        wintypes.HANDLE,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.BOOL,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        ctypes.POINTER(OVERLAPPED),
+        wintypes.LPVOID,
+    )
+    read_changes.restype = wintypes.BOOL
+    wait = kernel32.WaitForSingleObject
+    wait.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    wait.restype = wintypes.DWORD
+    get_result = kernel32.GetOverlappedResult
+    get_result.argtypes = (
+        wintypes.HANDLE,
+        ctypes.POINTER(OVERLAPPED),
+        ctypes.POINTER(wintypes.DWORD),
+        wintypes.BOOL,
+    )
+    get_result.restype = wintypes.BOOL
+    cancel = kernel32.CancelIoEx
+    cancel.argtypes = (wintypes.HANDLE, ctypes.POINTER(OVERLAPPED))
+    cancel.restype = wintypes.BOOL
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+    return (
+        OVERLAPPED,
+        create_file,
+        create_event,
+        reset_event,
+        read_changes,
+        wait,
+        get_result,
+        cancel,
+        close_handle,
+    )
+
+
+_WATCHER_STAGE_PATHS = tuple(
+    re.compile(
+        rf"^{re.escape(str(PurePosixPath(relative).parent))}/"
+        rf"\.{re.escape(PurePosixPath(relative).name)}\.tmp\.[0-9a-f]{{32}}$",
+        re.IGNORECASE,
+    )
+    for relative in GENERATED_ARTIFACT_PATHS
+)
+
+
+def _is_exact_owned_publication_path(relative: str) -> bool:
+    normalized = relative.replace("\\", "/")
+    pure = PurePosixPath(normalized)
+    if (
+        not normalized
+        or pure.is_absolute()
+        or re.match(r"^[A-Za-z]:/", normalized)
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        return False
+    folded = normalized.casefold()
+    if (
+        folded in _GENERATED_ARTIFACT_PATHS_FOLDED
+        or folded == _PUBLICATION_LOCK.casefold()
+    ):
+        return True
+    return any(pattern.fullmatch(normalized) for pattern in _WATCHER_STAGE_PATHS)
+
+
+class _WindowsDirectoryChangeAuthority:
+    """Kernel-observed mutation boundary for one governed directory tree."""
+
+    _BUFFER_SIZE = 32 * 1024  # Network providers reject buffers larger than 64 KiB.
+    _WAIT_OBJECT_0 = 0
+    _WAIT_TIMEOUT = 258
+    _ERROR_IO_PENDING = 997
+    _ERROR_OPERATION_ABORTED = 995
+    _ERROR_NOT_FOUND = 1168
+    _NOTIFY_FILTER = (
+        0x00000001  # FILE_NOTIFY_CHANGE_FILE_NAME
+        | 0x00000002  # FILE_NOTIFY_CHANGE_DIR_NAME
+        | 0x00000004  # FILE_NOTIFY_CHANGE_ATTRIBUTES
+        | 0x00000008  # FILE_NOTIFY_CHANGE_SIZE
+        | 0x00000010  # FILE_NOTIFY_CHANGE_LAST_WRITE
+        | 0x00000040  # FILE_NOTIFY_CHANGE_CREATION
+    )
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        (
+            self._overlapped_type,
+            create_file,
+            create_event,
+            self._reset_event,
+            self._read_changes,
+            self._wait,
+            self._get_result,
+            self._cancel,
+            self._close_handle,
+        ) = _windows_directory_change_api()
+        self._directory = create_file(
+            _windows_extended_path(root),
+            0x0001,  # FILE_LIST_DIRECTORY
+            0x00000001 | 0x00000002 | 0x00000004,  # share read/write/delete
+            None,
+            3,  # OPEN_EXISTING
+            0x02000000 | 0x40000000,  # BACKUP_SEMANTICS | OVERLAPPED
+            None,
+        )
+        if self._directory == ctypes.c_void_p(-1).value:
+            detail = ctypes.WinError(ctypes.get_last_error())
+            raise RuntimeError(
+                f"cannot establish governed directory change authority: {detail}"
+            )
+        self._event = create_event(None, True, False, None)
+        if not self._event:
+            error = ctypes.WinError(ctypes.get_last_error())
+            self._close_handle(self._directory)
+            raise RuntimeError(f"cannot create governed directory change event: {error}")
+        self._buffer = (ctypes.c_ubyte * self._BUFFER_SIZE)()
+        self._overlapped = self._overlapped_type()
+        self._overlapped.hEvent = self._event
+        self._pending = False
+        self._closed = False
+        try:
+            self._arm()
+            self._directory_states = self._capture_directory_states()
+        except BaseException:
+            try:
+                self.close()
+            except BaseException:
+                pass  # Preserve the primary authority-creation failure.
+            raise
+
+    def _capture_directory_states(self) -> dict[str, _FreshnessState]:
+        """Record directory identities after arming; enumeration noise is validated later."""
+
+        states: dict[str, _FreshnessState] = {}
+        candidates = (
+            self._root,
+            *(path for path in self._root.rglob("*") if path.is_dir()),
+        )
+        for path in candidates:
+            if _is_reparse_or_symlink(path):
+                raise RuntimeError(f"governed directory is a reparse point: {path}")
+            value = path.stat(follow_symlinks=False)
+            relative = "." if path == self._root else path.relative_to(self._root).as_posix()
+            states[relative.casefold()] = (
+                _stat_identity(value),
+                int(value.st_size),
+                int(value.st_mtime_ns),
+                _windows_change_time(path),
+            )
+        return states
+
+    def _arm(self) -> None:
+        if not self._reset_event(self._event):
+            detail = ctypes.WinError(ctypes.get_last_error())
+            raise RuntimeError(
+                f"cannot reset governed directory change event: {detail}"
+            )
+        returned = wintypes.DWORD()
+        if not self._read_changes(
+            self._directory,
+            ctypes.byref(self._buffer),
+            self._BUFFER_SIZE,
+            True,
+            self._NOTIFY_FILTER,
+            ctypes.byref(returned),
+            ctypes.byref(self._overlapped),
+            None,
+        ):
+            error = ctypes.get_last_error()
+            if error != self._ERROR_IO_PENDING:
+                raise RuntimeError(
+                    f"cannot arm governed directory change authority: {ctypes.WinError(error)}"
+                )
+        self._pending = True
+
+    def _completed_bytes(self) -> bytes:
+        transferred = wintypes.DWORD()
+        if not self._get_result(
+            self._directory,
+            ctypes.byref(self._overlapped),
+            ctypes.byref(transferred),
+            False,
+        ):
+            detail = ctypes.WinError(ctypes.get_last_error())
+            raise RuntimeError(
+                f"ambiguous governed directory watcher completion: {detail}"
+            )
+        self._pending = False
+        if transferred.value == 0:
+            raise RuntimeError("governed directory watcher overflow")
+        return bytes(self._buffer[: transferred.value])
+
+    @staticmethod
+    def _events(payload: bytes) -> tuple[tuple[int, str], ...]:
+        events: list[tuple[int, str]] = []
+        offset = 0
+        while True:
+            if len(payload) - offset < 12:
+                raise RuntimeError("malformed governed directory watcher result")
+            next_offset = int.from_bytes(payload[offset : offset + 4], "little")
+            action = int.from_bytes(payload[offset + 4 : offset + 8], "little")
+            name_size = int.from_bytes(payload[offset + 8 : offset + 12], "little")
+            end = offset + 12 + name_size
+            if name_size % 2 or end > len(payload):
+                raise RuntimeError("malformed governed directory watcher path")
+            try:
+                relative = payload[offset + 12 : end].decode("utf-16-le")
+            except UnicodeDecodeError as error:
+                raise RuntimeError("malformed governed directory watcher encoding") from error
+            events.append((action, relative))
+            if next_offset == 0:
+                break
+            if next_offset < 12 + name_size or offset + next_offset >= len(payload):
+                raise RuntimeError("malformed governed directory watcher offset")
+            offset += next_offset
+        return tuple(events)
+
+    def assert_quiet(self) -> None:
+        """Drain exact-owned noise; the final timeout is the snapshot boundary."""
+
+        observed: list[tuple[int, str]] = []
+        while True:
+            status = int(self._wait(self._event, 0))
+            if status == self._WAIT_TIMEOUT:
+                break
+            if status != self._WAIT_OBJECT_0:
+                raise RuntimeError(f"ambiguous governed directory watcher status: {status}")
+            payload = self._completed_bytes()
+            observed.extend(self._events(payload))
+            self._arm()
+
+        exact_owned = {
+            relative.replace("\\", "/").casefold()
+            for _action, relative in observed
+            if _is_exact_owned_publication_path(relative)
+        }
+        for action, relative in observed:
+            if _is_exact_owned_publication_path(relative):
+                continue
+            normalized = relative.replace("\\", "/")
+            folded = normalized.casefold()
+            initial = self._directory_states.get(folded)
+            # Windows reports FILE_ACTION_MODIFIED for a non-empty directory
+            # merely because FindFirstFile enumerates it. Accept that observer
+            # noise only when the same exact directory identity/state survived,
+            # or when a recorded exact-owned child explains its parent update.
+            if action == 3 and initial is not None:
+                path = self._root / PurePosixPath(normalized)
+                try:
+                    value = path.stat(follow_symlinks=False)
+                    current = (
+                        _stat_identity(value),
+                        int(value.st_size),
+                        int(value.st_mtime_ns),
+                        _windows_change_time(path),
+                    )
+                except (FileNotFoundError, OSError):
+                    current = None
+                owned_child = any(
+                    PurePosixPath(item).parent.as_posix().casefold() == folded
+                    for item in exact_owned
+                )
+                if current == initial or owned_child:
+                    continue
+            raise RuntimeError(
+                "governed directory changed during verification: "
+                f"action={action} path={normalized}"
+            )
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        cleanup_error: BaseException | None = None
+        if self._pending:
+            if not self._cancel(self._directory, ctypes.byref(self._overlapped)):
+                error = ctypes.get_last_error()
+                if error != self._ERROR_NOT_FOUND:
+                    detail = ctypes.WinError(error)
+                    cleanup_error = RuntimeError(
+                        f"ambiguous governed directory watcher cancellation: {detail}"
+                    )
+            else:
+                status = int(self._wait(self._event, 5000))
+                if status != self._WAIT_OBJECT_0:
+                    cleanup_error = RuntimeError(
+                        f"ambiguous governed directory watcher cancellation status: {status}"
+                    )
+                else:
+                    transferred = wintypes.DWORD()
+                    if self._get_result(
+                        self._directory,
+                        ctypes.byref(self._overlapped),
+                        ctypes.byref(transferred),
+                        False,
+                    ):
+                        # The read completed after the successful final poll.
+                        # That is known later drift, not an ambiguous snapshot.
+                        pass
+                    elif ctypes.get_last_error() != self._ERROR_OPERATION_ABORTED:
+                        cleanup_error = RuntimeError(
+                            "ambiguous governed directory watcher cancellation completion: "
+                            f"{ctypes.WinError(ctypes.get_last_error())}"
+                        )
+        self._pending = False
+        if not self._close_handle(self._event) and cleanup_error is None:
+            detail = ctypes.WinError(ctypes.get_last_error())
+            cleanup_error = RuntimeError(
+                f"cannot close governed directory watcher event: {detail}"
+            )
+        if not self._close_handle(self._directory) and cleanup_error is None:
+            detail = ctypes.WinError(ctypes.get_last_error())
+            cleanup_error = RuntimeError(
+                f"cannot close governed directory watcher handle: {detail}"
+            )
+        self._closed = True
+        if cleanup_error is not None:
+            raise cleanup_error
+
+
+def _directory_change_authority(root: Path) -> _WindowsDirectoryChangeAuthority:
+    if os.name != "nt":
+        raise RuntimeError(
+            "kernel directory change authority is required for governed inventory verification"
+        )
+    return _WindowsDirectoryChangeAuthority(root)
+
+
 def _is_reparse_or_symlink(path: Path) -> bool:
     value = path.lstat()
     attributes = int(getattr(value, "st_file_attributes", 0))
@@ -720,65 +1091,81 @@ def _verify_inventory_fresh(
     inventory: InventoryManifest, root: Path, *, verify_hashes: bool = True
 ) -> None:
     root = _canonical_root(root)
-    if not inventory.root or _absolute_lexical(Path(inventory.root)) != root:
-        raise RuntimeError("stale inventory root")
-    root_identity = _stat_identity(root.stat(follow_symlinks=False))[:2]
-    if not inventory.root_identity or tuple(inventory.root_identity) != root_identity:
-        raise RuntimeError("stale inventory root filesystem identity")
-    current = _discover(root)
-    expected_paths = set(inventory.discovered_paths)
-    if _discovered_path_set(current, root) != expected_paths:
-        raise RuntimeError("stale inventory path set")
-    records = {record.path: record for record in inventory.records}
-    post_hash_states: dict[str, _FreshnessState] = {}
-    for path, _kind in current:
-        relative = _relative(path, root)
-        record = records[relative]
-        before = _freshness_state(root, path, relative, "before hash")
-        if not record.filesystem_identity or tuple(record.filesystem_identity) != before[0]:
-            raise RuntimeError(f"asset filesystem identity changed: {relative}")
-        if record.size != before[1] or record.mtime_ns != before[2]:
-            raise RuntimeError(f"asset metadata changed: {relative}")
-        digest = sha256_file(path) if verify_hashes else None
-        after = _freshness_state(root, path, relative, "after hash")
-        _assert_freshness_state(before, after, relative, "after hash")
-        if digest is not None and digest != record.sha256:
-            raise RuntimeError(f"asset content hash changed: {relative}")
-        post_hash_states[relative] = after
+    authority = _directory_change_authority(root)
+    verification_error: BaseException | None = None
+    try:
+        if not inventory.root or _absolute_lexical(Path(inventory.root)) != root:
+            raise RuntimeError("stale inventory root")
+        root_identity = _stat_identity(root.stat(follow_symlinks=False))[:2]
+        if not inventory.root_identity or tuple(inventory.root_identity) != root_identity:
+            raise RuntimeError("stale inventory root filesystem identity")
+        current = _discover(root)
+        expected_paths = set(inventory.discovered_paths)
+        if _discovered_path_set(current, root) != expected_paths:
+            raise RuntimeError("stale inventory path set")
+        records = {record.path: record for record in inventory.records}
+        post_hash_states: dict[str, _FreshnessState] = {}
+        for path, _kind in current:
+            relative = _relative(path, root)
+            record = records[relative]
+            before = _freshness_state(root, path, relative, "before hash")
+            if not record.filesystem_identity or tuple(record.filesystem_identity) != before[0]:
+                raise RuntimeError(f"asset filesystem identity changed: {relative}")
+            if record.size != before[1] or record.mtime_ns != before[2]:
+                raise RuntimeError(f"asset metadata changed: {relative}")
+            digest = sha256_file(path) if verify_hashes else None
+            after = _freshness_state(root, path, relative, "after hash")
+            _assert_freshness_state(before, after, relative, "after hash")
+            if digest is not None and digest != record.sha256:
+                raise RuntimeError(f"asset content hash changed: {relative}")
+            post_hash_states[relative] = after
 
-    closing = _discover(root)
-    if _discovered_path_set(closing, root) != expected_paths:
-        raise RuntimeError("stale inventory path set at closing verification")
-    closing_states: dict[str, _FreshnessState] = {}
-    for path, _kind in closing:
-        relative = _relative(path, root)
-        state = _freshness_state(root, path, relative, "during closing verification")
-        _assert_freshness_state(
-            post_hash_states[relative],
-            state,
-            relative,
-            "during closing verification",
-        )
-        closing_states[relative] = state
+        closing = _discover(root)
+        if _discovered_path_set(closing, root) != expected_paths:
+            raise RuntimeError("stale inventory path set at closing verification")
+        closing_states: dict[str, _FreshnessState] = {}
+        for path, _kind in closing:
+            relative = _relative(path, root)
+            state = _freshness_state(root, path, relative, "during closing verification")
+            _assert_freshness_state(
+                post_hash_states[relative],
+                state,
+                relative,
+                "during closing verification",
+            )
+            closing_states[relative] = state
 
-    # These two complete state passes overlap between the last post-hash state
-    # and the first closing state. Equal identity/metadata/ChangeTime values give
-    # verification one stable source snapshot instead of unrelated per-file reads.
-    final = _discover(root)
-    if _discovered_path_set(final, root) != expected_paths:
-        raise RuntimeError("stale inventory path set at final consistency check")
-    for path, _kind in final:
-        relative = _relative(path, root)
-        state = _freshness_state(root, path, relative, "during final consistency check")
-        _assert_freshness_state(
-            closing_states[relative],
-            state,
-            relative,
-            "during final consistency check",
-        )
-    final_root_identity = _stat_identity(root.stat(follow_symlinks=False))[:2]
-    if final_root_identity != root_identity:
-        raise RuntimeError("stale inventory root filesystem identity at closing verification")
+        # These two complete state passes overlap between the last post-hash state
+        # and the first closing state. Equal identity/metadata/ChangeTime values give
+        # verification one stable source snapshot instead of unrelated per-file reads.
+        final = _discover(root)
+        if _discovered_path_set(final, root) != expected_paths:
+            raise RuntimeError("stale inventory path set at final consistency check")
+        for path, _kind in final:
+            relative = _relative(path, root)
+            state = _freshness_state(root, path, relative, "during final consistency check")
+            _assert_freshness_state(
+                closing_states[relative],
+                state,
+                relative,
+                "during final consistency check",
+            )
+        final_root_identity = _stat_identity(root.stat(follow_symlinks=False))[:2]
+        if final_root_identity != root_identity:
+            raise RuntimeError("stale inventory root filesystem identity at closing verification")
+        # A successful zero-time kernel poll linearizes this verified snapshot.
+        # Anything reported before/during this poll invalidates the current call;
+        # a mutation after it is later drift and is rejected by the next call.
+        authority.assert_quiet()
+    except BaseException as error:
+        verification_error = error
+        raise
+    finally:
+        try:
+            authority.close()
+        except BaseException:
+            if verification_error is None:
+                raise
 
 
 def _json_bytes(payload: Mapping[str, object]) -> bytes:
