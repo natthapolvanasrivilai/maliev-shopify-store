@@ -17,6 +17,12 @@ from .io_contract import sha256_file
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _DECISIONS = frozenset({"approved", "rejected"})
 _APPROVAL_SCHEMA = "pimm-owner-approval/v1"
+_APPROVAL_FIELDS = {
+    "schema", "schema_version", "revision", "prior_approval_sha256",
+    "prior_approval_path", "decision", "owner", "notes", "created_at_utc",
+    "shot_id", "proof_manifest_path", "proof_generation_id", "inputs",
+    "render_settings", "proof_output_sha256",
+}
 
 
 def _canonical_json_sha256(value: object) -> str:
@@ -84,6 +90,14 @@ def _extract_approval_evidence(proof_manifest_path: Path) -> tuple[dict[str, str
     fingerprints = _mapping(render.get("fingerprints"), "proof fingerprints")
     before = _mapping(fingerprints.get("before"), "proof before fingerprints")
     source = _mapping(before.get("source"), "proof source fingerprint")
+    for name in ("source", "master", "material_library", "scene"):
+        record = _mapping(before.get(name), f"proof {name} fingerprint")
+        path_value = record.get("path")
+        expected_sha = _sha(record.get("sha256"), f"proof {name} SHA-256")
+        if isinstance(path_value, str) and path_value:
+            current = Path(path_value)
+            if not current.is_file() or current.is_symlink() or sha256_file(current) != expected_sha:
+                raise ValueError(f"proof {name} on-disk SHA-256 drift")
     authored = _mapping(render.get("authored_settings"), "proof authored settings")
     before_settings = _mapping(authored.get("before"), "proof authored settings before")
     after_settings = _mapping(authored.get("after"), "proof authored settings after")
@@ -129,6 +143,10 @@ def validate_approval_payload(payload: Mapping[str, object], current_inputs: Map
     """Return fail-closed approval schema and supplied input-drift errors."""
 
     errors: list[str] = []
+    if set(payload) != _APPROVAL_FIELDS:
+        errors.append("approval schema fields are incomplete or contain unknown values")
+    if payload.get("schema") != _APPROVAL_SCHEMA:
+        errors.append("approval schema must be pimm-owner-approval/v1")
     if payload.get("schema_version") != 1:
         errors.append("approval schema_version must be 1")
     decision = payload.get("decision")
@@ -136,6 +154,10 @@ def validate_approval_payload(payload: Mapping[str, object], current_inputs: Map
         errors.append("approval decision must be approved or rejected")
     if not isinstance(payload.get("owner"), str) or not str(payload.get("owner")).strip():
         errors.append("approval owner is required")
+    if not isinstance(payload.get("notes"), str) or not str(payload.get("notes")).strip():
+        errors.append("approval notes are required")
+    if not isinstance(payload.get("revision"), int) or isinstance(payload.get("revision"), bool) or payload.get("revision", 0) <= 0:
+        errors.append("approval revision must be positive")
     inputs = payload.get("inputs")
     if not isinstance(inputs, Mapping):
         errors.append("approval inputs are required")

@@ -64,8 +64,18 @@ def _proof_manifest(root: Path, scene_sha256: str) -> Path:
             "image_settings": {"color_mode": "RGBA"},
             "samples": 64,
             "fingerprints": {
-                "before": {"source": {"sha256": "e" * 64}},
-                "after": {"source": {"sha256": "e" * 64}},
+                "before": {
+                    "source": {"path": "", "sha256": "e" * 64},
+                    "master": {"path": "", "sha256": "b" * 64},
+                    "material_library": {"path": "", "sha256": "c" * 64},
+                    "scene": {"path": "", "sha256": scene_sha256},
+                },
+                "after": {
+                    "source": {"path": "", "sha256": "e" * 64},
+                    "master": {"path": "", "sha256": "b" * 64},
+                    "material_library": {"path": "", "sha256": "c" * 64},
+                    "scene": {"path": "", "sha256": scene_sha256},
+                },
             },
             "authored_settings": {"before": settings, "after": settings},
         },
@@ -236,6 +246,23 @@ class ApprovalReleaseTests(unittest.TestCase):
             Image.new("RGBA", (16, 12), (1, 2, 3, 255)).save(proof_pixel)
             approval = json.loads(approval_path.read_text(encoding="utf-8"))
             self.assertIn("proof pixel SHA-256 drift", "\n".join(validate_approval(approval_path, approval["inputs"])))
+
+    def test_source_file_mutation_invalidates_approval_on_disk(self) -> None:
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            proof = _proof_manifest(root, "a" * 64)
+            source = root / "source.step"
+            source.write_bytes(b"authoritative source")
+            payload = json.loads(proof.read_text(encoding="utf-8"))
+            fingerprints = payload["render"]["fingerprints"]
+            for phase in ("before", "after"):
+                fingerprints[phase]["source"] = {"path": str(source), "sha256": _sha256(source)}
+                for name, digest in (("master", "b" * 64), ("material_library", "c" * 64), ("scene", "a" * 64)):
+                    fingerprints[phase][name] = {"path": "", "sha256": digest}
+            _write_json(proof, payload)
+            approval = record_decision(proof, SHOT_ID, "approved", "natth", "reviewed")
+            source.write_bytes(b"changed source")
+            self.assertIn("proof evidence cannot be read", "\n".join(validate_approval(approval, {})))
 
     def test_validate_approval_returns_errors_for_unreadable_proof_evidence(self) -> None:
         with TemporaryDirectory() as root_text:
