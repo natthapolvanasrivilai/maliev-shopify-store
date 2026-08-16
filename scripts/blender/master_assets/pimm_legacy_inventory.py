@@ -324,35 +324,6 @@ def _windows_directory_change_api():
     )
 
 
-_WATCHER_STAGE_PATHS = tuple(
-    re.compile(
-        rf"^{re.escape(str(PurePosixPath(relative).parent))}/"
-        rf"\.{re.escape(PurePosixPath(relative).name)}\.tmp\.[0-9a-f]{{32}}$",
-        re.IGNORECASE,
-    )
-    for relative in GENERATED_ARTIFACT_PATHS
-)
-
-
-def _is_exact_owned_publication_path(relative: str) -> bool:
-    normalized = relative.replace("\\", "/")
-    pure = PurePosixPath(normalized)
-    if (
-        not normalized
-        or pure.is_absolute()
-        or re.match(r"^[A-Za-z]:/", normalized)
-        or any(part in {"", ".", ".."} for part in pure.parts)
-    ):
-        return False
-    folded = normalized.casefold()
-    if (
-        folded in _GENERATED_ARTIFACT_PATHS_FOLDED
-        or folded == _PUBLICATION_LOCK.casefold()
-    ):
-        return True
-    return any(pattern.fullmatch(normalized) for pattern in _WATCHER_STAGE_PATHS)
-
-
 class _WindowsDirectoryChangeAuthority:
     """Kernel-observed mutation boundary for one governed directory tree."""
 
@@ -519,21 +490,14 @@ class _WindowsDirectoryChangeAuthority:
             observed.extend(self._events(payload))
             self._arm()
 
-        exact_owned = {
-            relative.replace("\\", "/").casefold()
-            for _action, relative in observed
-            if _is_exact_owned_publication_path(relative)
-        }
         for action, relative in observed:
-            if _is_exact_owned_publication_path(relative):
-                continue
             normalized = relative.replace("\\", "/")
             folded = normalized.casefold()
             initial = self._directory_states.get(folded)
             # Windows reports FILE_ACTION_MODIFIED for a non-empty directory
             # merely because FindFirstFile enumerates it. Accept that observer
             # noise only when the same exact directory identity/state survived,
-            # or when a recorded exact-owned child explains its parent update.
+            # with no filename-based exception for child events.
             if action == 3 and initial is not None:
                 path = self._root / PurePosixPath(normalized)
                 try:
@@ -546,11 +510,7 @@ class _WindowsDirectoryChangeAuthority:
                     )
                 except (FileNotFoundError, OSError):
                     current = None
-                owned_child = any(
-                    PurePosixPath(item).parent.as_posix().casefold() == folded
-                    for item in exact_owned
-                )
-                if current == initial or owned_child:
+                if current == initial:
                     continue
             raise RuntimeError(
                 "governed directory changed during verification: "
