@@ -305,6 +305,8 @@ _NODE_SOCKET_TYPES = frozenset(
         "NodeSocketShader",
         "NodeSocketString",
         "NodeSocketVector",
+        "NodeSocketVectorTranslation",
+        "NodeSocketVectorXYZ",
         "NodeSocketVirtual",
     }
 )
@@ -366,6 +368,16 @@ _NODE_COMMON_PROPERTY_FIELDS = frozenset(
     }
 )
 _NODE_EXTRA_PROPERTY_FIELDS = {
+    "CompositorNodeOutputFile": frozenset(
+        {
+            "active_item_index",
+            "directory",
+            "file_name",
+            "save_as_render",
+            "use_file_extension",
+        }
+    ),
+    "CompositorNodeRLayers": frozenset({"layer"}),
     "NodeGroupOutput": frozenset({"is_active_output"}),
     "ShaderNodeBsdfPrincipled": frozenset({"distribution", "subsurface_method"}),
     "ShaderNodeGroup": frozenset(),
@@ -378,6 +390,8 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     ),
 }
 _NODE_STATIC_TYPES = {
+    "CompositorNodeOutputFile": "OUTPUT_FILE",
+    "CompositorNodeRLayers": "R_LAYERS",
     "GeometryNodeSetMaterial": "SET_MATERIAL",
     "NodeGroupInput": "GROUP_INPUT",
     "NodeGroupOutput": "GROUP_OUTPUT",
@@ -972,6 +986,8 @@ def _validate_socket(value: object, label: str) -> None:
             raise ValueError(
                 f"{label} pointer default must be an identity or explicit value null"
             )
+    elif socket_type in {"NodeSocketVectorTranslation", "NodeSocketVectorXYZ"}:
+        _validate_vector(socket["default"], 3, f"{label} default")
     else:
         _validate_json_value(socket["default"], f"{label} default")
 
@@ -1165,6 +1181,10 @@ def _validate_pointer_mapping(
                 "texture_mapping": ("identity", frozenset({"TexMapping"})),
             }
         )
+    elif node_type == "CompositorNodeOutputFile":
+        allowed["format"] = ("identity", frozenset({"ImageFormatSettings"}))
+    elif node_type == "CompositorNodeRLayers":
+        allowed["scene"] = ("identity", frozenset({"Scene"}))
     if set(value) != set(allowed):
         raise ValueError(f"{label} has missing or unknown pointer properties")
     for name, dependency in value.items():

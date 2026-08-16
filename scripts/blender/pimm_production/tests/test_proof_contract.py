@@ -114,6 +114,7 @@ def _run_fixture_proofs(
     inject_minimal_geometry_nodes: bool = False,
     inject_pointer_socket_materials: bool = False,
     inject_pointer_socket_swap: bool = False,
+    inject_geometry_transform: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
     runner = PROOF_RUNNER
     if (
@@ -123,6 +124,7 @@ def _run_fixture_proofs(
         or inject_minimal_geometry_nodes
         or inject_pointer_socket_materials
         or inject_pointer_socket_swap
+        or inject_geometry_transform
     ):
         runner = root / "inject_proof_drift.py"
         runner.write_text(
@@ -167,11 +169,17 @@ def _run_fixture_proofs(
                                     "        fixture_group.links.new(fixture_set_material_b.outputs['Geometry'], fixture_output.inputs['Geometry'])",
                                 ]
                                 if inject_pointer_socket_materials or inject_pointer_socket_swap
-                                else [
+                                else ([
+                                    "        fixture_set_material_b = None",
+                                    "        fixture_transform = fixture_group.nodes.new('GeometryNodeTransform')",
+                                    "        fixture_group.links.new(fixture_input.outputs['Geometry'], fixture_transform.inputs['Geometry'])",
+                                    "        fixture_group.links.new(fixture_transform.outputs['Geometry'], fixture_set_material.inputs['Geometry'])",
+                                    "        fixture_group.links.new(fixture_set_material.outputs['Geometry'], fixture_output.inputs['Geometry'])",
+                                ] if inject_geometry_transform else [
                                     "        fixture_set_material_b = None",
                                     "        fixture_group.links.new(fixture_input.outputs['Geometry'], fixture_set_material.inputs['Geometry'])",
                                     "        fixture_group.links.new(fixture_set_material.outputs['Geometry'], fixture_output.inputs['Geometry'])",
-                                ]
+                                ])
                             ),
                             "        fixture_modifier = fixture_object.modifiers.new('MINIMAL_GEOMETRY_NODES', 'NODES')",
                             "        fixture_modifier.node_group = fixture_group",
@@ -190,6 +198,7 @@ def _run_fixture_proofs(
                             inject_minimal_geometry_nodes
                             or inject_pointer_socket_materials
                             or inject_pointer_socket_swap
+                            or inject_geometry_transform
                         )
                         else []
                     ),
@@ -407,6 +416,93 @@ def _run_fixture_proofs(
         if line.startswith(RESULT_MARKER)
     ]
     return result, rows
+
+
+_BLENDER_52_ALLOWLIST_INSTANTIATION_EXCLUSIONS = {
+    "CompositorNodeTree:CompositorNodeComposite": (
+        "Blender 5.2 factory-startup reports the legacy node identifier as undefined"
+    ),
+}
+
+
+def _run_allowlist_compatibility_audit(
+    root: Path,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+    result_path = root / "allowlist-compatibility.json"
+    script_path = root / "audit_allowlisted_nodes.py"
+    script_path.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import json",
+                "import sys",
+                f"sys.path.insert(0, {str(REPO_ROOT)!r})",
+                "import bpy",
+                "import scripts.blender.pimm_production.blender_proof_render as proof_render",
+                "import scripts.blender.pimm_production.proof_contract as proof_contract",
+                f"result_path = Path({str(result_path)!r})",
+                "exclusions = "
+                + repr(_BLENDER_52_ALLOWLIST_INSTANTIATION_EXCLUSIONS),
+                "passed = []",
+                "excluded = []",
+                "failures = []",
+                "for tree_type, node_types in sorted(proof_contract._NODE_TYPES_BY_TREE.items()):",
+                "    for node_type in sorted(node_types):",
+                "        key = f'{tree_type}:{node_type}'",
+                "        tree = bpy.data.node_groups.new(f'AUDIT_{tree_type}_{node_type}', tree_type)",
+                "        try:",
+                "            node = tree.nodes.new(node_type)",
+                "        except Exception as error:",
+                "            if key in exclusions:",
+                "                excluded.append({'key': key, 'reason': exclusions[key], 'error': f'{type(error).__name__}: {error}'})",
+                "            else:",
+                "                failures.append({'key': key, 'stage': 'instantiate', 'error': f'{type(error).__name__}: {error}'})",
+                "            continue",
+                "        if key in exclusions:",
+                "            failures.append({'key': key, 'stage': 'exclusion', 'error': 'documented exclusion unexpectedly instantiated'})",
+                "            continue",
+                "        if node_type in {'ShaderNodeGroup', 'GeometryNodeGroup'}:",
+                "            nested = bpy.data.node_groups.new(f'{key}_NESTED', tree_type)",
+                "            node.node_tree = nested",
+                "        elif node_type == 'ShaderNodeTexImage':",
+                "            node.image = bpy.data.images.new(f'{key}_IMAGE', width=1, height=1)",
+                "        if node_type in {'NodeGroupInput', 'NodeGroupOutput'} and tree_type == 'GeometryNodeTree':",
+                "            tree.interface.new_socket(name='Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')",
+                "            tree.interface.new_socket(name='Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')",
+                "        try:",
+                "            proof_render._node_tree_record(tree, image_cache={})",
+                "        except Exception as error:",
+                "            failures.append({'key': key, 'stage': 'capture', 'error': f'{type(error).__name__}: {error}'})",
+                "        else:",
+                "            passed.append(key)",
+                "payload = {'passed': passed, 'excluded': excluded, 'failures': failures}",
+                "result_path.write_text(json.dumps(payload, sort_keys=True), encoding='utf-8')",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            str(BLENDER),
+            "--factory-startup",
+            "-b",
+            "--python-exit-code",
+            "1",
+            "-P",
+            str(script_path),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    payload = (
+        json.loads(result_path.read_text(encoding="utf-8"))
+        if result_path.is_file()
+        else {}
+    )
+    return result, payload
 
 
 def _fingerprint_record(path: str, sha256: str) -> dict[str, object]:
@@ -1644,6 +1740,36 @@ class ProofContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "hash mismatch"):
                 build_contact_sheet(manifest_path, output_root / "mutated-sheet.png")
 
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 runtime unavailable")
+    def test_blender_52_allowlisted_nodes_all_capture_with_explicit_exclusions(self):
+        with TemporaryDirectory() as root_text:
+            result, payload = _run_allowlist_compatibility_audit(Path(root_text))
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=f"stdout={result.stdout}\nstderr={result.stderr}",
+        )
+        self.assertTrue(payload, msg=result.stdout + result.stderr)
+        expected = {
+            f"{tree_type}:{node_type}"
+            for tree_type, node_types in proof_module._NODE_TYPES_BY_TREE.items()
+            for node_type in node_types
+        }
+        self.assertEqual(
+            payload["failures"],
+            [],
+            msg=json.dumps(payload["failures"], indent=2, sort_keys=True),
+        )
+        observed = set(payload["passed"]) | {
+            entry["key"] for entry in payload["excluded"]
+        }
+        self.assertEqual(observed, expected)
+        self.assertEqual(
+            {entry["key"] for entry in payload["excluded"]},
+            set(_BLENDER_52_ALLOWLIST_INSTANTIATION_EXCLUSIONS),
+        )
+
     @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
     def test_blender_52_minimal_geometry_nodes_capture_and_finalizer_succeed(self):
         with TemporaryDirectory() as root_text:
@@ -1717,6 +1843,65 @@ class ProofContractTests(unittest.TestCase):
                 )
             )
             self.assertEqual(manifest["status"], "pass")
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_blender_52_geometry_transform_capture_and_finalizer_succeed(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, scene = build_scene_fixture("valid", root)
+            source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+            scene_contract_path = _write_scene_contract(
+                root, scene, "scenes/fixtures/geometry-transform-scene.json"
+            )
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                scene_sha256=sha256_file(scene_path),
+                master_sha256=scene.master_sha256,
+                material_library_sha256=scene.material_library_sha256,
+                resolution_percentage=12.5,
+                samples=16,
+            )
+            proof_path = root / "scenes" / "fixtures" / "geometry-transform-proof.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_geometry_transform=True,
+            )
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                msg=f"stdout={result.stdout}\nstderr={result.stderr}",
+            )
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "pass")
+            capture = json.loads(
+                (root / "minimal-geometry-capture.json").read_text(encoding="utf-8")
+            )
+            modifier = next(
+                modifier
+                for obj in capture["objects"]
+                for modifier in obj["modifiers"]
+                if modifier["name"] == "MINIMAL_GEOMETRY_NODES"
+            )
+            transform = next(
+                node
+                for node in modifier["node_group"]["nodes"]
+                if node["type"] == "GeometryNodeTransform"
+            )
+            defaults = {
+                socket["type"]: socket["default"] for socket in transform["inputs"]
+            }
+            self.assertEqual(defaults["NodeSocketVectorTranslation"], [0.0, 0.0, 0.0])
+            self.assertEqual(defaults["NodeSocketVectorXYZ"], [1.0, 1.0, 1.0])
 
     @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
     def test_blender_52_material_socket_defaults_capture_stable_identities(self):

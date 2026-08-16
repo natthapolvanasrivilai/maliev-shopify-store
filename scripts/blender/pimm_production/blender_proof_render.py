@@ -416,7 +416,14 @@ def _socket_record(
         stable = _UNSUPPORTED
         if hasattr(socket, "default_value"):
             try:
-                stable = _stable_value(socket.default_value)
+                raw_default = socket.default_value
+                if socket_type in {
+                    "NodeSocketVectorTranslation",
+                    "NodeSocketVectorXYZ",
+                }:
+                    stable = [round(float(component), 12) for component in raw_default]
+                else:
+                    stable = _stable_value(raw_default)
             except (AttributeError, RuntimeError, TypeError, ValueError):
                 pass
         default = None if stable is _UNSUPPORTED else stable
