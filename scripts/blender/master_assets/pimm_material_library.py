@@ -198,6 +198,41 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         return
     nodes = material.node_tree.nodes
     links = material.node_tree.links
+    if spec.microstructure == "sintered_porous":
+        # The silencer face needs visible, coarse sintered pores rather than
+        # a fine machining grain. A low-frequency noise field drives both a
+        # dark pore-color ramp and a deeper bump, while the threaded body can
+        # continue using the separate brass profile.
+        texture = nodes.new("ShaderNodeTexNoise")
+        texture.name = "PIMM_SINTERED_POROUS_CELLS"
+        texture.noise_dimensions = "3D"
+        texture.inputs["Scale"].default_value = 92.0
+        texture.inputs["Detail"].default_value = 3.0
+        texture.inputs["Roughness"].default_value = 0.72
+        ramp = nodes.new("ShaderNodeValToRGB")
+        ramp.name = "PIMM_SINTERED_POROUS_COLOR"
+        ramp.color_ramp.elements[0].position = 0.34
+        ramp.color_ramp.elements[0].color = (
+            spec.base_color[0] * 0.18,
+            spec.base_color[1] * 0.18,
+            spec.base_color[2] * 0.18,
+            1.0,
+        )
+        ramp.color_ramp.elements[1].position = 0.58
+        ramp.color_ramp.elements[1].color = spec.base_color
+        links.new(texture.outputs["Fac"], ramp.inputs["Fac"])
+        base_color = principled.inputs.get("Base Color")
+        if base_color is not None:
+            links.new(ramp.outputs["Color"], base_color)
+        bump = nodes.new("ShaderNodeBump")
+        bump.name = "PIMM_SINTERED_POROUS_BUMP"
+        bump.inputs["Strength"].default_value = 0.24
+        bump.inputs["Distance"].default_value = 0.028
+        links.new(texture.outputs["Fac"], bump.inputs["Height"])
+        normal = principled.inputs.get("Normal")
+        if normal is not None:
+            links.new(bump.outputs["Normal"], normal)
+        return
     texture = nodes.new("ShaderNodeTexNoise")
     texture.name = f"PIMM_{spec.microstructure.upper()}"
     texture.noise_dimensions = "3D"
