@@ -85,7 +85,10 @@ MATERIAL_SPECS: dict[str, MaterialSpec] = {
         (0.72, 0.68, 0.58, 1.0), 0.0, 0.42, 0.0, 0.02, "polymer"
     ),
     "PEEK": MaterialSpec(
-        (0.31, 0.18, 0.045, 1.0), 0.0, 0.34, 0.0, 0.03, "polymer"
+        # Natural PEEK is a warm ivory/beige engineering plastic rather than
+        # a dark brown polymer; keep the moderate roughness that reveals its
+        # molded surface without making it chalky.
+        (0.62, 0.50, 0.31, 1.0), 0.0, 0.34, 0.0, 0.03, "polymer"
     ),
     "ASA_3D_PRINT_0_2MM": MaterialSpec(
         (0.006, 0.007, 0.010, 1.0), 0.0, 0.52, 0.0, 0.02, "layer_lines"

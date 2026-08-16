@@ -71,6 +71,14 @@ class MaterialLibraryContractTests(unittest.TestCase):
         self.assertGreater(power_switch.base_color[0], power_switch.base_color[1])
         self.assertLess(power_switch.emission_strength, transparent.emission_strength)
         self.assertLessEqual(power_switch.roughness, 0.20)
+        peek = MATERIAL_SPECS["PEEK"]
+        self.assertEqual(peek.metallic, 0.0)
+        self.assertEqual(peek.microstructure, "polymer")
+        self.assertGreaterEqual(peek.base_color[0], 0.60)
+        self.assertGreaterEqual(peek.base_color[1], 0.45)
+        self.assertGreater(peek.base_color[1], peek.base_color[2])
+        self.assertGreaterEqual(peek.roughness, 0.28)
+        self.assertLessEqual(peek.roughness, 0.42)
         self.assertGreater(MATERIAL_SPECS["GREEN_ILLUMINATED_TRANSPARENT"].emission_strength, 0.0)
         self.assertGreater(MATERIAL_SPECS["BLACK_GLOSS_GLASS"].coat_weight, 0.0)
         acrylic = MATERIAL_SPECS["CLEAR_ACRYLIC"]
