@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
+import subprocess
+import sys
+from tempfile import TemporaryDirectory
 import unittest
 
 from scripts.blender.pimm_production.machine_contract import (
@@ -102,6 +106,22 @@ class _Bpy:
 
 
 class MachineContractTests(unittest.TestCase):
+    def test_checked_in_script_bootstraps_catalog_import_outside_repository(self) -> None:
+        """Catches direct Blender entry-point imports depending on the caller cwd."""
+
+        script = Path(__file__).resolve().parents[1] / "machine_contract.py"
+        with TemporaryDirectory() as cwd:
+            completed = subprocess.run(
+                [sys.executable, str(script), "--", "--help"],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertNotIn("ModuleNotFoundError", completed.stderr)
+
     def _enabled_contract(self) -> dict[str, object]:
         contract = load_machine_contract("30G")
         contract["controller"]["approved_machine_local_material_ids"] = [
@@ -293,6 +313,43 @@ class MachineContractTests(unittest.TestCase):
                 self.assertIn(expected, errors)
                 self.assertFalse(animation_is_authorized(contract))
 
+    def test_machine_local_allowlist_is_disjoint_from_shared_material_catalog(self) -> None:
+        """Catches shared IDs/names being reclassified as master-local authorities."""
+
+        mutations = (
+            ("BLACK_POWDERCOAT", "shared material catalog"),
+            ("PIMM_BLACK_POWDERCOAT", "shared material catalog"),
+            ("black_powdercoat", "canonical uppercase"),
+            ("Pimm_Black_Powdercoat", "canonical uppercase"),
+            ("PIMM_UNASSIGNED", "UNASSIGNED"),
+        )
+        for material_id, expected in mutations:
+            with self.subTest(material_id=material_id):
+                contract = self._enabled_contract()
+                contract["controller"]["approved_machine_local_material_ids"] = [
+                    material_id,
+                    "CONTROLLER_OFF",
+                ]
+
+                errors = validate_machine_contract(contract)
+
+                self.assertRegex("\n".join(errors), expected)
+                self.assertFalse(animation_is_authorized(contract))
+
+    def test_machine_local_allowlist_rejects_case_mutated_duplicates(self) -> None:
+        """Catches case aliases bypassing duplicate material-role validation."""
+
+        contract = self._enabled_contract()
+        contract["controller"]["approved_machine_local_material_ids"] = [
+            "CONTROLLER_ACTIVE",
+            "controller_active",
+        ]
+
+        errors = validate_machine_contract(contract)
+
+        self.assertRegex("\n".join(errors), "canonical uppercase|duplicated")
+        self.assertFalse(animation_is_authorized(contract))
+
     def test_discovery_reports_stable_identity_and_cad_context_without_mutating_objects(self) -> None:
         """Catches discovery that loses the identity needed for later owner review."""
 
@@ -479,10 +536,10 @@ class MachineContractTests(unittest.TestCase):
         """Catches approved display maps that cannot prove physical active and inactive segments."""
 
         contract = load_machine_contract("30G")
-        contract["controller"]["approved_machine_local_material_ids"] = ["Controller Green"]
+        contract["controller"]["approved_machine_local_material_ids"] = ["CONTROLLER_GREEN"]
         contract["controller"]["approved_segments"] = [
-            {"stable_object_id": "segment-a", "material_id": "Controller Green", "object_type": "MESH", "active": True},
-            {"stable_object_id": "segment-b", "material_id": "Controller Green", "object_type": "MESH", "active": False},
+            {"stable_object_id": "segment-a", "material_id": "CONTROLLER_GREEN", "object_type": "MESH", "active": True},
+            {"stable_object_id": "segment-b", "material_id": "CONTROLLER_GREEN", "object_type": "MESH", "active": False},
         ]
         scene = _Bpy(
             [

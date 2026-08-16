@@ -1102,6 +1102,7 @@ def _dependency_sha256(settings: Mapping[str, object]) -> str:
         field: settings[field]
         for field in (
             "scene_identity",
+            "library_authorities",
             "objects",
             "materials",
             "images",
@@ -1241,6 +1242,21 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
     ]
     settings: dict[str, object] = {
         "scene_identity": scene_identity,
+        "library_authorities": sorted(
+            (
+                blender_scene_validator._library_authority_record(bpy, library)
+                for library in bpy.data.libraries
+            ),
+            key=lambda item: json.dumps(
+                [
+                    item["canonical_path"],
+                    item["lexical_path"],
+                    item["raw_filepath"],
+                ],
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        ),
         "camera": camera_record,
         "lights": lights,
         "world": world_record,

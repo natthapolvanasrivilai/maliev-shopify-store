@@ -17,6 +17,13 @@ def record(**overrides):
         "disconnected_components": 1,
     }
     values.update(overrides)
+    values.setdefault(
+        "material_names",
+        tuple(
+            f"PIMM_{material_id}" if material_id else "DISPLAY_MATERIAL"
+            for material_id in values["material_ids"]
+        ),
+    )
     return AuditObjectRecord(**values)
 
 
@@ -30,6 +37,52 @@ class MasterAuditContractTests(unittest.TestCase):
     def test_publish_mode_rejects_unassigned(self):
         result = evaluate_records([record()], "publish")
         self.assertIn("1 objects remain unassigned", result.errors)
+
+    def test_unassigned_identity_rejects_publish_regardless_of_declared_state(self):
+        """Catches approved/scope/link flags hiding an UNASSIGNED material identity."""
+
+        mutations = (
+            {
+                "material_ids": ("UNASSIGNED",),
+                "material_names": ("PIMM_UNASSIGNED",),
+            },
+            {
+                "material_ids": ("PIMM_UNASSIGNED",),
+                "material_names": ("DISPLAY_READY",),
+            },
+            {
+                "material_ids": ("MALIEV_DECAL",),
+                "material_names": ("UNASSIGNED",),
+            },
+            {
+                "material_ids": ("MALIEV_DECAL",),
+                "material_names": ("PIMM_UNASSIGNED",),
+            },
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                candidate = record(
+                    material_state="approved",
+                    material_scopes=("machine-local",),
+                    material_linked=(False,),
+                    **mutation,
+                )
+
+                published = evaluate_records([candidate], "publish")
+                working = evaluate_records([candidate], "working")
+
+                self.assertFalse(published.publishable)
+                self.assertEqual(
+                    published.unassigned_ids, ["30G-0123456789abcdef"]
+                )
+                self.assertIn("1 objects remain unassigned", published.errors)
+                self.assertFalse(working.publishable)
+                self.assertEqual(
+                    working.unassigned_ids, ["30G-0123456789abcdef"]
+                )
+                self.assertRegex(
+                    "\n".join(working.errors), "UNASSIGNED|unassigned"
+                )
 
     def test_shared_material_copy_made_local_fails(self):
         result = evaluate_records(

@@ -610,6 +610,7 @@ def _recompute_dependency_digest(authored: dict[str, object]) -> None:
         field: authored[field]
         for field in (
             "scene_identity",
+            "library_authorities",
             "objects",
             "materials",
             "images",
@@ -982,6 +983,7 @@ def _valid_render_metadata(
     }
     authored_settings: dict[str, object] = {
         "scene_identity": {"name": "Scene", "type": "Scene", "library": None},
+        "library_authorities": [],
         "camera": {
             "identity": {"name": "CAM_HERO", "type": "Object", "library": None},
             "transform": {
@@ -1173,6 +1175,24 @@ def _prepare_finalizer_fixture(
 
 
 class ProofContractTests(unittest.TestCase):
+    def test_authored_settings_require_a_schema_bound_library_authority_manifest(
+        self,
+    ) -> None:
+        """Catches Task 5 evidence that erases Blender's lexical library authority."""
+
+        authored = _valid_render_metadata(composition_contract())["authored_settings"][
+            "before"
+        ]
+
+        try:
+            validated = proof_module.validate_authored_settings(
+                authored, "fixture authored settings"
+            )
+        except ValueError as error:
+            self.fail(f"library authority manifest is not schema-bound: {error}")
+
+        self.assertEqual(validated["library_authorities"], [])
+
     def test_composition_proof_is_low_cost(self):
         contract = composition_contract()
         self.assertLessEqual(contract.resolution_percentage, 25)

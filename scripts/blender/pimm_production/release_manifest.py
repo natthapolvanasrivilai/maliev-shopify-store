@@ -33,6 +33,7 @@ from .approval_manifest import (
     held_evidence_authority,
     stable_file_record,
     stable_json,
+    _unlink_owned,
 )
 from .blender_final_render import (
     _authorize_final_render,
@@ -1025,6 +1026,24 @@ def _build_release_manifest_locked(
         "marker authorized final contract",
         marker_authorization.final_contract_record,
     )
+    marker_identity: dict[str, object] = {}
+
+    def validate_and_capture_marker(
+        marker: Path, owned_identity: Mapping[str, object]
+    ) -> None:
+        marker_identity.update(owned_identity)
+        _release_postcommit_validate(
+            marker,
+            release_root,
+            expected_children,
+            expected_families,
+            all_stable_records,
+            approval_path,
+            final_path,
+            next(iter(approvals))[1],
+            next(iter(authorizations)),
+        )
+
     try:
         with held_evidence_authority(
             marker_final.get("authority_roots"), marker_final.get("evidence")
@@ -1043,20 +1062,23 @@ def _build_release_manifest_locked(
                     next(iter(approvals))[1],
                     next(iter(authorizations)),
                 ),
-                after_commit=lambda marker: _release_postcommit_validate(
-                    marker,
-                    release_root,
-                    expected_children,
-                    expected_families,
-                    all_stable_records,
-                    approval_path,
-                    final_path,
-                    next(iter(approvals))[1],
-                    next(iter(authorizations)),
-                ),
+                after_commit=validate_and_capture_marker,
             )
     except FileExistsError as error:
         raise ValueError("release manifest already exists; releases are immutable") from error
+    except BaseException:
+        if marker_identity:
+            try:
+                _unlink_owned(
+                    destination,
+                    marker_identity,
+                    "release marker failed held-authority exit",
+                )
+            except (OSError, ValueError):
+                # Never remove a path that no longer has the exact inode created
+                # and post-commit-validated by this publication attempt.
+                pass
+        raise
     published, record = stable_json(destination, release_root, "asset", "release manifest")
     if published != payload or any(record[key] != value for key, value in created.items()):
         raise ValueError("release manifest publication identity or payload drift")

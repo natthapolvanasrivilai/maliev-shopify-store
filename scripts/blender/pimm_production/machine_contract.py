@@ -20,6 +20,8 @@ except ImportError:  # Blender executes checked-in scripts as __main__.
     from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
 
+from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
+
 
 MachineName = Literal["30G", "50G"]
 _MACHINE_VALUES: dict[str, list[str]] = {"30G": ["300", "300"], "50G": ["350", "350"]}
@@ -52,6 +54,12 @@ _CONTROL_KEYS = {
 _TRANSFORM_CHANNELS = {"location", "rotation_euler", "scale"}
 _AXIS_INDICES = {"X": 0, "Y": 1, "Z": 2}
 _MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_SHARED_MATERIAL_ROLE_ALIASES = frozenset(
+    {
+        *(material_id.casefold() for material_id in MATERIAL_SPECS),
+        *(f"PIMM_{material_id}".casefold() for material_id in MATERIAL_SPECS),
+    }
+)
 
 
 def load_machine_contract(machine: MachineName) -> dict[str, object]:
@@ -142,12 +150,22 @@ def _validate_material_allowlist(controller: Mapping[str, object]) -> list[str]:
     for index, material_id in enumerate(allowlist):
         if not _is_nonempty_string(material_id):
             errors.append(f"controller approved_machine_local_material_ids[{index}] must be a nonempty string")
-        elif material_id.casefold().removeprefix("pimm_") == "unassigned":
+            continue
+        normalized = material_id.casefold()
+        if material_id != material_id.strip() or _MATERIAL_ID.fullmatch(material_id) is None:
+            errors.append(
+                f"controller approved_machine_local_material_ids[{index}] must be one canonical uppercase material ID"
+            )
+        if normalized.removeprefix("pimm_") == "unassigned":
             errors.append(f"controller approved_machine_local_material_ids[{index}] cannot be UNASSIGNED")
-        elif material_id in seen:
+        elif normalized in _SHARED_MATERIAL_ROLE_ALIASES:
+            errors.append(
+                f"controller approved_machine_local_material_ids[{index}] overlaps the shared material catalog: {material_id}"
+            )
+        if normalized in seen:
             errors.append(f"controller approved_machine_local_material_ids[{index}] is duplicated: {material_id}")
         else:
-            seen.add(material_id)
+            seen.add(normalized)
     return errors
 
 

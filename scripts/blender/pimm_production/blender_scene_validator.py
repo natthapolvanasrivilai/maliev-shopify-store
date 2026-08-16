@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -50,6 +51,14 @@ _APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
 
 
 def _library_path(bpy: Any, library: object | None) -> Path | None:
+    lexical = _library_lexical_path(bpy, library)
+    return lexical.resolve() if lexical is not None else None
+
+
+def _library_lexical_path(
+    bpy: Any,
+    library: object | None,
+) -> Path | None:
     if library is None:
         return None
     filepath = str(getattr(library, "filepath", ""))
@@ -58,10 +67,33 @@ def _library_path(bpy: Any, library: object | None) -> Path | None:
     if filepath.startswith("//"):
         abspath = getattr(getattr(bpy, "path", None), "abspath", None)
         if callable(abspath):
-            return Path(str(abspath(filepath))).resolve()
-        scene_base = Path(str(getattr(bpy.data, "filepath", ""))).resolve().parent
-        return (scene_base / filepath[2:]).resolve()
-    return Path(filepath).resolve()
+            return Path(os.path.abspath(str(abspath(filepath))))
+        scene_path = Path(os.path.abspath(str(getattr(bpy.data, "filepath", ""))))
+        return Path(os.path.abspath(scene_path.parent / filepath[2:]))
+    return Path(os.path.abspath(filepath))
+
+
+def _library_authority_record(bpy: Any, library: object) -> dict[str, object]:
+    """Capture Blender's raw/lexical library spelling and its canonical target."""
+
+    raw = str(getattr(library, "filepath", ""))
+    lexical = _library_lexical_path(bpy, library)
+    if not raw or lexical is None:
+        raise ValueError("linked Blender library filepath is empty")
+    try:
+        canonical = lexical.resolve(strict=True)
+    except OSError as error:
+        raise ValueError(f"linked Blender library target is unreadable: {lexical}") from error
+    parent = getattr(library, "parent", None)
+    parent_canonical = _library_path(bpy, parent)
+    return {
+        "raw_filepath": raw,
+        "lexical_path": str(lexical),
+        "canonical_path": str(canonical),
+        "parent_canonical_path": (
+            str(parent_canonical) if parent_canonical is not None else None
+        ),
+    }
 
 
 def _datablock_library_path(bpy: Any, datablock: object | None) -> Path | None:

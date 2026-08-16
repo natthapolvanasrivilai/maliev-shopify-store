@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import dataclasses
 import hashlib
 import io
@@ -273,6 +274,7 @@ def _approved_component_authored_state() -> dict[str, object]:
             }
         )
     return {
+        "library_authorities": [],
         "objects": objects,
         "materials": [
             {"identity": identity, "properties": {}, "node_tree": None}
@@ -289,6 +291,31 @@ def _set_component_library_authorities(
 
     master_text = str(master.resolve())
     material_text = str(material_library.resolve())
+    authored["library_authorities"] = [
+        {
+            "raw_filepath": str(master),
+            "lexical_path": str(master),
+            "canonical_path": master_text,
+            "parent_canonical_path": None,
+        },
+        {
+            "raw_filepath": str(material_library),
+            "lexical_path": str(material_library),
+            "canonical_path": material_text,
+            "parent_canonical_path": master_text,
+        },
+    ]
+    authored["library_authorities"].sort(
+        key=lambda item: json.dumps(
+            [
+                item["canonical_path"],
+                item["lexical_path"],
+                item["raw_filepath"],
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     materials_by_id = {
         str(record["identity"]["pimm_material_id"]): record["identity"]
         for record in authored["materials"]
@@ -346,9 +373,11 @@ def _component_authority_fixture(
 
     master = root / "inputs" / "PIMM-30G-MASTER.blend"
     material_library = root / "inputs" / "PIMM-MATERIAL-LIBRARY.blend"
+    scene = root / "inputs" / "scene.blend"
     master.parent.mkdir(parents=True)
     master.write_bytes(b"pinned component master")
     material_library.write_bytes(b"pinned component material library")
+    scene.write_bytes(b"pinned component scene")
     authored = _approved_component_authored_state()
     _set_component_library_authorities(authored, master, material_library)
     component_contract = approval_module.build_component_contract(
@@ -365,6 +394,9 @@ def _component_authority_fixture(
         ),
         "material_library": approval_module.stable_file_record(
             material_library, root, "asset", "material library"
+        ),
+        "scene": approval_module.stable_file_record(
+            scene, root, "asset", "scene"
         ),
     }
     return (
@@ -1362,6 +1394,201 @@ class ApprovalReleaseTests(unittest.TestCase):
                 ):
                     approval_module.build_component_contract(machine, candidate)
 
+    def test_fully_rehashed_proof_cannot_reclassify_shared_material_as_master_local(
+        self,
+    ) -> None:
+        """Catches a coordinated Task 5 proof/machine role-classification bypass."""
+
+        with TemporaryDirectory() as root_text, TemporaryDirectory(
+            dir=REPO_ROOT
+        ) as machine_root_text:
+            root = Path(root_text)
+            proof = _proof_manifest(root, "a" * 64)
+            master = (root / "inputs" / "PIMM-30G-MASTER.blend").resolve()
+
+            def move_shared_material_to_master(authored: dict[str, object]) -> None:
+                def visit(value: object) -> None:
+                    if isinstance(value, dict):
+                        if (
+                            value.get("type") == "Material"
+                            and value.get("pimm_material_id") == "BLACK_POWDERCOAT"
+                        ):
+                            value["library"] = str(master)
+                        for nested in value.values():
+                            visit(nested)
+                    elif isinstance(value, list):
+                        for nested in value:
+                            visit(nested)
+
+                visit(authored)
+
+            _rewrite_proof_authored_settings(proof, move_shared_material_to_master)
+            machine = json.loads(
+                APPROVED_COMPONENT_MACHINE_FIXTURE.read_text(encoding="utf-8")
+            )
+            machine["controller"]["approved_machine_local_material_ids"].append(
+                "BLACK_POWDERCOAT"
+            )
+            machine_path = _write_json(
+                Path(machine_root_text) / "coordinated-machine-contract.json", machine
+            )
+
+            with patch.object(
+                approval_module,
+                "_machine_contract_path",
+                return_value=machine_path,
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "shared material catalog|machine contract"
+                ):
+                    record_decision(
+                        proof,
+                        SHOT_ID,
+                        "approved",
+                        "natth",
+                        "coordinated material-role mutation",
+                    )
+
+            self.assertFalse((proof.parent / "approvals").exists())
+            self.assertFalse((root / "renders" / "final").exists())
+
+    def test_component_authority_rejects_lexical_library_aliases_and_missing_topology(
+        self,
+    ) -> None:
+        """Catches canonical targets hiding the lexical path Blender will open."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            (
+                authored,
+                _,
+                roots,
+                evidence,
+                master,
+                material_library,
+            ) = _component_authority_fixture(root)
+            machine = _approved_component_machine_contract()
+            validator = approval_module.build_authorized_component_contract
+
+            relative = copy.deepcopy(authored)
+            material_record = next(
+                record
+                for record in relative["library_authorities"]
+                if record["canonical_path"] == str(material_library.resolve())
+            )
+            material_record["raw_filepath"] = f"//{material_library.name}"
+            self.assertEqual(
+                validator(machine, relative, roots, evidence)["schema"],
+                "pimm-final-component-contract/v1",
+            )
+
+            missing = copy.deepcopy(authored)
+            missing["library_authorities"] = []
+            with self.assertRaisesRegex(ValueError, "lexical|library authorit|topology"):
+                validator(machine, missing, roots, evidence)
+
+            alias_root = root / "library-alias"
+            os.symlink(master.parent, alias_root, target_is_directory=True)
+            aliased = copy.deepcopy(authored)
+            master_record = next(
+                record
+                for record in aliased["library_authorities"]
+                if record["canonical_path"] == str(master.resolve())
+            )
+            master_record["raw_filepath"] = f"//../library-alias/{master.name}"
+            master_record["lexical_path"] = str(alias_root / master.name)
+            with self.assertRaisesRegex(ValueError, "alias|reparse|junction|symlink"):
+                validator(machine, aliased, roots, evidence)
+
+            nested_alias = copy.deepcopy(authored)
+            nested_record = next(
+                record
+                for record in nested_alias["library_authorities"]
+                if record["canonical_path"] == str(material_library.resolve())
+            )
+            nested_record["raw_filepath"] = f"//{material_library.name}"
+            nested_record["lexical_path"] = str(alias_root / material_library.name)
+            nested_record["parent_canonical_path"] = str(master.resolve())
+            with self.assertRaisesRegex(ValueError, "alias|reparse|junction|symlink"):
+                validator(machine, nested_alias, roots, evidence)
+
+    def test_component_authority_resolves_indirect_relative_library_from_scene(
+        self,
+    ) -> None:
+        """Catches approval rebasing Blender's scene-relative library path to its parent."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            (
+                authored,
+                _,
+                roots,
+                evidence,
+                _,
+                material_library,
+            ) = _component_authority_fixture(root)
+            scene = root / "scenes" / "fixtures" / "scene.blend"
+            scene.parent.mkdir(parents=True)
+            scene.write_bytes(b"nested scene evidence")
+            evidence["scene"] = approval_module.stable_file_record(
+                scene, root, "asset", "scene"
+            )
+            material_record = next(
+                record
+                for record in authored["library_authorities"]
+                if record["canonical_path"] == str(material_library.resolve())
+            )
+            material_record["raw_filepath"] = (
+                f"//../../inputs/{material_library.name}"
+            )
+
+            result = approval_module.build_authorized_component_contract(
+                _approved_component_machine_contract(), authored, roots, evidence
+            )
+
+            self.assertEqual(result["schema"], "pimm-final-component-contract/v1")
+
+    def test_owner_approval_rejects_fully_rehashed_lexical_library_alias(
+        self,
+    ) -> None:
+        """Catches Task 5 proof rehashing after canonicalization erased an alias."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            proof = _proof_manifest(root, "a" * 64)
+            inputs = root / "inputs"
+            alias_root = root / "approved-library-alias"
+            os.symlink(inputs, alias_root, target_is_directory=True)
+
+            def install_alias(authored: dict[str, object]) -> None:
+                master = inputs / "PIMM-30G-MASTER.blend"
+                record = next(
+                    item
+                    for item in authored["library_authorities"]
+                    if item["canonical_path"] == str(master.resolve())
+                )
+                record["raw_filepath"] = f"//../approved-library-alias/{master.name}"
+                record["lexical_path"] = str(alias_root / master.name)
+
+            _rewrite_proof_authored_settings(proof, install_alias)
+            with patch.object(
+                approval_module,
+                "_machine_contract_path",
+                return_value=APPROVED_COMPONENT_MACHINE_FIXTURE,
+                create=True,
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "alias|reparse|junction|symlink"
+                ):
+                    record_decision(
+                        proof,
+                        SHOT_ID,
+                        "approved",
+                        "natth",
+                        "lexical alias must remain visible",
+                    )
+            self.assertFalse((proof.parent / "approvals").exists())
+
     def test_owner_approval_rejects_same_name_unpinned_component_library(self) -> None:
         """Catches genuine Task 5 evidence approving a same-name sidecar library."""
 
@@ -1493,6 +1720,147 @@ class ApprovalReleaseTests(unittest.TestCase):
                 self.assertEqual(
                     list(release_parent.glob(f".{RELEASE_ID}-*.stage")), []
                 )
+
+    @unittest.skipUnless(os.name == "nt", "Windows reparse authority is required")
+    def test_native_load_blocks_library_directory_retarget_and_restore_race(
+        self,
+    ) -> None:
+        """Catches a lexical library directory becoming an attacker symlink at open."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            approval, final_contract = write_approval_fixture(
+                root, "approved", "a" * 64
+            )
+            approved_directory = root / "inputs"
+            parked_directory = root / "inputs-approved"
+            attacker_directory = root / "attacker-library-target"
+            attacker_directory.mkdir()
+            attacker_master = attacker_directory / "PIMM-30G-MASTER.blend"
+            attacker_material = attacker_directory / "PIMM-MATERIAL-LIBRARY.blend"
+            attacker_master.write_bytes(b"attacker master survives")
+            attacker_material.write_bytes(b"attacker material survives")
+            probe = root / "symlink-capability-probe"
+            try:
+                os.symlink(attacker_directory, probe, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"directory symlink unavailable: {error}")
+            else:
+                probe.unlink()
+            attempted = False
+
+            def retarget_restore_before_capture(
+                *args: object, **kwargs: object
+            ) -> SimpleNamespace:
+                nonlocal attempted
+                del args, kwargs
+                attempted = True
+                approved_directory.rename(parked_directory)
+                try:
+                    os.symlink(
+                        attacker_directory,
+                        approved_directory,
+                        target_is_directory=True,
+                    )
+                    self.assertEqual(
+                        (approved_directory / attacker_master.name).read_bytes(),
+                        b"attacker master survives",
+                    )
+                finally:
+                    if approved_directory.is_symlink():
+                        approved_directory.unlink()
+                    parked_directory.rename(approved_directory)
+                return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+            with patch.object(
+                final_module.subprocess,
+                "run",
+                side_effect=retarget_restore_before_capture,
+            ):
+                with self.assertRaisesRegex(ValueError, "held-authority|write/delete race"):
+                    run_authorized_final(approval, final_contract)
+
+            self.assertTrue(attempted)
+            self.assertTrue(approved_directory.is_dir())
+            self.assertFalse(parked_directory.exists())
+            self.assertEqual(attacker_master.read_bytes(), b"attacker master survives")
+            self.assertEqual(attacker_material.read_bytes(), b"attacker material survives")
+            release_parent = root / "renders" / "final"
+            self.assertFalse((release_parent / RELEASE_ID).exists())
+            self.assertEqual(list(release_parent.glob(f".{RELEASE_ID}-*.stage")), [])
+
+    @unittest.skipUnless(os.name == "nt", "Windows reparse authority is required")
+    def test_release_regeneration_blocks_library_retarget_restore_before_marker(
+        self,
+    ) -> None:
+        """Catches a restored lexical alias hiding bytes opened by release Blender."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            output = write_release_output_fixture(
+                root, "proof-20260815T153000Z-a1b2c3d"
+            )
+            approved_directory = root / "inputs"
+            parked_directory = root / "inputs-approved"
+            attacker_directory = root / "attacker-library-target"
+            attacker_directory.mkdir()
+            attacker_master = attacker_directory / "PIMM-30G-MASTER.blend"
+            attacker_material = attacker_directory / "PIMM-MATERIAL-LIBRARY.blend"
+            attacker_master.write_bytes(b"attacker master survives")
+            attacker_material.write_bytes(b"attacker material survives")
+            probe = root / "symlink-capability-probe"
+            try:
+                os.symlink(attacker_directory, probe, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"directory symlink unavailable: {error}")
+            else:
+                probe.unlink()
+            attempted = False
+
+            def retarget_restore_during_regeneration(
+                *args: object, **kwargs: object
+            ) -> tuple[bytes, bytes, dict[str, bytes]]:
+                nonlocal attempted
+                del kwargs
+                attempted = True
+                approved_directory.rename(parked_directory)
+                try:
+                    os.symlink(
+                        attacker_directory,
+                        approved_directory,
+                        target_is_directory=True,
+                    )
+                    self.assertEqual(
+                        (approved_directory / attacker_material.name).read_bytes(),
+                        b"attacker material survives",
+                    )
+                finally:
+                    if approved_directory.is_symlink():
+                        approved_directory.unlink()
+                    parked_directory.rename(approved_directory)
+                dimensions = args[2]
+                png, masks = _structured_component_pixels()
+                return (
+                    png,
+                    _float_exr_bytes(int(dimensions[0]), int(dimensions[1])),
+                    masks,
+                )
+
+            with patch.object(
+                release_module,
+                "_regenerate_component_evidence",
+                side_effect=retarget_restore_during_regeneration,
+            ):
+                with self.assertRaisesRegex(ValueError, "held-authority|write/delete race"):
+                    build_release_manifest(RELEASE_ID, [output])
+
+            self.assertTrue(attempted)
+            self.assertTrue(approved_directory.is_dir())
+            self.assertFalse(parked_directory.exists())
+            self.assertEqual(attacker_master.read_bytes(), b"attacker master survives")
+            self.assertEqual(attacker_material.read_bytes(), b"attacker material survives")
+            self.assertTrue(output.is_file())
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
 
     def test_linked_library_drift_blocks_before_and_during_release_regeneration(
         self,
@@ -2929,6 +3297,104 @@ class ApprovalReleaseTests(unittest.TestCase):
                 self.assertTrue(injected)
                 self.assertEqual(dependency.read_bytes(), original)
                 self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_removes_owned_marker_when_held_topology_exit_fails(
+        self,
+    ) -> None:
+        """Catches topology-manifest drift after marker creation escaping cleanup."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            final = json.loads(
+                Path(payload["authorized_final_contract_path"]).read_text(
+                    encoding="utf-8"
+                )
+            )
+            metadata = Path(final["evidence"]["render_metadata"]["path"])
+            original = metadata.read_bytes()
+            original_stat = metadata.stat()
+            attempted = False
+            original_create = release_module._create_new_json
+
+            def drift_after_owned_marker(
+                path: Path, marker: dict[str, object], **kwargs: object
+            ) -> dict[str, object]:
+                nonlocal attempted
+                created = original_create(path, marker, **kwargs)
+                attempted = True
+                metadata.write_bytes(b"transient topology-manifest drift")
+                metadata.write_bytes(original)
+                os.utime(
+                    metadata,
+                    ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+                )
+                return created
+
+            with patch.object(
+                release_module,
+                "_create_new_json",
+                side_effect=drift_after_owned_marker,
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "held-authority|evidence drift|identity"
+                ):
+                    build_release_manifest(RELEASE_ID, [output])
+
+            self.assertTrue(attempted)
+            self.assertEqual(metadata.read_bytes(), original)
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_context_exit_never_removes_postcommit_competitor_marker(
+        self,
+    ) -> None:
+        """Catches cleanup claiming a competitor swapped after postcommit validation."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            original_postcommit = release_module._release_postcommit_validate
+            original_held = release_module.held_evidence_authority
+            competitor = b'{"competitor":true}\n'
+            swapped = False
+
+            def swap_after_postcommit(marker: Path, *args: object) -> None:
+                nonlocal swapped
+                original_postcommit(marker, *args)
+                marker.unlink()
+                marker.write_bytes(competitor)
+                swapped = True
+
+            @contextlib.contextmanager
+            def fail_after_held_exit(
+                *args: object, **kwargs: object
+            ) -> object:
+                with original_held(*args, **kwargs) as authority:
+                    yield authority
+                if (output.parents[1] / "release-manifest.json").exists():
+                    raise ValueError("forced held-authority context exit failure")
+
+            with (
+                patch.object(
+                    release_module,
+                    "_release_postcommit_validate",
+                    side_effect=swap_after_postcommit,
+                ),
+                patch.object(
+                    release_module,
+                    "held_evidence_authority",
+                    side_effect=fail_after_held_exit,
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "context exit failure"):
+                    build_release_manifest(RELEASE_ID, [output])
+
+            marker = output.parents[1] / "release-manifest.json"
+            self.assertTrue(swapped)
+            self.assertEqual(marker.read_bytes(), competitor)
 
     def test_release_commit_rescan_rejects_late_file_and_directory(self) -> None:
         """Catches a release tree rescan performed only before marker staging."""

@@ -89,6 +89,7 @@ _FINGERPRINT_NAMES = {"source", "master", "material_library", "scene"}
 _FINGERPRINT_FIELDS = {"path", "bytes", "mtime_ns", "sha256"}
 _AUTHORED_SETTINGS_FIELDS = {
     "scene_identity",
+    "library_authorities",
     "camera",
     "lights",
     "world",
@@ -102,6 +103,12 @@ _AUTHORED_SETTINGS_FIELDS = {
     "images",
     "collection_tree",
     "dependency_sha256",
+}
+_LIBRARY_AUTHORITY_FIELDS = {
+    "raw_filepath",
+    "lexical_path",
+    "canonical_path",
+    "parent_canonical_path",
 }
 _CAMERA_SETTINGS_FIELDS = {
     "identity",
@@ -1754,6 +1761,7 @@ def _dependency_digest(settings: Mapping[str, object]) -> str:
         field: settings[field]
         for field in (
             "scene_identity",
+            "library_authorities",
             "objects",
             "materials",
             "images",
@@ -1766,6 +1774,63 @@ def _dependency_digest(settings: Mapping[str, object]) -> str:
             payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
         ).encode("utf-8")
     ).hexdigest().upper()
+
+
+def _validate_library_authorities(value: object, label: str) -> list[object]:
+    authorities = _validate_sorted_unique(
+        value,
+        label,
+        lambda item: _canonical_key(
+            [
+                item.get("canonical_path"),
+                item.get("lexical_path"),
+                item.get("raw_filepath"),
+            ]
+        )
+        if isinstance(item, Mapping)
+        else "",
+    )
+    canonical_paths: set[str] = set()
+    parent_paths: dict[str, str | None] = {}
+    for index, raw in enumerate(authorities):
+        record = _require_exact_mapping(
+            raw,
+            _LIBRARY_AUTHORITY_FIELDS,
+            f"{label}[{index}]",
+        )
+        raw_filepath = _require_string(
+            record["raw_filepath"], f"{label}[{index}] raw_filepath"
+        )
+        if "\x00" in raw_filepath:
+            raise ValueError(f"{label}[{index}] raw_filepath contains NUL")
+        lexical = _validate_absolute_safe_path(
+            record["lexical_path"], f"{label}[{index}] lexical_path"
+        )
+        canonical = _validate_absolute_safe_path(
+            record["canonical_path"], f"{label}[{index}] canonical_path"
+        )
+        if canonical in canonical_paths:
+            raise ValueError(f"{label} canonical library targets must be unique")
+        canonical_paths.add(canonical)
+        parent = record["parent_canonical_path"]
+        if parent is not None:
+            parent = _validate_absolute_safe_path(
+                parent, f"{label}[{index}] parent_canonical_path"
+            )
+            if parent == canonical:
+                raise ValueError(f"{label}[{index}] cannot parent itself")
+        parent_paths[canonical] = parent
+    for canonical, parent in parent_paths.items():
+        if parent is not None and parent not in canonical_paths:
+            raise ValueError(f"{label} parent library is absent from captured authority")
+        visited = {canonical}
+        cursor = parent
+        while cursor is not None:
+            if cursor in visited:
+                raise ValueError(f"{label} parent library topology contains a cycle")
+            visited.add(cursor)
+            cursor = parent_paths[cursor]
+    return authorities
 
 
 def _identity_key(value: Mapping[str, object]) -> str:
@@ -1986,6 +2051,9 @@ def _validate_dependency_graph(
 
 def _validate_authored_settings(value: object, label: str) -> Mapping[str, object]:
     authored = _require_exact_mapping(value, _AUTHORED_SETTINGS_FIELDS, label)
+    _validate_library_authorities(
+        authored["library_authorities"], f"{label} library_authorities"
+    )
     scene_identity = _validate_identity(
         authored["scene_identity"], f"{label} scene identity"
     )

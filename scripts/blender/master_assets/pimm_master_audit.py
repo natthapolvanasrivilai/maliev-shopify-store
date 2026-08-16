@@ -48,6 +48,7 @@ class AuditObjectRecord:
     stable_id: str
     material_state: str
     material_ids: tuple[str, ...]
+    material_names: tuple[str, ...]
     material_scopes: tuple[str, ...]
     material_linked: tuple[bool, ...]
     multi_material_exception: str
@@ -94,22 +95,42 @@ def evaluate_records(
                 )
         if not (
             len(record.material_ids)
+            == len(record.material_names)
             == len(record.material_scopes)
             == len(record.material_linked)
         ):
             errors.append(f"material audit tuple mismatch: {record.stable_id}")
             continue
 
-        if record.material_state == "unassigned":
+        has_unassigned_identity = any(
+            material_id in {"UNASSIGNED", "PIMM_UNASSIGNED"}
+            or material_name in {"UNASSIGNED", "PIMM_UNASSIGNED"}
+            for material_id, material_name in zip(
+                record.material_ids, record.material_names
+            )
+        )
+        if record.material_state == "unassigned" or has_unassigned_identity:
             unassigned.append(record.stable_id)
-        elif record.material_state != "approved":
+        if record.material_state == "approved" and has_unassigned_identity:
+            errors.append(
+                f"approved material retains UNASSIGNED identity: {record.stable_id}"
+            )
+        elif record.material_state not in {"approved", "unassigned"}:
             errors.append(
                 f"unknown material assignment state {record.material_state}: {record.stable_id}"
             )
 
-        for material_id, scope, linked in zip(
-            record.material_ids, record.material_scopes, record.material_linked
+        for material_id, material_name, scope, linked in zip(
+            record.material_ids,
+            record.material_names,
+            record.material_scopes,
+            record.material_linked,
         ):
+            if material_id in {"UNASSIGNED", "PIMM_UNASSIGNED"} or material_name in {
+                "UNASSIGNED",
+                "PIMM_UNASSIGNED",
+            }:
+                continue
             if (
                 not isinstance(material_id, str)
                 or not material_id
@@ -281,6 +302,7 @@ def audit_open_master(
             material.get("pimm_material_id", "")
             for material in materials
         )
+        material_names = tuple(material.name for material in materials)
         material_scopes = tuple(
             material.get("pimm_material_scope", "unknown") for material in materials
         )
@@ -293,6 +315,7 @@ def audit_open_master(
                 stable_id=stable_id,
                 material_state=obj.get("pimm_material_state", "missing"),
                 material_ids=material_ids,
+                material_names=material_names,
                 material_scopes=material_scopes,
                 material_linked=material_linked,
                 multi_material_exception=obj.get(

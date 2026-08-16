@@ -547,14 +547,44 @@ class SceneContractTests(unittest.TestCase):
                 path.write_bytes(path.name.encode("utf-8"))
             bpy = SimpleNamespace(data=SimpleNamespace(filepath=str(scene)))
             parent = SimpleNamespace(filepath=str(master), parent=None)
-            indirect = SimpleNamespace(
-                filepath=f"//../masters/{material.name}", parent=parent
-            )
+            indirect = SimpleNamespace(filepath=f"//../masters/{material.name}", parent=parent)
 
             self.assertEqual(
                 blender_scene_validator._library_path(bpy, indirect),
                 material.resolve(),
             )
+
+    def test_library_authority_preserves_relative_nested_parent_lexical_path(
+        self,
+    ) -> None:
+        """Catches indirect Blender libraries being rebased to the scene or resolved early."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene = root / "scenes" / "fixtures" / "scene.blend"
+            master = root / "masters" / "PIMM-30G-MASTER.blend"
+            material = root / "masters" / "nested" / "PIMM-MATERIAL-LIBRARY.blend"
+            for path in (scene, master, material):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(path.name.encode("utf-8"))
+            parent = SimpleNamespace(
+                filepath=f"//../../masters/{master.name}", parent=None
+            )
+            indirect = SimpleNamespace(
+                filepath=f"//../../masters/nested/{material.name}", parent=parent
+            )
+            bpy = SimpleNamespace(
+                data=SimpleNamespace(filepath=str(scene)),
+            )
+
+            record = blender_scene_validator._library_authority_record(
+                bpy, indirect
+            )
+
+            self.assertEqual(record["raw_filepath"], indirect.filepath)
+            self.assertEqual(record["lexical_path"], str(material))
+            self.assertEqual(record["canonical_path"], str(material.resolve()))
+            self.assertEqual(record["parent_canonical_path"], str(master.resolve()))
 
     def test_scene_contract_requires_published_master_collection(self):
         payload = _base_payload("a" * 64, "b" * 64)

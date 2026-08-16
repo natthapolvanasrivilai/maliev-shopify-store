@@ -70,6 +70,9 @@ _FILE_RECORD_FIELDS = {
     "authority", "path", "sha256", "bytes", "mtime_ns", "ctime_ns", "change_time_ns",
     "device", "inode", "links",
 }
+_LIBRARY_AUTHORITY_FIELDS = {
+    "raw_filepath", "lexical_path", "canonical_path", "parent_canonical_path",
+}
 _RESERVED_WINDOWS_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{index}" for index in range(1, 10)),
@@ -302,12 +305,35 @@ def stable_file_record(
     return _stable_file(str(path), str(root), authority, label, expected=expected)[0]
 
 
+def _library_lexical_components(asset_root: Path, path: Path) -> list[Path]:
+    """Return the exact authority-root-to-file path chain without resolving it."""
+
+    _lexically_within(path, asset_root, "linked Blender library lexical path")
+    relative = ntpath.relpath(str(path), str(asset_root))
+    if relative in {".", ""}:
+        raise ValueError("linked Blender library cannot equal the asset authority root")
+    current = asset_root
+    components = [current]
+    for component in relative.split("\\"):
+        _canonical_component(component, "linked Blender library lexical component")
+        current /= component
+        components.append(current)
+    return components
+
+
 @contextlib.contextmanager
 def held_evidence_authority(
     authority_roots: object,
     evidence_value: object,
     *,
-    names: tuple[str, ...] = ("source", "master", "material_library", "scene"),
+    names: tuple[str, ...] = (
+        "source",
+        "master",
+        "material_library",
+        "scene",
+        "render_metadata",
+        "machine_contract",
+    ),
 ) -> Iterator[tuple[dict[str, Path], dict[str, dict[str, object]]]]:
     """Hold approval-bound inputs against write/delete races for one operation.
 
@@ -318,6 +344,7 @@ def held_evidence_authority(
     """
 
     roots, current = validate_evidence_records(authority_roots, evidence_value)
+    library_authorities = _approved_library_authorities(roots, current)
     missing = set(names) - set(current)
     if missing:
         raise ValueError(
@@ -349,6 +376,9 @@ def held_evidence_authority(
     file_share_read = 0x00000001
     open_existing = 3
     file_attribute_normal = 0x00000080
+    file_read_attributes = 0x00000080
+    file_flag_backup_semantics = 0x02000000
+    file_flag_open_reparse_point = 0x00200000
     invalid_handle = ctypes.c_void_p(-1).value
     handles: list[int] = []
     try:
@@ -372,6 +402,34 @@ def held_evidence_authority(
                 )
             handles.append(int(handle))
 
+        lexical_components: dict[str, Path] = {}
+        for record in library_authorities:
+            lexical = canonical_absolute_path(
+                record.get("lexical_path"), "held Blender library lexical path"
+            )
+            for component in _library_lexical_components(roots["asset"], lexical):
+                lexical_components.setdefault(ntpath.normcase(str(component)), component)
+        for component in sorted(
+            lexical_components.values(), key=lambda path: (len(path.parts), str(path))
+        ):
+            handle = create_file(
+                str(component),
+                file_read_attributes,
+                file_share_read,
+                None,
+                open_existing,
+                file_flag_backup_semantics | file_flag_open_reparse_point,
+                None,
+            )
+            if handle in (None, invalid_handle):
+                error = ctypes.get_last_error()
+                raise OSError(
+                    error,
+                    "cannot hold linked Blender library lexical component",
+                    str(component),
+                )
+            handles.append(int(handle))
+
         # Close the acquisition race only after every path is protected.  The
         # evidence record includes NTFS ChangeTime, so mutate-and-restore also
         # fails even when bytes and mtime are restored.
@@ -384,6 +442,7 @@ def held_evidence_authority(
                 f"held {name} evidence",
                 record,
             )
+        _approved_library_authorities(roots, current)
         yield roots, current
         for name in names:
             record = current[name]
@@ -394,6 +453,7 @@ def held_evidence_authority(
                 f"held {name} evidence",
                 record,
             )
+        _approved_library_authorities(roots, current)
     except PermissionError as error:
         raise ValueError(
             "evidence drift or held-authority write/delete race"
@@ -425,7 +485,7 @@ def _create_new_json(
     payload: Mapping[str, object],
     *,
     before_commit: Callable[[Path], None] | None = None,
-    after_commit: Callable[[Path], None] | None = None,
+    after_commit: Callable[[Path, Mapping[str, object]], None] | None = None,
 ) -> dict[str, object]:
     """Stage complete JSON privately, then atomically claim its absent final name."""
 
@@ -473,9 +533,7 @@ def _create_new_json(
             or int(final.st_size) != len(encoded)
         ):
             raise ValueError("exclusive JSON final identity changed")
-        if after_commit is not None:
-            after_commit(path)
-        return {
+        final_identity = {
             "device": int(final.st_dev),
             "inode": int(final.st_ino),
             "links": int(final.st_nlink),
@@ -483,6 +541,9 @@ def _create_new_json(
             "mtime_ns": int(final.st_mtime_ns),
             "ctime_ns": int(final.st_ctime_ns),
         }
+        if after_commit is not None:
+            after_commit(path, final_identity)
+        return final_identity
     except BaseException:
         # A final-name competitor is never removed. Clean only the exact pending
         # or final inode created by this call.
@@ -781,16 +842,17 @@ def build_component_contract(
     material_registry, _ = _material_registry(authored_settings)
     for identity in material_registry.values():
         material_id = _exact_material_id(identity, "approved material identity")
-        if material_id in machine_local:
+        if material_id in _APPROVED_SHARED_MATERIAL_IDS:
+            if identity.get("name") != f"PIMM_{material_id}":
+                raise ValueError(
+                    "approved shared pimm_material_id does not match its canonical material "
+                    f"datablock name: {identity.get('name')!r} != 'PIMM_{material_id}'"
+                )
             continue
-        if material_id not in _APPROVED_SHARED_MATERIAL_IDS:
+        if material_id not in machine_local:
             raise ValueError(
-                "approved shared pimm_material_id is outside the canonical material catalog"
-            )
-        if identity.get("name") != f"PIMM_{material_id}":
-            raise ValueError(
-                "approved shared pimm_material_id does not match its canonical material "
-                f"datablock name: {identity.get('name')!r} != 'PIMM_{material_id}'"
+                "approved pimm_material_id is neither canonical shared material nor "
+                "approved machine-local material"
             )
     objects: dict[str, Mapping[str, object]] = {}
     for raw_object in raw_objects:
@@ -855,8 +917,7 @@ def build_component_contract(
         approved_material_ids = [
             material_id
             for material_id in material_ids
-            if material_id not in machine_local
-            and material_id.casefold().removeprefix("pimm_") != "unassigned"
+            if material_id in _APPROVED_SHARED_MATERIAL_IDS
         ]
         if not approved_material_ids:
             continue
@@ -915,6 +976,103 @@ def _validate_component_library_paths(
         allowed[ntpath.normcase(str(path))] = (name, path, refreshed)
         authorities_by_name[name] = (path, refreshed)
 
+    raw_library_authorities = authored_settings.get("library_authorities")
+    if not isinstance(raw_library_authorities, list):
+        raise ValueError(
+            "approved component dependency requires a lexical Blender library authority topology"
+        )
+    if len(raw_library_authorities) != len(allowed):
+        raise ValueError(
+            "approved component lexical Blender library authority topology is incomplete or contains extras"
+        )
+    scene_record = _mapping(evidence.get("scene"), "scene evidence")
+    scene_path = canonical_absolute_path(
+        scene_record.get("path"), "scene evidence path"
+    )
+    library_records: dict[str, Mapping[str, object]] = {}
+    for index, raw_authority in enumerate(raw_library_authorities):
+        record = _mapping(
+            raw_authority, f"approved Blender library authority {index}"
+        )
+        if set(record) != _LIBRARY_AUTHORITY_FIELDS:
+            raise ValueError(
+                "approved Blender library authority fields are incomplete or unknown"
+            )
+        raw_filepath = record.get("raw_filepath")
+        if not isinstance(raw_filepath, str) or not raw_filepath or "\x00" in raw_filepath:
+            raise ValueError("approved Blender library raw filepath is invalid")
+        lexical = canonical_absolute_path(
+            record.get("lexical_path"),
+            f"approved Blender library authority {index} lexical path",
+        )
+        canonical = canonical_absolute_path(
+            record.get("canonical_path"),
+            f"approved Blender library authority {index} canonical path",
+        )
+        _lexically_within(lexical, roots["asset"], "approved Blender library lexical path")
+        _reject_reparse_ancestors(lexical, "approved Blender library lexical path")
+        try:
+            resolved = lexical.resolve(strict=True)
+        except OSError as error:
+            raise ValueError(
+                "approved Blender library lexical target is missing or unreadable"
+            ) from error
+        if lexical != canonical or resolved != canonical:
+            raise ValueError(
+                "approved Blender library lexical path is an alias of its canonical target"
+            )
+        allowed_record = allowed.get(ntpath.normcase(str(canonical)))
+        if allowed_record is None or canonical != allowed_record[1]:
+            raise ValueError(
+                "approved Blender library canonical target is outside pinned master/material-library authority"
+            )
+        parent_value = record.get("parent_canonical_path")
+        parent = (
+            canonical_absolute_path(
+                parent_value,
+                f"approved Blender library authority {index} parent path",
+            )
+            if parent_value is not None
+            else None
+        )
+        if raw_filepath.startswith("//"):
+            relative_tail = raw_filepath[2:]
+            if not relative_tail:
+                raise ValueError("approved relative Blender library filepath is empty")
+            expected_lexical = Path(
+                os.path.abspath(os.fspath(scene_path.parent / Path(relative_tail)))
+            )
+        else:
+            expected_lexical = canonical_absolute_path(
+                raw_filepath, "approved absolute Blender library raw filepath"
+            )
+        if expected_lexical != lexical:
+            raise ValueError(
+                "approved relative Blender library path does not match its scene authority"
+            )
+        key = ntpath.normcase(str(canonical))
+        if key in library_records:
+            raise ValueError(
+                "approved Blender library authority contains duplicate canonical targets"
+            )
+        library_records[key] = record
+
+    master_path = authorities_by_name["master"][0]
+    material_path = authorities_by_name["material_library"][0]
+    master_record = library_records.get(ntpath.normcase(str(master_path)))
+    material_record = library_records.get(ntpath.normcase(str(material_path)))
+    if master_record is None or material_record is None:
+        raise ValueError(
+            "approved component lexical Blender library authority topology is incomplete"
+        )
+    if master_record.get("parent_canonical_path") is not None:
+        raise ValueError("approved master library must be linked directly from the scene")
+    material_parent = material_record.get("parent_canonical_path")
+    if material_parent not in {None, str(master_path)}:
+        raise ValueError(
+            "approved material library parent is outside the scene/master topology"
+        )
+
     observed_authorities: set[str] = set()
 
     def visit(value: object, label: str) -> None:
@@ -927,9 +1085,9 @@ def _validate_component_library_paths(
                 library_value = identity.get("library")
                 if material_id is not None and library_value is None:
                     expected_name = (
-                        "master"
-                        if material_id in machine_local_material_ids
-                        else "material_library"
+                        "material_library"
+                        if material_id in _APPROVED_SHARED_MATERIAL_IDS
+                        else "master"
                     )
                     raise ValueError(
                         f"{label} material is local instead of resolving to its exact "
@@ -948,9 +1106,9 @@ def _validate_component_library_paths(
                     name, _, record = authority
                     if material_id is not None:
                         expected_name = (
-                            "master"
-                            if material_id in machine_local_material_ids
-                            else "material_library"
+                            "material_library"
+                            if material_id in _APPROVED_SHARED_MATERIAL_IDS
+                            else "master"
                         )
                         if name != expected_name:
                             raise ValueError(
@@ -987,6 +1145,53 @@ def _validate_component_library_paths(
         )
 
 
+def _approved_library_authorities(
+    roots: Mapping[str, Path], evidence: Mapping[str, Mapping[str, object]]
+) -> list[Mapping[str, object]]:
+    """Read the immutable Task 5 lexical-library manifest after full validation."""
+
+    metadata_record = _mapping(
+        evidence.get("render_metadata"), "render metadata evidence"
+    )
+    metadata, _ = stable_json(
+        Path(str(metadata_record.get("path"))),
+        roots["asset"],
+        "asset",
+        "approved render metadata",
+        metadata_record,
+    )
+    authored = _mapping(
+        _mapping(
+            metadata.get("authored_settings"), "approved authored settings"
+        ).get("before"),
+        "approved authored settings before",
+    )
+    machine_record = _mapping(
+        evidence.get("machine_contract"), "machine contract evidence"
+    )
+    machine, _ = stable_json(
+        Path(str(machine_record.get("path"))),
+        roots["repository"],
+        "repository",
+        "approved machine contract",
+        machine_record,
+    )
+    controller = _mapping(machine.get("controller"), "approved controller")
+    _validate_component_library_paths(
+        authored,
+        roots,
+        {
+            name: _mapping(evidence.get(name), f"{name} evidence")
+            for name in ("master", "material_library", "scene")
+        },
+        frozenset(controller.get("approved_machine_local_material_ids", [])),
+    )
+    return [
+        _mapping(record, "approved Blender library authority")
+        for record in authored["library_authorities"]
+    ]
+
+
 def build_authorized_component_contract(
     machine_contract: Mapping[str, object],
     authored_settings: Mapping[str, object],
@@ -1007,7 +1212,7 @@ def build_authorized_component_contract(
         roots,
         {
             name: _mapping(evidence.get(name), f"{name} evidence")
-            for name in ("master", "material_library")
+            for name in ("master", "material_library", "scene")
         },
         frozenset(controller.get("approved_machine_local_material_ids", [])),
     )
