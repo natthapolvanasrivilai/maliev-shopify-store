@@ -58,6 +58,89 @@ def _fingerprint(path: Path) -> dict[str, object]:
     }
 
 
+def _canonical_fixture_sha(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest().upper()
+
+
+def _fixture_final_qa(png: Path, approval: dict[str, object]) -> dict[str, object]:
+    """Hand-derived Task 6 QA fixture, independent of the production builder."""
+
+    with Image.open(png) as image:
+        rgba = image.convert("RGBA")
+        width, height = rgba.size
+        pixels = list(rgba.get_flattened_data())
+    visible = [pixel for pixel in pixels if pixel[3] > 0]
+    visible_indices = [index for index, pixel in enumerate(pixels) if pixel[3] > 0]
+    xs = [index % width for index in visible_indices]
+    ys = [index // width for index in visible_indices]
+    bounds = [min(xs), min(ys), max(xs), max(ys)] if visible_indices else None
+    rgba_bytes = bytes(channel for pixel in pixels for channel in pixel)
+    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in pixels)
+    visible_rgb_bytes = bytes(channel for pixel in visible for channel in pixel[:3])
+    alpha_bytes = bytes(pixel[3] for pixel in pixels)
+    machine_path = (
+        REPO_ROOT / "scripts" / "blender" / "pimm_production" / "contracts" / "machines" / "30g.json"
+    )
+    machine = json.loads(machine_path.read_text(encoding="utf-8"))
+    evidence = approval["evidence"]
+    assert isinstance(evidence, dict)
+    scene_contract = json.loads(Path(evidence["scene_contract"]["path"]).read_text(encoding="utf-8"))
+    rgba_sha = hashlib.sha256(rgba_bytes).hexdigest().upper()
+    mask_sha = hashlib.sha256(mask_bytes).hexdigest().upper()
+    visible_rgb_sha = hashlib.sha256(visible_rgb_bytes).hexdigest().upper()
+    endpoint = {
+        "rgba_sha256": rgba_sha,
+        "product_mask_sha256": mask_sha,
+        "subject_bounds": bounds,
+        "visible_pixels": len(visible),
+    }
+    return {
+        "schema": "pimm-final-qa/v1",
+        "dimensions": [width, height],
+        "product": {
+            "rgba_sha256": rgba_sha,
+            "product_mask_sha256": mask_sha,
+            "subject_bounds": bounds,
+            "visible_pixels": len(visible),
+            "visible_fraction": round(len(visible) / max(1, len(pixels)), 8),
+        },
+        "material": {
+            "material_library_sha256": approval["inputs"]["material_library_sha256"],
+            "scene_contract_sha256": evidence["scene_contract"]["sha256"],
+            "visible_rgb_sha256": visible_rgb_sha,
+            "visible_pixels": len(visible),
+            "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+        },
+        "alpha": {
+            "channel_sha256": hashlib.sha256(alpha_bytes).hexdigest().upper(),
+            "minimum": min(alpha_bytes),
+            "maximum": max(alpha_bytes),
+            "nonzero_pixels": sum(value > 0 for value in alpha_bytes),
+            "partial_pixels": sum(0 < value < 255 for value in alpha_bytes),
+        },
+        "controller": {
+            "machine_contract_sha256": _sha256(machine_path),
+            "controller_contract_sha256": _canonical_fixture_sha(machine["controller"]),
+            "visible_rgb_sha256": visible_rgb_sha,
+            "display_values": machine["controller"]["display_values"],
+            "approved_segment_count": len(machine["controller"].get("approved_segments", [])),
+        },
+        "animation": {
+            "contract_sha256": _canonical_fixture_sha(
+                {"machine": machine["animation"], "scene": scene_contract["animation_contract"]}
+            ),
+            "status": machine["animation"]["status"],
+            "endpoints": [
+                {"label": "start", **endpoint},
+                {"label": "end", **endpoint},
+            ],
+            "identical": True,
+        },
+    }
+
+
 def _proof_manifest(
     root: Path,
     scene_sha256: str,
@@ -199,25 +282,25 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
     outputs: list[dict[str, object]] = []
     for extension, mime in (("png", "image/png"), ("webp", "image/webp")):
         path = output_root / f"{SHOT_ID}--transparent.{extension}"
-        Image.new("RGBA", (16, 12), (30, 40, 50, 160)).save(path)
+        Image.new("RGBA", (64, 48), (30, 40, 50, 160)).save(path)
         outputs.append(
             {
                 "logical_asset_id": f"{SHOT_ID}--transparent-{extension}",
                 "path": path.name,
                 "sha256": _sha256(path),
-                "dimensions": [16, 12],
+                "dimensions": [64, 48],
                 "alpha": True,
                 "mime_type": mime,
             }
         )
     exr = output_root / f"{SHOT_ID}--transparent.exr"
-    _write_float_exr(exr, 16, 12)
+    _write_float_exr(exr, 64, 48)
     outputs.append(
         {
             "logical_asset_id": f"{SHOT_ID}--transparent-exr",
             "path": exr.name,
             "sha256": _sha256(exr),
-            "dimensions": [16, 12],
+            "dimensions": [64, 48],
             "alpha": True,
             "mime_type": "image/x-exr",
         }
@@ -234,14 +317,7 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
         "final_authorization_sha256": authorization.authorization_sha256,
         "output_root": f"renders/final/{RELEASE_ID}",
         "required_deliverables": ["exr", "png", "webp"],
-        "qa": {
-            "product_visible": True,
-            "alpha_min": 160,
-            "alpha_max": 160,
-            "material_state_sha256": "1" * 64,
-            "controller_state_sha256": "2" * 64,
-            "animation_state_sha256": "3" * 64,
-        },
+        "qa": _fixture_final_qa(output_root / f"{SHOT_ID}--transparent.png", json.loads(approval_path.read_text(encoding="utf-8"))),
         "outputs": outputs,
     }
     return _write_json(output_root / "final-output-manifest.json", manifest)
@@ -276,6 +352,59 @@ def _write_float_exr(path: Path, width: int, height: int) -> None:
         offsets.append(cursor)
         cursor += len(chunk)
     path.write_bytes(header + struct.pack(f"<{height}Q", *offsets) + b"".join(chunks))
+
+
+def _write_repeated_empty_chunk_exr(path: Path, width: int, height: int) -> None:
+    """Write EXR-like bytes whose table repeats one empty scanline chunk."""
+
+    _write_float_exr(path, width, height)
+    data = bytearray(path.read_bytes())
+    cursor = 8
+    while True:
+        name_end = data.index(0, cursor)
+        if name_end == cursor:
+            cursor += 1
+            break
+        cursor = name_end + 1
+        kind_end = data.index(0, cursor)
+        cursor = kind_end + 1
+        size = struct.unpack_from("<I", data, cursor)[0]
+        cursor += 4 + size
+    first_chunk = struct.unpack_from("<Q", data, cursor)[0]
+    for index in range(height):
+        struct.pack_into("<Q", data, cursor + index * 8, first_chunk)
+    struct.pack_into("<I", data, first_chunk + 4, 0)
+    path.write_bytes(data)
+
+
+def _swap_first_exr_scanline_offsets(path: Path) -> None:
+    """Keep complete unique chunks but map the first table entries out of order."""
+
+    data = bytearray(path.read_bytes())
+    cursor = 8
+    while True:
+        name_end = data.index(0, cursor)
+        if name_end == cursor:
+            cursor += 1
+            break
+        cursor = name_end + 1
+        kind_end = data.index(0, cursor)
+        cursor = kind_end + 1
+        size = struct.unpack_from("<I", data, cursor)[0]
+        cursor += 4 + size
+    first, second = struct.unpack_from("<QQ", data, cursor)
+    struct.pack_into("<QQ", data, cursor, second, first)
+    path.write_bytes(data)
+
+
+def _declare_fake_zip_compression(path: Path) -> None:
+    """Relabel uncompressed chunks as ZIPS without changing their payload bytes."""
+
+    data = bytearray(path.read_bytes())
+    marker = b"compression\0compression\0" + struct.pack("<I", 1)
+    offset = data.index(marker) + len(marker)
+    data[offset] = 2
+    path.write_bytes(data)
 
 
 class ApprovalReleaseTests(unittest.TestCase):
@@ -317,9 +446,34 @@ class ApprovalReleaseTests(unittest.TestCase):
             self.assertTrue((manifest_path.parent / f"{SHOT_ID}--transparent.exr").read_bytes().startswith(b"v/1\x01"))
             with Image.open(manifest_path.parent / f"{SHOT_ID}--transparent.png") as png:
                 self.assertEqual(png.mode, "RGBA")
-                self.assertEqual(png.size, (16, 12))
+                self.assertEqual(png.size, (64, 48))
+            self.assertEqual(manifest["qa"]["dimensions"], [64, 48])
+            self.assertEqual(
+                [endpoint["label"] for endpoint in manifest["qa"]["animation"]["endpoints"]],
+                ["start", "end"],
+            )
             release_path = build_release_manifest(RELEASE_ID, [manifest_path])
             self.assertTrue(release_path.is_file())
+
+    def test_final_authorization_binds_native_and_effective_proof_dimensions_separately(self) -> None:
+        """Catches a final contract that promotes reduced proof pixels to final resolution."""
+
+        with TemporaryDirectory() as root_text:
+            approval_path, final_contract_path = write_approval_fixture(
+                Path(root_text), "approved", "a" * 64
+            )
+            authorization = authorize_final_render(approval_path, final_contract_path)
+            final = json.loads(authorization.final_contract_path.read_text(encoding="utf-8"))
+            self.assertIn("base_dimensions", final["render_settings"])
+            self.assertIn("effective_proof_dimensions", final["render_settings"])
+            self.assertEqual(final["render_settings"]["base_dimensions"], [64, 48])
+            self.assertEqual(final["render_settings"]["effective_proof_dimensions"], [16, 12])
+            self.assertEqual(final["render_settings"]["output_dimensions"], [64, 48])
+
+            final["render_settings"]["output_dimensions"] = [16, 12]
+            _write_json(final_contract_path, final)
+            with self.assertRaisesRegex(ValueError, "output dimensions drift|original resolution"):
+                authorize_final_render(approval_path, final_contract_path)
 
     def test_any_scene_drift_invalidates_approval(self) -> None:
         approval = {
@@ -393,7 +547,7 @@ class ApprovalReleaseTests(unittest.TestCase):
             approval_path, final_contract_path = write_approval_fixture(Path(root_text), "approved", "a" * 64)
             payload = json.loads(final_contract_path.read_text(encoding="utf-8"))
             payload["render_settings"]["camera_sha256"] = "f" * 64
-            payload["render_settings"]["output_dimensions"] = [17, 12]
+            payload["render_settings"]["output_dimensions"] = [65, 48]
             _write_json(final_contract_path, payload)
             with self.assertRaisesRegex(ValueError, "final render authorization failed") as error:
                 authorize_final_render(approval_path, final_contract_path)
@@ -508,34 +662,101 @@ class ApprovalReleaseTests(unittest.TestCase):
             self.assertEqual(release_path.name, "release-manifest.json")
             self.assertFalse(release_path.with_suffix(".json.tmp").exists())
 
+    def test_release_recomputes_controller_and_animation_qa_from_pixels_and_contracts(self) -> None:
+        """Catches caller-selected state hashes or mutable controller/endpoint metrics."""
+
+        mutations = (
+            ("controller", "approved_segment_count", 99, "controller QA drift"),
+            ("animation", "contract_sha256", "F" * 64, "animation QA drift"),
+            ("product", "visible_pixels", 1, "product QA drift"),
+        )
+        for section, field, value, expected in mutations:
+            with self.subTest(section=section, field=field), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                payload = json.loads(output.read_text(encoding="utf-8"))
+                payload["qa"][section][field] = value
+                _write_json(output, payload)
+                with self.assertRaisesRegex(ValueError, expected):
+                    build_release_manifest(RELEASE_ID, [output])
+
+    def test_atomic_json_never_exposes_a_partial_final_path(self) -> None:
+        """Catches writing directly into the authoritative JSON filename."""
+
+        with TemporaryDirectory() as root_text:
+            destination = Path(root_text) / "decision.json"
+            observed_final_existence: list[bool] = []
+
+            def fail_after_flush(descriptor: int) -> None:
+                del descriptor
+                observed_final_existence.append(destination.exists())
+                raise OSError("injected fsync failure")
+
+            with patch.object(approval_module.os, "fsync", side_effect=fail_after_flush):
+                with self.assertRaisesRegex(OSError, "injected fsync failure"):
+                    approval_module._create_new_json(destination, {"complete": True})
+            self.assertEqual(observed_final_existence, [False])
+            self.assertFalse(destination.exists())
+            self.assertEqual(list(destination.parent.glob(".decision.json.*.pending")), [])
+
+    def test_atomic_json_competitor_survives_pending_to_final_race(self) -> None:
+        """Catches an atomic publisher that overwrites or deletes the competing final."""
+
+        with TemporaryDirectory() as root_text:
+            destination = Path(root_text) / "decision.json"
+            competitor = b'{"competitor":true}\n'
+            original_rename = approval_module.os.rename
+
+            def inject_competitor(source: object, target: object) -> None:
+                destination.write_bytes(competitor)
+                original_rename(source, target)
+
+            with patch.object(approval_module.os, "rename", side_effect=inject_competitor):
+                with self.assertRaises((FileExistsError, ValueError)):
+                    approval_module._create_new_json(destination, {"complete": True})
+            self.assertEqual(destination.read_bytes(), competitor)
+            self.assertEqual(list(destination.parent.glob(".decision.json.*.pending")), [])
+
     def test_final_contract_rehashes_every_authoritative_artifact_and_state(self) -> None:
         """Catches authorization that trusts approval/final JSON instead of current bytes."""
 
         with TemporaryDirectory() as root_text:
             root = Path(root_text)
-            approval_path, final_contract_path = write_approval_fixture(root, "approved", "a" * 64)
-            final = json.loads(final_contract_path.read_text(encoding="utf-8"))
-            evidence = final["evidence"]
+            _, final_contract_path = write_approval_fixture(root, "approved", "a" * 64)
+            evidence_names = tuple(
+                json.loads(final_contract_path.read_text(encoding="utf-8"))["evidence"]
+            )
 
-            for name, record in evidence.items():
-                with self.subTest(artifact=name):
-                    path = Path(str(record["path"]))
-                    if name in {"proof_runner", "final_runner"}:
-                        changed = copy.deepcopy(final)
-                        changed["evidence"][name]["sha256"] = "f" * 64
-                        _write_json(final_contract_path, changed)
-                        with self.assertRaisesRegex(ValueError, rf"{name}.*drift|drift.*{name}"):
-                            authorize_final_render(approval_path, final_contract_path)
-                        _write_json(final_contract_path, final)
-                        continue
-                    original = path.read_bytes()
-                    original_stat = path.stat()
-                    path.write_bytes(original + b" drift")
+        for name in evidence_names:
+            with self.subTest(artifact=name), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                approval_path, final_contract_path = write_approval_fixture(
+                    root, "approved", "a" * 64
+                )
+                final = json.loads(final_contract_path.read_text(encoding="utf-8"))
+                record = final["evidence"][name]
+                path = Path(str(record["path"]))
+                if name in {"proof_runner", "final_runner", "machine_contract"}:
+                    changed = copy.deepcopy(final)
+                    changed["evidence"][name]["sha256"] = "f" * 64
+                    _write_json(final_contract_path, changed)
                     with self.assertRaisesRegex(ValueError, rf"{name}.*drift|drift.*{name}"):
                         authorize_final_render(approval_path, final_contract_path)
-                    path.write_bytes(original)
-                    os.utime(path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+                    _write_json(final_contract_path, final)
+                    continue
+                original = path.read_bytes()
+                original_stat = path.stat()
+                path.write_bytes(original + b" drift")
+                with self.assertRaisesRegex(ValueError, rf"{name}.*drift|drift.*{name}"):
+                    authorize_final_render(approval_path, final_contract_path)
+                path.write_bytes(original)
+                os.utime(path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
 
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            approval_path, final_contract_path = write_approval_fixture(root, "approved", "a" * 64)
+            final = json.loads(final_contract_path.read_text(encoding="utf-8"))
             for field in (
                 "camera_sha256",
                 "lights_sha256",
@@ -614,6 +835,35 @@ class ApprovalReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "EXR"):
                 build_release_manifest(RELEASE_ID, [output])
 
+    def test_exr_parser_rejects_repeated_empty_scanline_chunks(self) -> None:
+        """Catches an EXR parser that checks offsets exist without coverage or payloads."""
+
+        with TemporaryDirectory() as root_text:
+            path = Path(root_text) / "repeated-empty.exr"
+            _write_repeated_empty_chunk_exr(path, 64, 48)
+            with self.assertRaisesRegex(ValueError, "EXR.*(unique|empty|coverage|chunk)"):
+                release_module._validate_float_exr(path.read_bytes(), [64, 48])
+
+    def test_exr_parser_rejects_scanline_offset_table_order_drift(self) -> None:
+        """Catches unique complete chunks assigned to the wrong scanline table entry."""
+
+        with TemporaryDirectory() as root_text:
+            path = Path(root_text) / "swapped-offsets.exr"
+            _write_float_exr(path, 64, 48)
+            _swap_first_exr_scanline_offsets(path)
+            with self.assertRaisesRegex(ValueError, "EXR.*(order|coordinate)"):
+                release_module._validate_float_exr(path.read_bytes(), [64, 48])
+
+    def test_exr_parser_rejects_invalid_compressed_payload_lengths(self) -> None:
+        """Catches non-OpenEXR bytes hidden behind a supported compression label."""
+
+        with TemporaryDirectory() as root_text:
+            path = Path(root_text) / "fake-zip.exr"
+            _write_float_exr(path, 64, 48)
+            _declare_fake_zip_compression(path)
+            with self.assertRaisesRegex(ValueError, "EXR.*(compressed|payload|ZIP)"):
+                release_module._validate_float_exr(path.read_bytes(), [64, 48])
+
     def test_release_rejects_unmanifested_files_before_publishing_marker(self) -> None:
         """Catches a pass marker that ignores extra mutable release contents."""
 
@@ -644,8 +894,8 @@ class ApprovalReleaseTests(unittest.TestCase):
                 Path(root_text), "proof-20260815T153000Z-a1b2c3d"
             )
             payload = json.loads(output.read_text(encoding="utf-8"))
-            payload["qa"]["alpha_min"] = 0
-            payload["qa"]["alpha_max"] = 255
+            payload["qa"]["alpha"]["minimum"] = 0
+            payload["qa"]["alpha"]["maximum"] = 255
             _write_json(output, payload)
             with self.assertRaisesRegex(ValueError, "alpha QA|alpha.*drift"):
                 build_release_manifest(RELEASE_ID, [output])
@@ -682,24 +932,35 @@ class ApprovalReleaseTests(unittest.TestCase):
             proof_manifest = Path(final["evidence"]["proof_manifest"]["path"])
             proof = json.loads(proof_manifest.read_text(encoding="utf-8"))
             authored = proof["render"]["authored_settings"]["before"]
+            dimensions = tuple(final["render_settings"]["output_dimensions"])
 
             def fake_blender(*args: object, **kwargs: object) -> SimpleNamespace:
                 del args, kwargs
                 stage = next((root / "renders" / "final").glob(f".{RELEASE_ID}-*.stage"))
                 family = stage / SHOT_ID
                 _write_json(family / ".native-state.json", authored)
-                Image.new("RGBA", (16, 12), (30, 40, 50, 160)).save(
+                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
                     family / f"{SHOT_ID}--transparent.png"
                 )
-                _write_float_exr(family / f"{SHOT_ID}--transparent.exr", 16, 12)
+                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
+                    family / ".qa-animation-start.png"
+                )
+                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
+                    family / ".qa-animation-end.png"
+                )
+                _write_float_exr(
+                    family / f"{SHOT_ID}--transparent.exr", dimensions[0], dimensions[1]
+                )
                 return SimpleNamespace(returncode=0, stderr="", stdout="fixture Blender")
 
             original_rename = final_module.os.rename
             competitor_root = root / "renders" / "final" / RELEASE_ID
 
             def inject_root(source: object, destination: object) -> None:
+                if Path(destination) != competitor_root:
+                    original_rename(source, destination)
+                    return
                 self.assertNotEqual(Path(source), competitor_root)
-                self.assertEqual(Path(destination), competitor_root)
                 competitor_root.mkdir()
                 (competitor_root / "competing-owner.txt").write_bytes(b"competitor")
                 original_rename(source, destination)
@@ -713,6 +974,41 @@ class ApprovalReleaseTests(unittest.TestCase):
             self.assertEqual((competitor_root / "competing-owner.txt").read_bytes(), b"competitor")
             self.assertEqual(list((root / "renders" / "final").glob(f".{RELEASE_ID}-*.stage")), [])
 
+    def test_native_final_rejects_nonidentical_static_animation_endpoint_pixels(self) -> None:
+        """Catches animation QA that hashes authored claims instead of real endpoint renders."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            approval_path, final_contract_path = write_approval_fixture(root, "approved", "a" * 64)
+            final = json.loads(final_contract_path.read_text(encoding="utf-8"))
+            proof = json.loads(Path(final["evidence"]["proof_manifest"]["path"]).read_text(encoding="utf-8"))
+            authored = proof["render"]["authored_settings"]["before"]
+            dimensions = tuple(final["render_settings"]["output_dimensions"])
+
+            def fake_blender(*args: object, **kwargs: object) -> SimpleNamespace:
+                del args, kwargs
+                stage = next((root / "renders" / "final").glob(f".{RELEASE_ID}-*.stage"))
+                family = stage / SHOT_ID
+                _write_json(family / ".native-state.json", authored)
+                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
+                    family / f"{SHOT_ID}--transparent.png"
+                )
+                _write_float_exr(
+                    family / f"{SHOT_ID}--transparent.exr", dimensions[0], dimensions[1]
+                )
+                Image.new("RGBA", dimensions, (30, 40, 50, 160)).save(
+                    family / ".qa-animation-start.png"
+                )
+                Image.new("RGBA", dimensions, (200, 1, 2, 160)).save(
+                    family / ".qa-animation-end.png"
+                )
+                return SimpleNamespace(returncode=0, stderr="", stdout="fixture Blender")
+
+            with patch.object(final_module.subprocess, "run", side_effect=fake_blender):
+                with self.assertRaisesRegex(ValueError, "animation endpoint|endpoint parity"):
+                    run_authorized_final(approval_path, final_contract_path)
+            self.assertFalse((root / "renders" / "final" / RELEASE_ID).exists())
+
     def test_competing_release_marker_is_not_overwritten_or_deleted(self) -> None:
         """Catches a marker race between validation and immutable publication."""
 
@@ -723,9 +1019,11 @@ class ApprovalReleaseTests(unittest.TestCase):
             original_create = release_module._create_new_json
             competitor = b'{"competitor":true}\n'
 
-            def inject_marker(path: Path, payload: dict[str, object]) -> dict[str, object]:
+            def inject_marker(
+                path: Path, payload: dict[str, object], **kwargs: object
+            ) -> dict[str, object]:
                 path.write_bytes(competitor)
-                return original_create(path, payload)
+                return original_create(path, payload, **kwargs)
 
             with patch.object(release_module, "_create_new_json", side_effect=inject_marker):
                 with self.assertRaisesRegex(ValueError, "already exists"):
@@ -733,6 +1031,92 @@ class ApprovalReleaseTests(unittest.TestCase):
             marker = output.parents[1] / "release-manifest.json"
             self.assertEqual(marker.read_bytes(), competitor)
             self.assertTrue(output.is_file())
+
+    def test_release_holds_approval_head_authority_through_marker_commit(self) -> None:
+        """Catches a rejection landing after authorization but before the pass marker."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            approval = Path(payload["approval_path"])
+            proof = Path(json.loads(approval.read_text(encoding="utf-8"))["proof_manifest_path"])
+            attempted = False
+            original_create = release_module._create_new_json
+
+            def inject_rejection(path: Path, manifest: dict[str, object], **kwargs: object) -> dict[str, object]:
+                nonlocal attempted
+                attempted = True
+                record_decision(proof, SHOT_ID, "rejected", "natth", "injected before marker")
+                return original_create(path, manifest, **kwargs)
+
+            with patch.object(release_module, "_create_new_json", side_effect=inject_rejection):
+                with self.assertRaises((FileExistsError, ValueError)):
+                    build_release_manifest(RELEASE_ID, [output])
+            self.assertTrue(attempted)
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+            self.assertFalse((approval.parent / "approval-r02.json").exists())
+            record_decision(proof, SHOT_ID, "rejected", "natth", "after lock release")
+
+    def test_release_commit_rejects_transient_source_mutate_restore(self) -> None:
+        """Catches a commit point that sees restored bytes but loses change identity."""
+
+        with TemporaryDirectory() as root_text:
+            output = write_release_output_fixture(
+                Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            approval_payload = json.loads(Path(payload["approval_path"]).read_text(encoding="utf-8"))
+            source = Path(approval_payload["evidence"]["source"]["path"])
+            original = source.read_bytes()
+            original_stat = source.stat()
+            injected = False
+            original_create = release_module._create_new_json
+
+            def inject_transient_drift(
+                path: Path, manifest: dict[str, object], **kwargs: object
+            ) -> dict[str, object]:
+                nonlocal injected
+                injected = True
+                source.write_bytes(b"transient attacker bytes")
+                source.write_bytes(original)
+                os.utime(source, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+                return original_create(path, manifest, **kwargs)
+
+            with patch.object(release_module, "_create_new_json", side_effect=inject_transient_drift):
+                with self.assertRaisesRegex(ValueError, "source.*drift|evidence drift|identity"):
+                    build_release_manifest(RELEASE_ID, [output])
+            self.assertTrue(injected)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertFalse((output.parents[1] / "release-manifest.json").exists())
+
+    def test_release_commit_rescan_rejects_late_file_and_directory(self) -> None:
+        """Catches a release tree rescan performed only before marker staging."""
+
+        for kind in ("file", "directory"):
+            with self.subTest(kind=kind), TemporaryDirectory() as root_text:
+                output = write_release_output_fixture(
+                    Path(root_text), "proof-20260815T153000Z-a1b2c3d"
+                )
+                release_root = output.parents[1]
+                injected = False
+                original_create = release_module._create_new_json
+
+                def inject_entry(
+                    path: Path, manifest: dict[str, object], **kwargs: object
+                ) -> dict[str, object]:
+                    nonlocal injected
+                    injected = True
+                    late = release_root / f"late-{kind}"
+                    late.write_bytes(b"late") if kind == "file" else late.mkdir()
+                    return original_create(path, manifest, **kwargs)
+
+                with patch.object(release_module, "_create_new_json", side_effect=inject_entry):
+                    with self.assertRaisesRegex(ValueError, "extra|rescan|release tree"):
+                        build_release_manifest(RELEASE_ID, [output])
+                self.assertTrue(injected)
+                self.assertFalse((release_root / "release-manifest.json").exists())
 
     def test_release_rejects_windows_alias_reserved_and_ads_output_names(self) -> None:
         """Catches cross-platform aliases before any external path can be opened."""
@@ -777,6 +1161,29 @@ class ApprovalReleaseTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "latest approval revision"):
                 build_release_manifest(RELEASE_ID, [output])
+
+    def test_approval_timestamp_requires_canonical_utc_z_in_payload_and_chain(self) -> None:
+        """Catches empty, offset, fractional, impossible, or noncanonical approval times."""
+
+        invalid = (
+            "",
+            "2026-08-16T12:34:56+07:00",
+            "2026-08-16T12:34:56.000Z",
+            "2026-02-30T12:34:56Z",
+            "2026-8-16T12:34:56Z",
+        )
+        for value in invalid:
+            with self.subTest(value=value), TemporaryDirectory() as root_text:
+                approval_path, final_contract_path = write_approval_fixture(
+                    Path(root_text), "approved", "a" * 64
+                )
+                payload = json.loads(approval_path.read_text(encoding="utf-8"))
+                payload["created_at_utc"] = value
+                errors = validate_approval_payload(payload, {})
+                self.assertIn("created_at_utc", "\n".join(errors))
+                _write_json(approval_path, payload)
+                with self.assertRaisesRegex(ValueError, "created_at_utc"):
+                    authorize_final_render(approval_path, final_contract_path)
 
     def test_final_authority_rejects_hardlinks_and_reparse_ancestors(self) -> None:
         """Catches physical aliases even when their target bytes still match."""

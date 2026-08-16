@@ -10,10 +10,11 @@ import json
 import ntpath
 import os
 import re
+import secrets
 import stat
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Iterator, Mapping
+from typing import Callable, Iterator, Mapping
 
 from PIL import Image
 
@@ -24,6 +25,7 @@ from .proof_contract import (
     validate_proof_contract,
 )
 from .scene_contract import SceneContract
+from .machine_contract import validate_machine_contract
 
 
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
@@ -60,9 +62,11 @@ _BASE_EVIDENCE_AUTHORITIES = {
     "blender_binary": "tool",
     "proof_runner": "repository",
     "final_runner": "repository",
+    "machine_contract": "repository",
 }
 _FILE_RECORD_FIELDS = {
-    "authority", "path", "sha256", "bytes", "mtime_ns", "device", "inode", "links",
+    "authority", "path", "sha256", "bytes", "mtime_ns", "ctime_ns", "change_time_ns",
+    "device", "inode", "links",
 }
 _RESERVED_WINDOWS_NAMES = {
     "CON", "PRN", "AUX", "NUL",
@@ -70,6 +74,7 @@ _RESERVED_WINDOWS_NAMES = {
     *(f"LPT{index}" for index in range(1, 10)),
 }
 _REPARSE_ATTRIBUTE = 0x400
+_CANONICAL_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 
 
 def canonical_json_sha256(value: object) -> str:
@@ -102,6 +107,17 @@ def _canonical_component(value: object, label: str) -> str:
     if value.upper().split(".", 1)[0] in _RESERVED_WINDOWS_NAMES:
         raise ValueError(f"{label} uses a reserved Windows name")
     return value
+
+
+def _validate_created_at_utc(value: object) -> None:
+    if not isinstance(value, str) or _CANONICAL_UTC.fullmatch(value) is None:
+        raise ValueError("approval created_at_utc must be canonical UTC ISO-8601 ending in Z")
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError as error:
+        raise ValueError("approval created_at_utc must be a real canonical UTC instant") from error
+    if parsed.strftime("%Y-%m-%dT%H:%M:%SZ") != value:
+        raise ValueError("approval created_at_utc must be canonical UTC ISO-8601 ending in Z")
 
 
 def canonical_absolute_path(value: object, label: str) -> Path:
@@ -165,6 +181,36 @@ def _identity(status: os.stat_result) -> tuple[int, int, int, int, int]:
     )
 
 
+def _change_time_ns(descriptor: int, status: os.stat_result) -> int:
+    """Return NTFS ChangeTime (not creation time) for transient mutation detection."""
+
+    if os.name != "nt":
+        return int(status.st_ctime_ns)
+    import ctypes
+    import msvcrt
+
+    class FileBasicInfo(ctypes.Structure):
+        _fields_ = (
+            ("CreationTime", ctypes.c_longlong),
+            ("LastAccessTime", ctypes.c_longlong),
+            ("LastWriteTime", ctypes.c_longlong),
+            ("ChangeTime", ctypes.c_longlong),
+            ("FileAttributes", ctypes.c_ulong),
+        )
+
+    information = FileBasicInfo()
+    handle = msvcrt.get_osfhandle(descriptor)
+    succeeded = ctypes.windll.kernel32.GetFileInformationByHandleEx(
+        ctypes.c_void_p(handle),
+        0,
+        ctypes.byref(information),
+        ctypes.sizeof(information),
+    )
+    if not succeeded:
+        raise OSError(ctypes.get_last_error(), "GetFileInformationByHandleEx(FileBasicInfo) failed")
+    return int(information.ChangeTime) * 100
+
+
 def _stable_file(
     path_value: object,
     root_value: object,
@@ -191,6 +237,7 @@ def _stable_file(
         opened = os.fstat(descriptor)
         if _identity(opened) != _identity(before):
             raise ValueError(f"{label} file identity raced before read")
+        change_time_ns = _change_time_ns(descriptor, opened)
         while chunk := os.read(descriptor, 8 * 1024 * 1024):
             digest.update(chunk)
             if captured is not None:
@@ -198,10 +245,15 @@ def _stable_file(
         after_open = os.fstat(descriptor)
         if _identity(after_open) != _identity(before):
             raise ValueError(f"{label} file identity raced during read")
+        if _change_time_ns(descriptor, after_open) != change_time_ns:
+            raise ValueError(f"{label} file change time raced during read")
     finally:
         os.close(descriptor)
     after_path = os.stat(path, follow_symlinks=False)
-    if _identity(after_path) != _identity(before):
+    if (
+        _identity(after_path) != _identity(before)
+        or int(after_path.st_ctime_ns) != int(before.st_ctime_ns)
+    ):
         raise ValueError(f"{label} file identity raced after read")
     record: dict[str, object] = {
         "authority": authority,
@@ -209,6 +261,8 @@ def _stable_file(
         "sha256": digest.hexdigest().upper(),
         "bytes": int(before.st_size),
         "mtime_ns": int(before.st_mtime_ns),
+        "ctime_ns": int(before.st_ctime_ns),
+        "change_time_ns": change_time_ns,
         "device": int(before.st_dev),
         "inode": int(before.st_ino),
         "links": int(before.st_nlink),
@@ -248,44 +302,76 @@ def stable_json(
     return _mapping(payload, label), record
 
 
-def _create_new_json(path: Path, payload: Mapping[str, object]) -> dict[str, object]:
-    """Publish immutable JSON with CREATE_NEW/O_EXCL and return its identity."""
+def _create_new_json(
+    path: Path,
+    payload: Mapping[str, object],
+    *,
+    before_commit: Callable[[Path], None] | None = None,
+) -> dict[str, object]:
+    """Stage complete JSON privately, then atomically claim its absent final name."""
 
+    _canonical_component(path.name, "immutable JSON filename")
+    _reject_reparse_ancestors(path.parent, "immutable JSON parent")
     encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    pending = path.parent / f".{path.name}.{secrets.token_hex(16)}.pending"
     descriptor = os.open(
-        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+        pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     )
     created = os.fstat(descriptor)
     created_identity = (int(created.st_dev), int(created.st_ino), int(created.st_nlink))
+    pending_published = False
     try:
         with os.fdopen(descriptor, "wb") as stream:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
-        status = os.stat(path, follow_symlinks=False)
+        status = os.stat(pending, follow_symlinks=False)
         if (
             not stat.S_ISREG(status.st_mode)
             or int(status.st_nlink) != 1
             or (int(status.st_dev), int(status.st_ino), int(status.st_nlink))
             != created_identity
+            or int(status.st_size) != len(encoded)
         ):
-            raise ValueError("exclusive JSON publication identity changed")
+            raise ValueError("exclusive JSON pending identity changed")
+        if os.path.lexists(path):
+            raise FileExistsError(f"immutable JSON already exists: {path}")
+        if before_commit is not None:
+            before_commit(pending)
+        revalidated = os.stat(pending, follow_symlinks=False)
+        if _identity(revalidated) != _identity(status):
+            raise ValueError("exclusive JSON pending identity changed before commit")
+        if os.path.lexists(path):
+            raise FileExistsError(f"immutable JSON already exists: {path}")
+        os.rename(pending, path)
+        pending_published = True
+        final = os.stat(path, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(final.st_mode)
+            or int(final.st_nlink) != 1
+            or (int(final.st_dev), int(final.st_ino))
+            != (int(status.st_dev), int(status.st_ino))
+            or int(final.st_size) != len(encoded)
+        ):
+            raise ValueError("exclusive JSON final identity changed")
         return {
-            "device": int(status.st_dev),
-            "inode": int(status.st_ino),
-            "links": int(status.st_nlink),
-            "bytes": int(status.st_size),
-            "mtime_ns": int(status.st_mtime_ns),
+            "device": int(final.st_dev),
+            "inode": int(final.st_ino),
+            "links": int(final.st_nlink),
+            "bytes": int(final.st_size),
+            "mtime_ns": int(final.st_mtime_ns),
+            "ctime_ns": int(final.st_ctime_ns),
         }
     except BaseException:
-        # Remove only the exact inode this call created. A swapped competitor is
-        # deliberately preserved.
-        try:
-            current = os.stat(path, follow_symlinks=False)
-            if (int(current.st_dev), int(current.st_ino), int(current.st_nlink)) == created_identity:
-                path.unlink()
-        except OSError:
-            pass
+        # A final-name competitor is never removed. Clean only the exact hidden
+        # pending inode created by this call.
+        if not pending_published:
+            try:
+                current = os.stat(pending, follow_symlinks=False)
+                if (int(current.st_dev), int(current.st_ino), int(current.st_nlink)) == created_identity:
+                    pending.unlink()
+            except OSError:
+                pass
         raise
 
 
@@ -298,8 +384,10 @@ def _unlink_owned(path: Path, identity: Mapping[str, object], label: str) -> Non
         "links": int(status.st_nlink),
         "bytes": int(status.st_size),
         "mtime_ns": int(status.st_mtime_ns),
+        "ctime_ns": int(status.st_ctime_ns),
     }
-    if actual != dict(identity):
+    expected = {key: identity.get(key) for key in actual}
+    if actual != expected:
         raise ValueError(f"{label} identity changed before delete")
     path.unlink()
 
@@ -317,13 +405,14 @@ def approval_head_lock(approval_dir: Path) -> Iterator[None]:
     try:
         os.write(descriptor, b"pimm approval head lock\n")
         os.fsync(descriptor)
-        status = os.fstat(descriptor)
+        status = os.stat(lock_path, follow_symlinks=False)
         identity = {
             "device": int(status.st_dev),
             "inode": int(status.st_ino),
             "links": int(status.st_nlink),
             "bytes": int(status.st_size),
             "mtime_ns": int(status.st_mtime_ns),
+            "ctime_ns": int(status.st_ctime_ns),
         }
         yield
     finally:
@@ -356,7 +445,8 @@ def _state_from_proof(
     authored = _mapping(metadata.get("authored_settings"), "proof authored settings")
     current = _mapping(authored.get("before"), "proof authored settings before")
     image = _mapping(metadata.get("image_settings"), "proof image settings")
-    dimensions = metadata.get("actual_dimensions")
+    effective_dimensions = metadata.get("actual_dimensions")
+    base_dimensions = metadata.get("base_dimensions")
     samples = metadata.get("samples")
     state: dict[str, object] = {
         "camera_sha256": canonical_json_sha256(current.get("camera")),
@@ -375,14 +465,23 @@ def _state_from_proof(
             {"animation_contract": scene.animation_contract, "objects": current.get("objects")}
         ),
         "composition_sha256": canonical_json_sha256(proof.get("qa")),
-        "output_dimensions": dimensions,
+        "base_dimensions": base_dimensions,
+        "effective_proof_dimensions": effective_dimensions,
+        "output_dimensions": base_dimensions,
         "alpha_mode": image.get("color_mode"),
         "proof_samples": samples,
     }
     if (
-        not isinstance(dimensions, list)
-        or len(dimensions) != 2
-        or not all(isinstance(item, int) and not isinstance(item, bool) and item > 0 for item in dimensions)
+        not isinstance(base_dimensions, list)
+        or len(base_dimensions) != 2
+        or not all(isinstance(item, int) and not isinstance(item, bool) and item > 0 for item in base_dimensions)
+        or not isinstance(effective_dimensions, list)
+        or len(effective_dimensions) != 2
+        or not all(
+            isinstance(item, int) and not isinstance(item, bool) and item > 0
+            for item in effective_dimensions
+        )
+        or base_dimensions != [scene.output_contract["width"], scene.output_contract["height"]]
         or state["alpha_mode"] != "RGBA"
         or not isinstance(samples, int)
         or isinstance(samples, bool)
@@ -390,6 +489,132 @@ def _state_from_proof(
     ):
         raise ValueError("proof current render settings are invalid")
     return state
+
+
+def _rgba_pixel_evidence(
+    data: bytes, dimensions: list[object], label: str
+) -> dict[str, object]:
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+            if image.format != "PNG" or image.mode != "RGBA" or list(image.size) != dimensions:
+                raise ValueError(f"{label} must be an original-resolution RGBA PNG")
+            width, height = image.size
+            pixels = list(image.get_flattened_data())
+    except OSError as error:
+        raise ValueError(f"{label} is not genuine PNG pixel evidence: {error}") from error
+    visible = [pixel for pixel in pixels if pixel[3] > 0]
+    if not visible:
+        raise ValueError(f"{label} contains no visible product pixels")
+    indices = [index for index, pixel in enumerate(pixels) if pixel[3] > 0]
+    xs = [index % width for index in indices]
+    ys = [index // width for index in indices]
+    rgba_bytes = bytes(channel for pixel in pixels for channel in pixel)
+    mask_bytes = bytes(255 if pixel[3] > 0 else 0 for pixel in pixels)
+    visible_rgb = bytes(channel for pixel in visible for channel in pixel[:3])
+    alpha = bytes(pixel[3] for pixel in pixels)
+    return {
+        "rgba_sha256": hashlib.sha256(rgba_bytes).hexdigest().upper(),
+        "product_mask_sha256": hashlib.sha256(mask_bytes).hexdigest().upper(),
+        "subject_bounds": [min(xs), min(ys), max(xs), max(ys)],
+        "visible_pixels": len(visible),
+        "visible_fraction": round(len(visible) / len(pixels), 8),
+        "visible_rgb_sha256": hashlib.sha256(visible_rgb).hexdigest().upper(),
+        "unique_rgb_values": len({pixel[:3] for pixel in visible}),
+        "alpha_sha256": hashlib.sha256(alpha).hexdigest().upper(),
+        "alpha_minimum": min(alpha),
+        "alpha_maximum": max(alpha),
+        "alpha_nonzero_pixels": sum(value > 0 for value in alpha),
+        "alpha_partial_pixels": sum(0 < value < 255 for value in alpha),
+    }
+
+
+def compute_final_qa(
+    png_bytes: bytes,
+    endpoint_png_bytes: Mapping[str, bytes],
+    dimensions: list[object],
+    machine_contract: Mapping[str, object],
+    scene_contract: Mapping[str, object],
+    *,
+    material_library_sha256: str,
+    scene_contract_sha256: str,
+    machine_contract_sha256: str,
+) -> dict[str, object]:
+    """Derive final QA only from original pixels and current validated contracts."""
+
+    machine_errors = validate_machine_contract(machine_contract)
+    if machine_errors:
+        raise ValueError("final machine contract is invalid: " + "; ".join(machine_errors))
+    animation = _mapping(machine_contract.get("animation"), "machine animation contract")
+    controller = _mapping(machine_contract.get("controller"), "machine controller contract")
+    if (
+        animation.get("status") != "blocked_pending_owner_motion_map"
+        or scene_contract.get("animation_contract") is not None
+    ):
+        raise ValueError("final animation QA requires a supported owner-approved endpoint contract")
+    if set(endpoint_png_bytes) != {"start", "end"}:
+        raise ValueError("final animation QA requires exact start and end endpoint renders")
+    main = _rgba_pixel_evidence(png_bytes, dimensions, "final product")
+    endpoints: list[dict[str, object]] = []
+    for label in ("start", "end"):
+        evidence = _rgba_pixel_evidence(
+            endpoint_png_bytes[label], dimensions, f"final animation {label} endpoint"
+        )
+        endpoints.append({
+            "label": label,
+            "rgba_sha256": evidence["rgba_sha256"],
+            "product_mask_sha256": evidence["product_mask_sha256"],
+            "subject_bounds": evidence["subject_bounds"],
+            "visible_pixels": evidence["visible_pixels"],
+        })
+    if any(
+        endpoint["rgba_sha256"] != main["rgba_sha256"]
+        or endpoint["product_mask_sha256"] != main["product_mask_sha256"]
+        or endpoint["subject_bounds"] != main["subject_bounds"]
+        for endpoint in endpoints
+    ):
+        raise ValueError("static animation endpoint parity drift from final product pixels")
+    return {
+        "schema": "pimm-final-qa/v1",
+        "dimensions": list(dimensions),
+        "product": {
+            "rgba_sha256": main["rgba_sha256"],
+            "product_mask_sha256": main["product_mask_sha256"],
+            "subject_bounds": main["subject_bounds"],
+            "visible_pixels": main["visible_pixels"],
+            "visible_fraction": main["visible_fraction"],
+        },
+        "material": {
+            "material_library_sha256": _sha(material_library_sha256, "material library SHA-256"),
+            "scene_contract_sha256": _sha(scene_contract_sha256, "scene contract SHA-256"),
+            "visible_rgb_sha256": main["visible_rgb_sha256"],
+            "visible_pixels": main["visible_pixels"],
+            "unique_rgb_values": main["unique_rgb_values"],
+        },
+        "alpha": {
+            "channel_sha256": main["alpha_sha256"],
+            "minimum": main["alpha_minimum"],
+            "maximum": main["alpha_maximum"],
+            "nonzero_pixels": main["alpha_nonzero_pixels"],
+            "partial_pixels": main["alpha_partial_pixels"],
+        },
+        "controller": {
+            "machine_contract_sha256": _sha(machine_contract_sha256, "machine contract SHA-256"),
+            "controller_contract_sha256": canonical_json_sha256(controller),
+            "visible_rgb_sha256": main["visible_rgb_sha256"],
+            "display_values": controller.get("display_values"),
+            "approved_segment_count": len(controller.get("approved_segments", [])),
+        },
+        "animation": {
+            "contract_sha256": canonical_json_sha256({
+                "machine": animation,
+                "scene": scene_contract.get("animation_contract"),
+            }),
+            "status": animation["status"],
+            "endpoints": endpoints,
+            "identical": True,
+        },
+    }
 
 
 def _proof_output_records(
@@ -579,12 +804,28 @@ def extract_current_approval_evidence(proof_manifest_path: Path) -> dict[str, ob
         "proof_runner": repository / "scripts" / "blender" / "pimm_production" / "blender_proof_render.py",
         "final_runner": repository / "scripts" / "blender" / "pimm_production" / "blender_final_render.py",
         "blender_binary": blender_binary,
+        "machine_contract": repository / "scripts" / "blender" / "pimm_production"
+        / "contracts" / "machines" / ("30g.json" if scene.scene_id.startswith("pimm-30g") else "50g.json"),
     }
     for name, path in static_paths.items():
         authority = _BASE_EVIDENCE_AUTHORITIES[name]
         evidence[name] = stable_file_record(path, root_paths[authority], authority, name)
     if evidence["scene_contract"]["sha256"] != evidence["scene_contract_snapshot"]["sha256"]:
         raise ValueError("current scene contract drifted from immutable proof snapshot")
+    machine_payload, _ = stable_json(
+        Path(str(evidence["machine_contract"]["path"])),
+        repository,
+        "repository",
+        "machine contract",
+        evidence["machine_contract"],
+    )
+    machine_errors = validate_machine_contract(machine_payload)
+    expected_machine = "30G" if scene.scene_id.startswith("pimm-30g") else "50G"
+    if machine_errors or machine_payload.get("machine") != expected_machine:
+        raise ValueError(
+            "current machine contract is invalid: "
+            + "; ".join(machine_errors or ["machine identity drift"])
+        )
     evidence["contact_sheet"] = contact_record
     for background, path in output_paths:
         key = f"proof_pixel_{background.replace('-', '_')}"
@@ -606,6 +847,7 @@ def extract_current_approval_evidence(proof_manifest_path: Path) -> dict[str, ob
         "tool_lock_sha256": str(evidence["tool_lock"]["sha256"]),
         "proof_runner_sha256": str(evidence["proof_runner"]["sha256"]),
         "final_runner_sha256": str(evidence["final_runner"]["sha256"]),
+        "machine_contract_sha256": str(evidence["machine_contract"]["sha256"]),
     }
     return {
         "authority_roots": roots,
@@ -672,6 +914,10 @@ def validate_approval_payload(
         errors.append("approval owner is required")
     if not isinstance(payload.get("notes"), str) or not str(payload.get("notes")).strip():
         errors.append("approval notes are required")
+    try:
+        _validate_created_at_utc(payload.get("created_at_utc"))
+    except ValueError as error:
+        errors.append(str(error))
     if (
         not isinstance(payload.get("revision"), int)
         or isinstance(payload.get("revision"), bool)
@@ -692,6 +938,7 @@ def validate_approval_payload(
         "tool_lock_sha256": "tool lock SHA-256",
         "proof_runner_sha256": "proof runner SHA-256",
         "final_runner_sha256": "final runner SHA-256",
+        "machine_contract_sha256": "machine contract SHA-256",
     }
     for key, label in labels.items():
         expected = inputs.get(key)

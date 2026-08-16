@@ -7,6 +7,7 @@ import json
 import ntpath
 import re
 import struct
+import zlib
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -17,11 +18,13 @@ from .approval_manifest import (
     _create_new_json,
     _mapping,
     _stable_file,
+    approval_head_lock,
     canonical_absolute_path,
+    compute_final_qa,
     stable_file_record,
     stable_json,
 )
-from .blender_final_render import authorize_final_render
+from .blender_final_render import _authorize_final_render, authorize_final_render
 
 
 _RELEASE_ID = re.compile(r"^release-[0-9]{4}-[0-9]{2}-[0-9]{2}-r[0-9]{2}$")
@@ -36,10 +39,7 @@ _OUTPUT_FIELDS = {
 _OUTPUT_ENTRY_FIELDS = {
     "logical_asset_id", "path", "sha256", "dimensions", "alpha", "mime_type",
 }
-_QA_FIELDS = {
-    "product_visible", "alpha_min", "alpha_max", "material_state_sha256",
-    "controller_state_sha256", "animation_state_sha256",
-}
+_QA_FIELDS = {"schema", "dimensions", "product", "material", "alpha", "controller", "animation"}
 _MIME_BY_EXTENSION = {
     "exr": "image/x-exr", "png": "image/png", "webp": "image/webp",
 }
@@ -97,11 +97,21 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
         if cursor + 16 > len(channel_data):
             raise ValueError("final output EXR channel record is truncated")
         pixel_type = struct.unpack_from("<I", channel_data, cursor)[0]
+        linear = channel_data[cursor + 4]
+        reserved = channel_data[cursor + 5 : cursor + 8]
         x_sampling, y_sampling = struct.unpack_from("<II", channel_data, cursor + 8)
         cursor += 16
-        if name in channels or x_sampling != 1 or y_sampling != 1:
+        if (
+            name in channels
+            or linear not in {0, 1}
+            or reserved != b"\0\0\0"
+            or x_sampling != 1
+            or y_sampling != 1
+        ):
             raise ValueError("final output EXR channel sampling is invalid")
         channels[name] = pixel_type
+    if cursor != len(channel_data):
+        raise ValueError("final output EXR channel list has trailing payload")
     if channels != {"R": 2, "G": 2, "B": 2, "A": 2}:
         raise ValueError("final output EXR must contain exactly float RGBA channels")
     expected_width, expected_height = int(dimensions[0]), int(dimensions[1])
@@ -115,22 +125,77 @@ def _validate_float_exr(data: bytes, dimensions: list[object]) -> None:
     compression_kind, compression_value = attributes["compression"]
     if compression_kind != "compression" or len(compression_value) != 1:
         raise ValueError("final output EXR compression declaration is invalid")
-    scanlines_per_block = {0: 1, 1: 1, 2: 1, 3: 16, 4: 32, 5: 16, 6: 32, 7: 32, 8: 32, 9: 256}.get(
+    scanlines_per_block = {0: 1, 2: 1, 3: 16}.get(
         compression_value[0]
     )
     if scanlines_per_block is None:
-        raise ValueError("final output EXR compression method is unsupported")
+        raise ValueError("final output EXR requires exact uncompressed, ZIPS, or ZIP validation")
+    line_order_kind, line_order_value = attributes["lineOrder"]
+    if (
+        line_order_kind != "lineOrder"
+        or len(line_order_value) != 1
+        or line_order_value[0] not in {0, 1, 2}
+    ):
+        raise ValueError("final output EXR line order is invalid")
     block_count = (expected_height + scanlines_per_block - 1) // scanlines_per_block
     table_end = offset + block_count * 8
     if table_end > len(data):
         raise ValueError("final output EXR scanline offset table is truncated")
     offsets = struct.unpack_from(f"<{block_count}Q", data, offset)
+    if len(set(offsets)) != len(offsets):
+        raise ValueError("final output EXR scanline chunk offsets must be unique")
+    observed_y: set[int] = set()
+    ranges: list[tuple[int, int]] = []
+    table_y: list[int] = []
+    physical_chunks: list[tuple[int, int]] = []
     for chunk_offset in offsets:
         if chunk_offset < table_end or chunk_offset + 8 > len(data):
             raise ValueError("final output EXR scanline chunk offset is invalid")
-        _, size = struct.unpack_from("<iI", data, chunk_offset)
+        y, size = struct.unpack_from("<iI", data, chunk_offset)
+        if size == 0:
+            raise ValueError("final output EXR scanline chunk payload cannot be empty")
         if size > len(data) - chunk_offset - 8:
             raise ValueError("final output EXR scanline chunk is truncated")
+        if y < 0 or y >= expected_height or y % scanlines_per_block != 0 or y in observed_y:
+            raise ValueError("final output EXR scanline chunk coordinate or coverage is invalid")
+        rows = min(scanlines_per_block, expected_height - y)
+        expected_payload_bytes = rows * expected_width * 4 * 4
+        payload = data[chunk_offset + 8 : chunk_offset + 8 + size]
+        if compression_value[0] == 0:
+            if size != expected_payload_bytes:
+                raise ValueError("final output EXR uncompressed scanline payload length is invalid")
+        else:
+            try:
+                decoded = zlib.decompress(payload)
+            except zlib.error as error:
+                raise ValueError("final output EXR ZIP payload is invalid") from error
+            if len(decoded) != expected_payload_bytes:
+                raise ValueError("final output EXR compressed payload length is invalid")
+        observed_y.add(y)
+        table_y.append(y)
+        physical_chunks.append((int(chunk_offset), y))
+        ranges.append((int(chunk_offset), int(chunk_offset + 8 + size)))
+    expected_y = list(range(0, expected_height, scanlines_per_block))
+    if observed_y != set(expected_y):
+        raise ValueError("final output EXR scanline coverage is incomplete")
+    if table_y != expected_y:
+        raise ValueError("final output EXR scanline offset table order is invalid")
+    ordered_ranges = sorted(ranges)
+    if any(left[1] > right[0] for left, right in zip(ordered_ranges, ordered_ranges[1:])):
+        raise ValueError("final output EXR scanline chunks overlap")
+    if (
+        not ordered_ranges
+        or ordered_ranges[0][0] != table_end
+        or any(left[1] != right[0] for left, right in zip(ordered_ranges, ordered_ranges[1:]))
+        or ordered_ranges[-1][1] != len(data)
+    ):
+        raise ValueError("final output EXR scanline chunk payload coverage is not exact")
+    physical_y = [y for _, y in sorted(physical_chunks)]
+    if (
+        line_order_value[0] == 0 and physical_y != expected_y
+        or line_order_value[0] == 1 and physical_y != list(reversed(expected_y))
+    ):
+        raise ValueError("final output EXR physical scanline order is invalid")
 
 
 def _validate_media_bytes(
@@ -189,6 +254,8 @@ def _validate_manifest(
     payload: Mapping[str, object],
     manifest_record: Mapping[str, object],
     release_id: str,
+    *,
+    head_locked: bool,
 ) -> tuple[str, str, tuple[str, str], str, list[dict[str, object]], set[Path], list[tuple[Path, dict[str, object]]]]:
     if set(payload) != _OUTPUT_FIELDS:
         raise ValueError("final output manifest fields are incomplete or unknown")
@@ -208,7 +275,9 @@ def _validate_manifest(
     final_path = canonical_absolute_path(
         payload.get("authorized_final_contract_path"), "authorized final contract path"
     )
-    authorization = authorize_final_render(approval_path, final_path)
+    authorization = _authorize_final_render(
+        approval_path, final_path, head_locked=head_locked
+    )
     authorized_final, _ = stable_json(
         final_path, authorization.asset_root, "asset", "authorized final contract",
         authorization.final_contract_record,
@@ -231,15 +300,8 @@ def _validate_manifest(
         raise ValueError("release physical root is outside authorized asset authority")
 
     qa = _mapping(payload.get("qa"), "final output QA")
-    if set(qa) != _QA_FIELDS or qa.get("product_visible") is not True:
+    if set(qa) != _QA_FIELDS or qa.get("schema") != "pimm-final-qa/v1":
         raise ValueError("final output QA evidence is incomplete")
-    for field in ("alpha_min", "alpha_max"):
-        if not isinstance(qa.get(field), int) or isinstance(qa.get(field), bool) or not 0 <= int(qa[field]) <= 255:
-            raise ValueError("final output alpha QA evidence is invalid")
-    for field in ("material_state_sha256", "controller_state_sha256", "animation_state_sha256"):
-        value = qa.get(field)
-        if not isinstance(value, str) or re.fullmatch(r"[A-F0-9]{64}", value) is None:
-            raise ValueError("final output state QA evidence is invalid")
 
     outputs = payload.get("outputs")
     if not isinstance(outputs, list):
@@ -257,7 +319,7 @@ def _validate_manifest(
     observed_extensions: set[str] = set()
     logical_ids: set[str] = set()
     physical_paths: set[str] = set()
-    decoded_alpha_ranges: set[tuple[int, int]] = set()
+    media_bytes: dict[str, bytes] = {}
     for item in outputs:
         entry = _mapping(item, "final output entry")
         if set(entry) != _OUTPUT_ENTRY_FIELDS:
@@ -287,9 +349,8 @@ def _validate_manifest(
         )
         if record["sha256"] != str(entry.get("sha256", "")).upper():
             raise ValueError("final output bytes or SHA-256 drift")
-        alpha_range = _validate_media_bytes(data or b"", dimensions, str(entry["mime_type"]))
-        if alpha_range is not None:
-            decoded_alpha_ranges.add(alpha_range)
+        _validate_media_bytes(data or b"", dimensions, str(entry["mime_type"]))
+        media_bytes[extension] = data or b""
         logical = str(entry["logical_asset_id"])
         physical = ntpath.normcase(str(actual))
         if logical in logical_ids:
@@ -321,8 +382,41 @@ def _validate_manifest(
         })
     if observed_extensions != {"exr", "png", "webp"}:
         raise ValueError("absent EXR or contracted transparent deliverable")
-    if decoded_alpha_ranges != {(int(qa["alpha_min"]), int(qa["alpha_max"]))}:
-        raise ValueError("final output alpha QA drift from decoded PNG/WebP pixels")
+    final_evidence = _mapping(authorized_final.get("evidence"), "authorized final evidence")
+    scene_record = _mapping(final_evidence.get("scene_contract"), "scene contract evidence")
+    machine_record = _mapping(final_evidence.get("machine_contract"), "machine contract evidence")
+    scene_contract, _ = stable_json(
+        Path(str(scene_record.get("path"))),
+        authorization.asset_root,
+        "asset",
+        "release scene contract",
+        scene_record,
+    )
+    repository_root = canonical_absolute_path(
+        _mapping(authorized_final.get("authority_roots"), "authorized roots").get("repository"),
+        "repository authority root",
+    )
+    machine_contract, _ = stable_json(
+        Path(str(machine_record.get("path"))),
+        repository_root,
+        "repository",
+        "release machine contract",
+        machine_record,
+    )
+    final_inputs = _mapping(authorized_final.get("inputs"), "authorized final inputs")
+    recomputed_qa = compute_final_qa(
+        media_bytes["png"],
+        {"start": media_bytes["png"], "end": media_bytes["png"]},
+        list(expected_dimensions),
+        machine_contract,
+        scene_contract,
+        material_library_sha256=str(final_inputs["material_library_sha256"]),
+        scene_contract_sha256=str(scene_record["sha256"]),
+        machine_contract_sha256=str(machine_record["sha256"]),
+    )
+    for section in ("schema", "dimensions", "product", "material", "alpha", "controller", "animation"):
+        if qa.get(section) != recomputed_qa.get(section):
+            raise ValueError(f"final output {section} QA drift from current pixels/contracts")
     actual_family_entries = set(path.parent.iterdir())
     if actual_family_entries != expected_files:
         raise ValueError("extra or unmanifested final family files are forbidden")
@@ -337,32 +431,54 @@ def _validate_manifest(
     )
 
 
-def build_release_manifest(release_id: str, approved_outputs: Sequence[Path]) -> Path:
-    """Authenticate one immutable final family and publish its last pass marker."""
+def _release_commit_revalidate(
+    pending: Path,
+    release_root: Path,
+    expected_children: set[Path],
+    expected_families: Mapping[Path, set[Path]],
+    stable_records: Sequence[tuple[Path, Mapping[str, object]]],
+    approval_path: Path,
+    final_path: Path,
+    expected_approval_sha256: str,
+    expected_authorization_sha256: str,
+) -> None:
+    """Reauthorize, rehash, and rescan at the pending-to-final commit point."""
 
-    if _RELEASE_ID.fullmatch(release_id) is None:
-        raise ValueError("release ID must match release-YYYY-MM-DD-rNN")
-    if not approved_outputs:
-        raise ValueError("approved final outputs are required")
-    preflight = [_preflight_manifest(Path(path), release_id) for path in approved_outputs]
+    authorization = _authorize_final_render(
+        approval_path, final_path, head_locked=True
+    )
+    if (
+        authorization.approval_sha256 != expected_approval_sha256
+        or authorization.authorization_sha256 != expected_authorization_sha256
+    ):
+        raise ValueError("release commit approval/final authorization drift")
+    for path, record in stable_records:
+        stable_file_record(path, release_root, "asset", "release commit input", record)
+    for family, expected_entries in expected_families.items():
+        if set(family.iterdir()) != expected_entries:
+            raise ValueError("release tree rescan found extra or missing family entries")
+    if set(release_root.iterdir()) != expected_children | {pending}:
+        raise ValueError("release tree rescan found extra or missing root entries")
+
+
+def _build_release_manifest_locked(
+    release_id: str,
+    preflight: Sequence[tuple[Path, Path, Mapping[str, object], dict[str, object]]],
+    approval_path: Path,
+    final_path: Path,
+) -> Path:
     generations = {str(payload.get("generation_id")) for _, _, payload, _ in preflight}
-    if len(generations) != 1:
-        raise ValueError("mixed proof generations are forbidden")
     release_roots = {root for _, root, _, _ in preflight}
-    if len(release_roots) != 1:
-        raise ValueError("release output roots must be one immutable directory")
     manifest_paths = [path for path, _, _, _ in preflight]
-    if len({ntpath.normcase(str(path)) for path in manifest_paths}) != len(manifest_paths):
-        raise ValueError("duplicate shot manifests are forbidden")
-
     all_records: list[dict[str, object]] = []
     shot_ids: set[str] = set()
     approvals: set[tuple[str, str]] = set()
     authorizations: set[str] = set()
     all_stable_records: list[tuple[Path, dict[str, object]]] = []
+    expected_families: dict[Path, set[Path]] = {}
     for path, root, payload, manifest_record in preflight:
-        generation, shot_id, approval, authorization, records, _, stable_records = _validate_manifest(
-            path, root, payload, manifest_record, release_id
+        generation, shot_id, approval, authorization, records, expected_files, stable_records = _validate_manifest(
+            path, root, payload, manifest_record, release_id, head_locked=True
         )
         if generation not in generations:
             raise ValueError("mixed proof generations are forbidden")
@@ -373,6 +489,7 @@ def build_release_manifest(release_id: str, approved_outputs: Sequence[Path]) ->
         authorizations.add(authorization)
         all_records.extend(records)
         all_stable_records.extend(stable_records)
+        expected_families[path.parent] = expected_files
     if len(approvals) != 1 or len(authorizations) != 1:
         raise ValueError("one current approval and final authorization is required per release")
     logical_ids = [str(record["logical_asset_id"]) for record in all_records]
@@ -403,10 +520,64 @@ def build_release_manifest(release_id: str, approved_outputs: Sequence[Path]) ->
     for path, record in all_stable_records:
         stable_file_record(path, release_root, "asset", "release input", record)
     try:
-        created = _create_new_json(destination, payload)
+        created = _create_new_json(
+            destination,
+            payload,
+            before_commit=lambda pending: _release_commit_revalidate(
+                pending,
+                release_root,
+                expected_children,
+                expected_families,
+                all_stable_records,
+                approval_path,
+                final_path,
+                next(iter(approvals))[1],
+                next(iter(authorizations)),
+            ),
+        )
     except FileExistsError as error:
         raise ValueError("release manifest already exists; releases are immutable") from error
     published, record = stable_json(destination, release_root, "asset", "release manifest")
     if published != payload or any(record[key] != value for key, value in created.items()):
         raise ValueError("release manifest publication identity or payload drift")
     return destination
+
+
+def build_release_manifest(release_id: str, approved_outputs: Sequence[Path]) -> Path:
+    """Authenticate one immutable final family and publish its last pass marker."""
+
+    if _RELEASE_ID.fullmatch(release_id) is None:
+        raise ValueError("release ID must match release-YYYY-MM-DD-rNN")
+    if not approved_outputs:
+        raise ValueError("approved final outputs are required")
+    preflight = [_preflight_manifest(Path(path), release_id) for path in approved_outputs]
+    generations = {str(payload.get("generation_id")) for _, _, payload, _ in preflight}
+    if len(generations) != 1:
+        raise ValueError("mixed proof generations are forbidden")
+    release_roots = {root for _, root, _, _ in preflight}
+    if len(release_roots) != 1:
+        raise ValueError("release output roots must be one immutable directory")
+    manifest_paths = [path for path, _, _, _ in preflight]
+    if len({ntpath.normcase(str(path)) for path in manifest_paths}) != len(manifest_paths):
+        raise ValueError("duplicate shot manifests are forbidden")
+    approval_paths = {
+        canonical_absolute_path(payload.get("approval_path"), "release approval path")
+        for _, _, payload, _ in preflight
+    }
+    final_paths = {
+        canonical_absolute_path(
+            payload.get("authorized_final_contract_path"), "authorized final contract path"
+        )
+        for _, _, payload, _ in preflight
+    }
+    if len(approval_paths) != 1 or len(final_paths) != 1:
+        raise ValueError("one approval and final contract path is required per release")
+    approval_path = next(iter(approval_paths))
+    final_path = next(iter(final_paths))
+    # Validate the lock location read-only first, then reacquire and reauthorize
+    # inside the lock to close the handoff race.
+    authorize_final_render(approval_path, final_path)
+    with approval_head_lock(approval_path.parent):
+        return _build_release_manifest_locked(
+            release_id, preflight, approval_path, final_path
+        )

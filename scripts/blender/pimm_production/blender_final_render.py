@@ -23,10 +23,13 @@ from .approval_manifest import (
     _revision_entries,
     _sha,
     _unlink_owned,
+    _validate_created_at_utc,
     _validate_roots,
     approval_head_lock,
     canonical_absolute_path,
     canonical_json_sha256,
+    compute_final_qa,
+    _stable_file,
     stable_file_record,
     stable_json,
     validate_approval,
@@ -101,7 +104,10 @@ def _contract_errors(approval: Mapping[str, object], final: Mapping[str, object]
     if not isinstance(approved_settings, Mapping) or not isinstance(final_settings, Mapping):
         errors.append("final render settings are required")
     else:
-        expected_fields = _STATE_HASH_FIELDS | {"output_dimensions", "alpha_mode", "proof_samples"}
+        expected_fields = _STATE_HASH_FIELDS | {
+            "base_dimensions", "effective_proof_dimensions", "output_dimensions",
+            "alpha_mode", "proof_samples",
+        }
         if set(approved_settings) != expected_fields or set(final_settings) != expected_fields:
             errors.append("final render settings fields are invalid")
         labels = {
@@ -113,6 +119,8 @@ def _contract_errors(approval: Mapping[str, object], final: Mapping[str, object]
             "animation_sha256": "animation SHA-256 drift",
             "composition_sha256": "composition SHA-256 drift",
             "output_dimensions": "output dimensions drift",
+            "base_dimensions": "base dimensions drift",
+            "effective_proof_dimensions": "effective proof dimensions drift",
             "alpha_mode": "alpha mode drift",
             "proof_samples": "proof samples drift",
         }
@@ -124,6 +132,8 @@ def _contract_errors(approval: Mapping[str, object], final: Mapping[str, object]
                 _sha(final_settings.get(key), f"final {key}")
             except ValueError as error:
                 errors.append(str(error))
+        if final_settings.get("output_dimensions") != final_settings.get("base_dimensions"):
+            errors.append("final output dimensions must retain original resolution")
     samples = final.get("samples")
     proof_samples = approved_settings.get("proof_samples") if isinstance(approved_settings, Mapping) else None
     if (
@@ -166,6 +176,10 @@ def _revision_head_errors(
             return [f"approval revision chain is unreadable: {error}"]
         if payload.get("revision") != revision:
             return ["approval revision chain is broken"]
+        try:
+            _validate_created_at_utc(payload.get("created_at_utc"))
+        except ValueError as error:
+            return [str(error)]
         if prior is None:
             if payload.get("prior_approval_sha256") is not None or payload.get("prior_approval_path") is not None:
                 return ["approval revision chain is broken"]
@@ -320,12 +334,22 @@ def _blender_render_script(
         f"pathlib.Path({str(audit_path)!r}).write_text(json.dumps(_capture_authored_settings(bpy), sort_keys=True), encoding='utf-8')",
         "scene = bpy.context.scene",
         "if scene.render.engine != 'CYCLES': raise RuntimeError('authorized final scene must retain CYCLES')",
+        "original_frame = scene.frame_current",
         f"scene.cycles.samples = {samples}",
         "scene.render.film_transparent = True",
         f"scene.render.resolution_x = {int(dimensions[0])}",
         f"scene.render.resolution_y = {int(dimensions[1])}",
         "scene.render.resolution_percentage = 100",
         "scene.render.image_settings.color_mode = 'RGBA'",
+        "scene.render.image_settings.file_format = 'PNG'",
+        "scene.render.image_settings.color_depth = '8'",
+        "scene.frame_set(scene.frame_start)",
+        f"scene.render.filepath = {str(output_root / '.qa-animation-start.png')!r}",
+        "bpy.ops.render.render(write_still=True)",
+        "scene.frame_set(scene.frame_end)",
+        f"scene.render.filepath = {str(output_root / '.qa-animation-end.png')!r}",
+        "bpy.ops.render.render(write_still=True)",
+        "scene.frame_set(original_frame)",
         "scene.render.image_settings.file_format = 'OPEN_EXR'",
         "scene.render.image_settings.color_depth = '32'",
         f"scene.render.filepath = {str(output_root / f'{shot_id}--transparent.exr')!r}",
@@ -363,7 +387,7 @@ def _owned_identity(path: Path) -> dict[str, object]:
     return {
         "device": int(status.st_dev), "inode": int(status.st_ino),
         "links": int(status.st_nlink), "bytes": int(status.st_size),
-        "mtime_ns": int(status.st_mtime_ns),
+        "mtime_ns": int(status.st_mtime_ns), "ctime_ns": int(status.st_ctime_ns),
     }
 
 
@@ -426,11 +450,15 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
         os.mkdir(family)
         script = family / ".native-final.py"
         audit = family / ".native-state.json"
+        endpoint_start = family / ".qa-animation-start.png"
+        endpoint_end = family / ".qa-animation-end.png"
         exr = family / f"{authorization.shot_id}--transparent.exr"
         png = family / f"{authorization.shot_id}--transparent.png"
         webp = family / f"{authorization.shot_id}--transparent.webp"
         manifest = family / "final-output-manifest.json"
-        expected_stage_files = {script, audit, exr, png, webp, manifest}
+        expected_stage_files = {
+            script, audit, endpoint_start, endpoint_end, exr, png, webp, manifest,
+        }
         try:
             repository_root = roots["repository"]
             script.write_text(
@@ -451,7 +479,7 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             )
             if result.returncode:
                 raise ValueError("native Blender final render failed: " + result.stderr[-1000:])
-            if not all(path.is_file() for path in (audit, exr, png)):
+            if not all(path.is_file() for path in (audit, endpoint_start, endpoint_end, exr, png)):
                 raise ValueError(
                     "native final did not produce audited EXR and PNG outputs "
                     f"(files={sorted(child.name for child in family.iterdir())}, "
@@ -464,20 +492,54 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 scene_contract_path, roots["asset"], "asset", "current scene contract",
                 _mapping(scene_contract_record, "scene contract evidence"),
             )
+            machine_contract_record = _mapping(
+                final.get("evidence"), "final evidence"
+            ).get("machine_contract")
+            machine_contract_path = Path(
+                str(_mapping(machine_contract_record, "machine contract evidence").get("path"))
+            )
+            machine_contract, _ = stable_json(
+                machine_contract_path,
+                roots["repository"],
+                "repository",
+                "current machine contract",
+                _mapping(machine_contract_record, "machine contract evidence"),
+            )
             live_hashes = _live_state_hashes(authored, scene_contract.get("animation_contract"))
             expected_settings = _mapping(final.get("render_settings"), "final render settings")
             for field, actual in live_hashes.items():
                 if expected_settings.get(field) != actual:
                     raise ValueError(f"native current {field.replace('_sha256', '')} state drift")
-            alpha_range = _validate_rgba(png, dimensions)
+            _validate_rgba(png, dimensions)
             from PIL import Image
             with Image.open(png) as image:
                 image.save(webp, format="WEBP", lossless=True)
             _validate_rgba(webp, dimensions)
             if exr.read_bytes()[:4] != b"v/1\x01":
                 raise ValueError("native final did not produce a genuine EXR")
+            png_record, png_bytes = _stable_file(
+                str(png), str(stage), "asset", "native final PNG", capture=True
+            )
+            start_record, start_bytes = _stable_file(
+                str(endpoint_start), str(stage), "asset", "animation start endpoint", capture=True
+            )
+            end_record, end_bytes = _stable_file(
+                str(endpoint_end), str(stage), "asset", "animation end endpoint", capture=True
+            )
+            qa = compute_final_qa(
+                png_bytes or b"",
+                {"start": start_bytes or b"", "end": end_bytes or b""},
+                dimensions,
+                machine_contract,
+                scene_contract,
+                material_library_sha256=str(_mapping(final.get("inputs"), "final inputs")["material_library_sha256"]),
+                scene_contract_sha256=str(_mapping(scene_contract_record, "scene contract evidence")["sha256"]),
+                machine_contract_sha256=str(_mapping(machine_contract_record, "machine contract evidence")["sha256"]),
+            )
             _unlink_owned(script, script_identity, "native final script")
             _unlink_owned(audit, _owned_identity(audit), "native state audit")
+            _unlink_owned(endpoint_start, start_record, "animation start endpoint")
+            _unlink_owned(endpoint_end, end_record, "animation end endpoint")
 
             # Revalidate all authorities and both authorization records immediately
             # before hashing output and publishing evidence.
@@ -516,14 +578,7 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 "final_authorization_sha256": authorization.authorization_sha256,
                 "output_root": f"renders/final/{authorization.release_id}",
                 "required_deliverables": ["exr", "png", "webp"],
-                "qa": {
-                    "product_visible": True,
-                    "alpha_min": alpha_range[0],
-                    "alpha_max": alpha_range[1],
-                    "material_state_sha256": canonical_json_sha256(authored.get("materials")),
-                    "controller_state_sha256": canonical_json_sha256(authored.get("objects")),
-                    "animation_state_sha256": live_hashes["animation_sha256"],
-                },
+                "qa": qa,
                 "outputs": outputs,
             })
             manifest_record = stable_file_record(
