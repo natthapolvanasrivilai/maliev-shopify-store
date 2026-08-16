@@ -242,3 +242,49 @@ test('Task 7 consumer graph CLI is diagnostic-only and cannot publish outputs', 
     assert.equal(attempt.destination, 'sentinel');
   }
 });
+
+test('Task 8 default command publishes a plan without moving active assets', () => {
+  const program = [
+    'import hashlib',
+    'import json',
+    'import subprocess',
+    'import sys',
+    'from pathlib import Path',
+    'from tempfile import TemporaryDirectory',
+    'from scripts.blender.master_assets.pimm_legacy_inventory import AssetRecord, InventoryManifest, inventory_payload',
+    'from scripts.blender.pimm_production.consumer_graph import ConsumerGraph, consumer_graph_payload',
+    'with TemporaryDirectory() as root_text:',
+    '    root = Path(root_text)',
+    "    asset_root = root / 'blender-product-renders'",
+    "    source = asset_root / 'legacy' / 'old.blend1'",
+    "    replacement = asset_root / 'legacy' / 'old.blend'",
+    '    source.parent.mkdir(parents=True)',
+    "    source.write_bytes(b'recovery')",
+    "    replacement.write_bytes(b'current')",
+    '    def record(path, kind, disposition):',
+    '        status = path.stat()',
+    "        return AssetRecord(path=path.relative_to(asset_root).as_posix(), size=status.st_size, mtime_ns=status.st_mtime_ns, sha256=hashlib.sha256(path.read_bytes()).hexdigest().upper(), kind=kind, proposed_disposition=disposition, filesystem_identity=(status.st_dev, status.st_ino, status.st_ctime_ns, status.st_size))",
+    "    recovery = record(source, 'blend-recovery', 'pending-archive')",
+    "    current = record(replacement, 'blend-project', 'unresolved')",
+    '    inventory = InventoryManifest((recovery, current), (recovery.path, current.path), str(asset_root.resolve()), (asset_root.stat().st_dev, asset_root.stat().st_ino))',
+    '    graph = ConsumerGraph(consumers={recovery.path: (), current.path: ()}, producers={recovery.path: (), current.path: ()})',
+    "    inventory_path = root / 'inventory.json'",
+    "    graph_path = root / 'graph.json'",
+    "    output = root / 'plan.json'",
+    "    inventory_path.write_text(json.dumps(inventory_payload(inventory)), encoding='utf-8')",
+    "    graph_path.write_text(json.dumps(consumer_graph_payload(graph)), encoding='utf-8')",
+    '    before = source.read_bytes()',
+    "    process = subprocess.run([sys.executable, 'scripts/blender/pimm_production/archive_plan.py', '--batch-id', 'node-plan-only', '--inventory', str(inventory_path), '--graph', str(graph_path), '--output', str(output)], cwd=Path.cwd(), capture_output=True, text=True)",
+    "    payload = json.loads(output.read_text(encoding='utf-8')) if output.exists() else {}",
+    "    print(json.dumps({'returncode': process.returncode, 'stderr': process.stderr, 'stdout': process.stdout, 'source_unchanged': source.read_bytes() == before, 'destination_exists': Path(payload['items'][0]['destination']).exists() if payload.get('items') else False, 'item_count': payload.get('summary', {}).get('item_count')}))",
+  ].join('\n');
+  const result = JSON.parse(execFileSync('python', ['-c', program], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }));
+
+  assert.equal(result.returncode, 0, result.stderr);
+  assert.equal(result.item_count, 1);
+  assert.equal(result.source_unchanged, true);
+  assert.equal(result.destination_exists, false);
+});
