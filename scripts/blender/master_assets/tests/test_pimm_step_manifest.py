@@ -49,15 +49,15 @@ class StepManifestContractTests(unittest.TestCase):
         self.assertEqual(result["size"], 4)
 
     def test_expected_authoritative_sources_are_exact(self):
-        self.assertEqual(EXPECTED_SOURCES["30G"]["size"], 117_192_240)
+        self.assertEqual(EXPECTED_SOURCES["30G"]["size"], 117_310_197)
         self.assertEqual(
             EXPECTED_SOURCES["30G"]["sha256"],
-            "024BC2D5FD847D3EE1F65E83D7C3CB42459E5626177008509CF877B4DA3E8A1A",
+            "21EB48877EEC09C02503278E4C2BFFD01824B4E1D3664A64925BCDEAAFF55BDB",
         )
-        self.assertEqual(EXPECTED_SOURCES["50G"]["size"], 117_405_886)
+        self.assertEqual(EXPECTED_SOURCES["50G"]["size"], 117_539_732)
         self.assertEqual(
             EXPECTED_SOURCES["50G"]["sha256"],
-            "7B8AB5F0EF8CC3EA65628BBC78D0AB0E25557CE256F161E916C59C4B5500DBE3",
+            "6522EDCF30084910C0A1940FC50D10A516327FC65D70A3FBB493190EF7A9CED4",
         )
 
     def test_manifest_rejects_duplicate_or_missing_solid_interchange(self):
