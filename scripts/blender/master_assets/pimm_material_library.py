@@ -16,6 +16,12 @@ ASSET_ROOT = Path(r"M:\30_Products\00_Pneumatic Injection Molding Machine\blende
 DEFAULT_OUTPUT = ASSET_ROOT / "masters" / "PIMM-MATERIAL-LIBRARY.blend"
 DEFAULT_MANIFEST = ASSET_ROOT / "manifests" / "PIMM-material-library.json"
 
+# The owner-approved ASA surface direction is the visible vertical ribbing
+# shown in the reference. The coarse pitch is intentionally visual rather
+# than literal 0.2 mm FDM layer height so it survives product-scale renders.
+ASA_LAYER_LINE_SCALE = 0.12
+ASA_LAYER_LINE_DIRECTION = "X"
+
 
 @dataclass(frozen=True)
 class MaterialSpec:
@@ -207,8 +213,8 @@ def _add_microstructure(material, principled, spec: MaterialSpec) -> None:
         wave = nodes.new("ShaderNodeTexWave")
         wave.name = "PIMM_LAYER_LINES_0_2MM"
         wave.wave_type = "BANDS"
-        wave.bands_direction = "Z"
-        wave.inputs["Scale"].default_value = 5.0
+        wave.bands_direction = ASA_LAYER_LINE_DIRECTION
+        wave.inputs["Scale"].default_value = ASA_LAYER_LINE_SCALE
         wave.inputs["Distortion"].default_value = 0.0
         ramp = nodes.new("ShaderNodeValToRGB")
         ramp.name = "PIMM_LAYER_LINE_PROFILE"

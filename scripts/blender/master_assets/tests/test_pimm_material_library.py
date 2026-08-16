@@ -1,6 +1,8 @@
 import unittest
 
 from scripts.blender.master_assets.pimm_material_library import (
+    ASA_LAYER_LINE_DIRECTION,
+    ASA_LAYER_LINE_SCALE,
     MATERIAL_SPECS,
     validate_material_specs,
 )
@@ -72,6 +74,8 @@ class MaterialLibraryContractTests(unittest.TestCase):
         self.assertEqual(asa.microstructure, "layer_lines")
         self.assertLess(max(asa.base_color[:3]), 0.02)
         self.assertGreaterEqual(asa.roughness, 0.45)
+        self.assertEqual(ASA_LAYER_LINE_DIRECTION, "X")
+        self.assertLess(ASA_LAYER_LINE_SCALE, 0.25)
         self.assertEqual(MATERIAL_SPECS["WHITE_TEXTILE_CABLE"].microstructure, "textile")
         self.assertEqual(MATERIAL_SPECS["ASA_3D_PRINT_0_2MM"].microstructure, "layer_lines")
 
