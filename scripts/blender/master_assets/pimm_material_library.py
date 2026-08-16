@@ -111,6 +111,43 @@ MATERIAL_SPECS: dict[str, MaterialSpec] = {
         (0.30, 0.008, 0.004, 1.0), 0.0, 0.20, 0.0, 0.04, "none",
         (1.0, 0.012, 0.006, 1.0), 1.8, 0.38, 0.78
     ),
+    # The white powder-coat profile already exists in the published library;
+    # keep it declared here so a rebuild cannot silently drop it.
+    "WHITE_POWDERCOAT_STEEL": MaterialSpec(
+        (0.72, 0.74, 0.77, 1.0), 0.0, 0.46, 0.0, 0.02, "powder_grain"
+    ),
+    # Generic controller-surface finishes. These are reusable physical
+    # profiles only; machine artwork, labels, logos, and display assignments
+    # remain local to each machine master.
+    "BLACK_GLOSS_GLASS": MaterialSpec(
+        (0.006, 0.008, 0.010, 1.0), 0.05, 0.12, 0.0, 0.24, "none",
+        (0.0, 0.0, 0.0, 1.0), 0.0, 0.08, 1.0
+    ),
+    "INACTIVE_NUMERIC_SEGMENT": MaterialSpec(
+        (0.16, 0.17, 0.18, 1.0), 0.10, 0.34, 0.05, 0.08, "fine_grain"
+    ),
+    "CHARCOAL_TEXTURED_POLYMER": MaterialSpec(
+        (0.035, 0.038, 0.042, 1.0), 0.0, 0.42, 0.0, 0.08, "powder_grain"
+    ),
+    "CONTROL_PANEL_SATIN_GRAY": MaterialSpec(
+        (0.36, 0.36, 0.34, 1.0), 0.08, 0.42, 0.04, 0.06, "fine_grain"
+    ),
+    "BLUE_ACCENT_POLYMER": MaterialSpec(
+        (0.018, 0.035, 0.21, 1.0), 0.05, 0.32, 0.0, 0.08, "polymer"
+    ),
+    "GREEN_ILLUMINATED_TRANSPARENT": MaterialSpec(
+        (0.006, 0.28, 0.012, 1.0), 0.0, 0.20, 0.0, 0.04, "none",
+        (0.04, 1.0, 0.08, 1.0), 1.8, 0.38, 0.78
+    ),
+    "RED_SIGNAL_POLYMER": MaterialSpec(
+        (0.32, 0.015, 0.012, 1.0), 0.05, 0.34, 0.0, 0.04, "polymer"
+    ),
+    "GREEN_SIGNAL_POLYMER": MaterialSpec(
+        (0.18, 0.56, 0.20, 1.0), 0.05, 0.34, 0.0, 0.04, "polymer"
+    ),
+    "WARM_WHITE_MARKING": MaterialSpec(
+        (0.72, 0.62, 0.40, 1.0), 0.05, 0.33, 0.0, 0.04, "none"
+    ),
 }
 
 

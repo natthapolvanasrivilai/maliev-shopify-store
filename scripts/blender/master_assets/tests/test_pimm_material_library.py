@@ -37,6 +37,16 @@ class MaterialLibraryContractTests(unittest.TestCase):
                 "GREEN_ILLUMINATED_NUMERIC",
                 "RED_ILLUMINATED_NUMERIC",
                 "RED_ILLUMINATED_TRANSPARENT",
+                "WHITE_POWDERCOAT_STEEL",
+                "BLACK_GLOSS_GLASS",
+                "INACTIVE_NUMERIC_SEGMENT",
+                "CHARCOAL_TEXTURED_POLYMER",
+                "CONTROL_PANEL_SATIN_GRAY",
+                "BLUE_ACCENT_POLYMER",
+                "GREEN_ILLUMINATED_TRANSPARENT",
+                "RED_SIGNAL_POLYMER",
+                "GREEN_SIGNAL_POLYMER",
+                "WARM_WHITE_MARKING",
             },
         )
 
@@ -48,6 +58,11 @@ class MaterialLibraryContractTests(unittest.TestCase):
         self.assertGreater(red.emission_strength, 0.0)
         self.assertGreater(transparent.transmission, 0.0)
         self.assertLess(transparent.alpha, 1.0)
+        self.assertGreater(MATERIAL_SPECS["GREEN_ILLUMINATED_TRANSPARENT"].emission_strength, 0.0)
+        self.assertGreater(MATERIAL_SPECS["BLACK_GLOSS_GLASS"].coat_weight, 0.0)
+        self.assertGreater(MATERIAL_SPECS["INACTIVE_NUMERIC_SEGMENT"].roughness, 0.25)
+        self.assertEqual(MATERIAL_SPECS["CHARCOAL_TEXTURED_POLYMER"].microstructure, "powder_grain")
+        self.assertEqual(MATERIAL_SPECS["WARM_WHITE_MARKING"].microstructure, "none")
         self.assertEqual(MATERIAL_SPECS["WHITE_TEXTILE_CABLE"].microstructure, "textile")
         self.assertEqual(MATERIAL_SPECS["ASA_3D_PRINT_0_2MM"].microstructure, "layer_lines")
 
