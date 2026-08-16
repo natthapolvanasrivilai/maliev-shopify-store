@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -29,6 +30,39 @@ def _write(root: Path, relative: str, content: bytes = b"fixture") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     return path
+
+
+def _finalize_with_postcommit_hash_action(
+    root: Path,
+    repo_root: Path,
+    source: Path,
+    action: Callable[[], None],
+) -> None:
+    """Inject one source race immediately after its postcommit hash read."""
+
+    manifest_root = root / "manifests"
+    inventory_path = manifest_root / "blender-project-inventory.json"
+    real_sha256_file = inventory_module.sha256_file
+    source_hash_reads = 0
+
+    def hash_then_act(path: Path) -> str:
+        nonlocal source_hash_reads
+        digest = real_sha256_file(path)
+        if Path(path) == source:
+            source_hash_reads += 1
+            if source_hash_reads == 2:
+                action()
+        return digest
+
+    with patch.object(inventory_module, "sha256_file", side_effect=hash_then_act):
+        finalize_inventory(
+            inventory_path,
+            manifest_root / "blender-project-migration-report.md",
+            manifest_root / "consumer-graph.json",
+            manifest_root / "render-generation-inventory.json",
+            repo_root,
+            root,
+        )
 
 
 class LegacyInventoryContractTests(unittest.TestCase):
@@ -335,6 +369,116 @@ class LegacyInventoryContractTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "asset .*changed"):
                 verify_published_outputs(root)
+
+    def test_finalize_rejects_byte_replacement_after_postcommit_hash_without_deleting_competitor(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"original")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+            render_path = manifest_root / "render-generation-inventory.json"
+
+            def replace_source_and_output() -> None:
+                source.write_bytes(b"mutated source bytes")
+                render_path.write_bytes(b"competitor-owned-output")
+
+            with self.assertRaisesRegex(
+                RuntimeError, "asset metadata changed after hash"
+            ):
+                _finalize_with_postcommit_hash_action(
+                    root,
+                    Path(repo_text),
+                    source,
+                    replace_source_and_output,
+                )
+
+            self.assertEqual(render_path.read_bytes(), b"competitor-owned-output")
+
+    def test_finalize_rejects_delete_after_postcommit_hash(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"original")
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+
+            with self.assertRaisesRegex(
+                RuntimeError, "asset disappeared after hash"
+            ):
+                _finalize_with_postcommit_hash_action(
+                    root,
+                    Path(repo_text),
+                    source,
+                    source.unlink,
+                )
+
+    def test_finalize_rejects_identity_swap_after_postcommit_hash(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            manifest_root = root / "manifests"
+            source = _write(root, "scripts/render.py", b"same bytes")
+            original_stat = source.stat()
+            inventory_path = manifest_root / "blender-project-inventory.json"
+            atomic_write_json(inventory_path, inventory_payload(inventory_workspace(root)))
+
+            def swap_identity() -> None:
+                source.unlink()
+                source.write_bytes(b"same bytes")
+                os.utime(
+                    source,
+                    ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+                )
+
+            with self.assertRaisesRegex(
+                RuntimeError, "asset filesystem identity changed after hash"
+            ):
+                _finalize_with_postcommit_hash_action(
+                    root,
+                    Path(repo_text),
+                    source,
+                    swap_identity,
+                )
+
+    def test_closing_path_set_rejects_new_delete_and_rename_races(self):
+        for race in ("new", "delete", "rename"):
+            with self.subTest(race=race), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                source = _write(root, "scripts/render.py", b"original")
+                inventory = inventory_workspace(root)
+                real_discover = inventory_module._discover
+                discovery_calls = 0
+
+                def discover_with_closing_race(value: Path):
+                    nonlocal discovery_calls
+                    discovery_calls += 1
+                    if discovery_calls == 2:
+                        if race == "new":
+                            _write(root, "textures/late.png")
+                        elif race == "delete":
+                            source.unlink()
+                        else:
+                            source.rename(root / "scripts/renamed.py")
+                    return real_discover(value)
+
+                with patch.object(
+                    inventory_module,
+                    "_discover",
+                    side_effect=discover_with_closing_race,
+                ), self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
+                    inventory_module._verify_inventory_fresh(inventory, root)
+
+    def test_drift_after_successful_verification_is_rejected_by_next_verification(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            source = _write(root, "scripts/render.py", b"original")
+            inventory = inventory_workspace(root)
+
+            inventory_module._verify_inventory_fresh(inventory, root)
+            source.write_bytes(b"later external drift")
+
+            with self.assertRaisesRegex(RuntimeError, "asset .*changed"):
+                inventory_module._verify_inventory_fresh(inventory, root)
 
     def test_finalize_fails_when_governed_bytes_change_at_publish_boundary(self):
         with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:

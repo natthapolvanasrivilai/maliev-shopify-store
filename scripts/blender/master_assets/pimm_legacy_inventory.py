@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
+import functools
 import hashlib
 import json
 import os
@@ -10,6 +12,7 @@ import re
 import stat
 import sys
 import uuid
+from ctypes import wintypes
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
@@ -159,6 +162,86 @@ def sha256_file(path: Path) -> str:
 
 def _stat_identity(value: os.stat_result) -> tuple[int, int, int, int]:
     return (int(value.st_dev), int(value.st_ino), int(value.st_ctime_ns), int(value.st_size))
+
+
+@functools.lru_cache(maxsize=1)
+def _windows_file_api():
+    class FILE_BASIC_INFO(ctypes.Structure):
+        _fields_ = (
+            ("CreationTime", ctypes.c_longlong),
+            ("LastAccessTime", ctypes.c_longlong),
+            ("LastWriteTime", ctypes.c_longlong),
+            ("ChangeTime", ctypes.c_longlong),
+            ("FileAttributes", wintypes.DWORD),
+        )
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    create_file.restype = wintypes.HANDLE
+    get_information = kernel32.GetFileInformationByHandleEx
+    get_information.argtypes = (
+        wintypes.HANDLE,
+        ctypes.c_int,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+    )
+    get_information.restype = wintypes.BOOL
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+    return FILE_BASIC_INFO, create_file, get_information, close_handle
+
+
+def _windows_extended_path(path: Path) -> str:
+    value = str(_absolute_lexical(path))
+    if value.startswith("\\\\?\\"):
+        return value
+    if value.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + value[2:]
+    return "\\\\?\\" + value
+
+
+def _windows_change_time(path: Path) -> int | None:
+    """Return native Windows ChangeTime when the backing filesystem exposes it."""
+
+    if os.name != "nt":
+        return None
+    FILE_BASIC_INFO, create_file, get_information, close_handle = _windows_file_api()
+    handle = create_file(
+        _windows_extended_path(path),
+        0x0080,  # FILE_READ_ATTRIBUTES
+        0x00000001 | 0x00000002 | 0x00000004,  # share read/write/delete
+        None,
+        3,  # OPEN_EXISTING
+        0x02000000,  # FILE_FLAG_BACKUP_SEMANTICS
+        None,
+    )
+    if handle == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        information = FILE_BASIC_INFO()
+        if not get_information(
+            handle,
+            0,  # FileBasicInfo
+            ctypes.byref(information),
+            ctypes.sizeof(information),
+        ):
+            error = ctypes.get_last_error()
+            if error in {1, 50, 87}:  # unsupported by this filesystem/provider
+                return None
+            raise ctypes.WinError(error)
+        return int(information.ChangeTime)
+    finally:
+        close_handle(handle)
 
 
 def _is_reparse_or_symlink(path: Path) -> bool:
@@ -595,6 +678,44 @@ def _validate_generated_destinations(
     return expected
 
 
+_FreshnessState = tuple[tuple[int, int, int, int], int, int, int | None]
+
+
+def _freshness_state(root: Path, path: Path, relative: str, phase: str) -> _FreshnessState:
+    try:
+        guarded = _guard_path(root, path)
+        current_stat = guarded.stat(follow_symlinks=False)
+        change_time = _windows_change_time(guarded)
+    except FileNotFoundError as error:
+        raise RuntimeError(f"asset disappeared {phase}: {relative}") from error
+    return (
+        _stat_identity(current_stat),
+        int(current_stat.st_size),
+        int(current_stat.st_mtime_ns),
+        change_time,
+    )
+
+
+def _assert_freshness_state(
+    before: _FreshnessState,
+    after: _FreshnessState,
+    relative: str,
+    phase: str,
+) -> None:
+    if before[0][:2] != after[0][:2]:
+        raise RuntimeError(f"asset filesystem identity changed {phase}: {relative}")
+    if before[1:3] != after[1:3]:
+        raise RuntimeError(f"asset metadata changed {phase}: {relative}")
+    if before[3] is not None and after[3] is not None and before[3] != after[3]:
+        raise RuntimeError(f"asset Windows ChangeTime changed {phase}: {relative}")
+    if before[0] != after[0]:
+        raise RuntimeError(f"asset metadata identity changed {phase}: {relative}")
+
+
+def _discovered_path_set(discovered: Sequence[tuple[Path, str]], root: Path) -> set[str]:
+    return {_relative(path, root) for path, _kind in discovered}
+
+
 def _verify_inventory_fresh(
     inventory: InventoryManifest, root: Path, *, verify_hashes: bool = True
 ) -> None:
@@ -605,21 +726,59 @@ def _verify_inventory_fresh(
     if not inventory.root_identity or tuple(inventory.root_identity) != root_identity:
         raise RuntimeError("stale inventory root filesystem identity")
     current = _discover(root)
-    current_paths = tuple(_relative(path, root) for path, _kind in current)
-    if set(current_paths) != set(inventory.discovered_paths):
+    expected_paths = set(inventory.discovered_paths)
+    if _discovered_path_set(current, root) != expected_paths:
         raise RuntimeError("stale inventory path set")
     records = {record.path: record for record in inventory.records}
+    post_hash_states: dict[str, _FreshnessState] = {}
     for path, _kind in current:
         relative = _relative(path, root)
         record = records[relative]
-        guarded = _guard_path(root, path)
-        current_stat = guarded.stat(follow_symlinks=False)
-        if not record.filesystem_identity or tuple(record.filesystem_identity) != _stat_identity(current_stat):
+        before = _freshness_state(root, path, relative, "before hash")
+        if not record.filesystem_identity or tuple(record.filesystem_identity) != before[0]:
             raise RuntimeError(f"asset filesystem identity changed: {relative}")
-        if record.size != current_stat.st_size or record.mtime_ns != current_stat.st_mtime_ns:
+        if record.size != before[1] or record.mtime_ns != before[2]:
             raise RuntimeError(f"asset metadata changed: {relative}")
-        if verify_hashes and sha256_file(guarded) != record.sha256:
+        digest = sha256_file(path) if verify_hashes else None
+        after = _freshness_state(root, path, relative, "after hash")
+        _assert_freshness_state(before, after, relative, "after hash")
+        if digest is not None and digest != record.sha256:
             raise RuntimeError(f"asset content hash changed: {relative}")
+        post_hash_states[relative] = after
+
+    closing = _discover(root)
+    if _discovered_path_set(closing, root) != expected_paths:
+        raise RuntimeError("stale inventory path set at closing verification")
+    closing_states: dict[str, _FreshnessState] = {}
+    for path, _kind in closing:
+        relative = _relative(path, root)
+        state = _freshness_state(root, path, relative, "during closing verification")
+        _assert_freshness_state(
+            post_hash_states[relative],
+            state,
+            relative,
+            "during closing verification",
+        )
+        closing_states[relative] = state
+
+    # These two complete state passes overlap between the last post-hash state
+    # and the first closing state. Equal identity/metadata/ChangeTime values give
+    # verification one stable source snapshot instead of unrelated per-file reads.
+    final = _discover(root)
+    if _discovered_path_set(final, root) != expected_paths:
+        raise RuntimeError("stale inventory path set at final consistency check")
+    for path, _kind in final:
+        relative = _relative(path, root)
+        state = _freshness_state(root, path, relative, "during final consistency check")
+        _assert_freshness_state(
+            closing_states[relative],
+            state,
+            relative,
+            "during final consistency check",
+        )
+    final_root_identity = _stat_identity(root.stat(follow_symlinks=False))[:2]
+    if final_root_identity != root_identity:
+        raise RuntimeError("stale inventory root filesystem identity at closing verification")
 
 
 def _json_bytes(payload: Mapping[str, object]) -> bytes:
