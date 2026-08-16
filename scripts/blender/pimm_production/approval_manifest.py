@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Mapping
 
-from .io_contract import atomic_write_json, sha256_file
+from .io_contract import sha256_file
 
 
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
@@ -34,6 +35,24 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} must be an object")
     return value
+
+
+def _create_immutable_json(path: Path, payload: Mapping[str, object]) -> None:
+    """Create a decision exactly once using the platform exclusive-create primitive."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_BINARY)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write((json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def _proof_output_paths(proof_manifest_path: Path, proof: Mapping[str, object]) -> dict[str, str]:
@@ -199,11 +218,13 @@ def record_decision(proof_manifest: Path, shot_id: str, decision: str, owner: st
     if destination.exists():
         raise ValueError("approval revision already exists; decisions are immutable")
     prior = sha256_file(existing[-1]) if existing else None
+    prior_path = str(existing[-1].resolve()) if existing else None
     payload: dict[str, object] = {
         "schema": _APPROVAL_SCHEMA,
         "schema_version": 1,
         "revision": revision,
         "prior_approval_sha256": prior,
+        "prior_approval_path": prior_path,
         "decision": decision,
         "owner": owner.strip(),
         "notes": notes,
@@ -215,7 +236,7 @@ def record_decision(proof_manifest: Path, shot_id: str, decision: str, owner: st
         "render_settings": render_settings,
         "proof_output_sha256": output_hashes,
     }
-    atomic_write_json(destination, payload)
+    _create_immutable_json(destination, payload)
     return destination
 
 

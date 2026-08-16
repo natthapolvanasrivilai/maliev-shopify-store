@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -16,12 +17,13 @@ from scripts.blender.pimm_production.approval_manifest import (
     validate_approval,
     validate_approval_payload,
 )
-from scripts.blender.pimm_production.blender_final_render import authorize_final_render
+from scripts.blender.pimm_production.blender_final_render import authorize_final_render, run_authorized_final
 from scripts.blender.pimm_production.release_manifest import build_release_manifest
 
 
 SHOT_ID = "pimm-30g--hero--three-quarter"
 RELEASE_ID = "release-2026-08-15-r01"
+BLENDER = Path(r"D:\Blender 5.2\blender.exe")
 
 
 def _sha256(path: Path) -> str:
@@ -149,6 +151,49 @@ def write_release_output_fixture(root: Path, generation_id: str) -> Path:
 
 
 class ApprovalReleaseTests(unittest.TestCase):
+    def test_native_final_runner_is_an_explicit_authorized_operation(self) -> None:
+        """Catches a final gate that authorizes data but cannot render native evidence."""
+
+        self.assertTrue(callable(run_authorized_final))
+
+    @unittest.skipUnless(BLENDER.is_file(), "fixture Blender runtime unavailable")
+    def test_native_final_runner_emits_real_exr_png_webp_and_manifest(self) -> None:
+        """Catches a final runner that claims release evidence without native media."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            approval_path, final_contract_path = write_approval_fixture(root, "approved", "a" * 64)
+            scene_path = root / "fixtures" / "final.blend"
+            scene_path.parent.mkdir(parents=True)
+            setup = "\n".join((
+                "import bpy",
+                "bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))",
+                "bpy.context.object.data.materials.append(bpy.data.materials.new('fixture-material'))",
+                "bpy.ops.object.camera_add(location=(0, -6, 0))",
+                "camera = bpy.context.object",
+                "camera.rotation_euler = (1.5708, 0, 0)",
+                "bpy.context.scene.camera = camera",
+                "bpy.ops.wm.save_as_mainfile(filepath=" + repr(str(scene_path)) + ")",
+            ))
+            result = subprocess.run(
+                [str(BLENDER), "--factory-startup", "-b", "--python-expr", setup],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            final = json.loads(final_contract_path.read_text(encoding="utf-8"))
+            final["asset_root"] = str(root)
+            final["scene_path"] = str(scene_path)
+            _write_json(final_contract_path, final)
+            manifest_path = run_authorized_final(approval_path, final_contract_path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual({item["mime_type"] for item in manifest["outputs"]}, {"image/x-exr", "image/png", "image/webp"})
+            self.assertTrue((manifest_path.parent / "final.exr").read_bytes().startswith(b"v/1\x01"))
+            with Image.open(manifest_path.parent / "final.png") as png:
+                self.assertEqual(png.mode, "RGBA")
+                self.assertEqual(png.size, (16, 12))
+
     def test_any_scene_drift_invalidates_approval(self) -> None:
         approval = {
             "schema_version": 1,
@@ -172,6 +217,16 @@ class ApprovalReleaseTests(unittest.TestCase):
             self.assertEqual(second_payload["revision"], 2)
             self.assertEqual(second_payload["prior_approval_sha256"], _sha256(first))
             self.assertEqual(validate_approval(first, first_payload["inputs"]), [])
+
+    def test_later_rejection_revokes_an_older_approved_revision(self) -> None:
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            proof = _proof_manifest(root, "a" * 64)
+            approved = record_decision(proof, SHOT_ID, "approved", "natth", "approved")
+            record_decision(proof, SHOT_ID, "rejected", "natth", "rejected later")
+            _, final_contract = write_approval_fixture(root / "final", "approved", "a" * 64)
+            with self.assertRaisesRegex(ValueError, "latest approval revision"):
+                authorize_final_render(approved, final_contract)
 
     def test_proof_pixel_mutation_invalidates_recorded_approval(self) -> None:
         with TemporaryDirectory() as root_text:
