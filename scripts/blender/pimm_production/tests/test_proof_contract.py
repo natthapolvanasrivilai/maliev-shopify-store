@@ -111,22 +111,88 @@ def _run_fixture_proofs(
     inject_drift_after_prepare: bool = False,
     inject_authored_mutation: str | None = None,
     inject_dependency_mutation: str | None = None,
+    inject_minimal_geometry_nodes: bool = False,
+    inject_pointer_socket_materials: bool = False,
+    inject_pointer_socket_swap: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
     runner = PROOF_RUNNER
     if (
         inject_drift_after_prepare
         or inject_authored_mutation is not None
         or inject_dependency_mutation is not None
+        or inject_minimal_geometry_nodes
+        or inject_pointer_socket_materials
+        or inject_pointer_socket_swap
     ):
         runner = root / "inject_proof_drift.py"
         runner.write_text(
             "\n".join(
                 [
                     "from pathlib import Path",
+                    "import json",
                     "import sys",
                     f"sys.path.insert(0, {str(REPO_ROOT)!r})",
                     "import bpy",
                     "import scripts.blender.pimm_production.blender_proof_render as proof_render",
+                    *(
+                        [
+                            "original_minimal_capture = proof_render._capture_authored_settings",
+                            "minimal_setup_done = False",
+                            "minimal_capture_written = False",
+                            "def capture_with_minimal_geometry_nodes(bpy_arg):",
+                            "    global minimal_setup_done, minimal_capture_written, fixture_group, fixture_set_material, fixture_set_material_b",
+                            "    if not minimal_setup_done:",
+                            "        minimal_setup_done = True",
+                            "        fixture_mesh = bpy.data.meshes.new('MINIMAL_GEOMETRY_MESH')",
+                            "        fixture_mesh.from_pydata([(-0.1,-0.1,0.1),(0.1,-0.1,0.1),(0.0,0.1,0.1)], [], [(0,1,2)])",
+                            "        fixture_object = bpy.data.objects.new('MINIMAL_GEOMETRY_OBJECT', fixture_mesh)",
+                            "        bpy.context.scene.collection.objects.link(fixture_object)",
+                            "        fixture_group = bpy.data.node_groups.new('MINIMAL_GEOMETRY_GROUP', 'GeometryNodeTree')",
+                            "        fixture_group.interface.new_socket(name='Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')",
+                            "        fixture_group.interface.new_socket(name='Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')",
+                            "        fixture_input = fixture_group.nodes.new('NodeGroupInput')",
+                            "        fixture_set_material = fixture_group.nodes.new('GeometryNodeSetMaterial')",
+                            "        fixture_output = fixture_group.nodes.new('NodeGroupOutput')",
+                            *(
+                                [
+                                    "        fixture_material_a = bpy.data.materials.new('SOCKET_MATERIAL_A')",
+                                    "        fixture_material_b = bpy.data.materials.new('SOCKET_MATERIAL_B')",
+                                    "        fixture_set_material.name = 'SET_MATERIAL_A'",
+                                    "        fixture_set_material.inputs['Material'].default_value = fixture_material_a",
+                                    "        fixture_set_material_b = fixture_group.nodes.new('GeometryNodeSetMaterial')",
+                                    "        fixture_set_material_b.name = 'SET_MATERIAL_B'",
+                                    "        fixture_set_material_b.inputs['Material'].default_value = fixture_material_b",
+                                    "        fixture_group.links.new(fixture_input.outputs['Geometry'], fixture_set_material.inputs['Geometry'])",
+                                    "        fixture_group.links.new(fixture_set_material.outputs['Geometry'], fixture_set_material_b.inputs['Geometry'])",
+                                    "        fixture_group.links.new(fixture_set_material_b.outputs['Geometry'], fixture_output.inputs['Geometry'])",
+                                ]
+                                if inject_pointer_socket_materials or inject_pointer_socket_swap
+                                else [
+                                    "        fixture_set_material_b = None",
+                                    "        fixture_group.links.new(fixture_input.outputs['Geometry'], fixture_set_material.inputs['Geometry'])",
+                                    "        fixture_group.links.new(fixture_set_material.outputs['Geometry'], fixture_output.inputs['Geometry'])",
+                                ]
+                            ),
+                            "        fixture_modifier = fixture_object.modifiers.new('MINIMAL_GEOMETRY_NODES', 'NODES')",
+                            "        fixture_modifier.node_group = fixture_group",
+                            "    fixture_capture = original_minimal_capture(bpy_arg)",
+                            "    if not minimal_capture_written:",
+                            "        minimal_capture_written = True",
+                            "        Path(" + repr(str(root / "minimal-geometry-capture.json")) + ").write_text(json.dumps(fixture_capture, sort_keys=True), encoding='utf-8')",
+                            "    return fixture_capture",
+                            "proof_render._capture_authored_settings = capture_with_minimal_geometry_nodes",
+                            "original_environment_errors = proof_render._proof_environment_errors",
+                            "def fixture_environment_errors(bpy_arg):",
+                            "    return [error for error in original_environment_errors(bpy_arg) if error != 'unauthorized local proof environment mesh object: MINIMAL_GEOMETRY_OBJECT']",
+                            "proof_render._proof_environment_errors = fixture_environment_errors",
+                        ]
+                        if (
+                            inject_minimal_geometry_nodes
+                            or inject_pointer_socket_materials
+                            or inject_pointer_socket_swap
+                        )
+                        else []
+                    ),
                     *(
                         [
                             "scene = bpy.context.scene",
@@ -214,6 +280,18 @@ def _run_fixture_proofs(
                     "original = proof_render._run_pillow_finalizer",
                     "def injected(*args, **kwargs):",
                     "    result = original(*args, **kwargs)",
+                    *(
+                        [
+                            "    pointer_a = fixture_set_material.inputs['Material'].default_value",
+                            "    pointer_b = fixture_set_material_b.inputs['Material'].default_value",
+                            "    fixture_set_material.inputs['Material'].default_value = pointer_b",
+                            "    fixture_set_material_b.inputs['Material'].default_value = pointer_a",
+                            "    swapped_capture = original_minimal_capture(bpy)",
+                            "    Path(" + repr(str(root / "swapped-material-capture.json")) + ").write_text(json.dumps(swapped_capture, sort_keys=True), encoding='utf-8')",
+                        ]
+                        if inject_pointer_socket_swap
+                        else []
+                    ),
                     *(
                         [
                             f"    source = Path({str(root / 'sources' / 'PIMM-30G-authoritative-source.step')!r})",
@@ -494,6 +572,51 @@ def _valid_dependency_modifier() -> dict[str, object]:
         "interface_inputs": [],
         "node_group": {"identity": group_identity, "nodes": [], "links": []},
     }
+
+
+def _valid_material_socket_modifier(
+    material_identity: dict[str, object],
+) -> dict[str, object]:
+    modifier = _valid_dependency_modifier()
+    modifier["node_group"]["nodes"] = [
+        {
+            "name": "SET_MATERIAL",
+            "type": "GeometryNodeSetMaterial",
+            "mute": False,
+            "properties": {
+                "bl_description": "Assign a material to geometry elements",
+                "bl_height_default": 100.0,
+                "bl_height_max": 3.4028234663852886e38,
+                "bl_height_min": 30.0,
+                "bl_icon": "NONE",
+                "bl_idname": "GeometryNodeSetMaterial",
+                "bl_label": "Set Material",
+                "bl_static_type": "SET_MATERIAL",
+                "bl_width_default": 140.0,
+                "bl_width_max": 700.0,
+                "bl_width_min": 100.0,
+                "color_tag": "GEOMETRY",
+                "hide": False,
+                "mute": False,
+                "type": "SET_MATERIAL",
+                "use_custom_color": False,
+                "warning_propagation": "ALL",
+            },
+            "inputs": [
+                {
+                    "name": "Material",
+                    "identifier": "Material",
+                    "type": "NodeSocketMaterial",
+                    "enabled": True,
+                    "is_linked": False,
+                    "default": {"kind": "identity", "value": dict(material_identity)},
+                }
+            ],
+            "outputs": [],
+            "data": {"parent": None},
+        }
+    ]
+    return modifier
 
 
 def _valid_dependency_image() -> dict[str, object]:
@@ -922,6 +1045,9 @@ class ProofContractTests(unittest.TestCase):
             "layer-child-path-mismatch",
             "object-membership-path-spoof",
             "unknown-material-reference",
+            "material-socket-wrong-pointer-type",
+            "material-socket-unknown-identity",
+            "material-socket-identity-null-kind",
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation), TemporaryDirectory() as root_text:
@@ -1137,6 +1263,48 @@ class ProofContractTests(unittest.TestCase):
                         record["identity"],
                         authored["camera"]["identity"],
                     ]
+                elif mutation in {
+                    "material-socket-wrong-pointer-type",
+                    "material-socket-unknown-identity",
+                    "material-socket-identity-null-kind",
+                }:
+                    material_identity: dict[str, object] = {
+                        "name": "AUTHORED_SOCKET_MATERIAL",
+                        "type": "Material",
+                        "library": None,
+                    }
+                    record = _valid_dependency_object()
+                    record["modifiers"] = [
+                        _valid_material_socket_modifier(material_identity)
+                    ]
+                    authored["objects"] = [
+                        record,
+                        _valid_camera_dependency_object(),
+                    ]
+                    authored["collection_tree"]["objects"] = [
+                        record["identity"],
+                        authored["camera"]["identity"],
+                    ]
+                    authored["materials"] = [
+                        {
+                            "identity": material_identity,
+                            "properties": {},
+                            "node_tree": None,
+                        }
+                    ]
+                    socket_default = record["modifiers"][0]["node_group"]["nodes"][
+                        0
+                    ]["inputs"][0]["default"]
+                    if mutation == "material-socket-wrong-pointer-type":
+                        socket_default["value"] = {
+                            "name": "AUTHORED_OBJECT",
+                            "type": "Object",
+                            "library": None,
+                        }
+                    elif mutation == "material-socket-unknown-identity":
+                        socket_default["value"]["name"] = "UNKNOWN_SOCKET_MATERIAL"
+                    else:
+                        socket_default["value"] = None
                 if mutation != "inconsistent-digest":
                     _recompute_dependency_digest(authored)
                 else:
@@ -1163,6 +1331,9 @@ class ProofContractTests(unittest.TestCase):
                     "layer-child-path-mismatch": "path leaf",
                     "object-membership-path-spoof": "does not resolve",
                     "unknown-material-reference": "captured registry",
+                    "material-socket-wrong-pointer-type": "parent context",
+                    "material-socket-unknown-identity": "captured registry",
+                    "material-socket-identity-null-kind": "exact data-block identity",
                 }
                 with patch.object(proof_module, "ASSET_ROOT", root):
                     with self.assertRaisesRegex(
@@ -1472,6 +1643,213 @@ class ProofContractTests(unittest.TestCase):
             (output_root / "contact-sheet.json").unlink()
             with self.assertRaisesRegex(ValueError, "hash mismatch"):
                 build_contact_sheet(manifest_path, output_root / "mutated-sheet.png")
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_blender_52_minimal_geometry_nodes_capture_and_finalizer_succeed(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, scene = build_scene_fixture("valid", root)
+            source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+            scene_contract_path = _write_scene_contract(
+                root, scene, "scenes/fixtures/minimal-geometry-scene.json"
+            )
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                scene_sha256=sha256_file(scene_path),
+                master_sha256=scene.master_sha256,
+                material_library_sha256=scene.material_library_sha256,
+                resolution_percentage=12.5,
+                samples=16,
+            )
+            proof_path = root / "scenes" / "fixtures" / "minimal-geometry-proof.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_minimal_geometry_nodes=True,
+            )
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                msg=f"stdout={result.stdout}\nstderr={result.stderr}",
+            )
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "pass")
+            self.assertEqual(rows[0]["generation_id"], contract.generation_id)
+            self.assertTrue(rows[0]["fingerprints_unchanged"])
+            capture = json.loads(
+                (root / "minimal-geometry-capture.json").read_text(encoding="utf-8")
+            )
+            modifier = next(
+                modifier
+                for obj in capture["objects"]
+                for modifier in obj["modifiers"]
+                if modifier["name"] == "MINIMAL_GEOMETRY_NODES"
+            )
+            self.assertEqual(
+                [node["type"] for node in modifier["node_group"]["nodes"]],
+                ["NodeGroupInput", "NodeGroupOutput", "GeometryNodeSetMaterial"],
+            )
+            set_material = next(
+                node
+                for node in modifier["node_group"]["nodes"]
+                if node["type"] == "GeometryNodeSetMaterial"
+            )
+            material_socket = next(
+                socket
+                for socket in set_material["inputs"]
+                if socket["type"] == "NodeSocketMaterial"
+            )
+            self.assertEqual(
+                material_socket["default"], {"kind": "value", "value": None}
+            )
+            manifest = json.loads(
+                (root / contract.output_root / "manifest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(manifest["status"], "pass")
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_blender_52_material_socket_defaults_capture_stable_identities(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, scene = build_scene_fixture("valid", root)
+            source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+            scene_contract_path = _write_scene_contract(
+                root, scene, "scenes/fixtures/pointer-socket-scene.json"
+            )
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                scene_sha256=sha256_file(scene_path),
+                master_sha256=scene.master_sha256,
+                material_library_sha256=scene.material_library_sha256,
+                resolution_percentage=12.5,
+                samples=16,
+            )
+            proof_path = root / "scenes" / "fixtures" / "pointer-socket-proof.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_pointer_socket_materials=True,
+            )
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                msg=f"stdout={result.stdout}\nstderr={result.stderr}",
+            )
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "pass")
+            capture = json.loads(
+                (root / "minimal-geometry-capture.json").read_text(encoding="utf-8")
+            )
+            modifier = next(
+                modifier
+                for obj in capture["objects"]
+                for modifier in obj["modifiers"]
+                if modifier["name"] == "MINIMAL_GEOMETRY_NODES"
+            )
+            nodes = {
+                node["name"]: node for node in modifier["node_group"]["nodes"]
+            }
+            for suffix in ("A", "B"):
+                material_socket = next(
+                    socket
+                    for socket in nodes[f"SET_MATERIAL_{suffix}"]["inputs"]
+                    if socket["name"] == "Material"
+                )
+                self.assertIsNotNone(material_socket["default"])
+                self.assertEqual(
+                    material_socket["default"],
+                    {
+                        "kind": "identity",
+                        "value": {
+                            "name": f"SOCKET_MATERIAL_{suffix}",
+                            "type": "Material",
+                            "library": None,
+                        },
+                    },
+                )
+
+    @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
+    def test_material_socket_swap_changes_digest_and_blocks_final_publication(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene_path, scene = build_scene_fixture("valid", root)
+            source_path = root / "sources" / "PIMM-30G-authoritative-source.step"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_bytes(b"TASK-5-FIXTURE-SOURCE\n")
+            scene_contract_path = _write_scene_contract(
+                root, scene, "scenes/fixtures/pointer-swap-scene.json"
+            )
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path=scene_contract_path.relative_to(root).as_posix(),
+                scene_sha256=sha256_file(scene_path),
+                master_sha256=scene.master_sha256,
+                material_library_sha256=scene.material_library_sha256,
+                resolution_percentage=12.5,
+                samples=16,
+            )
+            proof_path = root / "scenes" / "fixtures" / "pointer-swap-proof.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+
+            result, rows = _run_fixture_proofs(
+                scene_path,
+                [proof_path],
+                root,
+                inject_pointer_socket_swap=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(len(rows), 1, msg=result.stdout + result.stderr)
+            self.assertEqual(
+                rows[0]["status"],
+                "blocked_settings_drift",
+                msg=result.stdout + result.stderr,
+            )
+            before = json.loads(
+                (root / "minimal-geometry-capture.json").read_text(encoding="utf-8")
+            )
+            after = json.loads(
+                (root / "swapped-material-capture.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [material["identity"] for material in before["materials"]],
+                [material["identity"] for material in after["materials"]],
+            )
+            self.assertNotEqual(
+                before["dependency_sha256"], after["dependency_sha256"]
+            )
+            output_root = root / contract.output_root
+            for name in (
+                "manifest.json",
+                "contact-sheet.png",
+                "contact-sheet.json",
+                ".manifest.pending.json",
+                ".contact-sheet.pending.png",
+                ".contact-sheet.pending.json",
+            ):
+                self.assertFalse((output_root / name).exists(), msg=name)
 
     @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
     def test_fixture_composition_and_material_proofs_render_real_outputs_and_cleanup(self):

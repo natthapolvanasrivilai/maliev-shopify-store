@@ -308,11 +308,20 @@ _NODE_SOCKET_TYPES = frozenset(
         "NodeSocketVirtual",
     }
 )
+_NODE_SOCKET_POINTER_TYPES = {
+    "NodeSocketCollection": "Collection",
+    "NodeSocketImage": "Image",
+    "NodeSocketMaterial": "Material",
+    "NodeSocketObject": "Object",
+}
+# Blender 5.2 still exposes NodeSocketTexture RNA, but it is absent from the
+# node-group interface enum and no renderer-supported node emits it.
 _MODIFIER_TYPES = frozenset({"NODES"})
 _GEOMETRY_INTERFACE_SOCKET_TYPES = frozenset(
     {
         "NodeSocketCollection",
         "NodeSocketFloat",
+        "NodeSocketGeometry",
         "NodeSocketImage",
         "NodeSocketMaterial",
         "NodeSocketObject",
@@ -357,6 +366,7 @@ _NODE_COMMON_PROPERTY_FIELDS = frozenset(
     }
 )
 _NODE_EXTRA_PROPERTY_FIELDS = {
+    "NodeGroupOutput": frozenset({"is_active_output"}),
     "ShaderNodeBsdfPrincipled": frozenset({"distribution", "subsurface_method"}),
     "ShaderNodeGroup": frozenset(),
     "ShaderNodeMath": frozenset({"operation", "use_clamp"}),
@@ -368,6 +378,9 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     ),
 }
 _NODE_STATIC_TYPES = {
+    "GeometryNodeSetMaterial": "SET_MATERIAL",
+    "NodeGroupInput": "GROUP_INPUT",
+    "NodeGroupOutput": "GROUP_OUTPUT",
     "ShaderNodeBackground": "BACKGROUND",
     "ShaderNodeBsdfPrincipled": "BSDF_PRINCIPLED",
     "ShaderNodeEmission": "EMISSION",
@@ -940,7 +953,27 @@ def _validate_socket(value: object, label: str) -> None:
         raise ValueError(f"{label} type is not a supported Blender socket identifier")
     if not isinstance(socket["enabled"], bool) or not isinstance(socket["is_linked"], bool):
         raise ValueError(f"{label} enabled/is_linked must be boolean")
-    _validate_json_value(socket["default"], f"{label} default")
+    if socket_type in _NODE_SOCKET_POINTER_TYPES:
+        default = _require_exact_mapping(
+            socket["default"], _DEPENDENCY_VALUE_FIELDS, f"{label} default"
+        )
+        if default["kind"] == "value":
+            if default["value"] is not None:
+                raise ValueError(f"{label} null pointer default must use value null")
+        elif default["kind"] == "identity":
+            _validate_dependency_value(
+                default,
+                f"{label} default",
+                expected_identity_types=frozenset(
+                    {_NODE_SOCKET_POINTER_TYPES[socket_type]}
+                ),
+            )
+        else:
+            raise ValueError(
+                f"{label} pointer default must be an identity or explicit value null"
+            )
+    else:
+        _validate_json_value(socket["default"], f"{label} default")
 
 
 def _validate_image(value: object, label: str) -> None:
@@ -1413,16 +1446,20 @@ def _validate_modifier(value: object, label: str) -> None:
         )
         if socket_type not in _GEOMETRY_INTERFACE_SOCKET_TYPES:
             raise ValueError(f"{label} interface socket_type is unsupported")
-        property_fields = (
-            frozenset({"attribute_name", "name", "type", "value"})
-            if socket_type == "NodeSocketFloat"
-            else frozenset({"name", "type"})
-        )
+        if socket_type == "NodeSocketFloat":
+            property_fields = frozenset({"attribute_name", "name", "type", "value"})
+            binding_types = frozenset({"VALUE"})
+        elif socket_type == "NodeSocketGeometry":
+            property_fields = frozenset({"name", "type"})
+            binding_types = frozenset({"FALLBACK"})
+        else:
+            property_fields = frozenset({"name", "type"})
+            binding_types = frozenset({"VALUE"})
         _validate_properties(
             record["properties"],
             f"{label} interface properties",
             exact_fields=property_fields,
-            enum_domains={"type": frozenset({"VALUE"})},
+            enum_domains={"type": binding_types},
         )
         deps = record["references"]
         if not isinstance(deps, Mapping):
@@ -1433,7 +1470,7 @@ def _validate_modifier(value: object, label: str) -> None:
             "NodeSocketMaterial": frozenset({"Material"}),
             "NodeSocketObject": frozenset({"Object"}),
         }
-        if socket_type == "NodeSocketFloat":
+        if socket_type in {"NodeSocketFloat", "NodeSocketGeometry"}:
             if deps:
                 raise ValueError(f"{label} scalar interface input cannot carry pointers")
         else:
@@ -1824,6 +1861,7 @@ def _validate_dependency_graph(
     full_node_trees: dict[str, str] = {}
     recursive_node_tree_references: set[str] = set()
     referenced_images: dict[str, str] = {}
+    socket_identity_references: list[tuple[Mapping[str, object], str]] = []
 
     def visit_nested(value: object) -> None:
         if isinstance(value, Mapping):
@@ -1845,6 +1883,15 @@ def _validate_dependency_graph(
                 if prior != encoded:
                     raise ValueError(f"{label} node-tree identity has conflicting records")
                 for node in value["nodes"]:
+                    for socket in (*node["inputs"], *node["outputs"]):
+                        socket_type = str(socket["type"])
+                        if socket_type not in _NODE_SOCKET_POINTER_TYPES:
+                            continue
+                        dependency = socket["default"]
+                        if dependency["kind"] == "identity":
+                            socket_identity_references.append(
+                                (dependency["value"], socket_type)
+                            )
                     visit_nested(node["data"])
                 return
             for item in value.values():
@@ -1857,11 +1904,29 @@ def _validate_dependency_graph(
         visit_nested(authored[field])
     if not recursive_node_tree_references <= set(full_node_trees):
         raise ValueError(f"{label} recursive node-tree reference does not resolve")
-    if set(referenced_images) != set(images):
+    socket_image_keys = {
+        _identity_key(identity)
+        for identity, socket_type in socket_identity_references
+        if _NODE_SOCKET_POINTER_TYPES[socket_type] == "Image"
+    }
+    if set(referenced_images) | socket_image_keys != set(images):
         raise ValueError(f"{label} image registry does not match referenced images")
     for key, encoded in referenced_images.items():
         if _canonical_key(images[key]) != encoded:
             raise ValueError(f"{label} image reference differs from its registry record")
+    socket_registries: dict[str, Mapping[str, object] | set[str]] = {
+        "Collection": collection_identities,
+        "Image": images,
+        "Material": materials,
+        "Object": objects,
+    }
+    for identity, socket_type in socket_identity_references:
+        identity_type = _NODE_SOCKET_POINTER_TYPES[socket_type]
+        require_registry_identity(
+            identity,
+            socket_registries[identity_type],
+            f"{label} node socket {identity_type} identity",
+        )
 
 
 def _validate_authored_settings(value: object, label: str) -> Mapping[str, object]:

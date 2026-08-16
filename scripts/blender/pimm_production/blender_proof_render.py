@@ -388,20 +388,45 @@ def _rna_scalar_properties(
     return dict(sorted(result.items()))
 
 
-def _socket_record(socket: object) -> dict[str, object]:
-    default = _UNSUPPORTED
-    if hasattr(socket, "default_value"):
+def _socket_record(
+    socket: object,
+    image_cache: dict[str, dict[str, object]] | None = None,
+) -> dict[str, object]:
+    socket_type = str(getattr(socket, "bl_idname", type(socket).__name__))
+    if socket_type in proof_module._NODE_SOCKET_POINTER_TYPES:
         try:
-            default = _stable_value(socket.default_value)
-        except (AttributeError, RuntimeError, TypeError, ValueError):
-            pass
+            pointer = socket.default_value
+        except (AttributeError, RuntimeError, TypeError, ValueError) as error:
+            raise ValueError(
+                f"Blender pointer socket default is unreadable: {socket_type}"
+            ) from error
+        if pointer is None:
+            default: object = {"kind": "value", "value": None}
+        else:
+            identity = _data_identity(pointer)
+            expected_type = proof_module._NODE_SOCKET_POINTER_TYPES[socket_type]
+            if identity is None or identity["type"] != expected_type:
+                raise ValueError(
+                    f"Blender pointer socket default type is incompatible: {socket_type}"
+                )
+            if socket_type == "NodeSocketImage":
+                _image_identity(pointer, image_cache)
+            default = {"kind": "identity", "value": identity}
+    else:
+        stable = _UNSUPPORTED
+        if hasattr(socket, "default_value"):
+            try:
+                stable = _stable_value(socket.default_value)
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                pass
+        default = None if stable is _UNSUPPORTED else stable
     return {
         "name": str(socket.name),
         "identifier": str(getattr(socket, "identifier", "")),
-        "type": str(getattr(socket, "bl_idname", type(socket).__name__)),
+        "type": socket_type,
         "enabled": bool(getattr(socket, "enabled", True)),
         "is_linked": bool(getattr(socket, "is_linked", False)),
-        "default": None if default is _UNSUPPORTED else default,
+        "default": default,
     }
 
 
@@ -591,8 +616,12 @@ def _node_tree_record(
                         }
                     ),
                 ),
-                "inputs": [_socket_record(socket) for socket in node.inputs],
-                "outputs": [_socket_record(socket) for socket in node.outputs],
+                "inputs": [
+                    _socket_record(socket, image_cache) for socket in node.inputs
+                ],
+                "outputs": [
+                    _socket_record(socket, image_cache) for socket in node.outputs
+                ],
                 "data": dict(sorted(pointers.items())),
             }
         )
