@@ -1674,14 +1674,45 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                         "archive destination collision blocks ownership residual recovery"
                     )
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                _rename_exact_no_replace(
-                    residual_path,
-                    destination,
-                    residual_item,
-                    "archive residual normalization",
-                    True,
-                    residual_root=archive_root,
-                )
+                try:
+                    _rename_exact_no_replace(
+                        residual_path,
+                        destination,
+                        residual_item,
+                        "archive residual normalization",
+                        True,
+                        residual_root=archive_root,
+                    )
+                except _OwnedFileTransitionError as normalization_error:
+                    successor_residual = normalization_error.residual or residual
+                    successor_payload = json.loads(json.dumps(payload))
+                    successor_payload["status"] = "failed-partial-rollback"
+                    successor_payload["error"] = (
+                        f"{type(normalization_error).__name__}: "
+                        f"{normalization_error}"
+                    )
+                    successor_path = str(successor_residual["path"])
+                    successor_payload["residuals"] = [
+                        successor_path
+                        if str(value) == str(residual["path"])
+                        else value
+                        for value in successor_payload["residuals"]
+                    ]
+                    for successor_item in successor_payload["items"]:
+                        if (
+                            str(successor_item["plan_item"]["source"])
+                            == plan_item.source
+                        ):
+                            successor_item["error"] = successor_payload["error"]
+                            successor_item["residual"] = successor_residual
+                            break
+                    failure_path = _publish_failure_journal(
+                        archive_root, successor_payload
+                    )
+                    normalization_error.add_note(
+                        f"immutable normalization failure journal: {failure_path}"
+                    )
+                    raise
             elif destination_exists:
                 _verify_file(
                     destination,

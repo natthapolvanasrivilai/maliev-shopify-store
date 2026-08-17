@@ -792,6 +792,103 @@ class ArchivePlanTests(unittest.TestCase):
             self.assertEqual(_sha256(active), item.sha256)
             self.assertFalse(archived.exists())
 
+    def test_residual_normalization_dual_swap_publishes_exact_successor_and_recovers(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            archived = _prepare_restore_manifest(fixture)
+            item = fixture.plan.items[0]
+            active = Path(item.source)
+            active.unlink()
+            recorded_residual = archived.with_name(
+                ".owned-residual-normalization-source.blend1"
+            )
+            archived.rename(recorded_residual)
+            residual_status = recorded_residual.stat(follow_symlinks=False)
+            payload = _manifest_payload(fixture)
+            payload["status"] = "failed-partial-rollback"
+            payload["error"] = "injected ownership residual"
+            payload["residuals"] = [str(recorded_residual.resolve())]
+            payload["items"][0]["state"] = "ownership-residual"
+            payload["items"][0]["error"] = "injected ownership residual"
+            payload["items"][0]["residual"] = {
+                "path": str(recorded_residual.resolve()),
+                "filesystem_identity": list(archive_module._identity(residual_status)),
+                "sha256": item.sha256,
+                "size": item.size,
+                "mtime_ns": item.mtime_ns,
+            }
+            _write_manifest_payload(fixture, payload)
+            displaced = archived.with_name("displaced-normalized-owned.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            injected = False
+
+            def swap_both_normalization_paths(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ) -> None:
+                nonlocal injected
+                if label == "archive residual normalization" and not injected:
+                    injected = True
+                    archived.rename(displaced)
+                    archived.write_bytes(b"canonical-archive-competitor")
+                    recorded_residual.write_bytes(b"recorded-residual-competitor")
+                    raise OSError("injected residual normalization dual swap")
+                original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_both_normalization_paths,
+                ),
+                self.assertRaisesRegex(OSError, "owned bytes retained"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertEqual(archived.read_bytes(), b"canonical-archive-competitor")
+            self.assertEqual(
+                recorded_residual.read_bytes(), b"recorded-residual-competitor"
+            )
+            self.assertFalse(displaced.exists())
+            journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(journals), 1)
+            successor = json.loads(journals[0].read_text(encoding="utf-8"))
+            self.assertEqual(successor["status"], "failed-partial-rollback")
+            self.assertEqual(successor["items"][0]["state"], "ownership-residual")
+            residual = successor["items"][0]["residual"]
+            self.assertIsNotNone(residual)
+            self.assertEqual(successor["residuals"], [residual["path"]])
+            successor_residual = Path(residual["path"])
+            self.assertNotEqual(successor_residual, recorded_residual)
+            self.assertEqual(_sha256(successor_residual), item.sha256)
+            owned_residuals = [
+                path
+                for path in Path(fixture.plan.archive_root).rglob("*")
+                if path.is_file() and _sha256(path) == item.sha256
+            ]
+            self.assertEqual(owned_residuals, [successor_residual])
+
+            archived.unlink()
+            recorded_residual.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(journals[0])
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(active), item.sha256)
+            self.assertFalse(successor_residual.exists())
+
     def test_restore_records_rollback_destination_collision_and_recovers(self):
         with TemporaryDirectory() as root_text:
             fixture = archive_test_fixture(Path(root_text), (), False, item_count=2)
