@@ -262,6 +262,34 @@ def _write_manifest_payload(fixture: ArchiveTestFixture, payload: dict[str, obje
     )
 
 
+def _prepare_residual_manifest(
+    fixture: ArchiveTestFixture, residual_name: str
+) -> tuple[Path, Path, Path, tuple[int, int, int, int]]:
+    archived = _prepare_restore_manifest(fixture)
+    item = fixture.plan.items[0]
+    active = Path(item.source)
+    active.unlink()
+    residual_path = archived.with_name(residual_name)
+    archived.rename(residual_path)
+    residual_status = residual_path.stat(follow_symlinks=False)
+    residual_identity = archive_module._identity(residual_status)
+    payload = _manifest_payload(fixture)
+    payload["status"] = "failed-partial-rollback"
+    payload["error"] = "injected ownership residual"
+    payload["residuals"] = [str(residual_path.resolve())]
+    payload["items"][0]["state"] = "ownership-residual"
+    payload["items"][0]["error"] = "injected ownership residual"
+    payload["items"][0]["residual"] = {
+        "path": str(residual_path.resolve()),
+        "filesystem_identity": list(residual_identity),
+        "sha256": item.sha256,
+        "size": item.size,
+        "mtime_ns": item.mtime_ns,
+    }
+    _write_manifest_payload(fixture, payload)
+    return archived, active, residual_path, residual_identity
+
+
 class ArchivePlanTests(unittest.TestCase):
     def test_apply_rebuilds_live_consumer_evidence_for_supported_governance_sources(self):
         for suffix in (".liquid", ".json", ".css", ".js", ".py", ".ps1"):
@@ -888,6 +916,148 @@ class ArchivePlanTests(unittest.TestCase):
             self.assertEqual(len(recovered.restored), 1)
             self.assertEqual(_sha256(active), item.sha256)
             self.assertFalse(successor_residual.exists())
+
+    def test_normalization_recovered_source_successor_uses_fresh_identity(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            archived, active, recorded_residual, old_identity = (
+                _prepare_residual_manifest(
+                    fixture, ".owned-residual-normalization-recovered.blend1"
+                )
+            )
+            item = fixture.plan.items[0]
+            displaced = archived.with_name("displaced-normalization-recovered.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            injected = False
+
+            def swap_normalized_destination_only(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ) -> None:
+                nonlocal injected
+                if label == "archive residual normalization" and not injected:
+                    injected = True
+                    archived.rename(displaced)
+                    archived.write_bytes(b"normalization-destination-competitor")
+                    raise OSError("injected normalization recovered-source swap")
+                original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_normalized_destination_only,
+                ),
+                self.assertRaisesRegex(OSError, "recovered-source swap"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertEqual(_sha256(recorded_residual), item.sha256)
+            self.assertEqual(
+                archived.read_bytes(), b"normalization-destination-competitor"
+            )
+            self.assertFalse(displaced.exists())
+            journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(journals), 1)
+            successor = json.loads(journals[0].read_text(encoding="utf-8"))
+            residual = successor["items"][0]["residual"]
+            current_identity = archive_module._identity(
+                recorded_residual.stat(follow_symlinks=False)
+            )
+            self.assertNotEqual(current_identity[:2], old_identity[:2])
+            self.assertEqual(tuple(residual["filesystem_identity"]), current_identity)
+            self.assertEqual(residual["path"], str(recorded_residual.resolve()))
+            self.assertEqual(successor["residuals"], [residual["path"]])
+
+            archived.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(journals[0])
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(active), item.sha256)
+
+    def test_restore_recovered_archive_successor_uses_fresh_identity(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            archived, active, recorded_residual, old_identity = (
+                _prepare_residual_manifest(
+                    fixture, ".owned-residual-restore-recovered.blend1"
+                )
+            )
+            item = fixture.plan.items[0]
+            displaced = active.with_name("displaced-restore-recovered.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            injected = False
+
+            def swap_restore_destination_only(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ) -> None:
+                nonlocal injected
+                if label == "restore destination" and not injected:
+                    injected = True
+                    active.rename(displaced)
+                    active.write_bytes(b"restore-destination-competitor")
+                    raise OSError("injected restore recovered-archive swap")
+                original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_restore_destination_only,
+                ),
+                self.assertRaisesRegex(OSError, "recovered-archive swap"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertFalse(recorded_residual.exists())
+            self.assertEqual(_sha256(archived), item.sha256)
+            self.assertEqual(active.read_bytes(), b"restore-destination-competitor")
+            self.assertFalse(displaced.exists())
+            journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(journals), 1)
+            successor = json.loads(journals[0].read_text(encoding="utf-8"))
+            residual = successor["items"][0]["residual"]
+            current_identity = archive_module._identity(
+                archived.stat(follow_symlinks=False)
+            )
+            self.assertNotEqual(current_identity[:2], old_identity[:2])
+            self.assertEqual(tuple(residual["filesystem_identity"]), current_identity)
+            self.assertEqual(residual["path"], str(archived.resolve()))
+            self.assertEqual(successor["residuals"], [residual["path"]])
+
+            active.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(journals[0])
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(active), item.sha256)
+            self.assertFalse(archived.exists())
 
     def test_restore_records_rollback_destination_collision_and_recovers(self):
         with TemporaryDirectory() as root_text:

@@ -79,10 +79,12 @@ class _OwnedFileTransitionError(OSError):
         *,
         recovered_to_source: bool,
         residual: Mapping[str, object] | None = None,
+        recovered_evidence: Mapping[str, object] | None = None,
     ) -> None:
         super().__init__(message)
         self.recovered_to_source = recovered_to_source
         self.residual = residual
+        self.recovered_evidence = recovered_evidence
 
 
 def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
@@ -887,7 +889,7 @@ def _recover_owned_item_after_rename(
 
     _verify_descriptor(owned_descriptor, item, f"{label} held source", require_identity=False)
     try:
-        _copy_owned_item_to_new_path(
+        recovered_identity = _copy_owned_item_to_new_path(
             owned_descriptor, source, item, f"{label} recovered source"
         )
     except FileExistsError:
@@ -914,9 +916,29 @@ def _recover_owned_item_after_rename(
             recovered_to_source=False,
             residual=residual,
         )
+    recovered_item = replace(
+        item,
+        source=str(source),
+        filesystem_identity=recovered_identity,
+    )
+    _verify_file(
+        source,
+        recovered_item,
+        f"{label} recovered source evidence",
+        require_identity=True,
+    )
+    recovered_evidence = {
+        "path": str(source),
+        "filesystem_identity": list(recovered_identity),
+        "sha256": item.sha256,
+        "size": item.size,
+        "mtime_ns": item.mtime_ns,
+    }
     _delete_owned_handle(owned_descriptor, f"{label} displaced owned source")
     return _OwnedFileTransitionError(
-        str(original_error), recovered_to_source=True
+        str(original_error),
+        recovered_to_source=True,
+        recovered_evidence=recovered_evidence,
     )
 
 
@@ -1662,7 +1684,14 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                 raise ValueError("archive ownership residual evidence drift")
             residual_exists = residual_path.exists() or residual_path.is_symlink()
             destination_exists = destination.exists() or destination.is_symlink()
-            if residual_exists:
+            if residual_exists and residual_path == destination:
+                _verify_file(
+                    destination,
+                    residual_item,
+                    "canonical archive ownership residual",
+                    require_identity=True,
+                )
+            elif residual_exists:
                 _verify_file(
                     residual_path,
                     residual_item,
@@ -1684,7 +1713,11 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                         residual_root=archive_root,
                     )
                 except _OwnedFileTransitionError as normalization_error:
-                    successor_residual = normalization_error.residual or residual
+                    successor_residual = (
+                        normalization_error.residual
+                        or normalization_error.recovered_evidence
+                        or residual
+                    )
                     successor_payload = json.loads(json.dumps(payload))
                     successor_payload["status"] = "failed-partial-rollback"
                     successor_payload["error"] = (
@@ -1800,8 +1833,23 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
             if isinstance(error, _OwnedFileTransitionError)
             else None
         )
+        transition_recovered_evidence = (
+            error.recovered_evidence
+            if isinstance(error, _OwnedFileTransitionError)
+            else None
+        )
+        bound_recovered_evidence: Mapping[str, object] | None = None
+        recovered_item_state: str | None = None
+        if current_restore is not None and transition_recovered_evidence is not None:
+            for raw in payload["items"]:
+                if str(raw["plan_item"]["source"]) == current_restore.source:
+                    if isinstance(raw.get("residual"), Mapping):
+                        bound_recovered_evidence = transition_recovered_evidence
+                        recovered_item_state = str(raw["state"])
+                    break
+        transition_evidence = transition_residual or bound_recovered_evidence
         if rollback_failures or (
-            transition_residual is not None and current_restore is not None
+            transition_evidence is not None and current_restore is not None
         ):
             failure_payload = json.loads(json.dumps(payload))
             failure_payload["status"] = "failed-partial-rollback"
@@ -1823,15 +1871,19 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                     raw["state"] = "rollback-failed"
                     raw["error"] = rollback_error
                     raw["residual"] = residual
-            if transition_residual is not None and current_restore is not None:
+            if transition_evidence is not None and current_restore is not None:
                 failure_payload["residuals"].append(
-                    str(transition_residual["path"])
+                    str(transition_evidence["path"])
                 )
                 for raw in failure_payload["items"]:
                     if str(raw["plan_item"]["source"]) == current_restore.source:
-                        raw["state"] = "ownership-residual"
+                        raw["state"] = (
+                            "ownership-residual"
+                            if transition_residual is not None
+                            else recovered_item_state
+                        )
                         raw["error"] = f"{type(error).__name__}: {error}"
-                        raw["residual"] = transition_residual
+                        raw["residual"] = transition_evidence
                         break
             failure_path = _publish_failure_journal(archive_root, failure_payload)
             error.add_note(f"immutable restore failure journal: {failure_path}")
