@@ -1635,23 +1635,40 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                 or int(residual["mtime_ns"]) != plan_item.mtime_ns
             ):
                 raise ValueError("archive ownership residual evidence drift")
-            _verify_file(
-                residual_path,
-                residual_item,
-                "archive ownership residual",
-                require_identity=True,
-            )
-            if destination.exists() or destination.is_symlink():
-                raise ValueError("archive destination collision blocks ownership residual recovery")
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            _rename_exact_no_replace(
-                residual_path,
-                destination,
-                residual_item,
-                "archive residual normalization",
-                True,
-                residual_root=archive_root,
-            )
+            residual_exists = residual_path.exists() or residual_path.is_symlink()
+            destination_exists = destination.exists() or destination.is_symlink()
+            if residual_exists:
+                _verify_file(
+                    residual_path,
+                    residual_item,
+                    "archive ownership residual",
+                    require_identity=True,
+                )
+                if destination_exists:
+                    raise ValueError(
+                        "archive destination collision blocks ownership residual recovery"
+                    )
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                _rename_exact_no_replace(
+                    residual_path,
+                    destination,
+                    residual_item,
+                    "archive residual normalization",
+                    True,
+                    residual_root=archive_root,
+                )
+            elif destination_exists:
+                _verify_file(
+                    destination,
+                    residual_item,
+                    "normalized archive ownership residual",
+                    require_identity=True,
+                )
+            else:
+                raise ValueError(
+                    "archive ownership residual is missing from both recorded and "
+                    "canonical archive paths"
+                )
         source_exists = source.exists() or source.is_symlink()
         destination_exists = destination.exists() or destination.is_symlink()
         if source_exists:
@@ -1682,11 +1699,24 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                 os.close(descriptor)
     except Exception as error:
         # Restore is itself reversible: move already restored records back to archive.
-        rollback_failures: list[str] = []
+        rollback_failures: list[tuple[ArchiveFileResult, str]] = []
         for result in reversed(restored):
             source = _absolute(result.source)
             destination = _absolute(result.destination)
-            if source.exists() and not destination.exists():
+            source_exists = source.exists() or source.is_symlink()
+            destination_exists = destination.exists() or destination.is_symlink()
+            if not source_exists:
+                rollback_failures.append(
+                    (result, f"restore rollback source is missing: {source}")
+                )
+            elif destination_exists:
+                rollback_failures.append(
+                    (
+                        result,
+                        f"restore rollback destination collision: {destination}",
+                    )
+                )
+            else:
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 item = next(item for item in plan.items if item.source == result.source)
                 try:
@@ -1698,29 +1728,50 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                         False,
                     )
                 except (OSError, ValueError) as rollback_error:
-                    rollback_failures.append(f"{source}: {rollback_error}")
+                    rollback_failures.append((result, str(rollback_error)))
         transition_residual = (
             error.residual
             if isinstance(error, _OwnedFileTransitionError)
             else None
         )
-        if transition_residual is not None and current_restore is not None:
+        if rollback_failures or (
+            transition_residual is not None and current_restore is not None
+        ):
             failure_payload = json.loads(json.dumps(payload))
             failure_payload["status"] = "failed-partial-rollback"
             failure_payload["error"] = f"{type(error).__name__}: {error}"
-            failure_payload["residuals"] = [str(transition_residual["path"])]
+            failure_payload["residuals"] = [
+                result.source for result, _ in rollback_failures
+            ]
+            failure_by_source = {
+                result.source: rollback_error
+                for result, rollback_error in rollback_failures
+            }
             for raw in failure_payload["items"]:
-                if str(raw["plan_item"]["source"]) == current_restore.source:
-                    raw["state"] = "ownership-residual"
-                    raw["error"] = f"{type(error).__name__}: {error}"
-                    raw["residual"] = transition_residual
-                    break
+                item_source = str(raw["plan_item"]["source"])
+                if item_source in failure_by_source:
+                    raw["state"] = "rollback-failed"
+                    raw["error"] = failure_by_source[item_source]
+                    raw["residual"] = None
+            if transition_residual is not None and current_restore is not None:
+                failure_payload["residuals"].append(
+                    str(transition_residual["path"])
+                )
+                for raw in failure_payload["items"]:
+                    if str(raw["plan_item"]["source"]) == current_restore.source:
+                        raw["state"] = "ownership-residual"
+                        raw["error"] = f"{type(error).__name__}: {error}"
+                        raw["residual"] = transition_residual
+                        break
             failure_path = _publish_failure_journal(archive_root, failure_payload)
             error.add_note(f"immutable restore failure journal: {failure_path}")
         if rollback_failures:
             raise OSError(
                 f"{error}; restore rollback incomplete; manual intervention required: "
-                + "; ".join(rollback_failures)
+                + "; ".join(
+                    f"{result.source}: {rollback_error}"
+                    for result, rollback_error in rollback_failures
+                )
             ) from error
         raise
     return ArchiveResult(manifest_path=manifest_path, restored=tuple(restored))
