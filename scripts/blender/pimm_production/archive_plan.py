@@ -1258,6 +1258,42 @@ def _manifest_item(item: ArchiveItem) -> dict[str, object]:
     }
 
 
+def _verified_item_evidence(
+    path: Path,
+    item: ArchiveItem,
+    label: str,
+    *,
+    require_identity: bool,
+) -> dict[str, object]:
+    _verify_file(path, item, label, require_identity=require_identity)
+    identity = _identity(path.stat(follow_symlinks=False))
+    return {
+        "path": str(path),
+        "filesystem_identity": list(identity),
+        "sha256": item.sha256,
+        "size": item.size,
+        "mtime_ns": item.mtime_ns,
+    }
+
+
+def _manifest_residual_paths(items: Sequence[Mapping[str, object]]) -> list[str]:
+    residuals: list[str] = []
+    for raw in items:
+        state = str(raw["state"])
+        residual = raw.get("residual")
+        if state == "ownership-residual":
+            if not isinstance(residual, Mapping):
+                raise ValueError("ownership-residual item lacks exact evidence")
+            residuals.append(str(residual["path"]))
+        elif state == "rollback-failed":
+            residuals.append(
+                str(residual["path"])
+                if isinstance(residual, Mapping)
+                else str(raw["plan_item"]["source"])
+            )
+    return residuals
+
+
 def _restore_one(result: ArchiveFileResult) -> ArchiveFileResult:
     source = _absolute(result.source)
     destination = _absolute(result.destination)
@@ -1435,12 +1471,6 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
             else "failed-rolled-back"
         )
         failure_payload["error"] = f"{type(error).__name__}: {error}"
-        failure_payload["residuals"] = [
-            str(residual["path"]) if residual is not None else source
-            for source, _, residual in rollback_failures
-        ]
-        if transition_residual is not None:
-            failure_payload["residuals"].append(str(transition_residual["path"]))
         if current_index is not None:
             failed_entry = failure_payload["items"][current_index]
             if failed_entry["state"] == "pending":
@@ -1466,6 +1496,9 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
                 entry["state"] = "rollback-failed"
                 entry["error"] = rollback_error
                 entry["residual"] = residual
+        failure_payload["residuals"] = _manifest_residual_paths(
+            failure_payload["items"]
+        )
         failure_recorded = False
         if manifest_tmp.exists():
             try:
@@ -1659,9 +1692,14 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         != sorted(expected_failure_residuals, key=str.casefold)
     ):
         raise ValueError("archive manifest status and item state mismatch")
+    reconciled_payload = json.loads(json.dumps(payload))
+    reconciled_items = reconciled_payload["items"]
     restore_results: list[ArchiveFileResult] = []
     duplicate_archive_results: list[ArchiveFileResult] = []
-    for raw, result, plan_item in zip(raw_items, results, plan.items, strict=True):
+    for index, (raw, result, plan_item) in enumerate(
+        zip(raw_items, results, plan.items, strict=True)
+    ):
+        reconciled_raw = reconciled_items[index]
         source = _absolute(result.source)
         destination = _absolute(result.destination)
         _reject_reparse_ancestors(source, "restore active mapping", allow_missing=True)
@@ -1718,19 +1756,12 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                         or normalization_error.recovered_evidence
                         or residual
                     )
-                    successor_payload = json.loads(json.dumps(payload))
+                    successor_payload = json.loads(json.dumps(reconciled_payload))
                     successor_payload["status"] = "failed-partial-rollback"
                     successor_payload["error"] = (
                         f"{type(normalization_error).__name__}: "
                         f"{normalization_error}"
                     )
-                    successor_path = str(successor_residual["path"])
-                    successor_payload["residuals"] = [
-                        successor_path
-                        if str(value) == str(residual["path"])
-                        else value
-                        for value in successor_payload["residuals"]
-                    ]
                     for successor_item in successor_payload["items"]:
                         if (
                             str(successor_item["plan_item"]["source"])
@@ -1739,6 +1770,9 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                             successor_item["error"] = successor_payload["error"]
                             successor_item["residual"] = successor_residual
                             break
+                    successor_payload["residuals"] = _manifest_residual_paths(
+                        successor_payload["items"]
+                    )
                     failure_path = _publish_failure_journal(
                         archive_root, successor_payload
                     )
@@ -1758,6 +1792,12 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                     "archive ownership residual is missing from both recorded and "
                     "canonical archive paths"
                 )
+            reconciled_raw["residual"] = _verified_item_evidence(
+                destination,
+                residual_item,
+                "reconciled archive ownership residual",
+                require_identity=False,
+            )
         source_exists = source.exists() or source.is_symlink()
         destination_exists = destination.exists() or destination.is_symlink()
         if source_exists:
@@ -1841,7 +1881,7 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         bound_recovered_evidence: Mapping[str, object] | None = None
         recovered_item_state: str | None = None
         if current_restore is not None and transition_recovered_evidence is not None:
-            for raw in payload["items"]:
+            for raw in reconciled_payload["items"]:
                 if str(raw["plan_item"]["source"]) == current_restore.source:
                     if isinstance(raw.get("residual"), Mapping):
                         bound_recovered_evidence = transition_recovered_evidence
@@ -1851,15 +1891,9 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         if rollback_failures or (
             transition_evidence is not None and current_restore is not None
         ):
-            failure_payload = json.loads(json.dumps(payload))
+            failure_payload = json.loads(json.dumps(reconciled_payload))
             failure_payload["status"] = "failed-partial-rollback"
             failure_payload["error"] = f"{type(error).__name__}: {error}"
-            failure_payload["residuals"] = [
-                str(residual["path"])
-                if residual is not None
-                else result.source
-                for result, _, residual in rollback_failures
-            ]
             failure_by_source = {
                 result.source: (rollback_error, residual)
                 for result, rollback_error, residual in rollback_failures
@@ -1872,9 +1906,6 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                     raw["error"] = rollback_error
                     raw["residual"] = residual
             if transition_evidence is not None and current_restore is not None:
-                failure_payload["residuals"].append(
-                    str(transition_evidence["path"])
-                )
                 for raw in failure_payload["items"]:
                     if str(raw["plan_item"]["source"]) == current_restore.source:
                         raw["state"] = (
@@ -1885,6 +1916,9 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                         raw["error"] = f"{type(error).__name__}: {error}"
                         raw["residual"] = transition_evidence
                         break
+            failure_payload["residuals"] = _manifest_residual_paths(
+                failure_payload["items"]
+            )
             failure_path = _publish_failure_journal(archive_root, failure_payload)
             error.add_note(f"immutable restore failure journal: {failure_path}")
         if rollback_failures:

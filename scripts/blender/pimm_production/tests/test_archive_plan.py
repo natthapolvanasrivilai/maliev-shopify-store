@@ -290,6 +290,42 @@ def _prepare_residual_manifest(
     return archived, active, residual_path, residual_identity
 
 
+def _prepare_all_residual_manifest(
+    fixture: ArchiveTestFixture,
+) -> tuple[list[Path], list[Path], list[Path]]:
+    _prepare_restore_manifest(fixture)
+    payload = _manifest_payload(fixture)
+    active_paths: list[Path] = []
+    archive_paths: list[Path] = []
+    residual_paths: list[Path] = []
+    payload["status"] = "failed-partial-rollback"
+    payload["error"] = "injected multi-item ownership residuals"
+    payload["residuals"] = []
+    for index, item in enumerate(fixture.plan.items):
+        active = Path(item.source)
+        archived = Path(item.destination)
+        active.unlink()
+        residual = archived.with_name(f".multi-residual-{index + 1}.blend1")
+        archived.rename(residual)
+        identity = archive_module._identity(residual.stat(follow_symlinks=False))
+        mapping = {
+            "path": str(residual.resolve()),
+            "filesystem_identity": list(identity),
+            "sha256": item.sha256,
+            "size": item.size,
+            "mtime_ns": item.mtime_ns,
+        }
+        payload["items"][index]["state"] = "ownership-residual"
+        payload["items"][index]["error"] = "injected ownership residual"
+        payload["items"][index]["residual"] = mapping
+        payload["residuals"].append(mapping["path"])
+        active_paths.append(active)
+        archive_paths.append(archived)
+        residual_paths.append(residual)
+    _write_manifest_payload(fixture, payload)
+    return active_paths, archive_paths, residual_paths
+
+
 class ArchivePlanTests(unittest.TestCase):
     def test_apply_rebuilds_live_consumer_evidence_for_supported_governance_sources(self):
         for suffix in (".liquid", ".json", ".css", ".js", ".py", ".ps1"):
@@ -1058,6 +1094,92 @@ class ArchivePlanTests(unittest.TestCase):
             self.assertEqual(len(recovered.restored), 1)
             self.assertEqual(_sha256(active), item.sha256)
             self.assertFalse(archived.exists())
+
+    def test_multi_residual_transition_successor_preserves_complete_fresh_set(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False, item_count=2)
+            active_paths, archive_paths, recorded_residuals = (
+                _prepare_all_residual_manifest(fixture)
+            )
+            first, second = fixture.plan.items
+            displaced = active_paths[0].with_name(
+                "displaced-multi-residual-restore.blend1"
+            )
+            original_verify = archive_module._verify_owned_destination_path
+            injected = False
+
+            def fail_first_restore_after_both_normalize(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ) -> None:
+                nonlocal injected
+                if path == active_paths[0] and label == "restore destination" and not injected:
+                    injected = True
+                    self.assertFalse(any(residual.exists() for residual in recorded_residuals))
+                    self.assertTrue(archive_paths[1].exists())
+                    active_paths[0].rename(displaced)
+                    active_paths[0].write_bytes(b"multi-residual-active-competitor")
+                    raise OSError("injected multi-residual first restore failure")
+                original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=fail_first_restore_after_both_normalize,
+                ),
+                self.assertRaisesRegex(OSError, "multi-residual first restore failure"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertEqual(
+                active_paths[0].read_bytes(), b"multi-residual-active-competitor"
+            )
+            self.assertFalse(active_paths[1].exists())
+            self.assertFalse(displaced.exists())
+            self.assertEqual(_sha256(archive_paths[0]), first.sha256)
+            self.assertEqual(_sha256(archive_paths[1]), second.sha256)
+            journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(journals), 1)
+            successor = json.loads(journals[0].read_text(encoding="utf-8"))
+            self.assertEqual(
+                [item["state"] for item in successor["items"]],
+                ["ownership-residual", "ownership-residual"],
+            )
+            mappings = [item["residual"] for item in successor["items"]]
+            self.assertEqual(
+                successor["residuals"], [mapping["path"] for mapping in mappings]
+            )
+            for mapping, archived, item in zip(
+                mappings, archive_paths, fixture.plan.items, strict=True
+            ):
+                self.assertEqual(mapping["path"], str(archived.resolve()))
+                self.assertEqual(
+                    tuple(mapping["filesystem_identity"]),
+                    archive_module._identity(archived.stat(follow_symlinks=False)),
+                )
+                self.assertEqual(_sha256(archived), item.sha256)
+
+            active_paths[0].unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(journals[0])
+            self.assertEqual(len(recovered.restored), 2)
+            self.assertEqual(_sha256(active_paths[0]), first.sha256)
+            self.assertEqual(_sha256(active_paths[1]), second.sha256)
+            self.assertFalse(any(path.exists() for path in archive_paths))
 
     def test_restore_records_rollback_destination_collision_and_recovers(self):
         with TemporaryDirectory() as root_text:
