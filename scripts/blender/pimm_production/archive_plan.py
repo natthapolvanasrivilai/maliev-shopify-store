@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import sys
 import uuid
@@ -19,6 +18,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Mapping, Sequence
+from zoneinfo import ZoneInfo
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -34,21 +34,29 @@ from scripts.blender.master_assets.pimm_legacy_inventory import (  # noqa: E402
     InventoryManifest,
     inventory_from_payload,
     inventory_payload,
+    verify_published_outputs,
 )
 from scripts.blender.pimm_production.consumer_graph import (  # noqa: E402
     CONSUMER_GRAPH_SCHEMA,
     ConsumerGraph,
     consumer_graph_payload,
 )
+from scripts.blender.pimm_production.approval_manifest import (  # noqa: E402
+    _create_owned_file,
+    _delete_owned_handle,
+)
 
 
 ARCHIVE_PLAN_SCHEMA = "pimm-archive-plan/v1"
 ARCHIVE_APPROVAL_SCHEMA = "pimm-archive-plan-approval/v1"
 ARCHIVE_MANIFEST_SCHEMA = "pimm-archive-manifest/v1"
+ARCHIVE_GOVERNANCE_ROOT = ASSET_ROOT.parent / f"{ASSET_ROOT.name}-governance"
+ARCHIVE_PLAN_ROOT = ARCHIVE_GOVERNANCE_ROOT / "manifests" / "archive-plans"
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _BATCH_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 _REPARSE_ATTRIBUTE = 0x400
+_BANGKOK = ZoneInfo("Asia/Bangkok")
 _PROTECTED_TOKENS = frozenset(
     {"source", "sources", "master", "masters", "material", "materials", "artwork", "scripts", "calibrated", "approved", "release", "releases"}
 )
@@ -285,6 +293,26 @@ class ArchiveResult:
     rolled_back: tuple[ArchiveFileResult, ...] = ()
 
 
+@dataclass(frozen=True)
+class ArchiveAuthority:
+    """One freshly verified canonical Task 7 publication.
+
+    Tests may replace ``_load_current_authority`` with this shape in-process.
+    No CLI or serialized plan can select a different authority.
+    """
+
+    publication_id: str
+    inventory: InventoryManifest
+    graph: ConsumerGraph
+    render_payload: Mapping[str, object]
+    inventory_sha256: str
+    consumer_graph_sha256: str
+    render_inventory_sha256: str
+    root_identity: tuple[int, ...]
+    active_root: Path
+    production: bool = True
+
+
 def _unique_evidence(record: AssetRecord) -> dict[str, object]:
     inspection = record.blender_inspection
     return {
@@ -353,7 +381,8 @@ def build_archive_plan(
     if _BATCH_ID.fullmatch(batch_id) is None:
         raise ValueError("archive batch ID must be lowercase kebab-case")
     active_root = _absolute(inventory.root)
-    date = datetime.now().astimezone().strftime("%Y-%m-%d")
+    created_at = datetime.now(UTC).replace(microsecond=0)
+    date = created_at.astimezone(_BANGKOK).strftime("%Y-%m-%d")
     archive_root = active_root.parent / f"{active_root.name}-archive" / "pending-delete" / f"{date}-{batch_id}"
     records = {record.path.casefold(): record for record in inventory.records}
     items: list[ArchiveItem] = []
@@ -408,10 +437,10 @@ def build_archive_plan(
     model_graph_sha = _sha256_bytes(_canonical_json_bytes(consumer_graph_payload(graph)))
     return ArchivePlan(
         batch_id=batch_id,
-        created_at_utc=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        created_at_utc=created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         active_root=str(active_root),
         archive_root=str(archive_root),
-        publication_id="unpublished-fixture",
+        publication_id="",
         inventory_sha256=model_inventory_sha,
         consumer_graph_sha256=model_graph_sha,
         render_inventory_sha256="",
@@ -428,6 +457,17 @@ def _validate_plan_structure(plan: ArchivePlan) -> list[str]:
         errors.append("archive plan schema is invalid")
     if _BATCH_ID.fullmatch(plan.batch_id) is None:
         errors.append("archive batch ID is invalid")
+    if not plan.publication_id.strip():
+        errors.append("archive plan requires a published Task 7 authority")
+    for label, digest in (
+        ("inventory", plan.inventory_sha256),
+        ("consumer graph", plan.consumer_graph_sha256),
+        ("render inventory", plan.render_inventory_sha256),
+    ):
+        if _SHA256.fullmatch(digest) is None:
+            errors.append(f"archive plan {label} authority hash is invalid")
+    if len(plan.inventory_root_identity) < 2:
+        errors.append("archive plan inventory root identity is invalid")
     try:
         _canonical_utc(plan.created_at_utc, "archive plan created_at_utc")
     except ValueError as error:
@@ -437,12 +477,15 @@ def _validate_plan_structure(plan: ArchivePlan) -> list[str]:
     if _within(archive_root, active_root):
         errors.append("archive destination must be outside active root")
     expected_parent = active_root.parent / f"{active_root.name}-archive" / "pending-delete"
-    expected_leaf = re.fullmatch(
-        rf"[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}-{re.escape(plan.batch_id)}",
-        archive_root.name,
-    )
-    if archive_root.parent != expected_parent or expected_leaf is None:
+    try:
+        created_at = datetime.strptime(plan.created_at_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+        expected_leaf = f"{created_at.astimezone(_BANGKOK):%Y-%m-%d}-{plan.batch_id}"
+    except ValueError:
+        expected_leaf = ""
+    if archive_root.parent != expected_parent:
         errors.append("archive destination is outside the canonical pending-delete root")
+    elif archive_root.name != expected_leaf:
+        errors.append("archive destination leaf does not match the created_at Bangkok date")
     seen_sources: set[str] = set()
     seen_destinations: set[str] = set()
     for item in plan.items:
@@ -516,14 +559,14 @@ def validate_archive_plan(
             errors.append(f"{item.relative_path}: record is absent from inventory")
             continue
         if record.proposed_disposition != "pending-archive":
-            errors.append(f"{item.relative_path}: record is not exact pending-archive")
+            errors.append(f"{item.relative_path}: disposition is not exact pending-archive")
         consumers = tuple(sorted(set(record.consumers) | set(graph.consumers.get(record.path, ())), key=str.casefold))
         if consumers:
             errors.append(f"{item.relative_path}: active consumer: {', '.join(consumers)}")
         if _has_unique_content(record):
             errors.append(f"{item.relative_path}: unique content not migrated")
         if _ambiguous_for(record.path, graph):
-            errors.append(f"{item.relative_path}: ambiguous reference protects the record")
+            errors.append(f"{item.relative_path}: ambiguity protects the record")
         if _is_protected(record):
             errors.append(f"{item.relative_path}: record has a protected role")
         if (
@@ -651,7 +694,7 @@ def _same_volume(source: Path, destination: Path) -> bool:
 
 
 def _create_owned_temporary(path: Path) -> tuple[int, tuple[int, int, int, int]]:
-    descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | getattr(os, "O_BINARY", 0))
+    descriptor = _create_owned_file(path, share_delete=True)
     return descriptor, _identity(os.fstat(descriptor))
 
 
@@ -664,21 +707,199 @@ def _remove_if_exact(path: Path, identity: tuple[int, int, int, int]) -> bool:
     # Device+inode still distinguish a pathname replacement on local filesystems.
     if _identity(current)[:2] != identity[:2]:
         return False
-    path.unlink()
-    return True
+    if os.name != "nt":
+        return False
+    descriptor = _open_existing_for_exact_delete(path, "owned temporary cleanup")
+    try:
+        if _identity(os.fstat(descriptor))[:2] != identity[:2]:
+            return False
+        _delete_owned_handle(descriptor, "owned temporary cleanup")
+        return True
+    finally:
+        os.close(descriptor)
 
 
-def _copy_source_to_temporary(source: Path, temporary: Path, item: ArchiveItem) -> None:
-    with source.open("rb") as input_stream, temporary.open("wb") as output_stream:
-        shutil.copyfileobj(input_stream, output_stream, 8 * 1024 * 1024)
-        output_stream.flush()
-        os.fsync(output_stream.fileno())
-    os.utime(temporary, ns=(item.mtime_ns, item.mtime_ns))
+def _open_existing_for_exact_delete(path: Path, label: str) -> int:
+    """Hold one existing Windows file against writes/replacement for exact deletion."""
+
+    if os.name != "nt":
+        raise OSError(f"{label}: exact handle deletion is unavailable off Windows")
+    import ctypes
+    import msvcrt
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        ctypes.c_wchar_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+    )
+    create_file.restype = ctypes.c_void_p
+    generic_read = 0x80000000
+    delete_right = 0x00010000
+    file_read_attributes = 0x00000080
+    file_share_read = 0x00000001
+    open_existing = 3
+    file_attribute_normal = 0x00000080
+    native_handle = create_file(
+        str(path),
+        generic_read | delete_right | file_read_attributes,
+        file_share_read,
+        None,
+        open_existing,
+        file_attribute_normal,
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if native_handle in (None, invalid_handle):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        return msvcrt.open_osfhandle(int(native_handle), os.O_RDONLY | getattr(os, "O_BINARY", 0))
+    except BaseException:
+        kernel32.CloseHandle(ctypes.c_void_p(native_handle))
+        raise
 
 
-def _unlink_verified_source(source: Path, item: ArchiveItem) -> None:
-    _verify_file(source, item, "source", require_identity=True)
-    source.unlink()
+def _sha256_descriptor(descriptor: int) -> str:
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    digest = hashlib.sha256()
+    while chunk := os.read(descriptor, 8 * 1024 * 1024):
+        digest.update(chunk)
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    return digest.hexdigest().upper()
+
+
+def _verify_descriptor(
+    descriptor: int,
+    item: ArchiveItem,
+    label: str,
+    *,
+    require_identity: bool,
+) -> None:
+    before = os.fstat(descriptor)
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+        raise ValueError(f"{label} must be one regular single-link file")
+    if before.st_size != item.size:
+        raise ValueError(f"{label} size drift")
+    if before.st_mtime_ns != item.mtime_ns:
+        raise ValueError(f"{label} mtime drift")
+    if require_identity:
+        planned_identity = tuple(item.filesystem_identity)
+        current_identity = _identity(before)
+        if (
+            len(planned_identity) != 4
+            or planned_identity[:2] != current_identity[:2]
+            or planned_identity[3] != current_identity[3]
+        ):
+            raise ValueError(f"{label} identity drift")
+    if _sha256_descriptor(descriptor) != item.sha256.upper():
+        raise ValueError(f"{label} hash drift")
+    after = os.fstat(descriptor)
+    if _identity(before) != _identity(after) or before.st_mtime_ns != after.st_mtime_ns:
+        raise ValueError(f"{label} changed while hashing")
+
+
+def _copy_descriptor(source_descriptor: int, destination_descriptor: int) -> None:
+    os.lseek(source_descriptor, 0, os.SEEK_SET)
+    os.lseek(destination_descriptor, 0, os.SEEK_SET)
+    while chunk := os.read(source_descriptor, 8 * 1024 * 1024):
+        offset = 0
+        while offset < len(chunk):
+            written = os.write(destination_descriptor, chunk[offset:])
+            if written <= 0:
+                raise OSError("archive copy made no progress")
+            offset += written
+    os.fsync(destination_descriptor)
+
+
+def _write_descriptor_all(descriptor: int, content: bytes) -> None:
+    offset = 0
+    while offset < len(content):
+        written = os.write(descriptor, content[offset:])
+        if written <= 0:
+            raise OSError("atomic manifest write made no progress")
+        offset += written
+
+
+def _rename_exact_no_replace(
+    source: Path,
+    destination: Path,
+    item: ArchiveItem,
+    label: str,
+    require_plan_identity: bool,
+) -> None:
+    """Atomically rename on Windows while refusing every destination collision."""
+
+    if os.name != "nt":
+        raise OSError(f"{label}: atomic no-replace rename is unavailable off Windows")
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"{label} destination already exists: {destination}")
+    _verify_file(source, item, label, require_identity=require_plan_identity)
+    source_identity = _identity(source.stat(follow_symlinks=False))
+    os.rename(source, destination)
+    try:
+        if source.exists() or source.is_symlink():
+            raise ValueError(f"{label} source still exists after rename")
+        destination_identity = _identity(destination.stat(follow_symlinks=False))
+        if destination_identity[:2] != source_identity[:2] or destination_identity[3] != source_identity[3]:
+            raise ValueError(f"{label} destination identity drift after rename")
+        _verify_file(destination, item, label, require_identity=require_plan_identity)
+    except BaseException:
+        if not source.exists() and destination.exists():
+            try:
+                os.rename(destination, source)
+            except OSError as rollback_error:
+                raise OSError(f"{label} verification failed and rollback was incomplete: {rollback_error}")
+        raise
+
+
+def _rename_governance_no_replace(
+    source: Path,
+    destination: Path,
+    expected_sha256: str,
+    label: str,
+) -> None:
+    """Publish or relocate an exact governance file without replacing a competitor."""
+
+    source = _absolute(source)
+    destination = _absolute(destination)
+    if os.name != "nt":
+        raise OSError(f"{label}: atomic no-replace rename is unavailable off Windows")
+    _reject_reparse_ancestors(source, label, allow_missing=False)
+    _reject_reparse_ancestors(destination.parent, label, allow_missing=False)
+    content, source_identity = _stable_read(source, label)
+    if _sha256_bytes(content) != expected_sha256.upper():
+        raise ValueError(f"{label} source hash drift")
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"{label} already exists: {destination}")
+    os.rename(source, destination)
+    try:
+        if source.exists() or source.is_symlink():
+            raise ValueError(f"{label} source still exists after publication")
+        persisted, destination_identity = _stable_read(destination, label)
+        if destination_identity[:2] != source_identity[:2] or destination_identity[3] != source_identity[3]:
+            raise ValueError(f"{label} identity drift after publication")
+        if persisted != content or _sha256_bytes(persisted) != expected_sha256.upper():
+            raise ValueError(f"{label} bytes drift after publication")
+    except BaseException:
+        if not source.exists() and destination.exists():
+            try:
+                os.rename(destination, source)
+            except OSError as rollback_error:
+                raise OSError(
+                    f"{label} verification failed and rollback was incomplete: {rollback_error}"
+                )
+        raise
+
+
+def _canonical_plan_path(batch_id: str) -> Path:
+    if _BATCH_ID.fullmatch(batch_id) is None:
+        raise ValueError("archive batch ID is invalid")
+    return _absolute(ARCHIVE_PLAN_ROOT / f"{batch_id}.json")
 
 
 def _move_item(item: ArchiveItem, manifest_tmp: Path) -> str:
@@ -690,48 +911,88 @@ def _move_item(item: ArchiveItem, manifest_tmp: Path) -> str:
         raise ValueError(f"destination already exists: {destination}")
     _verify_file(source, item, "source", require_identity=True)
     if _same_volume(source, destination):
-        os.replace(source, destination)
-        try:
-            _verify_file(destination, item, "archive destination", require_identity=False)
-        except BaseException:
-            if not source.exists():
-                os.replace(destination, source)
-            raise
+        _rename_exact_no_replace(
+            source,
+            destination,
+            item,
+            "archive destination",
+            True,
+        )
         return "atomic-rename"
 
-    temporary = destination.parent / f".{destination.name}.archive-copy-{uuid.uuid4().hex}"
-    descriptor, temporary_identity = _create_owned_temporary(temporary)
-    os.close(descriptor)
-    moved_identity: tuple[int, int, int, int] | None = None
+    if os.name != "nt":
+        raise OSError("cross-volume archive mutation is unavailable off Windows")
+    source_descriptor = _open_existing_for_exact_delete(source, "archive source")
+    destination_descriptor: int | None = None
     try:
-        _copy_source_to_temporary(source, temporary, item)
-        _verify_file(temporary, item, "archive copy", require_identity=False)
-        if destination.exists() or destination.is_symlink():
-            raise ValueError(f"destination already exists: {destination}")
-        os.rename(temporary, destination)
-        moved_identity = _identity(destination.stat(follow_symlinks=False))
-        _verify_file(destination, item, "archive destination", require_identity=False)
-        _unlink_verified_source(source, item)
+        _verify_descriptor(source_descriptor, item, "source", require_identity=True)
+        if _identity(source.stat(follow_symlinks=False))[:2] != _identity(os.fstat(source_descriptor))[:2]:
+            raise ValueError("source pathname identity drift after handle acquisition")
+        destination_descriptor = _create_owned_file(destination, share_delete=False)
+        _copy_descriptor(source_descriptor, destination_descriptor)
+        os.utime(destination, ns=(item.mtime_ns, item.mtime_ns))
+        _verify_descriptor(destination_descriptor, item, "archive destination", require_identity=False)
+        if _identity(destination.stat(follow_symlinks=False))[:2] != _identity(os.fstat(destination_descriptor))[:2]:
+            raise ValueError("archive destination pathname identity drift")
+        _verify_descriptor(source_descriptor, item, "source", require_identity=True)
+        _delete_owned_handle(source_descriptor, "archive source")
         return "copy-verify-unlink"
     except BaseException:
-        if temporary.exists() and not _remove_if_exact(temporary, temporary_identity):
-            pass
-        if moved_identity is not None and destination.exists() and source.exists():
-            _remove_if_exact(destination, moved_identity)
+        if destination_descriptor is not None:
+            try:
+                _delete_owned_handle(destination_descriptor, "failed archive destination")
+            except OSError as cleanup_error:
+                raise OSError(f"archive move failed and exact destination cleanup failed: {cleanup_error}")
         raise
-
-
-def _result_payload(result: ArchiveFileResult) -> dict[str, object]:
-    return asdict(result)
+    finally:
+        if destination_descriptor is not None:
+            os.close(destination_descriptor)
+        os.close(source_descriptor)
 
 
 def _write_manifest_tmp(path: Path, payload: Mapping[str, object], *, create: bool) -> None:
     content = _canonical_json_bytes(payload)
-    mode = "xb" if create else "wb"
-    with path.open(mode) as stream:
-        stream.write(content)
-        stream.flush()
-        os.fsync(stream.fileno())
+    if create:
+        descriptor, _ = _create_owned_temporary(path)
+        try:
+            _write_descriptor_all(descriptor, content)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        return
+    update = path.parent / f".{path.name}.{uuid.uuid4().hex}.update"
+    descriptor, identity = _create_owned_temporary(update)
+    try:
+        _write_descriptor_all(descriptor, content)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        os.replace(update, path)  # Atomic manifest-state publication, never an asset move.
+    except BaseException:
+        if update.exists():
+            _remove_if_exact(update, identity)
+        raise
+
+
+def _result_for_item(item: ArchiveItem, move_mode: str) -> ArchiveFileResult:
+    return ArchiveFileResult(
+        item.source,
+        item.destination,
+        item.sha256,
+        item.size,
+        item.mtime_ns,
+        move_mode,
+    )
+
+
+def _manifest_item(item: ArchiveItem) -> dict[str, object]:
+    return {
+        "plan_item": item.to_payload(),
+        "state": "pending",
+        "move_mode": None,
+        "error": None,
+    }
 
 
 def _restore_one(result: ArchiveFileResult) -> ArchiveFileResult:
@@ -747,39 +1008,58 @@ def _restore_one(result: ArchiveFileResult) -> ArchiveFileResult:
     )
     _verify_file(destination, item, "archived source", require_identity=False)
     source.parent.mkdir(parents=True, exist_ok=True)
+    _reject_reparse_ancestors(source.parent, "restore destination", allow_missing=False)
     if _same_volume(destination, source):
-        os.replace(destination, source)
+        _rename_exact_no_replace(
+            destination,
+            source,
+            item,
+            "restore destination",
+            False,
+        )
         mode = "atomic-rename"
     else:
-        temporary = source.parent / f".{source.name}.restore-copy-{uuid.uuid4().hex}"
-        descriptor, temporary_identity = _create_owned_temporary(temporary)
-        os.close(descriptor)
+        if os.name != "nt":
+            raise OSError("cross-volume restore mutation is unavailable off Windows")
+        archived_descriptor = _open_existing_for_exact_delete(destination, "archived source")
+        source_descriptor: int | None = None
         try:
-            _copy_source_to_temporary(destination, temporary, item)
-            _verify_file(temporary, item, "restore copy", require_identity=False)
-            os.rename(temporary, source)
-            _verify_file(source, item, "restored source", require_identity=False)
-            destination_identity = _identity(destination.stat(follow_symlinks=False))
-            if not _remove_if_exact(destination, destination_identity):
-                raise ValueError("archived source pathname was replaced before exact cleanup")
+            _verify_descriptor(archived_descriptor, item, "archived source", require_identity=False)
+            source_descriptor = _create_owned_file(source, share_delete=False)
+            _copy_descriptor(archived_descriptor, source_descriptor)
+            os.utime(source, ns=(item.mtime_ns, item.mtime_ns))
+            _verify_descriptor(source_descriptor, item, "restored source", require_identity=False)
+            if _identity(source.stat(follow_symlinks=False))[:2] != _identity(os.fstat(source_descriptor))[:2]:
+                raise ValueError("restored source pathname identity drift")
+            _verify_descriptor(archived_descriptor, item, "archived source", require_identity=False)
+            _delete_owned_handle(archived_descriptor, "archived source")
             mode = "copy-verify-unlink"
         except BaseException:
-            if temporary.exists():
-                _remove_if_exact(temporary, temporary_identity)
+            if source_descriptor is not None:
+                try:
+                    _delete_owned_handle(source_descriptor, "failed restored source")
+                except OSError as cleanup_error:
+                    raise OSError(f"restore failed and exact destination cleanup failed: {cleanup_error}")
             raise
+        finally:
+            if source_descriptor is not None:
+                os.close(source_descriptor)
+            os.close(archived_descriptor)
     _verify_file(source, item, "restored source", require_identity=False)
     return ArchiveFileResult(str(source), str(destination), result.sha256, result.size, result.mtime_ns, mode)
 
 
-def _rollback_moved(results: Sequence[ArchiveFileResult]) -> tuple[ArchiveFileResult, ...]:
+def _rollback_moved(
+    results: Sequence[ArchiveFileResult],
+) -> tuple[tuple[ArchiveFileResult, ...], tuple[tuple[str, str], ...]]:
     restored: list[ArchiveFileResult] = []
+    failures: list[tuple[str, str]] = []
     for result in reversed(results):
         try:
             restored.append(_restore_one(result))
-        except (OSError, ValueError):
-            # Fail closed: never remove or overwrite a competing pathname.
-            continue
-    return tuple(restored)
+        except (OSError, ValueError) as error:
+            failures.append((result.source, f"{type(error).__name__}: {error}"))
+    return tuple(restored), tuple(failures)
 
 
 def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
@@ -791,6 +1071,12 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
     approval_sha256 = _validate_approval(approval_path, plan_path, plan, plan_sha256)
     if not plan.items:
         raise ValueError("archive plan contains no movable items; no-op plans cannot be applied")
+    authority = _load_current_authority()
+    if authority.production:
+        canonical_plan_path = _canonical_plan_path(plan.batch_id)
+        if plan_path != canonical_plan_path:
+            raise ValueError("production apply requires the exact canonical archive plan path")
+    _validate_plan_against_current_authority(plan, authority)
     _preflight_apply(plan)
     archive_root = _absolute(plan.archive_root)
     archive_root.mkdir(parents=True, exist_ok=False)
@@ -804,39 +1090,74 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
         "status": "pending",
         "active_root": plan.active_root,
         "archive_root": plan.archive_root,
+        "publication_id": plan.publication_id,
+        "inventory_sha256": plan.inventory_sha256,
+        "consumer_graph_sha256": plan.consumer_graph_sha256,
+        "render_inventory_sha256": plan.render_inventory_sha256,
+        "inventory_root_identity": list(plan.inventory_root_identity),
         "plan_path": str(plan_path),
         "plan_sha256": plan_sha256,
         "approval_path": str(approval_path),
         "approval_sha256": approval_sha256,
-        "items": [],
+        "error": None,
+        "residuals": [],
+        "items": [_manifest_item(item) for item in plan.items],
     }
     _write_manifest_tmp(manifest_tmp, base_payload, create=True)
     moved: list[ArchiveFileResult] = []
+    current_index: int | None = None
     try:
-        for item in plan.items:
+        for index, item in enumerate(plan.items):
+            current_index = index
             mode = _move_item(item, manifest_tmp)
-            moved.append(
-                ArchiveFileResult(item.source, item.destination, item.sha256, item.size, item.mtime_ns, mode)
-            )
-            base_payload["items"] = [_result_payload(result) for result in moved]
+            result = _result_for_item(item, mode)
+            moved.append(result)
+            entry = base_payload["items"][index]
+            entry["state"] = "moved"
+            entry["move_mode"] = mode
             _write_manifest_tmp(manifest_tmp, base_payload, create=False)
         base_payload["status"] = "archived"
         _write_manifest_tmp(manifest_tmp, base_payload, create=False)
         if manifest_path.exists() or manifest_path.is_symlink():
             raise ValueError("immutable archive manifest already exists")
-        os.rename(manifest_tmp, manifest_path)
-        persisted, _ = _stable_read(manifest_path, "archive manifest")
-        if persisted != _canonical_json_bytes(base_payload):
-            raise ValueError("archive manifest publication drift")
+        manifest_bytes = _canonical_json_bytes(base_payload)
+        _rename_governance_no_replace(
+            manifest_tmp,
+            manifest_path,
+            _sha256_bytes(manifest_bytes),
+            "immutable archive manifest",
+        )
         return ArchiveResult(manifest_path=manifest_path, moved=tuple(moved))
-    except BaseException as error:
-        rolled_back = _rollback_moved(moved)
-        failure_payload = dict(base_payload)
-        failure_payload["status"] = "failed-rolled-back"
+    except Exception as error:
+        rolled_back, rollback_failures = _rollback_moved(moved)
+        failure_payload = base_payload
+        failure_payload["status"] = (
+            "failed-partial-rollback" if rollback_failures else "failed-rolled-back"
+        )
         failure_payload["error"] = f"{type(error).__name__}: {error}"
-        failure_payload["rolled_back"] = [_result_payload(result) for result in rolled_back]
+        failure_payload["residuals"] = [source for source, _ in rollback_failures]
+        if current_index is not None:
+            failed_entry = failure_payload["items"][current_index]
+            if failed_entry["state"] == "pending":
+                failed_entry["state"] = "move-failed"
+                failed_entry["error"] = f"{type(error).__name__}: {error}"
+        restored_sources = {result.source for result in rolled_back}
+        failure_by_source = dict(rollback_failures)
+        for entry in failure_payload["items"]:
+            source = str(entry["plan_item"]["source"])
+            if source in restored_sources:
+                entry["state"] = "rolled-back"
+                entry["error"] = None
+            elif source in failure_by_source:
+                entry["state"] = "rollback-failed"
+                entry["error"] = failure_by_source[source]
         if manifest_tmp.exists():
             _write_manifest_tmp(manifest_tmp, failure_payload, create=False)
+        if rollback_failures:
+            residuals = ", ".join(source for source, _ in rollback_failures)
+            raise OSError(
+                f"{error}; rollback incomplete; manual intervention required for: {residuals}"
+            ) from error
         raise
 
 
@@ -851,52 +1172,165 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         raise ValueError(f"archive manifest is not canonical UTF-8 JSON: {error}") from error
     required = {
         "schema", "schema_version", "batch_id", "status", "active_root", "archive_root",
-        "plan_path", "plan_sha256", "approval_path", "approval_sha256", "items",
+        "publication_id", "inventory_sha256", "consumer_graph_sha256",
+        "render_inventory_sha256", "inventory_root_identity",
+        "plan_path", "plan_sha256", "approval_path", "approval_sha256",
+        "error", "residuals", "items",
     }
     if not isinstance(payload, Mapping) or set(payload) != required:
         raise ValueError("archive manifest fields are incomplete or unknown")
-    if payload.get("schema") != ARCHIVE_MANIFEST_SCHEMA or payload.get("schema_version") != 1 or payload.get("status") != "archived":
-        raise ValueError("only a complete immutable archive manifest can be restored")
+    allowed_statuses = {"archived", "pending", "failed-rolled-back", "failed-partial-rollback"}
+    if payload.get("schema") != ARCHIVE_MANIFEST_SCHEMA or payload.get("schema_version") != 1 or payload.get("status") not in allowed_statuses:
+        raise ValueError("archive manifest schema or recoverable status is invalid")
+    if not isinstance(payload.get("residuals"), list) or not (
+        payload.get("error") is None or isinstance(payload.get("error"), str)
+    ):
+        raise ValueError("archive manifest failure state is invalid")
     active_root = _absolute(str(payload["active_root"]))
     archive_root = _absolute(str(payload["archive_root"]))
-    if not _within(manifest_path, archive_root):
-        raise ValueError("archive manifest is outside its archive root")
+    expected_manifest_paths = {
+        archive_root / "archive-manifest.json",
+        archive_root / "archive-manifest.json.tmp",
+    }
+    if manifest_path not in expected_manifest_paths:
+        raise ValueError("archive manifest path is outside the exact canonical archive root")
+    _reject_reparse_ancestors(active_root, "restore active root", allow_missing=False)
+    _reject_reparse_ancestors(archive_root, "restore archive root", allow_missing=False)
+    plan_path = _absolute(str(payload["plan_path"]))
+    plan, plan_sha256 = _load_plan(plan_path)
+    if str(payload["plan_sha256"]).upper() != plan_sha256:
+        raise ValueError("archive manifest plan hash mismatch; plan SHA-256 does not match immutable plan bytes")
+    approval_path = _absolute(str(payload["approval_path"]))
+    approval_content, _ = _stable_read(approval_path, "archive approval")
+    approval_sha256 = _sha256_bytes(approval_content)
+    if str(payload["approval_sha256"]).upper() != approval_sha256:
+        raise ValueError("archive manifest approval hash mismatch; approval SHA-256 does not match immutable approval bytes")
+    _validate_approval(approval_path, plan_path, plan, plan_sha256)
+    bindings = {
+        "batch_id": plan.batch_id,
+        "active_root": plan.active_root,
+        "archive_root": plan.archive_root,
+        "publication_id": plan.publication_id,
+        "inventory_sha256": plan.inventory_sha256,
+        "consumer_graph_sha256": plan.consumer_graph_sha256,
+        "render_inventory_sha256": plan.render_inventory_sha256,
+        "inventory_root_identity": list(plan.inventory_root_identity),
+    }
+    for key, expected in bindings.items():
+        if payload.get(key) != expected:
+            label = "active root" if key == "active_root" else key.replace("_", " ")
+            raise ValueError(f"archive manifest {label} binding mismatch")
+    if _absolute(plan.archive_root) != archive_root or _absolute(plan.active_root) != active_root:
+        raise ValueError("archive manifest root binding mismatch")
+    authority = _load_current_authority()
+    if authority.production:
+        canonical_plan_path = _canonical_plan_path(plan.batch_id)
+        if plan_path != canonical_plan_path:
+            raise ValueError("production restore requires the exact canonical archive plan path")
+    _validate_plan_against_current_authority(plan, authority, restore=True)
     raw_items = payload.get("items")
     if not isinstance(raw_items, list):
         raise ValueError("archive manifest items must be a list")
+    if len(raw_items) < len(plan.items):
+        raise ValueError("archive manifest has a missing item")
+    if len(raw_items) > len(plan.items):
+        raise ValueError("archive manifest has an extra item")
     results: list[ArchiveFileResult] = []
-    for raw in raw_items:
-        if not isinstance(raw, Mapping) or set(raw) != {"source", "destination", "sha256", "size", "mtime_ns", "move_mode"}:
+    for index, (raw, plan_item) in enumerate(zip(raw_items, plan.items, strict=True)):
+        if not isinstance(raw, Mapping) or set(raw) != {"plan_item", "state", "move_mode", "error"}:
             raise ValueError("archive manifest item fields are invalid")
-        result = ArchiveFileResult(
-            source=str(raw["source"]), destination=str(raw["destination"]), sha256=str(raw["sha256"]).upper(),
-            size=int(raw["size"]), mtime_ns=int(raw["mtime_ns"]), move_mode=str(raw["move_mode"]),
-        )
+        if raw.get("plan_item") != plan_item.to_payload():
+            raise ValueError(f"archive manifest item mapping mismatch at index {index}")
+        if raw.get("state") not in {"pending", "moved", "rolled-back", "rollback-failed", "move-failed"}:
+            raise ValueError("archive manifest item state is invalid")
+        if not (raw.get("error") is None or isinstance(raw.get("error"), str)):
+            raise ValueError("archive manifest item error is invalid")
+        result = _result_for_item(plan_item, str(raw.get("move_mode") or "reconciled"))
         if not _within(_absolute(result.source), active_root) or not _within(_absolute(result.destination), archive_root):
             raise ValueError("archive restore mapping escapes its authority roots")
         results.append(result)
-    for result in results:
-        if _absolute(result.source).exists() or _absolute(result.source).is_symlink():
-            raise ValueError(f"restore destination collision: {result.source}")
-        item = ArchiveItem(
-            action="archive", relative_path=Path(result.source).name, source=result.source, destination=result.destination,
-            sha256=result.sha256, size=result.size, mtime_ns=result.mtime_ns, filesystem_identity=(), kind="blend-recovery",
-            disposition="pending-archive", reason="restore", replacement="restored",
-            unique_content_evidence={"migration_complete": True}, directory_root=".", directory_inventory=(Path(result.source).name,),
-        )
-        _verify_file(_absolute(result.destination), item, "archived source", require_identity=False)
+    states = [str(raw["state"]) for raw in raw_items]
+    residuals = [str(value) for value in payload["residuals"]]
+    status = str(payload["status"])
+    if status == "archived" and (
+        any(state != "moved" for state in states) or payload["error"] is not None or residuals
+    ):
+        raise ValueError("archive manifest status and item state mismatch")
+    if status == "pending" and (
+        any(state not in {"pending", "moved"} for state in states)
+        or payload["error"] is not None
+        or residuals
+    ):
+        raise ValueError("archive manifest status and item state mismatch")
+    rollback_failed_sources = [
+        str(raw["plan_item"]["source"])
+        for raw in raw_items
+        if raw["state"] == "rollback-failed"
+    ]
+    if status == "failed-rolled-back" and (rollback_failed_sources or residuals):
+        raise ValueError("archive manifest status and item state mismatch")
+    if status == "failed-partial-rollback" and (
+        not rollback_failed_sources
+        or sorted(residuals, key=str.casefold)
+        != sorted(rollback_failed_sources, key=str.casefold)
+    ):
+        raise ValueError("archive manifest status and item state mismatch")
+    restore_results: list[ArchiveFileResult] = []
+    duplicate_archive_results: list[ArchiveFileResult] = []
+    for result, plan_item in zip(results, plan.items, strict=True):
+        source = _absolute(result.source)
+        destination = _absolute(result.destination)
+        _reject_reparse_ancestors(source, "restore active mapping", allow_missing=True)
+        _reject_reparse_ancestors(destination, "restore archive mapping", allow_missing=True)
+        source_exists = source.exists() or source.is_symlink()
+        destination_exists = destination.exists() or destination.is_symlink()
+        if source_exists:
+            _verify_file(source, plan_item, "restore active source", require_identity=False)
+        if destination_exists:
+            _verify_file(destination, plan_item, "archived source", require_identity=False)
+        if not source_exists and destination_exists:
+            restore_results.append(result)
+        elif source_exists and destination_exists:
+            duplicate_archive_results.append(result)
+        elif not source_exists and not destination_exists:
+            raise ValueError(f"archive item is missing from both roots: {result.source}")
     restored: list[ArchiveFileResult] = []
     try:
-        for result in results:
+        for result in restore_results:
             restored.append(_restore_one(result))
-    except BaseException:
+        for result in duplicate_archive_results:
+            destination = _absolute(result.destination)
+            item = next(item for item in plan.items if item.source == result.source)
+            descriptor = _open_existing_for_exact_delete(destination, "duplicate archived source")
+            try:
+                _verify_descriptor(descriptor, item, "duplicate archived source", require_identity=False)
+                _delete_owned_handle(descriptor, "duplicate archived source")
+            finally:
+                os.close(descriptor)
+    except Exception as error:
         # Restore is itself reversible: move already restored records back to archive.
+        rollback_failures: list[str] = []
         for result in reversed(restored):
             source = _absolute(result.source)
             destination = _absolute(result.destination)
             if source.exists() and not destination.exists():
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                os.replace(source, destination)
+                item = next(item for item in plan.items if item.source == result.source)
+                try:
+                    _rename_exact_no_replace(
+                        source,
+                        destination,
+                        item,
+                        "restore rollback destination",
+                        False,
+                    )
+                except (OSError, ValueError) as rollback_error:
+                    rollback_failures.append(f"{source}: {rollback_error}")
+        if rollback_failures:
+            raise OSError(
+                f"{error}; restore rollback incomplete; manual intervention required: "
+                + "; ".join(rollback_failures)
+            ) from error
         raise
     return ArchiveResult(manifest_path=manifest_path, restored=tuple(restored))
 
@@ -924,7 +1358,103 @@ def _read_json(path: Path, label: str) -> tuple[Mapping[str, object], bytes]:
     return payload, content
 
 
+def _load_current_authority() -> ArchiveAuthority:
+    """Load only the canonical, current, freshly verified Task 7 publication."""
+
+    first = verify_published_outputs(ASSET_ROOT)
+    inventory_raw, inventory_bytes = _read_json(DEFAULT_INVENTORY, "canonical Task 7 inventory")
+    graph_raw, graph_bytes = _read_json(DEFAULT_GRAPH, "canonical Task 7 consumer graph")
+    render_raw, render_bytes = _read_json(
+        DEFAULT_RENDER_INVENTORY, "canonical Task 7 render inventory"
+    )
+    second = verify_published_outputs(ASSET_ROOT)
+    publication_id = str(first.get("publication_id", ""))
+    if not publication_id or second.get("publication_id") != publication_id:
+        raise ValueError("canonical Task 7 publication changed while loading authority")
+    for label, payload in (
+        ("inventory", inventory_raw),
+        ("graph", graph_raw),
+        ("render", render_raw),
+    ):
+        if payload.get("publication_id") != publication_id:
+            raise ValueError(f"canonical Task 7 {label} publication drift")
+    inventory = inventory_from_payload(inventory_raw)
+    graph = _graph_from_payload(graph_raw)
+    active_root = _absolute(ASSET_ROOT)
+    if _absolute(inventory.root) != active_root:
+        raise ValueError("canonical Task 7 inventory root is not the canonical active root")
+    _reject_reparse_ancestors(active_root, "canonical active root", allow_missing=False)
+    current_root_identity = _identity(active_root.stat(follow_symlinks=False))[:2]
+    if tuple(inventory.root_identity) != current_root_identity:
+        raise ValueError("canonical Task 7 inventory root identity drift")
+    generated = inventory_raw.get("generated_artifacts")
+    if not isinstance(generated, Mapping):
+        raise ValueError("canonical Task 7 generated-artifact authority is missing")
+    graph_sha = _sha256_bytes(graph_bytes)
+    render_sha = _sha256_bytes(render_bytes)
+    for relative, actual in (
+        ("manifests/consumer-graph.json", graph_sha),
+        ("manifests/render-generation-inventory.json", render_sha),
+    ):
+        descriptor = generated.get(relative)
+        if not isinstance(descriptor, Mapping) or str(descriptor.get("sha256", "")).upper() != actual:
+            raise ValueError(f"canonical Task 7 bound {relative} hash drift")
+    return ArchiveAuthority(
+        publication_id=publication_id,
+        inventory=inventory,
+        graph=graph,
+        render_payload=render_raw,
+        inventory_sha256=_sha256_bytes(inventory_bytes),
+        consumer_graph_sha256=graph_sha,
+        render_inventory_sha256=render_sha,
+        root_identity=current_root_identity,
+        active_root=active_root,
+    )
+
+
+def _validate_plan_against_current_authority(
+    plan: ArchivePlan,
+    authority: ArchiveAuthority,
+    *,
+    restore: bool = False,
+) -> None:
+    errors: list[str] = []
+    if _absolute(plan.active_root) != _absolute(authority.active_root):
+        errors.append("archive plan does not name the canonical active root")
+    if tuple(plan.inventory_root_identity) != tuple(authority.root_identity):
+        errors.append("archive plan root identity drift")
+    if not restore:
+        if plan.publication_id != authority.publication_id:
+            errors.append("archive plan publication drift")
+        if plan.inventory_sha256.upper() != authority.inventory_sha256.upper():
+            errors.append("archive plan inventory hash drift")
+        if plan.consumer_graph_sha256.upper() != authority.consumer_graph_sha256.upper():
+            errors.append("archive plan graph hash drift")
+        if plan.render_inventory_sha256.upper() != authority.render_inventory_sha256.upper():
+            errors.append("archive plan render hash drift")
+        errors.extend(validate_archive_plan(plan, authority.inventory, authority.graph))
+    else:
+        # A restore may occur after Task 7 republishes to reflect the archive, but
+        # it remains forbidden while a current consumer or ambiguity protects an item.
+        records = {record.path.casefold(): record for record in authority.inventory.records}
+        for item in plan.items:
+            record = records.get(item.relative_path.casefold())
+            if record is not None and record.consumers:
+                errors.append(f"{item.relative_path}: current consumer blocks restore")
+            graph_consumers = authority.graph.consumers.get(item.relative_path, ())
+            if graph_consumers:
+                errors.append(f"{item.relative_path}: current consumer blocks restore")
+            if _ambiguous_for(item.relative_path, authority.graph):
+                errors.append(f"{item.relative_path}: current ambiguity blocks restore")
+    if errors:
+        raise ValueError("current Task 7 authority rejected archive operation: " + "; ".join(errors))
+
+
 def _publish_immutable_plan(path: Path, plan: ArchivePlan) -> str:
+    path = _absolute(path)
+    if path != _canonical_plan_path(plan.batch_id):
+        raise ValueError("archive plan path must be the exact external governance plan root")
+    _reject_reparse_ancestors(path.parent, "archive plan directory", allow_missing=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     _reject_reparse_ancestors(path.parent, "archive plan directory", allow_missing=False)
     if path.exists() or path.is_symlink():
@@ -933,14 +1463,17 @@ def _publish_immutable_plan(path: Path, plan: ArchivePlan) -> str:
     temporary = path.parent / f".{path.name}.{uuid.uuid4().hex}.pending"
     descriptor, identity = _create_owned_temporary(temporary)
     try:
-        os.write(descriptor, content)
+        _write_descriptor_all(descriptor, content)
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
     try:
-        if path.exists() or path.is_symlink():
-            raise ValueError(f"immutable archive plan already exists: {path}")
-        os.rename(temporary, path)
+        _rename_governance_no_replace(
+            temporary,
+            path,
+            _sha256_bytes(content),
+            "immutable archive plan",
+        )
     except BaseException:
         if temporary.exists():
             _remove_if_exact(temporary, identity)
@@ -952,63 +1485,35 @@ def _publish_immutable_plan(path: Path, plan: ArchivePlan) -> str:
 
 
 def _build_cli_plan(args: argparse.Namespace) -> tuple[Path, ArchivePlan, str]:
-    inventory_path = _absolute(args.inventory)
-    graph_path = _absolute(args.graph)
-    inventory_raw, inventory_bytes = _read_json(inventory_path, "published inventory")
-    graph_raw, graph_bytes = _read_json(graph_path, "published consumer graph")
-    inventory = inventory_from_payload(inventory_raw)
-    graph = _graph_from_payload(graph_raw)
-    publication_ids = {str(value) for value in (inventory_raw.get("publication_id"), graph_raw.get("publication_id")) if value}
-    if len(publication_ids) > 1:
-        raise ValueError("inventory and consumer graph publication IDs differ")
-    publication_id = next(iter(publication_ids), "unpublished-fixture")
-    generated = inventory_raw.get("generated_artifacts", {})
-    if isinstance(generated, Mapping) and "manifests/consumer-graph.json" in generated:
-        expected = generated["manifests/consumer-graph.json"]
-        if not isinstance(expected, Mapping) or str(expected.get("sha256", "")).upper() != _sha256_bytes(graph_bytes):
-            raise ValueError("consumer graph does not match inventory publication authority")
-    render_sha = ""
-    render_path = _absolute(args.render_inventory) if args.render_inventory else None
-    if render_path is not None:
-        render_raw, render_bytes = _read_json(render_path, "published render inventory")
-        if render_raw.get("publication_id") and str(render_raw.get("publication_id")) != publication_id:
-            raise ValueError("render inventory publication ID differs")
-        render_sha = _sha256_bytes(render_bytes)
-        if isinstance(generated, Mapping) and "manifests/render-generation-inventory.json" in generated:
-            expected = generated["manifests/render-generation-inventory.json"]
-            if not isinstance(expected, Mapping) or str(expected.get("sha256", "")).upper() != render_sha:
-                raise ValueError("render inventory does not match inventory publication authority")
-    plan = build_archive_plan(inventory, graph, args.batch_id)
+    authority = _load_current_authority()
+    if not authority.production:
+        raise ValueError("production plan CLI cannot use injected or unpublished authority")
+    plan = build_archive_plan(authority.inventory, authority.graph, args.batch_id)
     plan = replace(
         plan,
-        publication_id=publication_id,
-        inventory_sha256=_sha256_bytes(inventory_bytes),
-        consumer_graph_sha256=_sha256_bytes(graph_bytes),
-        render_inventory_sha256=render_sha,
+        publication_id=authority.publication_id,
+        inventory_sha256=authority.inventory_sha256,
+        consumer_graph_sha256=authority.consumer_graph_sha256,
+        render_inventory_sha256=authority.render_inventory_sha256,
     )
-    errors = validate_archive_plan(plan, inventory, graph)
-    if errors:
-        raise ValueError("archive plan validation failed: " + "; ".join(errors))
-    output = _absolute(args.output) if args.output else _absolute(inventory.root) / "manifests" / "archive-plans" / f"{args.batch_id}.json"
+    _validate_plan_against_current_authority(plan, authority)
+    output = _canonical_plan_path(args.batch_id)
     digest = _publish_immutable_plan(output, plan)
     return output, plan, digest
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    raw_arguments = list(sys.argv[1:] if argv is None else argv)
+    forbidden_authority_options = {"--inventory", "--graph", "--render-inventory", "--output"}
+    if any(argument.split("=", 1)[0] in forbidden_authority_options for argument in raw_arguments):
+        parser.error("production plan CLI requires canonical Task 7 authority; caller-selected manifests are forbidden")
     parser.add_argument("command", nargs="?", choices=("plan", "apply", "restore"), default="plan")
     parser.add_argument("--batch-id", default="legacy-recovery-files-01")
-    parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
-    parser.add_argument("--graph", type=Path, default=DEFAULT_GRAPH)
-    parser.add_argument("--render-inventory", type=Path, default=None)
-    parser.add_argument("--output", type=Path)
     parser.add_argument("--plan-path", type=Path)
     parser.add_argument("--approval", type=Path)
     parser.add_argument("--manifest", type=Path)
-    args = parser.parse_args(argv)
-    if args.command == "plan" and args.render_inventory is None and _absolute(args.inventory) == _absolute(DEFAULT_INVENTORY):
-        args.render_inventory = DEFAULT_RENDER_INVENTORY
-    return args
+    return parser.parse_args(raw_arguments)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

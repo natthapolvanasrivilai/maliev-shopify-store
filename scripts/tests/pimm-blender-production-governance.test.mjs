@@ -243,7 +243,13 @@ test('Task 7 consumer graph CLI is diagnostic-only and cannot publish outputs', 
   }
 });
 
-test('Task 8 default command publishes a plan without moving active assets', () => {
+test('Task 8 production CLI rejects caller-selected authority manifests', () => {
+  const archiveSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'blender', 'pimm_production', 'archive_plan.py'),
+    'utf8',
+  );
+  assert.match(archiveSource, /ARCHIVE_GOVERNANCE_ROOT = ASSET_ROOT\.parent \/ f"\{ASSET_ROOT\.name\}-governance"/);
+  assert.match(archiveSource, /ARCHIVE_PLAN_ROOT = ARCHIVE_GOVERNANCE_ROOT \/ "manifests" \/ "archive-plans"/);
   const program = [
     'import hashlib',
     'import json',
@@ -283,8 +289,9 @@ test('Task 8 default command publishes a plan without moving active assets', () 
     encoding: 'utf8',
   }));
 
-  assert.equal(result.returncode, 0, result.stderr);
-  assert.equal(result.item_count, 1);
+  assert.notEqual(result.returncode, 0);
+  assert.match(result.stderr, /unrecognized arguments|canonical Task 7 authority/i);
+  assert.equal(result.item_count, null);
   assert.equal(result.source_unchanged, true);
   assert.equal(result.destination_exists, false);
 });
