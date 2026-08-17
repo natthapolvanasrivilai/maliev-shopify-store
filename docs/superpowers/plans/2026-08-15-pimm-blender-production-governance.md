@@ -832,7 +832,7 @@ Commit tooling/tests and a small source-controlled batch summary; keep large ext
 - Consumes every prior contract and external manifest.
 - Produces: one read-only governance report containing doc parity, tool policy, machine semantics, master publication status, scene/proof/release status, consumer graph status, and archive batch status.
 
-- [ ] **Step 1: Add end-to-end fail-closed assertions**
+- [x] **Step 1: Add end-to-end fail-closed assertions**
 
 Node/Python tests must assert:
 
@@ -849,7 +849,7 @@ Node/Python tests must assert:
 - archive manifests are complete and reversible;
 - no permanent deletion action exists.
 
-- [ ] **Step 2: Run the complete repository suite**
+- [x] **Step 2: Run the complete repository suite**
 
 ```powershell
 python -m unittest discover -s scripts\blender\master_assets\tests -v
@@ -861,28 +861,36 @@ git diff --check
 
 Expected: all repository tests pass; Theme Check reports zero repository errors. Existing dependency-template warnings may be reported but cannot be described as repository failures.
 
-- [ ] **Step 3: Run Blender validations**
+Task 9 result: master-assets Python passed 66/66 and production-governance Python passed 234/234. The combined Node run passed 21/23; its two known external handoff failures remain the superseded STEP hash expectation and the stale 491-object expectation versus the current 554-object masters. The Task 9 governance Node file passed all 15 cases. Theme Check inspected 256 files with zero errors and three dependency-template warnings.
+
+- [x] **Step 3: Run Blender validations**
 
 ```powershell
 & 'D:\Blender 5.2\blender.exe' -b 'M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-30G-MASTER.blend' --python-exit-code 1 -P scripts\blender\master_assets\pimm_master_audit.py -- --mode working
 & 'D:\Blender 5.2\blender.exe' -b 'M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\masters\PIMM-50G-MASTER.blend' --python-exit-code 1 -P scripts\blender\master_assets\pimm_master_audit.py -- --mode working
-& 'D:\Blender 5.2\blender.exe' -b --factory-startup --python-exit-code 1 -P scripts\blender\pimm_production\blender_session_preflight.py
+& 'D:\Blender 5.2\blender.exe' -b --factory-startup --python-exit-code 1 -P 'B:\maliev\maliev-shopify-store\.worktrees\pimm-blender-master-assets\scripts\blender\pimm_production\blender_session_preflight.py'
 ```
 
 Expected: source/unit/scale/provenance checks pass. Publication and real render-scene creation remain blocked if manual material assignments are incomplete; report that state as an intentional gate, not success.
 
-- [ ] **Step 4: Exercise BlenderMCP read-only governance**
+Task 9 result: both fresh working audits account for 554 solids, 10 unassigned solids, zero integrity/disconnected errors, and unchanged source/master identities; both remain `publishable=false`. The exact checked-in factory-startup preflight reports `dirty=false`. Audit reports were redirected to disposable local temporary files so this validation did not rewrite the external manifests.
+
+- [x] **Step 4: Exercise BlenderMCP read-only governance**
 
 With the user’s active Blender session open, call the checked-in preflight and relevant read-only validators through BlenderMCP. Confirm no dirty-state change, no selection mutation unless explicitly requested, no save, and no process termination.
 
-- [ ] **Step 5: Verify external lifecycle state**
+Task 9 execution note: no BlenderMCP connector was available in this context, so no MCP evidence is claimed. The checked-in background CLI session preflight and working master audits are used as the read-only substitute. They do not save, render, mutate an interactive selection, or stop an interactive Blender process.
+
+- [x] **Step 5: Verify external lifecycle state**
 
 Run documentation parity, tool lock, inventory, consumer graph, and archive-batch verification. Confirm no file was permanently deleted. Confirm active consumers resolve only active paths. If the first move batch has not received exact owner approval, report it as planned but unapplied.
 
-- [ ] **Step 6: Commit final handoff documentation**
+Task 9 lifecycle note: the independently published Task 7 authority remains the source of inventory/consumer truth. A fresh read-only full-tree verification returned `PUBLISHED_AUTHORITY bc320a119a214ec5907288ac78412e06 5434 5434`. Its 87 ambiguous and 400 unresolved legacy references remain explicit blockers rather than approved release consumers. The only Task 8 proposal is the sibling-governance zero-item plan at `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders-governance\manifests\archive-plans\legacy-recovery-files-01.json`, SHA-256 `80484BBE3E420987407306E908BB9E0AF7E42B785396855E2C72D74224DE608E`; it has no approval, archive destination, move, or deletion.
+
+- [x] **Step 6: Commit final handoff documentation**
 
 Stage only Task 9 documentation/test changes and commit: `Validate PIMM Blender production governance`.
 
-- [ ] **Step 7: Report boundaries and next manual action**
+- [x] **Step 7: Report boundaries and next manual action**
 
 Report commits, tests, BlenderMCP evidence, external docs, tool lock, machine contracts, publication state, proof/final/release readiness, inventory totals, archive batch status, and that no permanent deletion occurred. If masters remain unassigned, state that the next action is owner material assignment followed by publish audit; do not render or migrate storefront assets prematurely.

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,6 +9,14 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const docRoot = path.join(repoRoot, 'docs', 'pimm-blender-governance');
 const assetRoot = String.raw`M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders`;
+const governanceRoot = String.raw`M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders-governance`;
+const archivePlanPath = path.join(
+  governanceRoot,
+  'manifests',
+  'archive-plans',
+  'legacy-recovery-files-01.json',
+);
+const archivePlanSha256 = '80484BBE3E420987407306E908BB9E0AF7E42B785396855E2C72D74224DE608E';
 const linkedTemplate = path.join(
   assetRoot,
   'scenes',
@@ -304,5 +313,73 @@ test('Task 8 governing plan and design bind archive plans to the sibling governa
   const expected = 'M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders-governance\\manifests\\archive-plans\\<batch-id>.json';
   for (const file of governingFiles) {
     assert.match(fs.readFileSync(file, 'utf8'), new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});
+
+test('Task 9 fail-closed lifecycle behaviors pass through their public contracts', () => {
+  const cases = [
+    'scripts.blender.pimm_production.tests.test_scene_contract.SceneContractTests.test_private_mesh_and_localized_product_material_fail',
+    'scripts.blender.pimm_production.tests.test_proof_contract.ProofContractTests.test_contract_rejects_cost_path_generation_and_hash_mutations',
+    'scripts.blender.pimm_production.tests.test_approval_release.ApprovalReleaseTests.test_owner_and_shot_are_required_for_an_approval',
+    'scripts.blender.pimm_production.tests.test_approval_release.ApprovalReleaseTests.test_atomic_json_never_exposes_a_partial_final_path',
+    'scripts.blender.pimm_production.tests.test_approval_release.ApprovalReleaseTests.test_release_rejects_duplicate_assets_missing_exr_and_proof_paths',
+    'scripts.blender.pimm_production.tests.test_consumer_graph.ConsumerGraphTests.test_active_consumer_prevents_archive',
+    'scripts.blender.pimm_production.tests.test_archive_plan.ArchivePlanTests.test_restore_recreates_original_path_and_hash',
+    'scripts.blender.pimm_production.tests.test_archive_plan.ArchivePlanTests.test_plan_containing_delete_is_rejected_before_mutation',
+  ];
+
+  assert.doesNotThrow(() => execFileSync('python', ['-m', 'unittest', ...cases, '-q'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    timeout: 180_000,
+  }));
+});
+
+test('Task 9 read-only handoff report matches the complete current external authority', () => {
+  for (const [canonical, installed] of [
+    [path.join(docRoot, 'AGENTS.md'), path.join(assetRoot, 'AGENTS.md')],
+    [path.join(docRoot, 'README.md'), path.join(assetRoot, 'README.md')],
+  ]) {
+    const canonicalBytes = fs.readFileSync(canonical);
+    const installedBytes = fs.readFileSync(installed);
+    assert.equal(createHash('sha256').update(installedBytes).digest('hex').toUpperCase(), createHash('sha256').update(canonicalBytes).digest('hex').toUpperCase());
+    assert.deepEqual(installedBytes, canonicalBytes);
+  }
+
+  const manifestRoot = path.join(assetRoot, 'manifests');
+  const inventory = JSON.parse(fs.readFileSync(path.join(manifestRoot, 'blender-project-inventory.json'), 'utf8'));
+  const renderInventory = JSON.parse(fs.readFileSync(path.join(manifestRoot, 'render-generation-inventory.json'), 'utf8'));
+  const graph = JSON.parse(fs.readFileSync(path.join(manifestRoot, 'consumer-graph.json'), 'utf8'));
+  assert.equal(inventory.schema, 'pimm-asset-inventory/v2');
+  assert.equal(inventory.records.length, inventory.discovered_paths.length);
+  assert.equal(inventory.summary.record_count, inventory.records.length);
+  assert.deepEqual(inventory.records.map((record) => record.path), inventory.discovered_paths);
+  assert.equal(new Set(inventory.discovered_paths).size, inventory.discovered_paths.length);
+  assert.equal(inventory.publication_id, graph.publication_id);
+  assert.equal(inventory.publication_id, renderInventory.publication_id);
+  assert.deepEqual(renderInventory.releases, {});
+
+  const planBytes = fs.readFileSync(archivePlanPath);
+  const plan = JSON.parse(planBytes);
+  assert.equal(createHash('sha256').update(planBytes).digest('hex').toUpperCase(), archivePlanSha256);
+  assert.equal(plan.summary.item_count, 0);
+  assert.equal(plan.summary.total_bytes, 0);
+  assert.deepEqual(plan.items, []);
+  assert.equal(plan.summary.operation, 'reversible-archive-only');
+  assert.equal(fs.existsSync(plan.summary.destination), false);
+  assert.equal(fs.existsSync(path.join(governanceRoot, 'manifests', 'archive-approvals')), false);
+  assert.equal(fs.existsSync(path.join(assetRoot, 'manifests', 'archive-approvals')), false);
+
+  const report = fs.readFileSync(path.join(docRoot, 'rendering-and-approval.md'), 'utf8');
+  for (const required of [
+    '## Task 9 read-only governance report',
+    'blocked_manual_material_approval',
+    archivePlanSha256,
+    'BlenderMCP connector was unavailable',
+    'No permanent deletion occurred',
+    '5,434',
+    '23,278,163,353',
+  ]) {
+    assert.match(report, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 });

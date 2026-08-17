@@ -81,6 +81,8 @@ Reports are written to the `manifests` folder. Auditing is read-only and verifie
 
 `PIMM_PUBLISHED` remains empty until the publish audit passes and the owner approves the material work. Render-scene migration and storefront asset replacement must wait for that approval. Legacy Blender projects remain untouched and recoverable during this manual phase.
 
+As of the read-only Task 9 handoff on 2026-08-17, both masters remain `blocked_manual_material_approval`: fresh working audits account for 554 solids per master, preserve source/master identity, report zero integrity or disconnected-geometry errors, and find 10 unassigned solids in each machine. Both audits return `publishable=false`, and the production linked template remains absent. Task 5 proof and Task 6 native-final/release evidence is fixture-only and proves the gates rather than approving real output. The sibling-governance archive plan remains an unapplied zero-item proposal; it is not permission to move or delete any product asset.
+
 ## Initial validated handoff
 
 The initial 2026-08-14 handoff is intentionally ready for manual assignment, not publication:
