@@ -220,6 +220,7 @@ def _prepare_restore_manifest(fixture: ArchiveTestFixture, *, status: str = "arc
                         "state": "moved",
                         "move_mode": "fixture",
                         "error": None,
+                        "residual": None,
                     }
                 ],
             },
@@ -330,24 +331,25 @@ class ArchivePlanTests(unittest.TestCase):
             destination = Path(item.destination)
             destination.parent.mkdir(parents=True, exist_ok=True)
             displaced = destination.with_name("owned-displaced.blend1")
-            original_verify = archive_module._verify_file
+            original_verify = archive_module._verify_owned_destination_path
 
-            def swap_after_rename(path: Path, candidate: object, label: str, *, require_identity: bool):
+            def swap_after_rename(path: Path, descriptor: int, candidate: object, label: str, *, require_identity: bool):
                 if path == destination:
                     destination.rename(displaced)
                     destination.write_bytes(b"competitor")
                     raise OSError("injected post-rename asset swap")
                 return original_verify(
-                    path, candidate, label, require_identity=require_identity
+                    path, descriptor, candidate, label, require_identity=require_identity
                 )
 
-            with patch.object(archive_module, "_verify_file", side_effect=swap_after_rename):
-                with self.assertRaisesRegex(OSError, "competitor preserved|manual intervention"):
+            with patch.object(archive_module, "_verify_owned_destination_path", side_effect=swap_after_rename):
+                with self.assertRaisesRegex(OSError, "post-rename asset swap"):
                     archive_module._rename_exact_no_replace(
                         source, destination, item, "archive destination", True
                     )
             self.assertEqual(destination.read_bytes(), b"competitor")
-            self.assertEqual(displaced.read_bytes(), b"recovery-copy-0")
+            self.assertFalse(displaced.exists())
+            self.assertEqual(source.read_bytes(), b"recovery-copy-0")
 
     def test_final_manifest_swap_preserves_competitor_and_reports_manual_residual(self):
         with TemporaryDirectory() as root_text:
@@ -471,6 +473,251 @@ class ArchivePlanTests(unittest.TestCase):
                 restore_archive_batch(fixture.manifest_path)
             self.assertFalse(source.exists())
             self.assertTrue(archived.exists())
+
+    def test_apply_post_rename_swap_recovers_owned_source_and_truthful_journal(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            approval = _valid_approval(fixture)
+            item = fixture.plan.items[0]
+            source = Path(item.source)
+            destination = Path(item.destination)
+            displaced = destination.with_name("displaced-owned-recovery.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            swapped = False
+
+            def swap_after_apply_rename(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ):
+                nonlocal swapped
+                if path == destination and not swapped:
+                    swapped = True
+                    destination.rename(displaced)
+                    destination.write_bytes(b"apply-competitor")
+                    raise OSError("injected apply post-rename swap")
+                return original_verify(
+                    path, descriptor, candidate, label, require_identity=require_identity
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_after_apply_rename,
+                ),
+                self.assertRaisesRegex(OSError, "apply post-rename swap"),
+            ):
+                apply_archive_plan(fixture.plan_path, approval)
+
+            self.assertEqual(_sha256(source), item.sha256)
+            self.assertEqual(destination.read_bytes(), b"apply-competitor")
+            self.assertFalse(displaced.exists())
+            pending = Path(fixture.plan.archive_root) / "archive-manifest.json.tmp"
+            failure = json.loads(pending.read_text(encoding="utf-8"))
+            self.assertEqual(failure["status"], "failed-rolled-back")
+            self.assertEqual(failure["items"][0]["state"], "move-failed")
+            self.assertEqual(failure["residuals"], [])
+
+            destination.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(pending)
+            self.assertEqual(recovered.restored, ())
+            self.assertEqual(_sha256(source), item.sha256)
+
+    def test_restore_post_rename_swap_recovers_archive_and_remains_authenticated(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            archived = _prepare_restore_manifest(fixture)
+            item = fixture.plan.items[0]
+            active = Path(item.source)
+            active.unlink()
+            displaced = active.with_name("displaced-owned-active.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            manifest_before = fixture.manifest_path.read_bytes()
+            swapped = False
+
+            def swap_after_restore_rename(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ):
+                nonlocal swapped
+                if path == active and not swapped:
+                    swapped = True
+                    active.rename(displaced)
+                    active.write_bytes(b"restore-competitor")
+                    raise OSError("injected restore post-rename swap")
+                return original_verify(
+                    path, descriptor, candidate, label, require_identity=require_identity
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_after_restore_rename,
+                ),
+                self.assertRaisesRegex(OSError, "restore post-rename swap"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertEqual(_sha256(archived), item.sha256)
+            self.assertEqual(active.read_bytes(), b"restore-competitor")
+            self.assertFalse(displaced.exists())
+            self.assertEqual(fixture.manifest_path.read_bytes(), manifest_before)
+            state = _manifest_payload(fixture)
+            self.assertEqual(state["status"], "archived")
+            self.assertEqual(state["items"][0]["state"], "moved")
+            self.assertEqual(state["residuals"], [])
+
+            active.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(fixture.manifest_path)
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(active), item.sha256)
+            self.assertFalse(archived.exists())
+
+    def test_apply_post_rename_source_collision_persists_exact_owned_residual(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            item = fixture.plan.items[0]
+            source = Path(item.source)
+            destination = Path(item.destination)
+            displaced = destination.with_name("displaced-before-residual.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            swapped = False
+
+            def collide_both_authoritative_paths(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ):
+                nonlocal swapped
+                if path == destination and not swapped:
+                    swapped = True
+                    destination.rename(displaced)
+                    destination.write_bytes(b"archive-competitor")
+                    source.write_bytes(b"active-competitor")
+                    raise OSError("injected apply source collision")
+                return original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=collide_both_authoritative_paths,
+                ),
+                self.assertRaisesRegex(OSError, "owned bytes retained"),
+            ):
+                apply_archive_plan(fixture.plan_path, _valid_approval(fixture))
+
+            self.assertEqual(source.read_bytes(), b"active-competitor")
+            self.assertEqual(destination.read_bytes(), b"archive-competitor")
+            self.assertFalse(displaced.exists())
+            pending = Path(fixture.plan.archive_root) / "archive-manifest.json.tmp"
+            failure = json.loads(pending.read_text(encoding="utf-8"))
+            self.assertEqual(failure["status"], "failed-partial-rollback")
+            self.assertEqual(failure["items"][0]["state"], "ownership-residual")
+            residual = failure["items"][0]["residual"]
+            self.assertEqual(failure["residuals"], [residual["path"]])
+            residual_path = Path(residual["path"])
+            self.assertEqual(_sha256(residual_path), item.sha256)
+            self.assertEqual(tuple(residual["filesystem_identity"]), archive_module._identity(residual_path.stat()))
+
+            source.unlink()
+            destination.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(pending)
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(source), item.sha256)
+            self.assertFalse(residual_path.exists())
+
+    def test_restore_post_rename_archive_collision_publishes_recoverable_residual(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            archived = _prepare_restore_manifest(fixture)
+            item = fixture.plan.items[0]
+            active = Path(item.source)
+            active.unlink()
+            displaced = active.with_name("displaced-before-restore-residual.blend1")
+            original_verify = archive_module._verify_owned_destination_path
+            swapped = False
+
+            def collide_both_restore_paths(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ):
+                nonlocal swapped
+                if path == active and not swapped:
+                    swapped = True
+                    active.rename(displaced)
+                    active.write_bytes(b"active-competitor")
+                    archived.write_bytes(b"archive-competitor")
+                    raise OSError("injected restore archive collision")
+                return original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=collide_both_restore_paths,
+                ),
+                self.assertRaisesRegex(OSError, "owned bytes retained"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertEqual(active.read_bytes(), b"active-competitor")
+            self.assertEqual(archived.read_bytes(), b"archive-competitor")
+            self.assertFalse(displaced.exists())
+            journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(journals), 1)
+            failure = json.loads(journals[0].read_text(encoding="utf-8"))
+            self.assertEqual(failure["status"], "failed-partial-rollback")
+            self.assertEqual(failure["items"][0]["state"], "ownership-residual")
+            residual = failure["items"][0]["residual"]
+            self.assertEqual(failure["residuals"], [residual["path"]])
+            residual_path = Path(residual["path"])
+            self.assertEqual(_sha256(residual_path), item.sha256)
+
+            active.unlink()
+            archived.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(journals[0])
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(active), item.sha256)
+            self.assertFalse(residual_path.exists())
 
     def test_consumer_or_unique_content_blocks_move(self):
         with TemporaryDirectory() as root:
@@ -830,7 +1077,12 @@ class ArchivePlanTests(unittest.TestCase):
                 else:
                     competitor = Path(item.destination)
 
-                def inject_competitor(_source: Path, destination: Path, *_args: object) -> None:
+                def inject_competitor(
+                    _source: Path,
+                    destination: Path,
+                    *_args: object,
+                    **_kwargs: object,
+                ) -> None:
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(b"competitor")
                     raise FileExistsError("destination competitor")

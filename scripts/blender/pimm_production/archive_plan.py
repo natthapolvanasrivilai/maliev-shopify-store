@@ -72,6 +72,19 @@ class _RecoveredGovernanceRenameError(OSError):
         self.recovered_identity = recovered_identity
 
 
+class _OwnedFileTransitionError(OSError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        recovered_to_source: bool,
+        residual: Mapping[str, object] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.recovered_to_source = recovered_to_source
+        self.residual = residual
+
+
 def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
     return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
@@ -728,7 +741,9 @@ def _remove_if_exact(path: Path, identity: tuple[int, int, int, int]) -> bool:
         os.close(descriptor)
 
 
-def _open_existing_for_exact_delete(path: Path, label: str) -> int:
+def _open_existing_for_exact_delete(
+    path: Path, label: str, *, share_delete: bool = False
+) -> int:
     """Hold one existing Windows file against writes/replacement for exact deletion."""
 
     if os.name != "nt":
@@ -752,12 +767,13 @@ def _open_existing_for_exact_delete(path: Path, label: str) -> int:
     delete_right = 0x00010000
     file_read_attributes = 0x00000080
     file_share_read = 0x00000001
+    file_share_delete = 0x00000004
     open_existing = 3
     file_attribute_normal = 0x00000080
     native_handle = create_file(
         str(path),
         generic_read | delete_right | file_read_attributes,
-        file_share_read,
+        file_share_read | (file_share_delete if share_delete else 0),
         None,
         open_existing,
         file_attribute_normal,
@@ -834,73 +850,151 @@ def _write_descriptor_all(descriptor: int, content: bytes) -> None:
         offset += written
 
 
+def _copy_owned_item_to_new_path(
+    owned_descriptor: int,
+    path: Path,
+    item: ArchiveItem,
+    label: str,
+) -> tuple[int, int, int, int]:
+    descriptor = _create_owned_file(path, share_delete=False)
+    try:
+        _copy_descriptor(owned_descriptor, descriptor)
+        os.utime(path, ns=(item.mtime_ns, item.mtime_ns))
+        _verify_descriptor(descriptor, item, label, require_identity=False)
+        descriptor_identity = _identity(os.fstat(descriptor))
+        if _identity(path.stat(follow_symlinks=False))[:2] != descriptor_identity[:2]:
+            raise ValueError(f"{label} pathname identity drift")
+    except BaseException:
+        try:
+            _delete_owned_handle(descriptor, f"{label} cleanup")
+        except OSError as cleanup_error:
+            raise OSError(f"{label} failed and exact cleanup failed: {cleanup_error}")
+        raise
+    finally:
+        os.close(descriptor)
+    return _identity(path.stat(follow_symlinks=False))
+
+
+def _recover_owned_item_after_rename(
+    owned_descriptor: int,
+    source: Path,
+    residual_root: Path,
+    item: ArchiveItem,
+    label: str,
+    original_error: BaseException,
+) -> _OwnedFileTransitionError:
+    """Recover the held moved object without trusting any post-rename pathname."""
+
+    _verify_descriptor(owned_descriptor, item, f"{label} held source", require_identity=False)
+    try:
+        _copy_owned_item_to_new_path(
+            owned_descriptor, source, item, f"{label} recovered source"
+        )
+    except FileExistsError:
+        residual_root.mkdir(parents=True, exist_ok=True)
+        residual_path = residual_root / (
+            f".{PurePosixPath(item.relative_path).name}.owned-residual-{uuid.uuid4().hex}"
+        )
+        residual_identity = _copy_owned_item_to_new_path(
+            owned_descriptor,
+            residual_path,
+            item,
+            f"{label} owned residual",
+        )
+        _delete_owned_handle(owned_descriptor, f"{label} displaced owned source")
+        residual = {
+            "path": str(residual_path),
+            "filesystem_identity": list(residual_identity),
+            "sha256": item.sha256,
+            "size": item.size,
+            "mtime_ns": item.mtime_ns,
+        }
+        return _OwnedFileTransitionError(
+            f"{original_error}; owned bytes retained at {residual_path}",
+            recovered_to_source=False,
+            residual=residual,
+        )
+    _delete_owned_handle(owned_descriptor, f"{label} displaced owned source")
+    return _OwnedFileTransitionError(
+        str(original_error), recovered_to_source=True
+    )
+
+
+def _verify_owned_destination_path(
+    path: Path,
+    owned_descriptor: int,
+    item: ArchiveItem,
+    label: str,
+    *,
+    require_identity: bool,
+) -> None:
+    """Bind the destination pathname to the still-held moved file object."""
+
+    status = path.stat(follow_symlinks=False)
+    descriptor_status = os.fstat(owned_descriptor)
+    if _identity(status)[:2] != _identity(descriptor_status)[:2]:
+        raise ValueError(f"{label} destination pathname ownership drift")
+    if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
+        raise ValueError(f"{label} destination must be one regular single-link file")
+    if status.st_size != item.size or status.st_mtime_ns != item.mtime_ns:
+        raise ValueError(f"{label} destination metadata drift")
+    _verify_descriptor(
+        owned_descriptor,
+        item,
+        f"{label} held source",
+        require_identity=require_identity,
+    )
+
+
 def _rename_exact_no_replace(
     source: Path,
     destination: Path,
     item: ArchiveItem,
     label: str,
     require_plan_identity: bool,
+    residual_root: Path | None = None,
 ) -> None:
     """Atomically rename on Windows while refusing every destination collision."""
 
     if os.name != "nt":
         raise OSError(f"{label}: atomic no-replace rename is unavailable off Windows")
-    if destination.exists() or destination.is_symlink():
-        raise FileExistsError(f"{label} destination already exists: {destination}")
-    _verify_file(source, item, label, require_identity=require_plan_identity)
-    source_identity = _identity(source.stat(follow_symlinks=False))
-    os.rename(source, destination)
+    source_descriptor = _open_existing_for_exact_delete(
+        source, f"{label} source", share_delete=True
+    )
     try:
-        if source.exists() or source.is_symlink():
-            raise ValueError(f"{label} source still exists after rename")
-        destination_identity = _identity(destination.stat(follow_symlinks=False))
-        if destination_identity[:2] != source_identity[:2] or destination_identity[3] != source_identity[3]:
-            raise ValueError(f"{label} destination identity drift after rename")
-        _verify_file(destination, item, label, require_identity=require_plan_identity)
-    except BaseException:
-        if not source.exists() and destination.exists():
-            destination_descriptor = _open_existing_for_exact_delete(
-                destination, f"{label} failed destination"
+        _verify_descriptor(
+            source_descriptor, item, label, require_identity=require_plan_identity
+        )
+        source_identity = _identity(os.fstat(source_descriptor))
+        if _identity(source.stat(follow_symlinks=False))[:2] != source_identity[:2]:
+            raise ValueError(f"{label} source pathname identity drift")
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError(f"{label} destination already exists: {destination}")
+        os.rename(source, destination)
+        try:
+            if source.exists() or source.is_symlink():
+                raise ValueError(f"{label} source still exists after rename")
+            destination_identity = _identity(destination.stat(follow_symlinks=False))
+            if destination_identity[:2] != source_identity[:2] or destination_identity[3] != source_identity[3]:
+                raise ValueError(f"{label} destination identity drift after rename")
+            _verify_owned_destination_path(
+                destination,
+                source_descriptor,
+                item,
+                label,
+                require_identity=require_plan_identity,
             )
-            source_descriptor: int | None = None
-            try:
-                current_identity = _identity(os.fstat(destination_descriptor))
-                if current_identity[:2] != source_identity[:2] or current_identity[3] != source_identity[3]:
-                    raise OSError(
-                        f"{label} verification failed after destination ownership was lost; "
-                        "competitor preserved; manual intervention required"
-                    )
-                source_descriptor = _create_owned_file(source, share_delete=False)
-                _copy_descriptor(destination_descriptor, source_descriptor)
-                os.utime(source, ns=(item.mtime_ns, item.mtime_ns))
-                _verify_descriptor(
-                    source_descriptor,
-                    item,
-                    f"{label} recovered source",
-                    require_identity=False,
-                )
-                _delete_owned_handle(
-                    destination_descriptor, f"{label} failed destination"
-                )
-            except BaseException as rollback_error:
-                if source_descriptor is not None:
-                    try:
-                        _delete_owned_handle(
-                            source_descriptor, f"{label} incomplete recovered source"
-                        )
-                    except OSError as cleanup_error:
-                        rollback_error.add_note(
-                            f"exact recovered-source cleanup failed: {cleanup_error}"
-                        )
-                raise OSError(
-                    f"{label} verification failed and exact-identity recovery was incomplete: "
-                    f"{rollback_error}; manual intervention required"
-                ) from rollback_error
-            finally:
-                if source_descriptor is not None:
-                    os.close(source_descriptor)
-                os.close(destination_descriptor)
-        raise
+        except BaseException as transition_error:
+            raise _recover_owned_item_after_rename(
+                source_descriptor,
+                source,
+                residual_root or destination.parent,
+                item,
+                label,
+                transition_error,
+            ) from transition_error
+    finally:
+        os.close(source_descriptor)
 
 
 def _rename_governance_no_replace(
@@ -1138,6 +1232,7 @@ def _manifest_item(item: ArchiveItem) -> dict[str, object]:
         "state": "pending",
         "move_mode": None,
         "error": None,
+        "residual": None,
     }
 
 
@@ -1162,6 +1257,7 @@ def _restore_one(result: ArchiveFileResult) -> ArchiveFileResult:
             item,
             "restore destination",
             False,
+            residual_root=destination.parent,
         )
         mode = "atomic-rename"
     else:
@@ -1296,16 +1392,30 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
             manifest_identity = error.recovered_identity
         rolled_back, rollback_failures = _rollback_moved(moved)
         failure_payload = base_payload
+        transition_residual = (
+            error.residual
+            if isinstance(error, _OwnedFileTransitionError)
+            else None
+        )
         failure_payload["status"] = (
-            "failed-partial-rollback" if rollback_failures else "failed-rolled-back"
+            "failed-partial-rollback"
+            if rollback_failures or transition_residual is not None
+            else "failed-rolled-back"
         )
         failure_payload["error"] = f"{type(error).__name__}: {error}"
         failure_payload["residuals"] = [source for source, _ in rollback_failures]
+        if transition_residual is not None:
+            failure_payload["residuals"].append(str(transition_residual["path"]))
         if current_index is not None:
             failed_entry = failure_payload["items"][current_index]
             if failed_entry["state"] == "pending":
-                failed_entry["state"] = "move-failed"
+                failed_entry["state"] = (
+                    "ownership-residual"
+                    if transition_residual is not None
+                    else "move-failed"
+                )
                 failed_entry["error"] = f"{type(error).__name__}: {error}"
+                failed_entry["residual"] = transition_residual
         restored_sources = {result.source for result in rolled_back}
         failure_by_source = dict(rollback_failures)
         for entry in failure_payload["items"]:
@@ -1331,8 +1441,8 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
         if not failure_recorded:
             failure_path = _publish_failure_journal(archive_root, failure_payload)
             error.add_note(f"immutable failure journal: {failure_path}")
-        if rollback_failures:
-            residuals = ", ".join(source for source, _ in rollback_failures)
+        if rollback_failures or transition_residual is not None:
+            residuals = ", ".join(str(value) for value in failure_payload["residuals"])
             raise OSError(
                 f"{error}; rollback incomplete; manual intervention required for: {residuals}"
             ) from error
@@ -1442,14 +1552,30 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         raise ValueError("archive manifest has an extra item")
     results: list[ArchiveFileResult] = []
     for index, (raw, plan_item) in enumerate(zip(raw_items, plan.items, strict=True)):
-        if not isinstance(raw, Mapping) or set(raw) != {"plan_item", "state", "move_mode", "error"}:
+        if not isinstance(raw, Mapping) or set(raw) != {
+            "plan_item", "state", "move_mode", "error", "residual",
+        }:
             raise ValueError("archive manifest item fields are invalid")
         if raw.get("plan_item") != plan_item.to_payload():
             raise ValueError(f"archive manifest item mapping mismatch at index {index}")
-        if raw.get("state") not in {"pending", "moved", "rolled-back", "rollback-failed", "move-failed"}:
+        if raw.get("state") not in {
+            "pending", "moved", "rolled-back", "rollback-failed",
+            "move-failed", "ownership-residual",
+        }:
             raise ValueError("archive manifest item state is invalid")
         if not (raw.get("error") is None or isinstance(raw.get("error"), str)):
             raise ValueError("archive manifest item error is invalid")
+        residual = raw.get("residual")
+        if residual is not None:
+            expected_residual_fields = {
+                "path", "filesystem_identity", "sha256", "size", "mtime_ns",
+            }
+            if not isinstance(residual, Mapping) or set(residual) != expected_residual_fields:
+                raise ValueError("archive manifest item residual is invalid")
+            if raw.get("state") != "ownership-residual":
+                raise ValueError("archive manifest residual requires ownership-residual state")
+        elif raw.get("state") == "ownership-residual":
+            raise ValueError("archive manifest ownership-residual state lacks evidence")
         result = _result_for_item(plan_item, str(raw.get("move_mode") or "reconciled"))
         if not _within(_absolute(result.source), active_root) or not _within(_absolute(result.destination), archive_root):
             raise ValueError("archive restore mapping escapes its authority roots")
@@ -1472,21 +1598,60 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         for raw in raw_items
         if raw["state"] == "rollback-failed"
     ]
+    ownership_residual_paths = [
+        str(raw["residual"]["path"])
+        for raw in raw_items
+        if raw["state"] == "ownership-residual"
+    ]
+    expected_failure_residuals = rollback_failed_sources + ownership_residual_paths
     if status == "failed-rolled-back" and (rollback_failed_sources or residuals):
         raise ValueError("archive manifest status and item state mismatch")
     if status == "failed-partial-rollback" and (
-        not rollback_failed_sources
+        not expected_failure_residuals
         or sorted(residuals, key=str.casefold)
-        != sorted(rollback_failed_sources, key=str.casefold)
+        != sorted(expected_failure_residuals, key=str.casefold)
     ):
         raise ValueError("archive manifest status and item state mismatch")
     restore_results: list[ArchiveFileResult] = []
     duplicate_archive_results: list[ArchiveFileResult] = []
-    for result, plan_item in zip(results, plan.items, strict=True):
+    for raw, result, plan_item in zip(raw_items, results, plan.items, strict=True):
         source = _absolute(result.source)
         destination = _absolute(result.destination)
         _reject_reparse_ancestors(source, "restore active mapping", allow_missing=True)
         _reject_reparse_ancestors(destination, "restore archive mapping", allow_missing=True)
+        residual = raw.get("residual")
+        if isinstance(residual, Mapping):
+            residual_path = _absolute(str(residual["path"]))
+            if not _within(residual_path, archive_root):
+                raise ValueError("archive ownership residual escapes archive root")
+            residual_item = replace(
+                plan_item,
+                source=str(residual_path),
+                filesystem_identity=tuple(int(value) for value in residual["filesystem_identity"]),
+            )
+            if (
+                str(residual["sha256"]).upper() != plan_item.sha256.upper()
+                or int(residual["size"]) != plan_item.size
+                or int(residual["mtime_ns"]) != plan_item.mtime_ns
+            ):
+                raise ValueError("archive ownership residual evidence drift")
+            _verify_file(
+                residual_path,
+                residual_item,
+                "archive ownership residual",
+                require_identity=True,
+            )
+            if destination.exists() or destination.is_symlink():
+                raise ValueError("archive destination collision blocks ownership residual recovery")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            _rename_exact_no_replace(
+                residual_path,
+                destination,
+                residual_item,
+                "archive residual normalization",
+                True,
+                residual_root=archive_root,
+            )
         source_exists = source.exists() or source.is_symlink()
         destination_exists = destination.exists() or destination.is_symlink()
         if source_exists:
@@ -1500,9 +1665,12 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         elif not source_exists and not destination_exists:
             raise ValueError(f"archive item is missing from both roots: {result.source}")
     restored: list[ArchiveFileResult] = []
+    current_restore: ArchiveFileResult | None = None
     try:
         for result in restore_results:
+            current_restore = result
             restored.append(_restore_one(result))
+            current_restore = None
         for result in duplicate_archive_results:
             destination = _absolute(result.destination)
             item = next(item for item in plan.items if item.source == result.source)
@@ -1531,6 +1699,24 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                     )
                 except (OSError, ValueError) as rollback_error:
                     rollback_failures.append(f"{source}: {rollback_error}")
+        transition_residual = (
+            error.residual
+            if isinstance(error, _OwnedFileTransitionError)
+            else None
+        )
+        if transition_residual is not None and current_restore is not None:
+            failure_payload = json.loads(json.dumps(payload))
+            failure_payload["status"] = "failed-partial-rollback"
+            failure_payload["error"] = f"{type(error).__name__}: {error}"
+            failure_payload["residuals"] = [str(transition_residual["path"])]
+            for raw in failure_payload["items"]:
+                if str(raw["plan_item"]["source"]) == current_restore.source:
+                    raw["state"] = "ownership-residual"
+                    raw["error"] = f"{type(error).__name__}: {error}"
+                    raw["residual"] = transition_residual
+                    break
+            failure_path = _publish_failure_journal(archive_root, failure_payload)
+            error.add_note(f"immutable restore failure journal: {failure_path}")
         if rollback_failures:
             raise OSError(
                 f"{error}; restore rollback incomplete; manual intervention required: "
