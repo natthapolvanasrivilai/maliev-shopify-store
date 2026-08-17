@@ -867,6 +867,180 @@ class ArchivePlanTests(unittest.TestCase):
             self.assertFalse(first_archive.exists())
             self.assertFalse(second_archive.exists())
 
+    def test_restore_rollback_post_rename_residual_is_fully_journaled_and_recoverable(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False, item_count=2)
+            _prepare_restore_manifest(fixture)
+            first, second = fixture.plan.items
+            first_active = Path(first.source)
+            second_active = Path(second.source)
+            first_archive = Path(first.destination)
+            second_archive = Path(second.destination)
+            first_active.unlink()
+            second_active.unlink()
+            first_displaced = first_archive.with_name("displaced-first-rollback.blend1")
+            original_restore = archive_module._restore_one
+            original_verify = archive_module._verify_owned_destination_path
+            injected = False
+
+            def fail_second_restore(result: object):
+                if result.source == second.source:
+                    raise OSError("injected second item restore failure")
+                return original_restore(result)
+
+            def swap_both_rollback_paths(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ) -> None:
+                nonlocal injected
+                if (
+                    path == first_archive
+                    and label == "restore rollback destination"
+                    and not injected
+                ):
+                    injected = True
+                    first_archive.rename(first_displaced)
+                    first_archive.write_bytes(b"archive-rollback-competitor")
+                    first_active.write_bytes(b"active-rollback-competitor")
+                    raise OSError("injected rollback post-rename dual swap")
+                original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module, "_restore_one", side_effect=fail_second_restore
+                ),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_both_rollback_paths,
+                ),
+                self.assertRaisesRegex(OSError, "rollback incomplete"),
+            ):
+                restore_archive_batch(fixture.manifest_path)
+
+            self.assertEqual(first_active.read_bytes(), b"active-rollback-competitor")
+            self.assertEqual(first_archive.read_bytes(), b"archive-rollback-competitor")
+            self.assertFalse(first_displaced.exists())
+            self.assertFalse(second_active.exists())
+            self.assertEqual(_sha256(second_archive), second.sha256)
+            journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(journals), 1)
+            failure = json.loads(journals[0].read_text(encoding="utf-8"))
+            first_state = failure["items"][0]
+            self.assertEqual(failure["status"], "failed-partial-rollback")
+            self.assertEqual(first_state["state"], "rollback-failed")
+            residual = first_state["residual"]
+            self.assertIsNotNone(residual)
+            self.assertEqual(failure["residuals"], [residual["path"]])
+            residual_path = Path(residual["path"])
+            self.assertEqual(_sha256(residual_path), first.sha256)
+            physical_residuals = [
+                path
+                for path in Path(fixture.plan.archive_root).rglob("*")
+                if path.is_file() and ".owned-residual-" in path.name
+            ]
+            self.assertEqual(physical_residuals, [residual_path])
+
+            first_active.unlink()
+            first_archive.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(journals[0])
+            self.assertEqual(len(recovered.restored), 2)
+            self.assertEqual(_sha256(first_active), first.sha256)
+            self.assertEqual(_sha256(second_active), second.sha256)
+            self.assertFalse(residual_path.exists())
+
+    def test_apply_rollback_post_rename_residual_is_fully_journaled_and_recoverable(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False, item_count=2)
+            first, second = fixture.plan.items
+            first_active = Path(first.source)
+            first_archive = Path(first.destination)
+            first_displaced = first_active.with_name("displaced-apply-rollback.blend1")
+            original_move = archive_module._move_item
+            original_verify = archive_module._verify_owned_destination_path
+            injected = False
+
+            def fail_second_move(item: object, manifest_tmp: Path) -> str:
+                if item.source == second.source:
+                    raise OSError("injected second apply move failure")
+                return original_move(item, manifest_tmp)
+
+            def swap_both_apply_rollback_paths(
+                path: Path,
+                descriptor: int,
+                candidate: object,
+                label: str,
+                *,
+                require_identity: bool,
+            ) -> None:
+                nonlocal injected
+                if path == first_active and label == "restore destination" and not injected:
+                    injected = True
+                    first_active.rename(first_displaced)
+                    first_active.write_bytes(b"active-apply-rollback-competitor")
+                    first_archive.write_bytes(b"archive-apply-rollback-competitor")
+                    raise OSError("injected apply rollback post-rename dual swap")
+                original_verify(
+                    path,
+                    descriptor,
+                    candidate,
+                    label,
+                    require_identity=require_identity,
+                )
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(archive_module, "_move_item", side_effect=fail_second_move),
+                patch.object(
+                    archive_module,
+                    "_verify_owned_destination_path",
+                    side_effect=swap_both_apply_rollback_paths,
+                ),
+                self.assertRaisesRegex(OSError, "rollback incomplete"),
+            ):
+                apply_archive_plan(fixture.plan_path, _valid_approval(fixture))
+
+            self.assertEqual(
+                first_active.read_bytes(), b"active-apply-rollback-competitor"
+            )
+            self.assertEqual(
+                first_archive.read_bytes(), b"archive-apply-rollback-competitor"
+            )
+            self.assertFalse(first_displaced.exists())
+            pending = Path(fixture.plan.archive_root) / "archive-manifest.json.tmp"
+            failure = json.loads(pending.read_text(encoding="utf-8"))
+            first_state = failure["items"][0]
+            self.assertEqual(failure["status"], "failed-partial-rollback")
+            self.assertEqual(first_state["state"], "rollback-failed")
+            residual = first_state["residual"]
+            self.assertIsNotNone(residual)
+            self.assertEqual(failure["residuals"], [residual["path"]])
+            residual_path = Path(residual["path"])
+            self.assertEqual(_sha256(residual_path), first.sha256)
+
+            first_active.unlink()
+            first_archive.unlink()
+            with _authority_patch(fixture.authority):
+                recovered = restore_archive_batch(pending)
+            self.assertEqual(len(recovered.restored), 1)
+            self.assertEqual(_sha256(first_active), first.sha256)
+            self.assertEqual(_sha256(Path(second.source)), second.sha256)
+            self.assertFalse(residual_path.exists())
+
     def test_consumer_or_unique_content_blocks_move(self):
         with TemporaryDirectory() as root:
             fixture = archive_test_fixture(Path(root), ("theme.liquid",), True)

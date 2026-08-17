@@ -1293,14 +1293,24 @@ def _restore_one(result: ArchiveFileResult) -> ArchiveFileResult:
 
 def _rollback_moved(
     results: Sequence[ArchiveFileResult],
-) -> tuple[tuple[ArchiveFileResult, ...], tuple[tuple[str, str], ...]]:
+) -> tuple[
+    tuple[ArchiveFileResult, ...],
+    tuple[tuple[str, str, Mapping[str, object] | None], ...],
+]:
     restored: list[ArchiveFileResult] = []
-    failures: list[tuple[str, str]] = []
+    failures: list[tuple[str, str, Mapping[str, object] | None]] = []
     for result in reversed(results):
         try:
             restored.append(_restore_one(result))
         except (OSError, ValueError) as error:
-            failures.append((result.source, f"{type(error).__name__}: {error}"))
+            residual = (
+                error.residual
+                if isinstance(error, _OwnedFileTransitionError)
+                else None
+            )
+            failures.append(
+                (result.source, f"{type(error).__name__}: {error}", residual)
+            )
     return tuple(restored), tuple(failures)
 
 
@@ -1403,7 +1413,10 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
             else "failed-rolled-back"
         )
         failure_payload["error"] = f"{type(error).__name__}: {error}"
-        failure_payload["residuals"] = [source for source, _ in rollback_failures]
+        failure_payload["residuals"] = [
+            str(residual["path"]) if residual is not None else source
+            for source, _, residual in rollback_failures
+        ]
         if transition_residual is not None:
             failure_payload["residuals"].append(str(transition_residual["path"]))
         if current_index is not None:
@@ -1417,15 +1430,20 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
                 failed_entry["error"] = f"{type(error).__name__}: {error}"
                 failed_entry["residual"] = transition_residual
         restored_sources = {result.source for result in rolled_back}
-        failure_by_source = dict(rollback_failures)
+        failure_by_source = {
+            source: (rollback_error, residual)
+            for source, rollback_error, residual in rollback_failures
+        }
         for entry in failure_payload["items"]:
             source = str(entry["plan_item"]["source"])
             if source in restored_sources:
                 entry["state"] = "rolled-back"
                 entry["error"] = None
             elif source in failure_by_source:
+                rollback_error, residual = failure_by_source[source]
                 entry["state"] = "rollback-failed"
-                entry["error"] = failure_by_source[source]
+                entry["error"] = rollback_error
+                entry["residual"] = residual
         failure_recorded = False
         if manifest_tmp.exists():
             try:
@@ -1572,8 +1590,11 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
             }
             if not isinstance(residual, Mapping) or set(residual) != expected_residual_fields:
                 raise ValueError("archive manifest item residual is invalid")
-            if raw.get("state") != "ownership-residual":
-                raise ValueError("archive manifest residual requires ownership-residual state")
+            if raw.get("state") not in {"ownership-residual", "rollback-failed"}:
+                raise ValueError(
+                    "archive manifest residual requires ownership-residual or "
+                    "rollback-failed state"
+                )
         elif raw.get("state") == "ownership-residual":
             raise ValueError("archive manifest ownership-residual state lacks evidence")
         result = _result_for_item(plan_item, str(raw.get("move_mode") or "reconciled"))
@@ -1593,8 +1614,12 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         or residuals
     ):
         raise ValueError("archive manifest status and item state mismatch")
-    rollback_failed_sources = [
-        str(raw["plan_item"]["source"])
+    rollback_failure_paths = [
+        (
+            str(raw["residual"]["path"])
+            if isinstance(raw.get("residual"), Mapping)
+            else str(raw["plan_item"]["source"])
+        )
         for raw in raw_items
         if raw["state"] == "rollback-failed"
     ]
@@ -1603,8 +1628,8 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         for raw in raw_items
         if raw["state"] == "ownership-residual"
     ]
-    expected_failure_residuals = rollback_failed_sources + ownership_residual_paths
-    if status == "failed-rolled-back" and (rollback_failed_sources or residuals):
+    expected_failure_residuals = rollback_failure_paths + ownership_residual_paths
+    if status == "failed-rolled-back" and (rollback_failure_paths or residuals):
         raise ValueError("archive manifest status and item state mismatch")
     if status == "failed-partial-rollback" and (
         not expected_failure_residuals
@@ -1699,7 +1724,9 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                 os.close(descriptor)
     except Exception as error:
         # Restore is itself reversible: move already restored records back to archive.
-        rollback_failures: list[tuple[ArchiveFileResult, str]] = []
+        rollback_failures: list[
+            tuple[ArchiveFileResult, str, Mapping[str, object] | None]
+        ] = []
         for result in reversed(restored):
             source = _absolute(result.source)
             destination = _absolute(result.destination)
@@ -1707,13 +1734,14 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
             destination_exists = destination.exists() or destination.is_symlink()
             if not source_exists:
                 rollback_failures.append(
-                    (result, f"restore rollback source is missing: {source}")
+                    (result, f"restore rollback source is missing: {source}", None)
                 )
             elif destination_exists:
                 rollback_failures.append(
                     (
                         result,
                         f"restore rollback destination collision: {destination}",
+                        None,
                     )
                 )
             else:
@@ -1728,7 +1756,14 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                         False,
                     )
                 except (OSError, ValueError) as rollback_error:
-                    rollback_failures.append((result, str(rollback_error)))
+                    residual = (
+                        rollback_error.residual
+                        if isinstance(rollback_error, _OwnedFileTransitionError)
+                        else None
+                    )
+                    rollback_failures.append(
+                        (result, str(rollback_error), residual)
+                    )
         transition_residual = (
             error.residual
             if isinstance(error, _OwnedFileTransitionError)
@@ -1741,18 +1776,22 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
             failure_payload["status"] = "failed-partial-rollback"
             failure_payload["error"] = f"{type(error).__name__}: {error}"
             failure_payload["residuals"] = [
-                result.source for result, _ in rollback_failures
+                str(residual["path"])
+                if residual is not None
+                else result.source
+                for result, _, residual in rollback_failures
             ]
             failure_by_source = {
-                result.source: rollback_error
-                for result, rollback_error in rollback_failures
+                result.source: (rollback_error, residual)
+                for result, rollback_error, residual in rollback_failures
             }
             for raw in failure_payload["items"]:
                 item_source = str(raw["plan_item"]["source"])
                 if item_source in failure_by_source:
+                    rollback_error, residual = failure_by_source[item_source]
                     raw["state"] = "rollback-failed"
-                    raw["error"] = failure_by_source[item_source]
-                    raw["residual"] = None
+                    raw["error"] = rollback_error
+                    raw["residual"] = residual
             if transition_residual is not None and current_restore is not None:
                 failure_payload["residuals"].append(
                     str(transition_residual["path"])
@@ -1770,7 +1809,7 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
                 f"{error}; restore rollback incomplete; manual intervention required: "
                 + "; ".join(
                     f"{result.source}: {rollback_error}"
-                    for result, rollback_error in rollback_failures
+                    for result, rollback_error, _ in rollback_failures
                 )
             ) from error
         raise
