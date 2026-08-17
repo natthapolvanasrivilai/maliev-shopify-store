@@ -66,6 +66,71 @@ def _finalize_with_postcommit_hash_action(
 
 
 class LegacyInventoryContractTests(unittest.TestCase):
+    def test_published_authority_allows_only_the_exact_archived_source_paths_to_be_missing(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            archived = _write(root, "legacy/PIMM-old.blend1", b"recovery")
+            remaining = _write(root, "legacy/PIMM-old.blend", b"current")
+            manifest_root = root / "manifests"
+            atomic_write_json(
+                manifest_root / "blender-project-inventory.json",
+                inventory_payload(inventory_workspace(root)),
+            )
+            finalize_inventory(
+                manifest_root / "blender-project-inventory.json",
+                manifest_root / "blender-project-migration-report.md",
+                manifest_root / "consumer-graph.json",
+                manifest_root / "render-generation-inventory.json",
+                Path(repo_text),
+                root,
+            )
+            archived.unlink()
+
+            authority = verify_published_outputs(
+                root, permitted_missing_paths=("legacy/PIMM-old.blend1",)
+            )
+            self.assertTrue(authority["publication_id"])
+            with self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
+                verify_published_outputs(root)
+
+            remaining.write_bytes(b"drifted")
+            with self.assertRaisesRegex(RuntimeError, "metadata changed|content hash changed"):
+                verify_published_outputs(
+                    root, permitted_missing_paths=("legacy/PIMM-old.blend1",)
+                )
+
+    def test_published_authority_rejects_any_unplanned_missing_or_extra_path(self):
+        with TemporaryDirectory() as root_text, TemporaryDirectory() as repo_text:
+            root = Path(root_text)
+            planned = _write(root, "legacy/PIMM-old.blend1", b"recovery")
+            unplanned = _write(root, "legacy/keep.blend", b"keep")
+            manifest_root = root / "manifests"
+            atomic_write_json(
+                manifest_root / "blender-project-inventory.json",
+                inventory_payload(inventory_workspace(root)),
+            )
+            finalize_inventory(
+                manifest_root / "blender-project-inventory.json",
+                manifest_root / "blender-project-migration-report.md",
+                manifest_root / "consumer-graph.json",
+                manifest_root / "render-generation-inventory.json",
+                Path(repo_text),
+                root,
+            )
+            planned.unlink()
+            unplanned.unlink()
+            with self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
+                verify_published_outputs(
+                    root, permitted_missing_paths=("legacy/PIMM-old.blend1",)
+                )
+
+            unplanned.write_bytes(b"keep")
+            _write(root, "legacy/unpublished.blend", b"extra")
+            with self.assertRaisesRegex(RuntimeError, "stale inventory path set"):
+                verify_published_outputs(
+                    root, permitted_missing_paths=("legacy/PIMM-old.blend1",)
+                )
+
     def test_legacy_dispositions_have_explicit_schema_v2_migrations(self):
         self.assertEqual(
             LEGACY_DISPOSITION_ALIASES,

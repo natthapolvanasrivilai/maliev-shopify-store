@@ -115,6 +115,9 @@ blender-product-renders/
 
 blender-product-renders-archive/
 └── pending-delete/<date>-<batch-id>/
+
+blender-product-renders-governance/
+└── manifests/archive-plans/<batch-id>.json
 ```
 
 The source-controlled Shopify repository owns the canonical instructions, validators, and Blender Python scripts. The canonical workspace documents live at `docs/pimm-blender-governance/AGENTS.md` and `docs/pimm-blender-governance/README.md`. An installation/check command places them at `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\AGENTS.md` and `README.md`, then verifies their hashes. This prevents the external documentation from silently drifting away from the tested workflow.
@@ -411,6 +414,9 @@ Before moving a deprecated item:
 Approved items move to a sibling archive outside the active workspace:
 
 `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders-archive\pending-delete\<date>-<batch-id>\`
+
+The immutable, approval-eligible plan is a separate sibling governance artifact at
+`M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders-governance\manifests\archive-plans\<batch-id>.json`. It is never written beneath the governed active render root, so its publication cannot make the exact Task 7 inventory stale.
 
 The move preserves relative paths, hashes, sizes, and timestamps. After the move, dependency scans, scene validation, proof contracts, and storefront-consumer tests rerun. The archive is read-only and excluded from all active searches and consumers.
 

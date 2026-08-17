@@ -39,6 +39,7 @@ from scripts.blender.master_assets.pimm_legacy_inventory import (  # noqa: E402
 from scripts.blender.pimm_production.consumer_graph import (  # noqa: E402
     CONSUMER_GRAPH_SCHEMA,
     ConsumerGraph,
+    build_consumer_graph,
     consumer_graph_payload,
 )
 from scripts.blender.pimm_production.approval_manifest import (  # noqa: E402
@@ -61,6 +62,14 @@ _PROTECTED_TOKENS = frozenset(
     {"source", "sources", "master", "masters", "material", "materials", "artwork", "scripts", "calibrated", "approved", "release", "releases"}
 )
 _PROTECTED_KINDS = frozenset({"authoritative-master", "artwork", "script", "texture"})
+
+
+class _RecoveredGovernanceRenameError(OSError):
+    def __init__(
+        self, message: str, recovered_identity: tuple[int, int, int, int]
+    ) -> None:
+        super().__init__(message)
+        self.recovered_identity = recovered_identity
 
 
 def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
@@ -850,10 +859,47 @@ def _rename_exact_no_replace(
         _verify_file(destination, item, label, require_identity=require_plan_identity)
     except BaseException:
         if not source.exists() and destination.exists():
+            destination_descriptor = _open_existing_for_exact_delete(
+                destination, f"{label} failed destination"
+            )
+            source_descriptor: int | None = None
             try:
-                os.rename(destination, source)
-            except OSError as rollback_error:
-                raise OSError(f"{label} verification failed and rollback was incomplete: {rollback_error}")
+                current_identity = _identity(os.fstat(destination_descriptor))
+                if current_identity[:2] != source_identity[:2] or current_identity[3] != source_identity[3]:
+                    raise OSError(
+                        f"{label} verification failed after destination ownership was lost; "
+                        "competitor preserved; manual intervention required"
+                    )
+                source_descriptor = _create_owned_file(source, share_delete=False)
+                _copy_descriptor(destination_descriptor, source_descriptor)
+                os.utime(source, ns=(item.mtime_ns, item.mtime_ns))
+                _verify_descriptor(
+                    source_descriptor,
+                    item,
+                    f"{label} recovered source",
+                    require_identity=False,
+                )
+                _delete_owned_handle(
+                    destination_descriptor, f"{label} failed destination"
+                )
+            except BaseException as rollback_error:
+                if source_descriptor is not None:
+                    try:
+                        _delete_owned_handle(
+                            source_descriptor, f"{label} incomplete recovered source"
+                        )
+                    except OSError as cleanup_error:
+                        rollback_error.add_note(
+                            f"exact recovered-source cleanup failed: {cleanup_error}"
+                        )
+                raise OSError(
+                    f"{label} verification failed and exact-identity recovery was incomplete: "
+                    f"{rollback_error}; manual intervention required"
+                ) from rollback_error
+            finally:
+                if source_descriptor is not None:
+                    os.close(source_descriptor)
+                os.close(destination_descriptor)
         raise
 
 
@@ -885,14 +931,52 @@ def _rename_governance_no_replace(
             raise ValueError(f"{label} identity drift after publication")
         if persisted != content or _sha256_bytes(persisted) != expected_sha256.upper():
             raise ValueError(f"{label} bytes drift after publication")
-    except BaseException:
+    except BaseException as publication_error:
+        recovered_identity: tuple[int, int, int, int] | None = None
         if not source.exists() and destination.exists():
+            destination_descriptor = _open_existing_for_exact_delete(
+                destination, f"{label} failed publication"
+            )
+            source_descriptor: int | None = None
             try:
-                os.rename(destination, source)
-            except OSError as rollback_error:
-                raise OSError(
-                    f"{label} verification failed and rollback was incomplete: {rollback_error}"
+                current_identity = _identity(os.fstat(destination_descriptor))
+                if current_identity[:2] != source_identity[:2] or current_identity[3] != source_identity[3]:
+                    raise OSError(
+                        f"{label} verification failed after destination ownership was lost; "
+                        "competitor preserved; manual intervention required"
+                    )
+                if _sha256_descriptor(destination_descriptor) != expected_sha256.upper():
+                    raise ValueError(f"{label} owned destination bytes drifted")
+                source_descriptor = _create_owned_file(source, share_delete=False)
+                _copy_descriptor(destination_descriptor, source_descriptor)
+                if _sha256_descriptor(source_descriptor) != expected_sha256.upper():
+                    raise ValueError(f"{label} recovered source bytes drifted")
+                _delete_owned_handle(
+                    destination_descriptor, f"{label} failed publication"
                 )
+                recovered_identity = _identity(os.fstat(source_descriptor))
+            except BaseException as rollback_error:
+                if source_descriptor is not None:
+                    try:
+                        _delete_owned_handle(
+                            source_descriptor, f"{label} incomplete recovered source"
+                        )
+                    except OSError as cleanup_error:
+                        rollback_error.add_note(
+                            f"exact recovered-source cleanup failed: {cleanup_error}"
+                        )
+                raise OSError(
+                    f"{label} verification failed and exact-identity recovery was incomplete: "
+                    f"{rollback_error}; manual intervention required"
+                ) from rollback_error
+            finally:
+                if source_descriptor is not None:
+                    os.close(source_descriptor)
+                os.close(destination_descriptor)
+        if recovered_identity is not None:
+            raise _RecoveredGovernanceRenameError(
+                str(publication_error), recovered_identity
+            ) from publication_error
         raise
 
 
@@ -950,16 +1034,25 @@ def _move_item(item: ArchiveItem, manifest_tmp: Path) -> str:
         os.close(source_descriptor)
 
 
-def _write_manifest_tmp(path: Path, payload: Mapping[str, object], *, create: bool) -> None:
+def _write_manifest_tmp(
+    path: Path,
+    payload: Mapping[str, object],
+    *,
+    create: bool,
+    expected_identity: tuple[int, int, int, int] | None = None,
+) -> tuple[int, int, int, int]:
     content = _canonical_json_bytes(payload)
     if create:
-        descriptor, _ = _create_owned_temporary(path)
+        descriptor, identity = _create_owned_temporary(path)
         try:
             _write_descriptor_all(descriptor, content)
             os.fsync(descriptor)
+            identity = _identity(os.fstat(descriptor))
         finally:
             os.close(descriptor)
-        return
+        return identity
+    if expected_identity is None:
+        raise ValueError("manifest journal update requires its exact owned identity")
     update = path.parent / f".{path.name}.{uuid.uuid4().hex}.update"
     descriptor, identity = _create_owned_temporary(update)
     try:
@@ -967,12 +1060,65 @@ def _write_manifest_tmp(path: Path, payload: Mapping[str, object], *, create: bo
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+    current_descriptor = _open_existing_for_exact_delete(path, "manifest journal")
     try:
-        os.replace(update, path)  # Atomic manifest-state publication, never an asset move.
+        current_identity = _identity(os.fstat(current_descriptor))
+        if current_identity[:2] != expected_identity[:2]:
+            raise ValueError(
+                "manifest journal destination ownership was lost; competitor preserved"
+            )
+        pathname_identity = _identity(path.stat(follow_symlinks=False))
+        if pathname_identity[:2] != current_identity[:2]:
+            raise ValueError(
+                "manifest journal pathname ownership was lost; competitor preserved"
+            )
+        _delete_owned_handle(current_descriptor, "manifest journal")
     except BaseException:
         if update.exists():
             _remove_if_exact(update, identity)
         raise
+    finally:
+        os.close(current_descriptor)
+    try:
+        _rename_governance_no_replace(
+            update,
+            path,
+            _sha256_bytes(content),
+            "manifest journal update",
+        )
+    except BaseException as error:
+        if update.exists():
+            error.add_note(f"complete failure journal retained at {update}")
+        raise
+    return _identity(path.stat(follow_symlinks=False))
+
+
+def _publish_failure_journal(
+    archive_root: Path, payload: Mapping[str, object]
+) -> Path:
+    """Publish a complete immutable residual report at a collision-free name."""
+
+    path = archive_root / f"archive-manifest.failure-{uuid.uuid4().hex}.json"
+    content = _canonical_json_bytes(payload)
+    temporary = archive_root / f".{path.name}.{uuid.uuid4().hex}.pending"
+    descriptor, identity = _create_owned_temporary(temporary)
+    try:
+        _write_descriptor_all(descriptor, content)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        _rename_governance_no_replace(
+            temporary,
+            path,
+            _sha256_bytes(content),
+            "immutable archive failure journal",
+        )
+    except BaseException:
+        if temporary.exists():
+            _remove_if_exact(temporary, identity)
+        raise
+    return path
 
 
 def _result_for_item(item: ArchiveItem, move_mode: str) -> ArchiveFileResult:
@@ -1078,6 +1224,13 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
             raise ValueError("production apply requires the exact canonical archive plan path")
     _validate_plan_against_current_authority(plan, authority)
     _preflight_apply(plan)
+    live_graph = _rebuild_current_consumer_graph(authority)
+    live_errors = validate_archive_plan(plan, authority.inventory, live_graph)
+    if live_errors:
+        raise ValueError(
+            "current consumer evidence rejected archive operation: "
+            + "; ".join(live_errors)
+        )
     archive_root = _absolute(plan.archive_root)
     archive_root.mkdir(parents=True, exist_ok=False)
     _reject_reparse_ancestors(archive_root, "archive root", allow_missing=False)
@@ -1103,7 +1256,7 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
         "residuals": [],
         "items": [_manifest_item(item) for item in plan.items],
     }
-    _write_manifest_tmp(manifest_tmp, base_payload, create=True)
+    manifest_identity = _write_manifest_tmp(manifest_tmp, base_payload, create=True)
     moved: list[ArchiveFileResult] = []
     current_index: int | None = None
     try:
@@ -1115,9 +1268,19 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
             entry = base_payload["items"][index]
             entry["state"] = "moved"
             entry["move_mode"] = mode
-            _write_manifest_tmp(manifest_tmp, base_payload, create=False)
+            manifest_identity = _write_manifest_tmp(
+                manifest_tmp,
+                base_payload,
+                create=False,
+                expected_identity=manifest_identity,
+            )
         base_payload["status"] = "archived"
-        _write_manifest_tmp(manifest_tmp, base_payload, create=False)
+        manifest_identity = _write_manifest_tmp(
+            manifest_tmp,
+            base_payload,
+            create=False,
+            expected_identity=manifest_identity,
+        )
         if manifest_path.exists() or manifest_path.is_symlink():
             raise ValueError("immutable archive manifest already exists")
         manifest_bytes = _canonical_json_bytes(base_payload)
@@ -1129,6 +1292,8 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
         )
         return ArchiveResult(manifest_path=manifest_path, moved=tuple(moved))
     except Exception as error:
+        if isinstance(error, _RecoveredGovernanceRenameError):
+            manifest_identity = error.recovered_identity
         rolled_back, rollback_failures = _rollback_moved(moved)
         failure_payload = base_payload
         failure_payload["status"] = (
@@ -1151,8 +1316,21 @@ def apply_archive_plan(plan_path: Path, approval_path: Path) -> ArchiveResult:
             elif source in failure_by_source:
                 entry["state"] = "rollback-failed"
                 entry["error"] = failure_by_source[source]
+        failure_recorded = False
         if manifest_tmp.exists():
-            _write_manifest_tmp(manifest_tmp, failure_payload, create=False)
+            try:
+                _write_manifest_tmp(
+                    manifest_tmp,
+                    failure_payload,
+                    create=False,
+                    expected_identity=manifest_identity,
+                )
+                failure_recorded = True
+            except (OSError, ValueError) as journal_error:
+                error.add_note(f"canonical failure-journal update failed safely: {journal_error}")
+        if not failure_recorded:
+            failure_path = _publish_failure_journal(archive_root, failure_payload)
+            error.add_note(f"immutable failure journal: {failure_path}")
         if rollback_failures:
             residuals = ", ".join(source for source, _ in rollback_failures)
             raise OSError(
@@ -1192,7 +1370,27 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
         archive_root / "archive-manifest.json",
         archive_root / "archive-manifest.json.tmp",
     }
-    if manifest_path not in expected_manifest_paths:
+    retained_update = (
+        manifest_path.parent == archive_root
+        and re.fullmatch(
+            r"\.archive-manifest\.json\.tmp\.[0-9a-f]{32}\.update",
+            manifest_path.name,
+        )
+        is not None
+    )
+    failure_journal = (
+        manifest_path.parent == archive_root
+        and re.fullmatch(
+            r"archive-manifest\.failure-[0-9a-f]{32}\.json",
+            manifest_path.name,
+        )
+        is not None
+    )
+    if (
+        manifest_path not in expected_manifest_paths
+        and not retained_update
+        and not failure_journal
+    ):
         raise ValueError("archive manifest path is outside the exact canonical archive root")
     _reject_reparse_ancestors(active_root, "restore active root", allow_missing=False)
     _reject_reparse_ancestors(archive_root, "restore archive root", allow_missing=False)
@@ -1222,12 +1420,19 @@ def restore_archive_batch(manifest_path: Path) -> ArchiveResult:
             raise ValueError(f"archive manifest {label} binding mismatch")
     if _absolute(plan.archive_root) != archive_root or _absolute(plan.active_root) != active_root:
         raise ValueError("archive manifest root binding mismatch")
-    authority = _load_current_authority()
+    authority = _load_current_authority(
+        permitted_missing_paths=tuple(item.relative_path for item in plan.items)
+    )
     if authority.production:
         canonical_plan_path = _canonical_plan_path(plan.batch_id)
         if plan_path != canonical_plan_path:
             raise ValueError("production restore requires the exact canonical archive plan path")
-    _validate_plan_against_current_authority(plan, authority, restore=True)
+    _validate_plan_against_current_authority(
+        plan,
+        authority,
+        restore=True,
+        current_graph=_rebuild_current_consumer_graph(authority),
+    )
     raw_items = payload.get("items")
     if not isinstance(raw_items, list):
         raise ValueError("archive manifest items must be a list")
@@ -1358,16 +1563,22 @@ def _read_json(path: Path, label: str) -> tuple[Mapping[str, object], bytes]:
     return payload, content
 
 
-def _load_current_authority() -> ArchiveAuthority:
+def _load_current_authority(
+    *, permitted_missing_paths: Sequence[str] = ()
+) -> ArchiveAuthority:
     """Load only the canonical, current, freshly verified Task 7 publication."""
 
-    first = verify_published_outputs(ASSET_ROOT)
+    first = verify_published_outputs(
+        ASSET_ROOT, permitted_missing_paths=permitted_missing_paths
+    )
     inventory_raw, inventory_bytes = _read_json(DEFAULT_INVENTORY, "canonical Task 7 inventory")
     graph_raw, graph_bytes = _read_json(DEFAULT_GRAPH, "canonical Task 7 consumer graph")
     render_raw, render_bytes = _read_json(
         DEFAULT_RENDER_INVENTORY, "canonical Task 7 render inventory"
     )
-    second = verify_published_outputs(ASSET_ROOT)
+    second = verify_published_outputs(
+        ASSET_ROOT, permitted_missing_paths=permitted_missing_paths
+    )
     publication_id = str(first.get("publication_id", ""))
     if not publication_id or second.get("publication_id") != publication_id:
         raise ValueError("canonical Task 7 publication changed while loading authority")
@@ -1412,39 +1623,57 @@ def _load_current_authority() -> ArchiveAuthority:
     )
 
 
+def _rebuild_current_consumer_graph(authority: ArchiveAuthority) -> ConsumerGraph:
+    """Re-scan mutable source inputs immediately before an archive mutation."""
+
+    if authority.production:
+        repo_root = REPOSITORY_ROOT
+    else:
+        repo_root = getattr(authority, "test_consumer_source_root", None)
+        if repo_root is None:
+            return authority.graph
+    return build_consumer_graph(
+        _absolute(repo_root),
+        _absolute(authority.active_root),
+        authority.inventory.records,
+    )
+
+
 def _validate_plan_against_current_authority(
     plan: ArchivePlan,
     authority: ArchiveAuthority,
     *,
     restore: bool = False,
+    current_graph: ConsumerGraph | None = None,
 ) -> None:
     errors: list[str] = []
     if _absolute(plan.active_root) != _absolute(authority.active_root):
         errors.append("archive plan does not name the canonical active root")
     if tuple(plan.inventory_root_identity) != tuple(authority.root_identity):
         errors.append("archive plan root identity drift")
+    if plan.publication_id != authority.publication_id:
+        errors.append("archive plan publication drift")
+    if plan.inventory_sha256.upper() != authority.inventory_sha256.upper():
+        errors.append("archive plan inventory hash drift")
+    if plan.consumer_graph_sha256.upper() != authority.consumer_graph_sha256.upper():
+        errors.append("archive plan graph hash drift")
+    if plan.render_inventory_sha256.upper() != authority.render_inventory_sha256.upper():
+        errors.append("archive plan render hash drift")
+    graph = current_graph or authority.graph
     if not restore:
-        if plan.publication_id != authority.publication_id:
-            errors.append("archive plan publication drift")
-        if plan.inventory_sha256.upper() != authority.inventory_sha256.upper():
-            errors.append("archive plan inventory hash drift")
-        if plan.consumer_graph_sha256.upper() != authority.consumer_graph_sha256.upper():
-            errors.append("archive plan graph hash drift")
-        if plan.render_inventory_sha256.upper() != authority.render_inventory_sha256.upper():
-            errors.append("archive plan render hash drift")
-        errors.extend(validate_archive_plan(plan, authority.inventory, authority.graph))
+        errors.extend(validate_archive_plan(plan, authority.inventory, graph))
     else:
-        # A restore may occur after Task 7 republishes to reflect the archive, but
-        # it remains forbidden while a current consumer or ambiguity protects an item.
+        # Restore authenticates the original publication while allowing only the
+        # plan's source paths to be absent. Current consumers still block mutation.
         records = {record.path.casefold(): record for record in authority.inventory.records}
         for item in plan.items:
             record = records.get(item.relative_path.casefold())
             if record is not None and record.consumers:
                 errors.append(f"{item.relative_path}: current consumer blocks restore")
-            graph_consumers = authority.graph.consumers.get(item.relative_path, ())
+            graph_consumers = graph.consumers.get(item.relative_path, ())
             if graph_consumers:
                 errors.append(f"{item.relative_path}: current consumer blocks restore")
-            if _ambiguous_for(item.relative_path, authority.graph):
+            if _ambiguous_for(item.relative_path, graph):
                 errors.append(f"{item.relative_path}: current ambiguity blocks restore")
     if errors:
         raise ValueError("current Task 7 authority rejected archive operation: " + "; ".join(errors))

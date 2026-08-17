@@ -258,6 +258,220 @@ def _write_manifest_payload(fixture: ArchiveTestFixture, payload: dict[str, obje
 
 
 class ArchivePlanTests(unittest.TestCase):
+    def test_apply_rebuilds_live_consumer_evidence_for_supported_governance_sources(self):
+        for suffix in (".liquid", ".json", ".css", ".js", ".py", ".ps1"):
+            with self.subTest(suffix=suffix), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                fixture = archive_test_fixture(root, (), False)
+                approval = _valid_approval(fixture)
+                repo_root = root / "repo"
+                repo_root.mkdir()
+                item = fixture.plan.items[0]
+                (repo_root / f"new-consumer{suffix}").write_text(
+                    item.relative_path, encoding="utf-8"
+                )
+                authority = SimpleNamespace(
+                    **{**vars(fixture.authority), "test_consumer_source_root": repo_root}
+                )
+                with (
+                    _authority_patch(authority),
+                    self.assertRaisesRegex(ValueError, "current consumer"),
+                ):
+                    apply_archive_plan(fixture.plan_path, approval)
+                self.assertTrue(Path(item.source).is_file())
+                self.assertFalse(Path(item.destination).exists())
+
+    def test_restore_requests_authority_that_permits_only_plan_sources_to_be_missing(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            archived = _prepare_restore_manifest(fixture)
+            Path(fixture.plan.items[0].source).unlink()
+            with patch.object(
+                archive_module,
+                "_load_current_authority",
+                return_value=fixture.authority,
+            ) as load_authority:
+                restore_archive_batch(fixture.manifest_path)
+            load_authority.assert_called_once_with(
+                permitted_missing_paths=(fixture.plan.items[0].relative_path,)
+            )
+            self.assertFalse(archived.exists())
+
+    def test_governance_rename_never_rolls_back_a_swapped_destination_competitor(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            source = root / "manifest.pending"
+            destination = root / "manifest.json"
+            displaced = root / "owned-displaced"
+            source.write_bytes(b"owned-governance")
+            expected = _sha256(source)
+            original_read = archive_module._stable_read
+
+            def swap_after_rename(path: Path, label: str):
+                if path == destination:
+                    destination.rename(displaced)
+                    destination.write_bytes(b"competitor")
+                    raise OSError("injected post-rename swap")
+                return original_read(path, label)
+
+            with patch.object(archive_module, "_stable_read", side_effect=swap_after_rename):
+                with self.assertRaisesRegex(OSError, "post-rename swap|manual intervention"):
+                    archive_module._rename_governance_no_replace(
+                        source, destination, expected, "immutable archive manifest"
+                    )
+            self.assertEqual(destination.read_bytes(), b"competitor")
+            self.assertEqual(displaced.read_bytes(), b"owned-governance")
+
+    def test_asset_rename_never_rolls_back_a_swapped_destination_competitor(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            item = fixture.plan.items[0]
+            source = Path(item.source)
+            destination = Path(item.destination)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            displaced = destination.with_name("owned-displaced.blend1")
+            original_verify = archive_module._verify_file
+
+            def swap_after_rename(path: Path, candidate: object, label: str, *, require_identity: bool):
+                if path == destination:
+                    destination.rename(displaced)
+                    destination.write_bytes(b"competitor")
+                    raise OSError("injected post-rename asset swap")
+                return original_verify(
+                    path, candidate, label, require_identity=require_identity
+                )
+
+            with patch.object(archive_module, "_verify_file", side_effect=swap_after_rename):
+                with self.assertRaisesRegex(OSError, "competitor preserved|manual intervention"):
+                    archive_module._rename_exact_no_replace(
+                        source, destination, item, "archive destination", True
+                    )
+            self.assertEqual(destination.read_bytes(), b"competitor")
+            self.assertEqual(displaced.read_bytes(), b"recovery-copy-0")
+
+    def test_final_manifest_swap_preserves_competitor_and_reports_manual_residual(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            approval = _valid_approval(fixture)
+            original_read = archive_module._stable_read
+            displaced = fixture.manifest_path.with_name("owned-manifest-displaced.json")
+
+            def swap_final_manifest(path: Path, label: str):
+                if path == fixture.manifest_path and label == "immutable archive manifest":
+                    fixture.manifest_path.rename(displaced)
+                    fixture.manifest_path.write_bytes(b"competitor-manifest")
+                    raise OSError("injected final-manifest swap")
+                return original_read(path, label)
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(archive_module, "_stable_read", side_effect=swap_final_manifest),
+                self.assertRaisesRegex(OSError, "competitor preserved; manual intervention required"),
+            ):
+                apply_archive_plan(fixture.plan_path, approval)
+            self.assertEqual(fixture.manifest_path.read_bytes(), b"competitor-manifest")
+            self.assertEqual(displaced.read_bytes(), archive_module._canonical_json_bytes(
+                json.loads(displaced.read_text(encoding="utf-8"))
+            ))
+            self.assertEqual(Path(fixture.plan.items[0].source).read_bytes(), b"recovery-copy-0")
+            failure_journals = list(
+                fixture.manifest_path.parent.glob("archive-manifest.failure-*.json")
+            )
+            self.assertEqual(len(failure_journals), 1)
+            failure = json.loads(failure_journals[0].read_text(encoding="utf-8"))
+            self.assertEqual(failure["status"], "failed-rolled-back")
+            self.assertEqual(failure["items"][0]["state"], "rolled-back")
+
+    def test_failure_journal_update_preserves_boundary_competitor_and_owned_state(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            journal = root / "archive-manifest.json.tmp"
+            initial = {"status": "pending", "items": [{"state": "pending"}]}
+            failed = {
+                "status": "failed-partial-rollback",
+                "items": [{"state": "rollback-failed"}],
+            }
+            identity = archive_module._write_manifest_tmp(journal, initial, create=True)
+            original_publish = archive_module._rename_governance_no_replace
+
+            def inject_competitor(source: Path, destination: Path, digest: str, label: str):
+                if label == "manifest journal update":
+                    destination.write_bytes(b"competitor-journal")
+                    raise FileExistsError("injected journal competitor")
+                return original_publish(source, destination, digest, label)
+
+            with patch.object(
+                archive_module,
+                "_rename_governance_no_replace",
+                side_effect=inject_competitor,
+            ):
+                with self.assertRaisesRegex(FileExistsError, "journal competitor") as raised:
+                    archive_module._write_manifest_tmp(
+                        journal,
+                        failed,
+                        create=False,
+                        expected_identity=identity,
+                    )
+            self.assertEqual(journal.read_bytes(), b"competitor-journal")
+            retained = list(root.glob(".archive-manifest.json.tmp.*.update"))
+            self.assertEqual(len(retained), 1)
+            self.assertEqual(
+                json.loads(retained[0].read_text(encoding="utf-8")), failed
+            )
+            self.assertTrue(any("complete failure journal retained" in note for note in raised.exception.__notes__))
+
+    def test_crash_between_owned_journal_delete_and_publish_restores_from_retained_update(self):
+        with TemporaryDirectory() as root_text:
+            fixture = archive_test_fixture(Path(root_text), (), False)
+            original_publish = archive_module._rename_governance_no_replace
+
+            def crash_at_journal_publish(source: Path, destination: Path, digest: str, label: str):
+                if label == "manifest journal update":
+                    raise SystemExit("injected journal publish crash")
+                return original_publish(source, destination, digest, label)
+
+            with (
+                _authority_patch(fixture.authority),
+                patch.object(
+                    archive_module,
+                    "_rename_governance_no_replace",
+                    side_effect=crash_at_journal_publish,
+                ),
+                self.assertRaisesRegex(SystemExit, "journal publish crash"),
+            ):
+                apply_archive_plan(fixture.plan_path, _valid_approval(fixture))
+            archive_root = Path(fixture.plan.archive_root)
+            self.assertFalse((archive_root / "archive-manifest.json.tmp").exists())
+            retained = list(archive_root.glob(".archive-manifest.json.tmp.*.update"))
+            self.assertEqual(len(retained), 1)
+            with _authority_patch(fixture.authority):
+                restore_archive_batch(retained[0])
+            self.assertEqual(
+                Path(fixture.plan.items[0].source).read_bytes(), b"recovery-copy-0"
+            )
+
+    def test_restore_rebuilds_live_consumer_evidence_before_mutation(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            fixture = archive_test_fixture(root, (), False)
+            archived = _prepare_restore_manifest(fixture)
+            source = Path(fixture.plan.items[0].source)
+            source.unlink()
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            (repo_root / "late-consumer.liquid").write_text(
+                fixture.plan.items[0].relative_path, encoding="utf-8"
+            )
+            authority = SimpleNamespace(
+                **{**vars(fixture.authority), "test_consumer_source_root": repo_root}
+            )
+            with _authority_patch(authority), self.assertRaisesRegex(
+                ValueError, "current consumer blocks restore"
+            ):
+                restore_archive_batch(fixture.manifest_path)
+            self.assertFalse(source.exists())
+            self.assertTrue(archived.exists())
+
     def test_consumer_or_unique_content_blocks_move(self):
         with TemporaryDirectory() as root:
             fixture = archive_test_fixture(Path(root), ("theme.liquid",), True)
@@ -790,12 +1004,23 @@ class ArchivePlanTests(unittest.TestCase):
             original_write = archive_module._write_manifest_tmp
             calls = 0
 
-            def crash_after_first_write(path: Path, payload: object, *, create: bool) -> None:
+            def crash_after_first_write(
+                path: Path,
+                payload: object,
+                *,
+                create: bool,
+                expected_identity: tuple[int, int, int, int] | None = None,
+            ):
                 nonlocal calls
                 calls += 1
                 if calls == 2:
                     raise SystemExit("injected crash")
-                original_write(path, payload, create=create)
+                return original_write(
+                    path,
+                    payload,
+                    create=create,
+                    expected_identity=expected_identity,
+                )
 
             with _authority_patch(fixture.authority), patch.object(archive_module, "_write_manifest_tmp", side_effect=crash_after_first_write), self.assertRaises(SystemExit):
                 apply_archive_plan(fixture.plan_path, _valid_approval(fixture))

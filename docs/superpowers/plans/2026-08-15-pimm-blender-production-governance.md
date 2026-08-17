@@ -747,7 +747,7 @@ Commit source/test changes and the source-controlled schema, not large external 
 - Create: `scripts/blender/pimm_production/archive_plan.py`
 - Create: `scripts/blender/pimm_production/tests/test_archive_plan.py`
 - Modify: `scripts/tests/pimm-blender-production-governance.test.mjs`
-- Create externally: `manifests/archive-plans/<batch-id>.json`
+- Create externally at the sibling governance authority root: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders-governance\manifests\archive-plans\<batch-id>.json`. Archive plans must never be published beneath the governed `blender-product-renders` active root because doing so would invalidate the Task 7 publication they bind.
 - Create externally after explicit batch approval: `M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders-archive\pending-delete\<date>-<batch-id>\archive-manifest.json`
 
 **Interfaces:**

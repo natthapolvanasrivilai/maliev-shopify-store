@@ -295,3 +295,14 @@ test('Task 8 production CLI rejects caller-selected authority manifests', () => 
   assert.equal(result.source_unchanged, true);
   assert.equal(result.destination_exists, false);
 });
+
+test('Task 8 governing plan and design bind archive plans to the sibling governance root', () => {
+  const governingFiles = [
+    path.join(repoRoot, 'docs', 'superpowers', 'plans', '2026-08-15-pimm-blender-production-governance.md'),
+    path.join(repoRoot, 'docs', 'superpowers', 'specs', '2026-08-15-pimm-blender-production-governance-design.md'),
+  ];
+  const expected = 'M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders-governance\\manifests\\archive-plans\\<batch-id>.json';
+  for (const file of governingFiles) {
+    assert.match(fs.readFileSync(file, 'utf8'), new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});

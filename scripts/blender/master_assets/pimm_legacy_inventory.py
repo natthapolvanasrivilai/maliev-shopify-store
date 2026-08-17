@@ -1048,7 +1048,11 @@ def _discovered_path_set(discovered: Sequence[tuple[Path, str]], root: Path) -> 
 
 
 def _verify_inventory_fresh(
-    inventory: InventoryManifest, root: Path, *, verify_hashes: bool = True
+    inventory: InventoryManifest,
+    root: Path,
+    *,
+    verify_hashes: bool = True,
+    permitted_missing_paths: Sequence[str] = (),
 ) -> None:
     root = _canonical_root(root)
     authority = _directory_change_authority(root)
@@ -1059,9 +1063,16 @@ def _verify_inventory_fresh(
         root_identity = _stat_identity(root.stat(follow_symlinks=False))[:2]
         if not inventory.root_identity or tuple(inventory.root_identity) != root_identity:
             raise RuntimeError("stale inventory root filesystem identity")
-        current = _discover(root)
         expected_paths = set(inventory.discovered_paths)
-        if _discovered_path_set(current, root) != expected_paths:
+        permitted = tuple(permitted_missing_paths)
+        if len({value.casefold() for value in permitted}) != len(permitted):
+            raise RuntimeError("permitted missing inventory paths are duplicated")
+        if any(value not in expected_paths for value in permitted):
+            raise RuntimeError("permitted missing path is not an exact published inventory path")
+        current = _discover(root)
+        current_paths = _discovered_path_set(current, root)
+        missing_paths = expected_paths - current_paths
+        if current_paths - expected_paths or missing_paths - set(permitted):
             raise RuntimeError("stale inventory path set")
         records = {record.path: record for record in inventory.records}
         post_hash_states: dict[str, _FreshnessState] = {}
@@ -1081,7 +1092,7 @@ def _verify_inventory_fresh(
             post_hash_states[relative] = after
 
         closing = _discover(root)
-        if _discovered_path_set(closing, root) != expected_paths:
+        if _discovered_path_set(closing, root) != current_paths:
             raise RuntimeError("stale inventory path set at closing verification")
         closing_states: dict[str, _FreshnessState] = {}
         for path, _kind in closing:
@@ -1099,7 +1110,7 @@ def _verify_inventory_fresh(
         # and the first closing state. Equal identity/metadata/ChangeTime values give
         # verification one stable source snapshot instead of unrelated per-file reads.
         final = _discover(root)
-        if _discovered_path_set(final, root) != expected_paths:
+        if _discovered_path_set(final, root) != current_paths:
             raise RuntimeError("stale inventory path set at final consistency check")
         for path, _kind in final:
             relative = _relative(path, root)
@@ -1487,6 +1498,8 @@ def verify_published_outputs(
     report_path: Path | None = None,
     graph_path: Path | None = None,
     render_inventory_path: Path | None = None,
+    *,
+    permitted_missing_paths: Sequence[str] = (),
 ) -> Mapping[str, object]:
     """Read back one committed publication and verify every bound child byte."""
 
@@ -1531,7 +1544,11 @@ def verify_published_outputs(
         elif f"Publication ID: `{publication_id}`" not in content.decode("utf-8"):
             raise RuntimeError(f"published migration report ID mismatch: {relative}")
     published_inventory = inventory_from_payload(authority)
-    _verify_inventory_fresh(published_inventory, root)
+    _verify_inventory_fresh(
+        published_inventory,
+        root,
+        permitted_missing_paths=permitted_missing_paths,
+    )
     return authority
 
 
