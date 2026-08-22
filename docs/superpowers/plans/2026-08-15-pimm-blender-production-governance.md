@@ -861,7 +861,7 @@ git diff --check
 
 Expected: all repository tests pass; Theme Check reports zero repository errors. Existing dependency-template warnings may be reported but cannot be described as repository failures.
 
-Task 9 result: master-assets Python passed 66/66 and production-governance Python passed 234/234. The combined Node run passed 21/23; its two known external handoff failures remain the superseded STEP hash expectation and the stale 491-object expectation versus the current 554-object masters. The Task 9 governance Node file passed all 15 cases. Theme Check inspected 256 files with zero errors and three dependency-template warnings.
+Task 9 result: master-assets Python passed 66/66 and production-governance Python passed 234/234. The combined Node run passed 21/23; its two failures are explicitly classified as external handoff drift: the superseded STEP hash expectation and the stale 491-object expectation versus the current 554-object masters. This result is not a claim that all repository gates are green. The Task 9 governance Node file passed all 15 cases. Theme Check inspected 256 files with zero errors and three dependency-template warnings.
 
 - [x] **Step 3: Run Blender validations**
 

@@ -351,13 +351,31 @@ test('Task 9 read-only handoff report matches the complete current external auth
   const renderInventory = JSON.parse(fs.readFileSync(path.join(manifestRoot, 'render-generation-inventory.json'), 'utf8'));
   const graph = JSON.parse(fs.readFileSync(path.join(manifestRoot, 'consumer-graph.json'), 'utf8'));
   assert.equal(inventory.schema, 'pimm-asset-inventory/v2');
+  assert.equal(inventory.publication_id, 'bc320a119a214ec5907288ac78412e06');
+  assert.equal(inventory.records.length, 5434);
+  assert.equal(inventory.discovered_paths.length, 5434);
+  assert.equal(inventory.summary.bytes, 23278163353);
   assert.equal(inventory.records.length, inventory.discovered_paths.length);
   assert.equal(inventory.summary.record_count, inventory.records.length);
   assert.deepEqual(inventory.records.map((record) => record.path), inventory.discovered_paths);
   assert.equal(new Set(inventory.discovered_paths).size, inventory.discovered_paths.length);
+  assert.equal(Object.keys(graph.ambiguous_references).length, 87);
+  assert.equal(Object.keys(graph.unresolved_references).length, 400);
   assert.equal(inventory.publication_id, graph.publication_id);
   assert.equal(inventory.publication_id, renderInventory.publication_id);
   assert.deepEqual(renderInventory.releases, {});
+
+  const verifierProgram = [
+    'from scripts.blender.master_assets.pimm_legacy_inventory import ASSET_ROOT, verify_published_outputs',
+    'authority = verify_published_outputs(ASSET_ROOT)',
+    "print('PUBLISHED_AUTHORITY', authority['publication_id'], len(authority['records']), len(authority['discovered_paths']))",
+  ].join('\n');
+  const verifiedAuthority = execFileSync('python', ['-c', verifierProgram], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    timeout: 2_400_000,
+  }).trim();
+  assert.equal(verifiedAuthority, 'PUBLISHED_AUTHORITY bc320a119a214ec5907288ac78412e06 5434 5434');
 
   const planBytes = fs.readFileSync(archivePlanPath);
   const plan = JSON.parse(planBytes);
@@ -382,4 +400,13 @@ test('Task 9 read-only handoff report matches the complete current external auth
   ]) {
     assert.match(report, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+});
+
+test('Task 9 plan classifies combined Node failures as external handoff drift', () => {
+  const plan = fs.readFileSync(
+    path.join(repoRoot, 'docs', 'superpowers', 'plans', '2026-08-15-pimm-blender-production-governance.md'),
+    'utf8',
+  );
+  assert.match(plan, /external handoff drift/i);
+  assert.match(plan, /not (?:a claim that )?all repository gates are green/i);
 });
