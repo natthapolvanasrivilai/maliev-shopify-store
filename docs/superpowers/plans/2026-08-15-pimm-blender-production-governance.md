@@ -859,7 +859,7 @@ npm run verify
 git diff --check
 ```
 
-Expected: all repository tests pass; Theme Check reports zero repository errors. Existing dependency-template warnings may be reported but cannot be described as repository failures.
+Expected: all owned repository tests pass and Theme Check reports zero repository errors. The combined Node command also exercises external handoff assertions; if those superseded external expectations fail, record that command as non-green external drift rather than claiming all repository gates are green. Existing dependency-template warnings may be reported but cannot be described as repository failures.
 
 Task 9 result: master-assets Python passed 66/66 and production-governance Python passed 234/234. The combined Node run passed 21/23; its two failures are explicitly classified as external handoff drift: the superseded STEP hash expectation and the stale 491-object expectation versus the current 554-object masters. This result is not a claim that all repository gates are green. The Task 9 governance Node file passed all 15 cases. Theme Check inspected 256 files with zero errors and three dependency-template warnings.
 
