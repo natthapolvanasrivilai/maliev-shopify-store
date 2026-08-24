@@ -2051,6 +2051,99 @@ class ProofContractTests(unittest.TestCase):
             _BLENDER_52_UNSAFE_AUDIT_NODE_TYPES,
         )
 
+    def test_approved_procedural_material_dependencies_are_allowlisted(self):
+        self.assertTrue(
+            {
+                "ShaderNodeBump",
+                "ShaderNodeTexCoord",
+                "ShaderNodeTexNoise",
+                "ShaderNodeTexWave",
+                "ShaderNodeValToRGB",
+            }.issubset(proof_module._NODE_TYPES_BY_TREE["ShaderNodeTree"])
+        )
+        self.assertEqual(
+            proof_module._NODE_EXTRA_PROPERTY_FIELDS["ShaderNodeTexNoise"],
+            frozenset({"noise_dimensions", "noise_type", "normalize"}),
+        )
+        self.assertEqual(
+            proof_module._NODE_STATIC_TYPES["ShaderNodeTexNoise"],
+            "TEX_NOISE",
+        )
+        self.assertEqual(
+            proof_module._NODE_STATIC_TYPES["ShaderNodeValToRGB"],
+            "VALTORGB",
+        )
+        self.assertTrue(hasattr(render_module, "_embedded_rna_fingerprint"))
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 runtime unavailable")
+    def test_color_ramp_mutation_changes_captured_dependency(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            result_path = root / "ramp-fingerprints.json"
+            script_path = root / "capture_ramp.py"
+            script_path.write_text(
+                "\n".join(
+                    [
+                        "import bpy, json, sys",
+                        f"sys.path.insert(0, {str(REPO_ROOT)!r})",
+                        "import scripts.blender.pimm_production.blender_proof_render as render",
+                        "material = bpy.data.materials.new('RAMP_TEST')",
+                        "material.use_nodes = True",
+                        "node = material.node_tree.nodes.new('ShaderNodeValToRGB')",
+                        "before = render._node_tree_record(material.node_tree, image_cache={})",
+                        "node.color_ramp.elements[0].position = 0.125",
+                        "after = render._node_tree_record(material.node_tree, image_cache={})",
+                        f"open({str(result_path)!r}, 'w', encoding='utf-8').write(json.dumps({{'before': before, 'after': after}}, sort_keys=True))",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [str(BLENDER), "--factory-startup", "-b", "-P", str(script_path)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+            self.assertNotEqual(payload["before"], payload["after"])
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 runtime unavailable")
+    def test_material_node_tree_identity_is_scoped_to_its_owner(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            result_path = root / "tree-identities.json"
+            script_path = root / "capture_tree_identities.py"
+            script_path.write_text(
+                "\n".join(
+                    [
+                        "import bpy, json, sys",
+                        f"sys.path.insert(0, {str(REPO_ROOT)!r})",
+                        "import scripts.blender.pimm_production.blender_proof_render as render",
+                        "materials = [bpy.data.materials.new(name) for name in ('ONE', 'TWO')]",
+                        "for index, material in enumerate(materials):",
+                        "    material.use_nodes = True",
+                        "    material['pimm_material_id'] = f'TEST_{index}'",
+                        "records = [render._material_record(material, {}) for material in materials]",
+                        f"open({str(result_path)!r}, 'w', encoding='utf-8').write(json.dumps([record['node_tree']['identity'] for record in records], sort_keys=True))",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [str(BLENDER), "--factory-startup", "-b", "-P", str(script_path)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            identities = json.loads(result_path.read_text(encoding="utf-8"))
+            self.assertNotEqual(identities[0], identities[1])
+
     @unittest.skipUnless(BLENDER.is_file() and TOOL_LOCK.is_file(), "fixture proof runtime unavailable")
     def test_blender_52_file_output_is_blocked_before_render_and_writes_nothing(self):
         with TemporaryDirectory() as root_text:

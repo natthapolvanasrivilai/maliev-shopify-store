@@ -586,10 +586,17 @@ def _node_tree_record(
     ancestry: frozenset[str] = frozenset(),
     image_cache: dict[str, dict[str, object]] | None = None,
     current_scene_identity: Mapping[str, object] | None = None,
+    owner_identity: Mapping[str, object] | None = None,
 ) -> dict[str, object] | None:
     if tree is None:
         return None
     identity = _data_identity(tree)
+    if owner_identity is not None:
+        identity = dict(identity)
+        identity["name"] = (
+            f"{owner_identity['type']}:{owner_identity['name']}::{identity['name']}"
+        )
+        identity["library"] = owner_identity.get("library") or identity["library"]
     tree_type = str(identity["type"])
     if tree_type not in proof_module._NODE_TREE_TYPES:
         raise ValueError(f"unsupported Blender node-tree type: {tree_type}")
@@ -798,6 +805,60 @@ def _mesh_geometry_record(mesh: object) -> dict[str, object]:
     }
 
 
+_EMBEDDED_RNA_TYPES = frozenset({"ColorMapping", "ColorRamp", "TexMapping"})
+
+
+def _embedded_rna_payload(
+    value: object, *, ancestry: frozenset[int] = frozenset()
+) -> dict[str, object]:
+    pointer = id(value)
+    if pointer in ancestry:
+        raise ValueError("recursive embedded render dependency")
+    next_ancestry = ancestry | {pointer}
+    rna = getattr(value, "bl_rna", None)
+    rna_type = str(getattr(rna, "identifier", type(value).__name__))
+    if rna_type not in _EMBEDDED_RNA_TYPES and not rna_type.endswith("Element"):
+        raise ValueError(f"unsupported embedded render dependency: {rna_type}")
+    properties: dict[str, object] = {}
+    for prop in getattr(rna, "properties", ()):
+        name = str(prop.identifier)
+        if name == "rna_type":
+            continue
+        try:
+            item = getattr(value, name)
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            continue
+        prop_type = str(getattr(prop, "type", ""))
+        if prop_type in {"BOOLEAN", "ENUM", "FLOAT", "INT", "STRING"}:
+            stable = (
+                [round(float(component), 12) for component in item]
+                if bool(getattr(prop, "is_array", False))
+                else _stable_value(item)
+            )
+            if stable is _UNSUPPORTED:
+                raise ValueError(f"unsupported embedded render value: {rna_type}.{name}")
+            properties[name] = stable
+        elif prop_type == "POINTER":
+            if item is not None:
+                properties[name] = _embedded_rna_payload(
+                    item, ancestry=next_ancestry
+                )
+        elif prop_type == "COLLECTION":
+            properties[name] = [
+                _embedded_rna_payload(element, ancestry=next_ancestry)
+                for element in item
+            ]
+    return {"type": rna_type, "properties": properties}
+
+
+def _embedded_rna_fingerprint(value: object) -> str:
+    payload = _embedded_rna_payload(value)
+    canonical = json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest().upper()
+
+
 def _pointer_property_records(owner: object) -> dict[str, object]:
     result: dict[str, object] = {}
     for prop in getattr(getattr(owner, "bl_rna", None), "properties", ()):
@@ -807,7 +868,10 @@ def _pointer_property_records(owner: object) -> dict[str, object]:
             value = getattr(owner, prop.identifier)
         except (AttributeError, RuntimeError, TypeError, ValueError):
             continue
-        result[str(prop.identifier)] = _data_identity(value)
+        identity = _data_identity(value)
+        if identity is not None and identity["type"] in _EMBEDDED_RNA_TYPES:
+            identity["content_sha256"] = _embedded_rna_fingerprint(value)
+        result[str(prop.identifier)] = identity
     return dict(sorted(result.items()))
 
 
@@ -932,12 +996,14 @@ def _material_record(
     material: object,
     image_cache: dict[str, dict[str, object]],
 ) -> dict[str, object]:
+    identity = _data_identity(material)
     record = {
-        "identity": _data_identity(material),
+        "identity": identity,
         "properties": _rna_scalar_properties(material),
         "node_tree": _node_tree_record(
             material.node_tree if material.use_nodes else None,
             image_cache=image_cache,
+            owner_identity=identity,
         ),
     }
     proof_module._validate_material(record, f"captured material {material.name}")

@@ -127,6 +127,7 @@ _CAMERA_SETTINGS_FIELDS = {
 _COMPOSITOR_SETTINGS_FIELDS = {"enabled", "node_tree"}
 _MASK_METRIC_FIELDS = {"bounds", "nonzero_fraction", "unique_values", "unique_value_count"}
 _IDENTITY_FIELDS = {"name", "type", "library"}
+_EMBEDDED_IDENTITY_FIELDS = _IDENTITY_FIELDS | {"content_sha256"}
 _OPTIONAL_IDENTITY_FIELDS = {"pimm_stable_id", "pimm_material_id"}
 _TRANSFORM_FIELDS = {
     "location",
@@ -264,6 +265,7 @@ _NODE_TYPES_BY_TREE = {
         {
             "ShaderNodeBackground",
             "ShaderNodeBsdfPrincipled",
+            "ShaderNodeBump",
             "ShaderNodeEmission",
             "ShaderNodeGroup",
             "ShaderNodeMath",
@@ -271,6 +273,10 @@ _NODE_TYPES_BY_TREE = {
             "ShaderNodeOutputMaterial",
             "ShaderNodeOutputWorld",
             "ShaderNodeTexImage",
+            "ShaderNodeTexCoord",
+            "ShaderNodeTexNoise",
+            "ShaderNodeTexWave",
+            "ShaderNodeValToRGB",
             "ShaderNodeValue",
         }
     ),
@@ -308,6 +314,7 @@ _NODE_SOCKET_TYPES = frozenset(
         "NodeSocketFloat",
         "NodeSocketFloatDistance",
         "NodeSocketFloatFactor",
+        "NodeSocketFloatPixel",
         "NodeSocketFloatWavelength",
         "NodeSocketGeometry",
         "NodeSocketImage",
@@ -386,6 +393,7 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     "CompositorNodeRLayers": frozenset({"layer"}),
     "NodeGroupOutput": frozenset({"is_active_output"}),
     "ShaderNodeBsdfPrincipled": frozenset({"distribution", "subsurface_method"}),
+    "ShaderNodeBump": frozenset({"invert"}),
     "ShaderNodeGroup": frozenset(),
     "ShaderNodeMath": frozenset({"operation", "use_clamp"}),
     "ShaderNodeOutputLight": frozenset({"is_active_output", "target"}),
@@ -394,6 +402,14 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     "ShaderNodeTexImage": frozenset(
         {"extension", "interpolation", "projection", "projection_blend"}
     ),
+    "ShaderNodeTexNoise": frozenset(
+        {"noise_dimensions", "noise_type", "normalize"}
+    ),
+    "ShaderNodeTexCoord": frozenset({"from_instancer"}),
+    "ShaderNodeTexWave": frozenset(
+        {"bands_direction", "rings_direction", "wave_profile", "wave_type"}
+    ),
+    "ShaderNodeValToRGB": frozenset(),
 }
 _NODE_STATIC_TYPES = {
     "CompositorNodeRLayers": "R_LAYERS",
@@ -402,6 +418,7 @@ _NODE_STATIC_TYPES = {
     "NodeGroupOutput": "GROUP_OUTPUT",
     "ShaderNodeBackground": "BACKGROUND",
     "ShaderNodeBsdfPrincipled": "BSDF_PRINCIPLED",
+    "ShaderNodeBump": "BUMP",
     "ShaderNodeEmission": "EMISSION",
     "ShaderNodeGroup": "GROUP",
     "ShaderNodeMath": "MATH",
@@ -409,6 +426,10 @@ _NODE_STATIC_TYPES = {
     "ShaderNodeOutputMaterial": "OUTPUT_MATERIAL",
     "ShaderNodeOutputWorld": "OUTPUT_WORLD",
     "ShaderNodeTexImage": "TEX_IMAGE",
+    "ShaderNodeTexCoord": "TEX_COORD",
+    "ShaderNodeTexNoise": "TEX_NOISE",
+    "ShaderNodeTexWave": "TEX_WAVE",
+    "ShaderNodeValToRGB": "VALTORGB",
     "ShaderNodeValue": "VALUE",
 }
 _MATH_OPERATIONS = frozenset(
@@ -948,6 +969,19 @@ def _validate_identity(
     return value
 
 
+def _validate_embedded_identity(
+    value: object, label: str, expected_types: frozenset[str]
+) -> Mapping[str, object]:
+    if not isinstance(value, Mapping) or set(value) != _EMBEDDED_IDENTITY_FIELDS:
+        raise ValueError(f"{label} must be an exact fingerprinted embedded identity")
+    identity = {field: value[field] for field in _IDENTITY_FIELDS}
+    _validate_identity(identity, label, allow_empty_name=True)
+    if identity["type"] not in expected_types:
+        raise ValueError(f"{label} embedded identity type is incompatible")
+    _validate_sha256(value["content_sha256"], f"{label} embedded content")
+    return value
+
+
 def _require_identity_type(
     identity: Mapping[str, object] | None,
     expected: str,
@@ -1200,12 +1234,30 @@ def _validate_pointer_mapping(
     elif node_type == "ShaderNodeTexImage":
         allowed.update(
             {
-                "color_mapping": ("identity", frozenset({"ColorMapping"})),
+                "color_mapping": ("embedded", frozenset({"ColorMapping"})),
                 "image": ("image", frozenset()),
                 "image_user": ("identity", frozenset({"ImageUser"})),
-                "texture_mapping": ("identity", frozenset({"TexMapping"})),
+                "texture_mapping": ("embedded", frozenset({"TexMapping"})),
             }
         )
+    elif node_type == "ShaderNodeTexNoise":
+        allowed.update(
+            {
+                "color_mapping": ("embedded", frozenset({"ColorMapping"})),
+                "texture_mapping": ("embedded", frozenset({"TexMapping"})),
+            }
+        )
+    elif node_type == "ShaderNodeTexCoord":
+        allowed["object"] = ("identity", frozenset({"Object"}))
+    elif node_type == "ShaderNodeTexWave":
+        allowed.update(
+            {
+                "color_mapping": ("embedded", frozenset({"ColorMapping"})),
+                "texture_mapping": ("embedded", frozenset({"TexMapping"})),
+            }
+        )
+    elif node_type == "ShaderNodeValToRGB":
+        allowed["color_ramp"] = ("embedded", frozenset({"ColorRamp"}))
     elif node_type == "CompositorNodeRLayers":
         allowed["scene"] = ("identity", frozenset({"Scene"}))
     if set(value) != set(allowed):
@@ -1213,7 +1265,7 @@ def _validate_pointer_mapping(
     for name, dependency in value.items():
         _require_string(name, f"{label} property")
         if dependency is None:
-            if name != "parent":
+            if name not in {"object", "parent"}:
                 raise ValueError(f"{label}.{name} cannot be null")
             continue
         kind, domain = allowed[name]
@@ -1226,6 +1278,10 @@ def _validate_pointer_mapping(
                 expected_type=str(domain),
                 allow_none=False,
                 current_scene_identity=current_scene_identity,
+            )
+        elif kind == "embedded":
+            _validate_embedded_identity(
+                dependency, f"{label}.{name}", domain
             )
         else:
             identity = _validate_identity(
@@ -1320,6 +1376,30 @@ def _validate_node_tree(
                     "extension": frozenset({"CLIP", "EXTEND", "MIRROR", "REPEAT"}),
                     "interpolation": frozenset({"Closest", "Cubic", "Linear", "Smart"}),
                     "projection": frozenset({"BOX", "FLAT", "SPHERE", "TUBE"}),
+                }
+            )
+        elif node_type == "ShaderNodeTexNoise":
+            enum_domains.update(
+                {
+                    "noise_dimensions": frozenset({"1D", "2D", "3D", "4D"}),
+                    "noise_type": frozenset(
+                        {
+                            "FBM",
+                            "HETERO_TERRAIN",
+                            "HYBRID_MULTIFRACTAL",
+                            "MULTIFRACTAL",
+                            "RIDGED_MULTIFRACTAL",
+                        }
+                    ),
+                }
+            )
+        elif node_type == "ShaderNodeTexWave":
+            enum_domains.update(
+                {
+                    "bands_direction": frozenset({"X", "Y", "Z", "DIAGONAL"}),
+                    "rings_direction": frozenset({"X", "Y", "Z", "SPHERICAL"}),
+                    "wave_profile": frozenset({"SIN", "SAW", "TRI"}),
+                    "wave_type": frozenset({"BANDS", "RINGS"}),
                 }
             )
         elif node_type == "ShaderNodeBsdfPrincipled":
