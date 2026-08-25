@@ -177,7 +177,24 @@ def main() -> None:
 
     report = migrate(args.machine)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(args.output), check_existing=False)
+    canonical_material_library = args.output.parent / "PIMM-MATERIAL-LIBRARY.blend"
+    if not canonical_material_library.is_file():
+        raise RuntimeError(
+            f"canonical material library is missing beside output: {canonical_material_library}"
+        )
+    material_libraries = [
+        library
+        for library in bpy.data.libraries
+        if str(getattr(library, "name", "")) == "PIMM-MATERIAL-LIBRARY.blend"
+    ]
+    if len(material_libraries) != 1:
+        raise RuntimeError(
+            f"expected one PIMM material-library dependency, got {len(material_libraries)}"
+        )
+    material_libraries[0].filepath = "//PIMM-MATERIAL-LIBRARY.blend"
+    bpy.ops.wm.save_as_mainfile(
+        filepath=str(args.output), check_existing=False, relative_remap=False
+    )
     report.update(
         {
             "source_path": str(source),
