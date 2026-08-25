@@ -73,6 +73,21 @@ class LightSpec:
     size_x: float
     size_y: float
     temperature_kelvin: float
+    target: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class EnvironmentSpec:
+    name: str
+    role: str
+    material_id: str
+    center_x: float
+    center_y: float
+    z: float
+    width: float
+    depth: float
+    base_color: tuple[float, float, float, float]
+    roughness: float
 
 
 MACHINE_CONFIGS = {
@@ -146,7 +161,7 @@ def scaled_camera_distance(
 def studio_light_specs(
     bounds_min: Sequence[float], bounds_max: Sequence[float]
 ) -> tuple[LightSpec, ...]:
-    """Return a controlled key/fill/two-strip product studio arrangement."""
+    """Return a controlled key/fill/base-bounce/two-strip studio arrangement."""
 
     center, size = _center_and_size(bounds_min, bounds_max)
     width, depth, height = size
@@ -159,6 +174,7 @@ def studio_light_specs(
             max(height * 0.8, 650.0),
             max(height * 1.35, 1_050.0),
             DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            center,
         ),
         LightSpec(
             "FILL_SOFTBOX",
@@ -168,6 +184,21 @@ def studio_light_specs(
             max(height * 0.7, 600.0),
             max(height * 1.15, 950.0),
             DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            (center[0], center[1], center[2] - height * 0.08),
+        ),
+        LightSpec(
+            "BASE_BOUNCE",
+            (
+                center[0],
+                center[1] - depth * 2.0,
+                float(bounds_min[2]) + height * 0.12,
+            ),
+            180_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(width * 2.2, 1_050.0),
+            max(height * 0.5, 480.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            (center[0], center[1], float(bounds_min[2]) + height * 0.22),
         ),
         LightSpec(
             "STRIP_LEFT",
@@ -177,6 +208,7 @@ def studio_light_specs(
             max(height * 0.18, 160.0),
             max(height * 1.2, 1_000.0),
             DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            center,
         ),
         LightSpec(
             "STRIP_RIGHT",
@@ -186,6 +218,30 @@ def studio_light_specs(
             max(height * 0.18, 160.0),
             max(height * 1.2, 1_000.0),
             DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            center,
+        ),
+    )
+
+
+def studio_environment_specs(
+    bounds_min: Sequence[float], bounds_max: Sequence[float]
+) -> tuple[EnvironmentSpec, ...]:
+    """Return the exact white studio floor used for physical contact shadows."""
+
+    center, size = _center_and_size(bounds_min, bounds_max)
+    width, depth, _height = size
+    return (
+        EnvironmentSpec(
+            name="PIMM_SCENE_SHADOW_CATCHER",
+            role="shadow-catcher",
+            material_id="SCENE_SHADOW_CATCHER",
+            center_x=center[0],
+            center_y=center[1],
+            z=float(bounds_min[2]),
+            width=max(width * 6.0, 3_000.0),
+            depth=max(depth * 30.0, 12_000.0),
+            base_color=(0.86, 0.86, 0.86, 1.0),
+            roughness=0.72,
         ),
     )
 
@@ -223,7 +279,7 @@ def _set_world_strength(scene: Any, strength: float) -> None:
     background.inputs["Strength"].default_value = float(strength)
 
 
-def _install_lights(bpy: Any, specs: Sequence[LightSpec], target: Sequence[float]) -> None:
+def _install_lights(bpy: Any, specs: Sequence[LightSpec]) -> None:
     for obj in list(bpy.context.scene.objects):
         if obj.type == "LIGHT" and obj.library is None:
             bpy.data.objects.remove(obj, do_unlink=True)
@@ -240,7 +296,48 @@ def _install_lights(bpy: Any, specs: Sequence[LightSpec], target: Sequence[float
         obj = bpy.data.objects.new(spec.name, data)
         bpy.context.scene.collection.objects.link(obj)
         obj.location = spec.location
-        _point_at(obj, target)
+        _point_at(obj, spec.target)
+
+
+def _install_environment(bpy: Any, specs: Sequence[EnvironmentSpec]) -> None:
+    for obj in list(bpy.context.scene.objects):
+        if obj.library is None and obj.get("pimm_scene_environment_role") is not None:
+            mesh = obj.data
+            materials = list(mesh.materials)
+            bpy.data.objects.remove(obj, do_unlink=True)
+            bpy.data.meshes.remove(mesh)
+            for material in materials:
+                if material.users == 0:
+                    bpy.data.materials.remove(material)
+    for spec in specs:
+        mesh = bpy.data.meshes.new(spec.name)
+        mesh["pimm_scene_environment_role"] = spec.role
+        half_width = spec.width / 2.0
+        half_depth = spec.depth / 2.0
+        mesh.from_pydata(
+            [
+                (spec.center_x - half_width, spec.center_y - half_depth, spec.z),
+                (spec.center_x + half_width, spec.center_y - half_depth, spec.z),
+                (spec.center_x + half_width, spec.center_y + half_depth, spec.z),
+                (spec.center_x - half_width, spec.center_y + half_depth, spec.z),
+            ],
+            [],
+            [(0, 1, 2, 3)],
+        )
+        material = bpy.data.materials.new(f"{spec.name}_MATERIAL")
+        material["pimm_scene_environment_role"] = spec.role
+        material["pimm_material_id"] = spec.material_id
+        material.diffuse_color = spec.base_color
+        principled = material.node_tree.nodes.get("Principled BSDF")
+        if principled is None:
+            raise ValueError("studio shadow-catcher material lacks Principled BSDF")
+        principled.inputs["Base Color"].default_value = spec.base_color
+        principled.inputs["Roughness"].default_value = spec.roughness
+        mesh.materials.append(material)
+        obj = bpy.data.objects.new(spec.name, mesh)
+        obj["pimm_scene_environment_role"] = spec.role
+        obj.is_shadow_catcher = True
+        bpy.context.scene.collection.objects.link(obj)
 
 
 def contract_payload(config: MachineConfig) -> dict[str, object]:
@@ -314,7 +411,8 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     camera.data.dof.aperture_fstop = DEFAULT_APERTURE_FSTOP
 
     scene = bpy.context.scene
-    _install_lights(bpy, studio_light_specs(bounds_min, bounds_max), pose.target)
+    _install_lights(bpy, studio_light_specs(bounds_min, bounds_max))
+    _install_environment(bpy, studio_environment_specs(bounds_min, bounds_max))
     _set_world_strength(scene, DEFAULT_WORLD_STRENGTH)
     scene.view_settings.view_transform = "AgX"
     scene.view_settings.look = DEFAULT_LOOK
@@ -343,6 +441,7 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
             "lens": camera.data.lens,
         },
         "lights": [spec.name for spec in studio_light_specs(bounds_min, bounds_max)],
+        "environment": [spec.name for spec in studio_environment_specs(bounds_min, bounds_max)],
         "exposure": scene.view_settings.exposure,
         "world_strength": DEFAULT_WORLD_STRENGTH,
     }

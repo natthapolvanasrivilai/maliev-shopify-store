@@ -84,10 +84,17 @@ class StaticHeroSceneTests(unittest.TestCase):
 
         self.assertEqual(
             set(by_name),
-            {"KEY_SOFTBOX", "FILL_SOFTBOX", "STRIP_LEFT", "STRIP_RIGHT"},
+            {
+                "KEY_SOFTBOX",
+                "FILL_SOFTBOX",
+                "BASE_BOUNCE",
+                "STRIP_LEFT",
+                "STRIP_RIGHT",
+            },
         )
         key = by_name["KEY_SOFTBOX"]
         fill = by_name["FILL_SOFTBOX"]
+        base_bounce = by_name["BASE_BOUNCE"]
         self.assertGreaterEqual(math.log2(key.energy / fill.energy), 1.5)
         self.assertLessEqual(math.log2(key.energy / fill.energy), 2.5)
         compensation = module.PHOTOMETRIC_COORDINATE_COMPENSATION
@@ -108,6 +115,35 @@ class StaticHeroSceneTests(unittest.TestCase):
             by_name["STRIP_LEFT"].location[0],
             -by_name["STRIP_RIGHT"].location[0] + 32.0,
         )
+        self.assertGreaterEqual(math.log2(key.energy / base_bounce.energy), 2.0)
+        self.assertLessEqual(math.log2(key.energy / base_bounce.energy), 2.5)
+        self.assertLess(base_bounce.location[2], fill.location[2])
+        self.assertLess(base_bounce.target[2], fill.target[2])
+        self.assertGreater(base_bounce.size_x, key.size_x)
+
+    def test_white_studio_environment_is_one_exact_grounded_shadow_catcher(self):
+        module = self._module()
+
+        environments = module.studio_environment_specs(
+            bounds_min=(-191.0, -190.0, -5.0),
+            bounds_max=(223.0, 155.0, 885.0),
+        )
+
+        self.assertEqual(len(environments), 1)
+        catcher = environments[0]
+        self.assertEqual(catcher.name, "PIMM_SCENE_SHADOW_CATCHER")
+        self.assertEqual(catcher.role, "shadow-catcher")
+        self.assertEqual(catcher.material_id, "SCENE_SHADOW_CATCHER")
+        self.assertAlmostEqual(catcher.z, -5.0)
+        self.assertGreaterEqual(catcher.width, 414.0 * 6.0)
+        self.assertGreaterEqual(catcher.depth, 345.0 * 10.0)
+        self.assertLess(
+            catcher.center_y - catcher.depth / 2.0,
+            -5_000.0,
+            "the floor must extend behind the front camera so no plane edge is visible",
+        )
+        self.assertGreaterEqual(catcher.base_color[0], 0.8)
+        self.assertEqual(catcher.roughness, 0.72)
 
     def test_static_authoring_exports_no_animation_configuration(self):
         module = self._module()

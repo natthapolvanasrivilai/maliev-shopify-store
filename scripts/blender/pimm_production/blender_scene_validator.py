@@ -346,8 +346,53 @@ def validate_open_render_scene(
         )
     errors.extend(_validate_complete_product(published, contract))
 
+    environment_objects = [
+        obj
+        for obj in bpy.data.objects
+        if getattr(obj, "type", None) == "MESH"
+        and _property(obj, "pimm_scene_environment_role") is not None
+    ]
+    environment_meshes: set[object] = set()
+    environment_materials: set[object] = set()
+    if len(environment_objects) > 1:
+        errors.append("render scene may contain only one authored environment mesh")
+    for environment in environment_objects:
+        mesh = getattr(environment, "data", None)
+        materials = list(getattr(mesh, "materials", ())) if mesh is not None else []
+        role = _property(environment, "pimm_scene_environment_role")
+        valid = (
+            role == "shadow-catcher"
+            and str(getattr(environment, "name", "")) == "PIMM_SCENE_SHADOW_CATCHER"
+            and _datablock_library_path(bpy, environment) is None
+            and mesh is not None
+            and str(getattr(mesh, "name", "")) == "PIMM_SCENE_SHADOW_CATCHER"
+            and _datablock_library_path(bpy, mesh) is None
+            and _property(mesh, "pimm_scene_environment_role") == role
+            and getattr(environment, "is_shadow_catcher", False) is True
+            and len(materials) == 1
+            and str(getattr(materials[0], "name", ""))
+            == "PIMM_SCENE_SHADOW_CATCHER_MATERIAL"
+            and _datablock_library_path(bpy, materials[0]) is None
+            and _property(materials[0], "pimm_scene_environment_role") == role
+            and _property(materials[0], "pimm_material_id")
+            == "SCENE_SHADOW_CATCHER"
+            and _property(materials[0], "pimm_material_scope") is None
+            and _property(environment, "pimm_stable_id") is None
+        )
+        if not valid:
+            errors.append(
+                f"authored scene environment is not the exact shadow catcher: {getattr(environment, 'name', '')}"
+            )
+            continue
+        environment_meshes.add(mesh)
+        environment_materials.add(materials[0])
+
     products = sorted(
-        (obj for obj in bpy.data.objects if getattr(obj, "type", None) == "MESH"),
+        (
+            obj
+            for obj in bpy.data.objects
+            if getattr(obj, "type", None) == "MESH" and obj not in environment_objects
+        ),
         key=lambda obj: str(getattr(obj, "name", "")),
     )
     expected_products = set(getattr(published, "all_objects", ())) if published else set()
@@ -357,6 +402,8 @@ def validate_open_render_scene(
     # without placing it in ``Object.material_slots``.
     for material in getattr(bpy.data, "materials", ()):
         if int(getattr(material, "users", 0)) <= 0:
+            continue
+        if material in environment_materials:
             continue
         material_name = str(getattr(material, "name", ""))
         material_id = _property(material, "pimm_material_id")
@@ -423,6 +470,8 @@ def validate_open_render_scene(
         )
 
     for mesh in bpy.data.meshes:
+        if mesh in environment_meshes:
+            continue
         if _datablock_library_path(bpy, mesh) != expected_master:
             name = str(getattr(mesh, "name", ""))
             message = f"scene-local MESH datablock is forbidden: {name}"

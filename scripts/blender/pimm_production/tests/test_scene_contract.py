@@ -236,6 +236,27 @@ def _write_fixture_builder(path: Path) -> None:
                 stripped = bpy.data.objects.new("PIMM_STRIPPED_COPY", source.data.copy())
                 bpy.context.scene.collection.objects.link(stripped)
 
+            if kind == "valid-shadow-catcher":
+                catcher_mesh = bpy.data.meshes.new("PIMM_SCENE_SHADOW_CATCHER")
+                catcher_mesh["pimm_scene_environment_role"] = "shadow-catcher"
+                catcher_mesh.from_pydata(
+                    [(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)],
+                    [],
+                    [(0, 1, 2, 3)],
+                )
+                catcher_material = bpy.data.materials.new(
+                    "PIMM_SCENE_SHADOW_CATCHER_MATERIAL"
+                )
+                catcher_material["pimm_scene_environment_role"] = "shadow-catcher"
+                catcher_material["pimm_material_id"] = "SCENE_SHADOW_CATCHER"
+                catcher_mesh.materials.append(catcher_material)
+                catcher = bpy.data.objects.new(
+                    "PIMM_SCENE_SHADOW_CATCHER", catcher_mesh
+                )
+                catcher["pimm_scene_environment_role"] = "shadow-catcher"
+                catcher.is_shadow_catcher = True
+                bpy.context.scene.collection.objects.link(catcher)
+
             if kind == "real-library-override":
                 linked_collection = bpy.data.collections["PIMM_PUBLISHED"]
                 linked_collection.override_hierarchy_create(
@@ -304,6 +325,7 @@ def build_scene_fixture(kind: str, root: Path) -> tuple[Path, SceneContract]:
 
     allowed = {
         "valid",
+        "valid-shadow-catcher",
         "private-product-copy",
         "localized-shared-material",
         "overridden-product-material",
@@ -634,6 +656,12 @@ class SceneContractTests(unittest.TestCase):
     def test_valid_linked_fixture_passes(self):
         with TemporaryDirectory() as root:
             path, contract = build_scene_fixture("valid", Path(root))
+            self.assertEqual(run_scene_fixture_validation(path, contract), [])
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_exact_authored_shadow_catcher_is_the_only_allowed_local_scene_mesh(self):
+        with TemporaryDirectory() as root:
+            path, contract = build_scene_fixture("valid-shadow-catcher", Path(root))
             self.assertEqual(run_scene_fixture_validation(path, contract), [])
 
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
