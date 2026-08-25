@@ -36,21 +36,20 @@ class StaticHeroSceneTests(unittest.TestCase):
             self.assertEqual(config.output_height, 2200)
             self.assertIn("scenes/stills/", config.output_path.as_posix())
 
-    def test_front_camera_pose_is_centered_and_nearly_level(self):
+    def test_front_camera_pose_defaults_to_a_level_optical_axis(self):
         module = self._module()
 
         pose = module.front_camera_pose(
             bounds_min=(-191.0, -190.0, -5.0),
             bounds_max=(223.0, 155.0, 885.0),
             distance=1540.0,
-            pitch_degrees=2.5,
         )
 
         self.assertAlmostEqual(pose.target[0], 16.0)
         self.assertAlmostEqual(pose.location[0], pose.target[0])
         self.assertLess(pose.location[1], pose.target[1])
-        self.assertAlmostEqual(pose.pitch_degrees, 2.5)
-        self.assertLessEqual(pose.pitch_degrees, 3.0)
+        self.assertAlmostEqual(pose.location[2], pose.target[2])
+        self.assertEqual(pose.pitch_degrees, 0.0)
         self.assertAlmostEqual(
             math.dist(pose.location, pose.target),
             1540.0,
@@ -61,6 +60,8 @@ class StaticHeroSceneTests(unittest.TestCase):
         module = self._module()
 
         self.assertEqual(getattr(module, "DEFAULT_FOCAL_LENGTH_MM", None), 85.0)
+        self.assertEqual(getattr(module, "DEFAULT_SENSOR_WIDTH_MM", None), 36.0)
+        self.assertEqual(getattr(module, "DEFAULT_APERTURE_FSTOP", None), 11.0)
         self.assertAlmostEqual(
             module.scaled_camera_distance(1540.0, 56.0, 85.0),
             2337.5,
@@ -72,7 +73,7 @@ class StaticHeroSceneTests(unittest.TestCase):
             places=6,
         )
 
-    def test_product_lighting_has_broad_front_key_fill_and_two_rims(self):
+    def test_product_lighting_uses_rectangular_softboxes_with_controlled_ratios(self):
         module = self._module()
 
         lights = module.studio_light_specs(
@@ -83,13 +84,30 @@ class StaticHeroSceneTests(unittest.TestCase):
 
         self.assertEqual(
             set(by_name),
-            {"KEY_FRONT", "FILL_FRONT", "RIM_LEFT", "RIM_RIGHT"},
+            {"KEY_SOFTBOX", "FILL_SOFTBOX", "STRIP_LEFT", "STRIP_RIGHT"},
         )
-        self.assertGreater(by_name["KEY_FRONT"].energy, by_name["FILL_FRONT"].energy)
-        self.assertEqual(by_name["RIM_LEFT"].energy, by_name["RIM_RIGHT"].energy)
-        self.assertGreaterEqual(by_name["KEY_FRONT"].size, 0.75 * 890.0)
-        self.assertGreater(by_name["KEY_FRONT"].location[2], 885.0)
-        self.assertEqual(by_name["RIM_LEFT"].location[0], -by_name["RIM_RIGHT"].location[0] + 32.0)
+        key = by_name["KEY_SOFTBOX"]
+        fill = by_name["FILL_SOFTBOX"]
+        self.assertGreaterEqual(math.log2(key.energy / fill.energy), 1.5)
+        self.assertLessEqual(math.log2(key.energy / fill.energy), 2.5)
+        compensation = module.PHOTOMETRIC_COORDINATE_COMPENSATION
+        self.assertGreater(compensation, 1.0)
+        self.assertLess(
+            sum(light.energy for light in lights) / compensation,
+            2_000_000.0,
+        )
+        for light in lights:
+            self.assertEqual(light.shape, "RECTANGLE")
+            self.assertGreater(light.size_x, 0.0)
+            self.assertGreater(light.size_y, 0.0)
+            self.assertEqual(light.temperature_kelvin, 5500.0)
+        self.assertGreater(key.size_y, key.size_x)
+        self.assertGreater(by_name["STRIP_LEFT"].size_y, by_name["STRIP_LEFT"].size_x)
+        self.assertEqual(by_name["STRIP_LEFT"].energy, by_name["STRIP_RIGHT"].energy)
+        self.assertEqual(
+            by_name["STRIP_LEFT"].location[0],
+            -by_name["STRIP_RIGHT"].location[0] + 32.0,
+        )
 
     def test_static_authoring_exports_no_animation_configuration(self):
         module = self._module()
@@ -100,8 +118,36 @@ class StaticHeroSceneTests(unittest.TestCase):
             getattr(module, "DEFAULT_LOOK", None),
             "AgX - Medium High Contrast",
         )
-        self.assertEqual(module.DEFAULT_EXPOSURE, 3.5)
-        self.assertEqual(module.DEFAULT_WORLD_STRENGTH, 3.0)
+        self.assertEqual(module.DEFAULT_EXPOSURE, 0.0)
+        self.assertGreater(module.DEFAULT_WORLD_STRENGTH, 0.0)
+        self.assertLessEqual(module.DEFAULT_WORLD_STRENGTH, 0.2)
+
+    def test_world_setup_uses_the_existing_node_tree_without_deprecated_toggle(self):
+        module = self._module()
+
+        class Socket:
+            default_value = None
+
+        class Background:
+            inputs = {"Color": Socket(), "Strength": Socket()}
+
+        class World:
+            node_tree = type("NodeTree", (), {"nodes": {"Background": Background()}})()
+
+            @property
+            def use_nodes(self):
+                return True
+
+            @use_nodes.setter
+            def use_nodes(self, _value):
+                raise AssertionError("deprecated World.use_nodes toggle must not be written")
+
+        scene = type("Scene", (), {"world": World()})()
+        module._set_world_strength(scene, 0.08)
+
+        background = scene.world.node_tree.nodes["Background"]
+        self.assertEqual(background.inputs["Color"].default_value, (0.18, 0.18, 0.18, 1.0))
+        self.assertEqual(background.inputs["Strength"].default_value, 0.08)
 
 
 if __name__ == "__main__":

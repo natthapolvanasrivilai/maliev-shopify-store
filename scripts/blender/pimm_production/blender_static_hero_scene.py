@@ -29,11 +29,20 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
 
 
 RESULT_MARKER = "PIMM_STATIC_HERO_JSON="
-DEFAULT_EXPOSURE = 3.5
-DEFAULT_WORLD_STRENGTH = 3.0
-DEFAULT_PITCH_DEGREES = 2.5
+DEFAULT_EXPOSURE = 0.0
+DEFAULT_WORLD_STRENGTH = 0.08
+DEFAULT_WORLD_COLOR = (0.18, 0.18, 0.18, 1.0)
+DEFAULT_PITCH_DEGREES = 0.0
 DEFAULT_LOOK = "AgX - Medium High Contrast"
 DEFAULT_FOCAL_LENGTH_MM = 85.0
+DEFAULT_SENSOR_WIDTH_MM = 36.0
+DEFAULT_APERTURE_FSTOP = 11.0
+DEFAULT_LIGHT_TEMPERATURE_KELVIN = 5500.0
+# Cycles evaluates inverse-square falloff from the raw linked CAD coordinates,
+# while this project's unit scale declares those coordinates as millimeters.
+# Bake the empirically calibrated 3.5-stop correction into lamp power so proofs
+# and finals can both remain at the governed zero scene exposure.
+PHOTOMETRIC_COORDINATE_COMPENSATION = 2.0**3.5
 
 
 @dataclass(frozen=True)
@@ -60,7 +69,10 @@ class LightSpec:
     name: str
     location: tuple[float, float, float]
     energy: float
-    size: float
+    shape: str
+    size_x: float
+    size_y: float
+    temperature_kelvin: float
 
 
 MACHINE_CONFIGS = {
@@ -134,35 +146,46 @@ def scaled_camera_distance(
 def studio_light_specs(
     bounds_min: Sequence[float], bounds_max: Sequence[float]
 ) -> tuple[LightSpec, ...]:
-    """Return a broad, balanced four-light product-photography arrangement."""
+    """Return a controlled key/fill/two-strip product studio arrangement."""
 
     center, size = _center_and_size(bounds_min, bounds_max)
     width, depth, height = size
-    key_size = max(height * 0.9, 700.0)
     return (
         LightSpec(
-            "KEY_FRONT",
-            (center[0], center[1] - depth * 2.8, center[2] + height * 1.05),
-            1_200_000.0,
-            key_size,
+            "KEY_SOFTBOX",
+            (center[0] - width * 1.2, center[1] - depth * 2.5, center[2] + height * 0.8),
+            900_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.8, 650.0),
+            max(height * 1.35, 1_050.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
         ),
         LightSpec(
-            "FILL_FRONT",
-            (center[0] + width * 1.25, center[1] - depth * 2.4, center[2] + height * 0.2),
-            520_000.0,
-            max(height * 0.75, 600.0),
+            "FILL_SOFTBOX",
+            (center[0] + width * 1.2, center[1] - depth * 2.2, center[2] + height * 0.3),
+            225_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.7, 600.0),
+            max(height * 1.15, 950.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
         ),
         LightSpec(
-            "RIM_LEFT",
-            (center[0] - width * 2.0, center[1] + depth * 1.5, center[2] + height * 0.55),
-            700_000.0,
-            max(height * 0.65, 500.0),
+            "STRIP_LEFT",
+            (center[0] - width * 1.7, center[1] + depth * 1.2, center[2] + height * 0.45),
+            250_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.18, 160.0),
+            max(height * 1.2, 1_000.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
         ),
         LightSpec(
-            "RIM_RIGHT",
-            (center[0] + width * 2.0, center[1] + depth * 1.5, center[2] + height * 0.55),
-            700_000.0,
-            max(height * 0.65, 500.0),
+            "STRIP_RIGHT",
+            (center[0] + width * 1.7, center[1] + depth * 1.2, center[2] + height * 0.45),
+            250_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.18, 160.0),
+            max(height * 1.2, 1_000.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
         ),
     )
 
@@ -193,10 +216,10 @@ def _set_world_strength(scene: Any, strength: float) -> None:
         import bpy
 
         scene.world = bpy.data.worlds.new("PIMM_STUDIO_WORLD")
-    scene.world.use_nodes = True
     background = scene.world.node_tree.nodes.get("Background")
     if background is None:
         raise ValueError("studio world is missing its Background node")
+    background.inputs["Color"].default_value = DEFAULT_WORLD_COLOR
     background.inputs["Strength"].default_value = float(strength)
 
 
@@ -207,8 +230,13 @@ def _install_lights(bpy: Any, specs: Sequence[LightSpec], target: Sequence[float
     for spec in specs:
         data = bpy.data.lights.new(f"{spec.name}_DATA", type="AREA")
         data.energy = spec.energy
-        data.shape = "DISK"
-        data.size = spec.size
+        data.shape = spec.shape
+        data.size = spec.size_x
+        data.size_y = spec.size_y
+        data.normalize = True
+        if hasattr(data, "use_temperature"):
+            data.use_temperature = True
+            data.temperature = spec.temperature_kelvin
         obj = bpy.data.objects.new(spec.name, data)
         bpy.context.scene.collection.objects.link(obj)
         obj.location = spec.location
@@ -277,14 +305,21 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     camera.location = pose.location
     _point_at(camera, pose.target)
     camera.data.lens = DEFAULT_FOCAL_LENGTH_MM
+    camera.data.sensor_fit = "HORIZONTAL"
+    camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
     camera.data.shift_x = 0.0
     camera.data.shift_y = 0.0
+    camera.data.dof.use_dof = True
+    camera.data.dof.focus_distance = distance
+    camera.data.dof.aperture_fstop = DEFAULT_APERTURE_FSTOP
 
     scene = bpy.context.scene
     _install_lights(bpy, studio_light_specs(bounds_min, bounds_max), pose.target)
     _set_world_strength(scene, DEFAULT_WORLD_STRENGTH)
+    scene.view_settings.view_transform = "AgX"
     scene.view_settings.look = DEFAULT_LOOK
     scene.view_settings.exposure = DEFAULT_EXPOSURE
+    scene.view_settings.gamma = 1.0
     scene.render.resolution_x = config.output_width
     scene.render.resolution_y = config.output_height
     scene.render.resolution_percentage = 100
