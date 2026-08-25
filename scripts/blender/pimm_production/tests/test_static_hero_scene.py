@@ -57,6 +57,21 @@ class StaticHeroSceneTests(unittest.TestCase):
             places=6,
         )
 
+    def test_85mm_camera_moves_back_to_preserve_56mm_framing(self):
+        module = self._module()
+
+        self.assertEqual(getattr(module, "DEFAULT_FOCAL_LENGTH_MM", None), 85.0)
+        self.assertAlmostEqual(
+            module.scaled_camera_distance(1540.0, 56.0, 85.0),
+            2337.5,
+            places=6,
+        )
+        self.assertAlmostEqual(
+            module.scaled_camera_distance(1715.0, 56.0, 85.0),
+            2603.125,
+            places=6,
+        )
+
     def test_product_lighting_has_broad_front_key_fill_and_two_rims(self):
         module = self._module()
 

@@ -33,6 +33,7 @@ DEFAULT_EXPOSURE = 3.5
 DEFAULT_WORLD_STRENGTH = 3.0
 DEFAULT_PITCH_DEGREES = 2.5
 DEFAULT_LOOK = "AgX - Medium High Contrast"
+DEFAULT_FOCAL_LENGTH_MM = 85.0
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,17 @@ def front_camera_pose(
         target=center,
         pitch_degrees=float(pitch_degrees),
     )
+
+
+def scaled_camera_distance(
+    source_distance: float, source_focal_length: float, target_focal_length: float
+) -> float:
+    """Scale working distance with focal length to preserve subject framing."""
+
+    values = (source_distance, source_focal_length, target_focal_length)
+    if any(float(value) <= 0 for value in values):
+        raise ValueError("camera distances and focal lengths must be positive")
+    return float(source_distance) * float(target_focal_length) / float(source_focal_length)
 
 
 def studio_light_specs(
@@ -256,11 +268,15 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     if camera is None or camera.name != contract.camera_name:
         raise ValueError("source scene is missing contracted CAM_HERO")
     center, _size = _center_and_size(bounds_min, bounds_max)
-    distance = math.dist(tuple(camera.location), center)
+    distance = scaled_camera_distance(
+        math.dist(tuple(camera.location), center),
+        float(camera.data.lens),
+        DEFAULT_FOCAL_LENGTH_MM,
+    )
     pose = front_camera_pose(bounds_min, bounds_max, distance)
     camera.location = pose.location
     _point_at(camera, pose.target)
-    camera.data.lens = 56.0
+    camera.data.lens = DEFAULT_FOCAL_LENGTH_MM
     camera.data.shift_x = 0.0
     camera.data.shift_y = 0.0
 
