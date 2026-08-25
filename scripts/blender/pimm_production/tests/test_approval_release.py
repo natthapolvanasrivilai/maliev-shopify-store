@@ -1062,6 +1062,50 @@ def _declare_fake_zip_compression(path: Path) -> None:
 
 
 class ApprovalReleaseTests(unittest.TestCase):
+    def test_mapped_drive_authority_accepts_only_its_exact_resolved_unc_target(self) -> None:
+        """Keeps mapped SMB proofs usable without permitting arbitrary UNC authority."""
+
+        matcher = getattr(approval_module, "_match_drive_authority_path", None)
+        self.assertTrue(callable(matcher))
+        lexical = Path(r"M:\asset\masters\PIMM-30G-MASTER.blend")
+        resolved = Path(r"\\maliev\maliev\asset\masters\PIMM-30G-MASTER.blend")
+        with patch.object(type(lexical), "resolve", return_value=resolved):
+            self.assertEqual(
+                matcher(str(resolved), (lexical,), "mapped authority"),
+                lexical,
+            )
+            with self.assertRaisesRegex(ValueError, "exact mapped-drive authority"):
+                matcher(
+                    r"\\other\share\asset\masters\PIMM-30G-MASTER.blend",
+                    (lexical,),
+                    "mapped authority",
+                )
+
+    def test_published_json_identity_tolerates_smb_timestamp_settling_only(self) -> None:
+        """Accepts post-rename SMB times while retaining exact object identity."""
+
+        created = {
+            "device": 7, "inode": 11, "links": 1, "bytes": 42,
+            "mtime_ns": 100, "ctime_ns": 200,
+        }
+        published = {
+            **created,
+            "mtime_ns": 101,
+            "ctime_ns": 201,
+            "change_time_ns": 300,
+            "authority": "asset",
+            "path": r"M:\asset\approval.json",
+            "sha256": "A" * 64,
+        }
+        self.assertTrue(approval_module._published_identity_matches(created, published))
+        for field in ("device", "inode", "links", "bytes"):
+            with self.subTest(field=field):
+                changed = dict(published)
+                changed[field] = int(changed[field]) + 1
+                self.assertFalse(
+                    approval_module._published_identity_matches(created, changed)
+                )
+
     def setUp(self) -> None:
         self._machine_contract_patch = patch.object(
             approval_module,
@@ -1115,6 +1159,29 @@ class ApprovalReleaseTests(unittest.TestCase):
         """Catches a final gate that authorizes data but cannot render native evidence."""
 
         self.assertTrue(callable(run_authorized_final))
+
+    def test_static_native_script_audits_preview_state_then_renders_cycles_once(self) -> None:
+        """Keeps Eevee authoring valid while avoiding four identical static Cycles renders."""
+
+        script = final_module._blender_render_script(
+            Path(r"M:\asset\stage"),
+            Path(r"M:\asset\stage\audit.json"),
+            REPO_ROOT,
+            [1800, 2200],
+            256,
+            SHOT_ID,
+            approval_module.build_component_contract(
+                _approved_component_machine_contract(),
+                _approved_component_authored_state(),
+            ),
+        )
+        self.assertLess(
+            script.index("_capture_authored_settings(bpy)"),
+            script.index("scene.render.engine = 'CYCLES'"),
+        )
+        self.assertNotIn("must retain CYCLES", script)
+        self.assertEqual(script.count("bpy.ops.render.render(write_still=True)"), 1)
+        self.assertIn("save_render", script)
 
     def test_component_dependencies_accept_only_pinned_master_or_material_library(self) -> None:
         """Catches linked object/data/material/node/image bytes outside approval authority."""
@@ -1271,6 +1338,35 @@ class ApprovalReleaseTests(unittest.TestCase):
                     material_roots,
                     material_evidence,
                 )
+
+    def test_component_validation_rehashes_each_unique_library_at_fixed_gates(self) -> None:
+        """Prevents approval time from scaling with every linked Blender identity."""
+
+        with TemporaryDirectory() as root_text:
+            (
+                authored,
+                _,
+                roots,
+                evidence,
+                master,
+                material_library,
+            ) = _component_authority_fixture(Path(root_text))
+            original = approval_module.stable_file_record
+            calls: list[Path] = []
+
+            def track(path: Path, *args: object, **kwargs: object) -> dict[str, object]:
+                calls.append(Path(path))
+                return original(path, *args, **kwargs)
+
+            with patch.object(approval_module, "stable_file_record", side_effect=track):
+                approval_module._validate_component_library_paths(
+                    authored,
+                    roots,
+                    evidence,
+                    frozenset({"CONTROLLER_ACTIVE", "CONTROLLER_INACTIVE"}),
+                )
+            self.assertEqual(calls.count(master), 2)
+            self.assertEqual(calls.count(material_library), 2)
 
     def test_component_contract_requires_exact_unique_pimm_material_ids(self) -> None:
         """Catches fallback, wrong, swapped, or duplicate material authority."""
@@ -1968,6 +2064,40 @@ class ApprovalReleaseTests(unittest.TestCase):
         )
         self.assertGreater(qa["controller"]["active_segment_count"], 0)
         self.assertGreater(qa["controller"]["inactive_segment_count"], 0)
+
+    def test_static_final_qa_keeps_unapproved_controller_motion_map_explicitly_blocked(self) -> None:
+        """Allows still publication without inventing future animation segment identities."""
+
+        machine = _approved_component_machine_contract()
+        machine["animation"] = {
+            "status": "blocked_pending_owner_motion_map",
+            "allowed_controls": [],
+        }
+        machine["controller"].pop("approved_segments")
+        machine["controller"].pop("approved_machine_local_material_ids")
+        authored = _approved_component_authored_state()
+        authored["objects"] = [authored["objects"][0]]
+        authored["materials"] = [authored["materials"][0]]
+        component_contract = approval_module.build_component_contract(machine, authored)
+        self.assertEqual(component_contract["segments"], [])
+        png, masks = _structured_component_pixels()
+        qa = approval_module.compute_final_qa(
+            png,
+            {"start": png, "end": png},
+            [64, 48],
+            machine,
+            {"animation_contract": None},
+            component_contract=component_contract,
+            component_mask_bytes={"material": masks["material"]},
+            material_library_sha256="A" * 64,
+            scene_contract_sha256="B" * 64,
+            machine_contract_sha256="C" * 64,
+        )
+        self.assertEqual(
+            qa["controller"]["verification_status"],
+            "blocked_pending_owner_motion_map",
+        )
+        self.assertEqual(qa["controller"]["segments"], [])
 
     def test_final_qa_rejects_rehashed_nonuniform_wrong_component_pattern(self) -> None:
         """Catches a nonuniform counterfeit whose hashes match pixels but digits are wrong."""

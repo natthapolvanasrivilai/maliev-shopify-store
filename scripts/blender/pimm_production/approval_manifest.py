@@ -170,6 +170,48 @@ def canonical_absolute_path(value: object, label: str) -> Path:
     return path
 
 
+def _match_drive_authority_path(
+    value: object, candidates: tuple[Path, ...], label: str
+) -> Path:
+    """Match a drive path or its exact SMB-resolved spelling to pinned authority.
+
+    Blender and ``Path.resolve()`` expose mapped drives as UNC paths on Windows.
+    The authority boundary remains the validated drive-letter path: a UNC value
+    is accepted only when it is byte-for-byte the current strict resolution of
+    exactly one supplied canonical candidate.
+    """
+
+    canonical_candidates = tuple(
+        canonical_absolute_path(str(candidate), f"{label} candidate")
+        for candidate in candidates
+    )
+    try:
+        direct = canonical_absolute_path(value, label)
+    except ValueError:
+        direct = None
+    if direct is not None:
+        if direct in canonical_candidates:
+            return direct
+        raise ValueError(f"{label} is outside exact mapped-drive authority")
+    if (
+        not isinstance(value, str)
+        or not value.startswith("\\\\")
+        or value.startswith(("\\\\?\\", "\\\\.\\"))
+    ):
+        raise ValueError(f"{label} is outside exact mapped-drive authority")
+    matches: list[Path] = []
+    for candidate in canonical_candidates:
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            continue
+        if str(resolved) == value:
+            matches.append(candidate)
+    if len(matches) != 1:
+        raise ValueError(f"{label} is outside exact mapped-drive authority")
+    return matches[0]
+
+
 def _lexically_within(path: Path, root: Path, label: str) -> None:
     """Check containment on validated lexical paths before any resolution."""
 
@@ -491,6 +533,17 @@ def _owned_identity(status: os.stat_result) -> dict[str, object]:
         "mtime_ns": int(status.st_mtime_ns),
         "ctime_ns": int(status.st_ctime_ns),
     }
+
+
+def _published_identity_matches(
+    created: Mapping[str, object], published: Mapping[str, object]
+) -> bool:
+    """Compare durable object identity while allowing SMB timestamps to settle."""
+
+    return all(
+        published.get(field) == created.get(field)
+        for field in ("device", "inode", "links", "bytes")
+    )
 
 
 def _create_owned_file(path: Path, *, share_delete: bool) -> int:
@@ -987,7 +1040,10 @@ def build_component_contract(
     expected_patterns = [_DIGIT_SEGMENTS[digit] for value in values for digit in value]
     raw_segments = controller.get("approved_segments")
     expected_count = len(expected_patterns) * len(_SEGMENT_LABELS)
-    if not isinstance(raw_segments, list) or len(raw_segments) != expected_count:
+    animation = _mapping(machine_contract.get("animation"), "component animation contract")
+    if raw_segments is None and animation.get("status") == "blocked_pending_owner_motion_map":
+        raw_segments = []
+    elif not isinstance(raw_segments, list) or len(raw_segments) != expected_count:
         raise ValueError(
             f"approved physical controller segment map requires exactly {expected_count} identities"
         )
@@ -1146,7 +1202,9 @@ def _validate_component_library_paths(
     scene_path = canonical_absolute_path(
         scene_record.get("path"), "scene evidence path"
     )
+    allowed_paths = tuple(record[1] for record in allowed.values())
     library_records: dict[str, Mapping[str, object]] = {}
+    normalized_parents: dict[str, Path | None] = {}
     for index, raw_authority in enumerate(raw_library_authorities):
         record = _mapping(
             raw_authority, f"approved Blender library authority {index}"
@@ -1162,8 +1220,9 @@ def _validate_component_library_paths(
             record.get("lexical_path"),
             f"approved Blender library authority {index} lexical path",
         )
-        canonical = canonical_absolute_path(
+        canonical = _match_drive_authority_path(
             record.get("canonical_path"),
+            (lexical,),
             f"approved Blender library authority {index} canonical path",
         )
         _lexically_within(lexical, roots["asset"], "approved Blender library lexical path")
@@ -1174,7 +1233,7 @@ def _validate_component_library_paths(
             raise ValueError(
                 "approved Blender library lexical target is missing or unreadable"
             ) from error
-        if lexical != canonical or resolved != canonical:
+        if lexical != canonical or str(resolved) != str(record.get("canonical_path")):
             raise ValueError(
                 "approved Blender library lexical path is an alias of its canonical target"
             )
@@ -1185,8 +1244,9 @@ def _validate_component_library_paths(
             )
         parent_value = record.get("parent_canonical_path")
         parent = (
-            canonical_absolute_path(
+            _match_drive_authority_path(
                 parent_value,
+                allowed_paths,
                 f"approved Blender library authority {index} parent path",
             )
             if parent_value is not None
@@ -1200,8 +1260,8 @@ def _validate_component_library_paths(
                 os.path.abspath(os.fspath(scene_path.parent / Path(relative_tail)))
             )
         else:
-            expected_lexical = canonical_absolute_path(
-                raw_filepath, "approved absolute Blender library raw filepath"
+            expected_lexical = _match_drive_authority_path(
+                raw_filepath, (lexical,), "approved absolute Blender library raw filepath"
             )
         if expected_lexical != lexical:
             raise ValueError(
@@ -1213,6 +1273,7 @@ def _validate_component_library_paths(
                 "approved Blender library authority contains duplicate canonical targets"
             )
         library_records[key] = record
+        normalized_parents[key] = parent
 
     master_path = authorities_by_name["master"][0]
     material_path = authorities_by_name["material_library"][0]
@@ -1222,10 +1283,12 @@ def _validate_component_library_paths(
         raise ValueError(
             "approved component lexical Blender library authority topology is incomplete"
         )
-    if master_record.get("parent_canonical_path") is not None:
+    master_key = ntpath.normcase(str(master_path))
+    material_key = ntpath.normcase(str(material_path))
+    if normalized_parents.get(master_key) is not None:
         raise ValueError("approved master library must be linked directly from the scene")
-    material_parent = material_record.get("parent_canonical_path")
-    if material_parent not in {None, str(master_path)}:
+    material_parent = normalized_parents.get(material_key)
+    if material_parent not in {None, master_path}:
         raise ValueError(
             "approved material library parent is outside the scene/master topology"
         )
@@ -1251,8 +1314,8 @@ def _validate_component_library_paths(
                         f"pinned {expected_name.replace('_', '-')} authority"
                     )
                 if library_value is not None:
-                    library_path = canonical_absolute_path(
-                        library_value, f"{label} linked Blender library"
+                    library_path = _match_drive_authority_path(
+                        library_value, allowed_paths, f"{label} linked Blender library"
                     )
                     authority = allowed.get(ntpath.normcase(str(library_path)))
                     if authority is None or library_path != authority[1]:
@@ -1272,13 +1335,6 @@ def _validate_component_library_paths(
                                 f"{label} material library role is outside its exact "
                                 f"{expected_name.replace('_', '-')} authority"
                             )
-                    stable_file_record(
-                        library_path,
-                        roots["asset"],
-                        "asset",
-                        f"approved component {name.replace('_', ' ')} library",
-                        record,
-                    )
                     observed_authorities.add(name)
                 if identity.get("type") == "Image" and value.get("external_files"):
                     raise ValueError(
@@ -1563,30 +1619,32 @@ def compute_final_qa(
         raise ValueError("final material and controller component masks overlap")
     _validate_segment_layout(segment_records)
 
-    active_luma = [
-        float(record["pixels"]["mean_luma"])
-        for record in segment_records if record["expected_active"] is True
-    ]
-    inactive_luma = [
-        float(record["pixels"]["mean_luma"])
-        for record in segment_records if record["expected_active"] is False
-    ]
-    if not active_luma or not inactive_luma or min(active_luma) <= max(inactive_luma):
-        raise ValueError("controller active/inactive physical segment states are not distinguishable")
-    threshold = (min(active_luma) + max(inactive_luma)) / 2
+    threshold: float | None = None
     observed_patterns: list[str] = []
-    for digit_index in range(len(expected_patterns)):
-        digit = segment_records[
-            digit_index * len(_SEGMENT_LABELS):(digit_index + 1) * len(_SEGMENT_LABELS)
+    if segment_records:
+        active_luma = [
+            float(record["pixels"]["mean_luma"])
+            for record in segment_records if record["expected_active"] is True
         ]
-        observed_patterns.append(
-            "".join(
-                "1" if float(record["pixels"]["mean_luma"]) > threshold else "0"
-                for record in digit
+        inactive_luma = [
+            float(record["pixels"]["mean_luma"])
+            for record in segment_records if record["expected_active"] is False
+        ]
+        if not active_luma or not inactive_luma or min(active_luma) <= max(inactive_luma):
+            raise ValueError("controller active/inactive physical segment states are not distinguishable")
+        threshold = (min(active_luma) + max(inactive_luma)) / 2
+        for digit_index in range(len(expected_patterns)):
+            digit = segment_records[
+                digit_index * len(_SEGMENT_LABELS):(digit_index + 1) * len(_SEGMENT_LABELS)
+            ]
+            observed_patterns.append(
+                "".join(
+                    "1" if float(record["pixels"]["mean_luma"]) > threshold else "0"
+                    for record in digit
+                )
             )
-        )
-    if observed_patterns != expected_patterns:
-        raise ValueError("controller physical segment state pattern does not match exact display values")
+        if observed_patterns != expected_patterns:
+            raise ValueError("controller physical segment state pattern does not match exact display values")
     endpoints: list[dict[str, object]] = []
     for label in ("start", "end"):
         evidence = _rgba_pixel_evidence(
@@ -1644,9 +1702,12 @@ def compute_final_qa(
             "display_values": list(controller["display_values"]),
             "expected_digit_patterns": expected_patterns,
             "observed_digit_patterns": observed_patterns,
+            "verification_status": (
+                "verified" if segment_records else animation["status"]
+            ),
             "active_segment_count": sum(record["expected_active"] is True for record in segment_records),
             "inactive_segment_count": sum(record["expected_active"] is False for record in segment_records),
-            "illumination_threshold": round(threshold, 8),
+            "illumination_threshold": round(threshold, 8) if threshold is not None else None,
             "segment_identity_sha256": canonical_json_sha256(raw_segments),
             "segments": segment_records,
         },
@@ -1828,9 +1889,19 @@ def extract_current_approval_evidence(proof_manifest_path: Path) -> dict[str, ob
     root_paths = _validate_roots(roots)
     repository = root_paths["repository"]
     evidence: dict[str, dict[str, object]] = {}
+    expected_protected_paths = {
+        "source": asset_root / "sources" / f"PIMM-{scene.machine}-authoritative-source.step",
+        "master": asset_root / Path(*PurePosixPath(scene.master_path).parts),
+        "material_library": asset_root / Path(*PurePosixPath(scene.material_library_path).parts),
+        "scene": asset_root / "scenes" / "stills" / f"{scene.scene_id}.blend",
+    }
     for name in ("source", "master", "material_library", "scene"):
         fingerprint = _mapping(before.get(name), f"proof {name} fingerprint")
-        path = canonical_absolute_path(fingerprint.get("path"), f"proof {name} path")
+        path = _match_drive_authority_path(
+            fingerprint.get("path"),
+            (expected_protected_paths[name],),
+            f"proof {name} path",
+        )
         record = stable_file_record(path, asset_root, "asset", name)
         if (
             record["sha256"] != _sha(fingerprint.get("sha256"), f"proof {name} SHA-256")
@@ -2147,7 +2218,7 @@ def record_decision(
         }
         created = _create_new_json(destination, payload)
         published, record = stable_json(destination, roots["asset"], "asset", "new approval")
-        if published != payload or any(record[key] != value for key, value in created.items()):
+        if published != payload or not _published_identity_matches(created, record):
             raise ValueError("new approval publication identity or payload drift")
     return destination
 
