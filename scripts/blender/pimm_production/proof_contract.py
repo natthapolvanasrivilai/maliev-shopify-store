@@ -278,6 +278,7 @@ _NODE_TYPES_BY_TREE = {
             "ShaderNodeTexEnvironment",
             "ShaderNodeTexCoord",
             "ShaderNodeTexNoise",
+            "ShaderNodeUVMap",
             "ShaderNodeTexWave",
             "ShaderNodeValToRGB",
             "ShaderNodeValue",
@@ -412,6 +413,7 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     "ShaderNodeTexNoise": frozenset(
         {"noise_dimensions", "noise_type", "normalize"}
     ),
+    "ShaderNodeUVMap": frozenset({"from_instancer", "uv_map"}),
     "ShaderNodeTexCoord": frozenset({"from_instancer"}),
     "ShaderNodeTexWave": frozenset(
         {"bands_direction", "rings_direction", "wave_profile", "wave_type"}
@@ -438,6 +440,7 @@ _NODE_STATIC_TYPES = {
     "ShaderNodeTexEnvironment": "TEX_ENVIRONMENT",
     "ShaderNodeTexCoord": "TEX_COORD",
     "ShaderNodeTexNoise": "TEX_NOISE",
+    "ShaderNodeUVMap": "UVMAP",
     "ShaderNodeTexWave": "TEX_WAVE",
     "ShaderNodeValToRGB": "VALTORGB",
     "ShaderNodeValue": "VALUE",

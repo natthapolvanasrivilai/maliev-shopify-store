@@ -2068,6 +2068,10 @@ class ProofContractTests(unittest.TestCase):
             "ShaderNodeMixRGB",
             proof_module._NODE_TYPES_BY_TREE["ShaderNodeTree"],
         )
+        self.assertIn(
+            "ShaderNodeUVMap",
+            proof_module._NODE_TYPES_BY_TREE["ShaderNodeTree"],
+        )
         self.assertEqual(
             proof_module._UNSAFE_NODE_TYPES_BY_TREE,
             _BLENDER_52_UNSAFE_AUDIT_NODE_TYPES,
