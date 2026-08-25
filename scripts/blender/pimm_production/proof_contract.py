@@ -1430,7 +1430,12 @@ def _validate_node_tree(
                 {
                     "distribution": frozenset({"MULTI_GGX"}),
                     "subsurface_method": frozenset(
-                        {"BURLEY", "RANDOM_WALK", "RANDOM_WALK_SKIN"}
+                        {
+                            "BURLEY",
+                            "RANDOM_WALK",
+                            "RANDOM_WALK_LEGACY",
+                            "RANDOM_WALK_SKIN",
+                        }
                     ),
                 }
             )
