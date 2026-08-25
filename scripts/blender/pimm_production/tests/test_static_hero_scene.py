@@ -81,6 +81,10 @@ class StaticHeroSceneTests(unittest.TestCase):
 
         self.assertFalse(hasattr(module, "animation_action"))
         self.assertFalse(hasattr(module, "temperature_driver"))
+        self.assertEqual(
+            getattr(module, "DEFAULT_LOOK", None),
+            "AgX - Medium High Contrast",
+        )
         self.assertEqual(module.DEFAULT_EXPOSURE, 3.5)
         self.assertEqual(module.DEFAULT_WORLD_STRENGTH, 3.0)
 

@@ -32,6 +32,7 @@ RESULT_MARKER = "PIMM_STATIC_HERO_JSON="
 DEFAULT_EXPOSURE = 3.5
 DEFAULT_WORLD_STRENGTH = 3.0
 DEFAULT_PITCH_DEGREES = 2.5
+DEFAULT_LOOK = "AgX - Medium High Contrast"
 
 
 @dataclass(frozen=True)
@@ -266,7 +267,7 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     scene = bpy.context.scene
     _install_lights(bpy, studio_light_specs(bounds_min, bounds_max), pose.target)
     _set_world_strength(scene, DEFAULT_WORLD_STRENGTH)
-    scene.view_settings.look = "Medium High Contrast"
+    scene.view_settings.look = DEFAULT_LOOK
     scene.view_settings.exposure = DEFAULT_EXPOSURE
     scene.render.resolution_x = config.output_width
     scene.render.resolution_y = config.output_height
