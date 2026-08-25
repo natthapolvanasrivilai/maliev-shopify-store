@@ -1175,6 +1175,24 @@ def _prepare_finalizer_fixture(
 
 
 class ProofContractTests(unittest.TestCase):
+    def test_blender_52_node_capture_does_not_read_deprecated_use_nodes(self):
+        class Property:
+            identifier = "use_nodes"
+            type = "BOOLEAN"
+
+        class Owner:
+            bl_rna = type("RNA", (), {"properties": [Property()]})()
+            node_tree = "NODE_TREE"
+
+            @property
+            def use_nodes(self):
+                raise AssertionError("deprecated use_nodes must not be read")
+
+        owner = Owner()
+
+        self.assertEqual(render_module._rna_scalar_properties(owner), {})
+        self.assertEqual(render_module._node_tree_for_owner(owner), "NODE_TREE")
+
     def test_authored_settings_require_a_schema_bound_library_authority_manifest(
         self,
     ) -> None:

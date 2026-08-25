@@ -387,7 +387,7 @@ def _rna_scalar_properties(
     properties = getattr(rna, "properties", ())
     for prop in properties:
         identifier = str(prop.identifier)
-        if identifier == "rna_type" or identifier in exclude:
+        if identifier in {"rna_type", "use_nodes"} or identifier in exclude:
             continue
         if getattr(prop, "type", None) not in {
             "BOOLEAN",
@@ -404,6 +404,12 @@ def _rna_scalar_properties(
         if serialized is not _UNSUPPORTED:
             result[identifier] = serialized
     return dict(sorted(result.items()))
+
+
+def _node_tree_for_owner(owner: object) -> object | None:
+    """Return Blender 5.2's always-present node tree without deprecated toggles."""
+
+    return getattr(owner, "node_tree", None)
 
 
 def _socket_record(
@@ -1001,7 +1007,7 @@ def _material_record(
         "identity": identity,
         "properties": _rna_scalar_properties(material),
         "node_tree": _node_tree_record(
-            material.node_tree if material.use_nodes else None,
+            _node_tree_for_owner(material),
             image_cache=image_cache,
             owner_identity=identity,
         ),
@@ -1236,7 +1242,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
                 "shadow_soft_size": float(getattr(data, "shadow_soft_size", 0.0)),
                 "properties": _rna_scalar_properties(data),
                 "node_tree": _node_tree_record(
-                    data.node_tree if data.use_nodes else None,
+                    _node_tree_for_owner(data),
                     image_cache=image_cache,
                 ),
             }
@@ -1250,7 +1256,7 @@ def _capture_authored_settings(bpy: Any) -> dict[str, object]:
             "color": [round(float(value), 12) for value in world.color],
             "properties": _rna_scalar_properties(world),
             "node_tree": _node_tree_record(
-                world.node_tree if world.use_nodes else None,
+                _node_tree_for_owner(world),
                 image_cache=image_cache,
             ),
         }
