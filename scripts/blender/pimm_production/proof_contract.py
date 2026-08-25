@@ -270,6 +270,7 @@ _NODE_TYPES_BY_TREE = {
             "ShaderNodeGroup",
             "ShaderNodeMapping",
             "ShaderNodeMath",
+            "ShaderNodeMixRGB",
             "ShaderNodeOutputLight",
             "ShaderNodeOutputMaterial",
             "ShaderNodeOutputWorld",
@@ -399,6 +400,7 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     "ShaderNodeBump": frozenset({"invert"}),
     "ShaderNodeGroup": frozenset(),
     "ShaderNodeMath": frozenset({"operation", "use_clamp"}),
+    "ShaderNodeMixRGB": frozenset({"blend_type", "use_alpha", "use_clamp"}),
     "ShaderNodeMapping": frozenset({"vector_type"}),
     "ShaderNodeOutputLight": frozenset({"is_active_output", "target"}),
     "ShaderNodeOutputMaterial": frozenset({"is_active_output", "target"}),
@@ -427,6 +429,7 @@ _NODE_STATIC_TYPES = {
     "ShaderNodeEmission": "EMISSION",
     "ShaderNodeGroup": "GROUP",
     "ShaderNodeMath": "MATH",
+    "ShaderNodeMixRGB": "MIX_RGB",
     "ShaderNodeMapping": "MAPPING",
     "ShaderNodeOutputLight": "OUTPUT_LIGHT",
     "ShaderNodeOutputMaterial": "OUTPUT_MATERIAL",
@@ -1381,6 +1384,8 @@ def _validate_node_tree(
             enum_domains["type"] = frozenset({static_type})
         if node_type == "ShaderNodeMath":
             enum_domains["operation"] = _MATH_OPERATIONS
+        elif node_type == "ShaderNodeMixRGB":
+            enum_domains["blend_type"] = frozenset({"MIX", "MULTIPLY"})
         elif node_type == "ShaderNodeMapping":
             enum_domains["vector_type"] = frozenset(
                 {"NORMAL", "POINT", "TEXTURE", "VECTOR"}
