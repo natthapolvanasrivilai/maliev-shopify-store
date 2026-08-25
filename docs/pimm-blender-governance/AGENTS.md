@@ -34,6 +34,22 @@ The authoritative masters are `masters/PIMM-30G-MASTER.blend`, `masters/PIMM-50G
 
 Manual material assignments are authoritative. AI may inspect, report, or suggest, but may not overwrite an approved assignment. Render scenes link the applicable approved `PIMM_PUBLISHED` collection and may own only shot-specific cameras, physical lights/reflection cards, shadow catchers, scene-local rigs, render layers, output formats, and paths. A private machine mesh, localized linked material, approved-material override, or unapproved master revision fails scene validation.
 
+## Project layout and shot ownership
+
+Keep one shot per `.blend`; never turn one scene file into a mutable all-purpose render project.
+
+- `masters/` owns published product geometry, approved material assignments, labels, displays, stable identities, and neutral product transforms.
+- `rigs/` is reserved for reusable, owner-approved mechanical controls, constraints, endpoints, and actions. A rig links a published master and may not duplicate or reshape product geometry.
+- `scenes/stills/` owns static-shot files. Each file links one published machine and owns only its camera, studio lighting and reflection cards, world, compositor, shadow catcher, render layers, and output configuration.
+- `scenes/animations/` is reserved for future animation-shot files. Each animation shot links the applicable published master and approved rig, then owns shot camera, lighting, selected action or NLA sequence, frame range, and output configuration.
+- `scenes/contracts/` binds every still or animation shot to exact master, material-library, camera, output, and—when applicable—rig and animation authority.
+- `renders/proofs/<proof-id>/` contains immutable low-resolution review evidence rendered from the authored final-intent scene state.
+- `renders/final/<release-id>/` contains only native outputs authorized from an approved exact proof generation.
+
+Name files `pimm-<machine>--<purpose>--<view>.blend` for stills and `pimm-<machine>--<operation>--<view>.blend` for animation shots. Do not silently reuse or rename a three-quarter scene as a front scene; create a distinct shot file and contract. Storefront derivatives are generated only from an approved final release and never from proof, working, unapproved, or mutable scene paths.
+
+Animation remains blocked until the owner supplies verified motion travel, endpoints, timing, sequence, controller-display semantics, and allowed values. Temperature animation must state whether each number is a setpoint, measured value, or both. Do not infer operation from geometry, existing keyframes, photographs, or typical machine behavior. Static render authorization never authorizes animation work.
+
 ## Machine semantics
 
 The 30G controller renders physical seven-segment `300/300`; the 50G controller renders physical seven-segment `350/350`. Illuminated segments use the applicable green or red emissive material while inactive segment geometry remains physical. Flat text, font objects, composited text, or image overlays cannot replace the controller geometry. Unknown motion, controller, mold, platen, injection, pneumatic, hose, cable, or endpoint behavior remains blocked until owner approval.

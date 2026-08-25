@@ -33,6 +33,17 @@ class WorkspaceDocsTests(unittest.TestCase):
         self.assertIn("350/350", agents)
         self.assertIn("native-resolution rendering requires owner approval", agents)
 
+    def test_workspace_docs_define_static_and_future_animation_ownership(self):
+        agents = (DOC_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        self.assertIn("`scenes/stills/`", agents)
+        self.assertIn("`scenes/animations/`", agents)
+        self.assertIn("`rigs/`", agents)
+        self.assertIn("one shot per `.blend`", agents)
+        self.assertIn("Animation remains blocked", agents)
+        self.assertIn("setpoint, measured value, or both", agents)
+        self.assertIn("Storefront derivatives", agents)
+
     def test_install_copies_each_canonical_document_with_a_matching_hash(self):
         with TemporaryDirectory() as root:
             workspace_root = Path(root)
