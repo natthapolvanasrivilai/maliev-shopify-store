@@ -15,6 +15,7 @@ try:
     from .io_contract import sha256_file
     from .machine_contract import load_machine_contract, validate_controller_scene
     from .paths import ASSET_ROOT, require_within
+    from .published_artwork import ARTWORK_SPECS_BY_MACHINE, validate_published_artwork
     from .scene_contract import (
         PUBLISHED_STABLE_ID_COUNT_PROPERTY,
         PUBLISHED_STABLE_ID_SHA256_PROPERTY,
@@ -33,6 +34,10 @@ except ImportError:  # Blender may execute this checked-in script directly.
         validate_controller_scene,
     )
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
+    from scripts.blender.pimm_production.published_artwork import (
+        ARTWORK_SPECS_BY_MACHINE,
+        validate_published_artwork,
+    )
     from scripts.blender.pimm_production.scene_contract import (
         PUBLISHED_STABLE_ID_COUNT_PROPERTY,
         PUBLISHED_STABLE_ID_SHA256_PROPERTY,
@@ -120,7 +125,6 @@ def _reachable_collections(scene: object) -> set[object]:
 def _validate_complete_product(
     published: object | None, contract: SceneContract
 ) -> list[str]:
-    del contract
     if published is None:
         return []
     errors: list[str] = []
@@ -130,12 +134,17 @@ def _validate_complete_product(
         if getattr(obj, "type", None) == "MESH"
     ]
     identifier_rows: list[str] = []
+    artwork_names = {
+        spec.object_name for spec in ARTWORK_SPECS_BY_MACHINE[contract.machine]
+    }
     missing_provenance: list[str] = []
     for product in published_meshes:
         stable_id = _property(product, "pimm_stable_id")
-        if not isinstance(stable_id, str) or not stable_id:
+        if (not isinstance(stable_id, str) or not stable_id) and str(
+            getattr(product, "name", "")
+        ) not in artwork_names:
             missing_provenance.append(str(getattr(product, "name", "")))
-        else:
+        elif isinstance(stable_id, str) and stable_id:
             identifier_rows.append(stable_id)
     actual_ids = set(identifier_rows)
     if missing_provenance:
@@ -166,6 +175,8 @@ def _validate_complete_product(
             f"(expected_count={expected_count}, actual_count={actual_count}, "
             f"expected_sha256={expected_sha256}, actual_sha256={actual_sha256})"
         )
+    _, artwork_errors = validate_published_artwork(published, contract.machine)
+    errors.extend(artwork_errors)
     return errors
 
 

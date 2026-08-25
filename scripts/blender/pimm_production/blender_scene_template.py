@@ -17,6 +17,7 @@ import uuid
 try:
     from .io_contract import sha256_file
     from .paths import ASSET_ROOT, require_within
+    from .published_artwork import validate_published_artwork
     from .scene_contract import (
         PUBLISHED_STABLE_ID_COUNT_PROPERTY,
         PUBLISHED_STABLE_ID_SHA256_PROPERTY,
@@ -32,6 +33,9 @@ except ImportError:  # Blender may execute this checked-in script directly.
         sys.path.insert(0, str(repository_root))
     from scripts.blender.pimm_production.io_contract import sha256_file
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
+    from scripts.blender.pimm_production.published_artwork import (
+        validate_published_artwork,
+    )
     from scripts.blender.pimm_production.scene_contract import (
         PUBLISHED_STABLE_ID_COUNT_PROPERTY,
         PUBLISHED_STABLE_ID_SHA256_PROPERTY,
@@ -150,6 +154,12 @@ def audit_master_publication(
             errors.append(
                 "PIMM_PUBLISHED embedded stable-ID evidence does not match authoritative import manifest"
             )
+    artwork_records: list[dict[str, object]] = []
+    if published is not None:
+        artwork_records, artwork_errors = validate_published_artwork(
+            published, contract.machine
+        )
+        errors.extend(artwork_errors)
 
     all_products = [obj for obj in bpy.data.objects if obj.get("pimm_stable_id")]
     material_errors, unassigned = _material_gate_errors(all_products)
@@ -191,6 +201,7 @@ def audit_master_publication(
         "master_path": str(master_path),
         "material_library_path": str(material_path),
         "published_object_count": len(published_objects),
+        "published_artwork_count": len(artwork_records),
         "unassigned_count": len(unassigned),
         "errors": list(dict.fromkeys(errors)),
         "fingerprints_before": before,

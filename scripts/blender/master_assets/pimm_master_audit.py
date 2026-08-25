@@ -38,6 +38,7 @@ from scripts.blender.master_assets.pimm_master_builder import (
     SOURCE_TO_BLENDER_SCALE,
 )
 from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
+from scripts.blender.pimm_production.published_artwork import validate_published_artwork
 
 
 _APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
@@ -332,6 +333,13 @@ def audit_open_master(
     missing_ids = sorted(set(expected) - actual_ids)
     if missing_ids:
         integrity_errors.append(f"master is missing {len(missing_ids)} manifest solids")
+    published = bpy.data.collections.get("PIMM_PUBLISHED")
+    if published is None:
+        integrity_errors.append("master is missing PIMM_PUBLISHED")
+        artwork_records: list[dict[str, object]] = []
+    else:
+        artwork_records, artwork_errors = validate_published_artwork(published, machine)
+        integrity_errors.extend(artwork_errors)
     forbidden = [obj.name for obj in bpy.data.objects if obj.type in {"CAMERA", "LIGHT"}]
     if forbidden:
         integrity_errors.append(f"master contains forbidden cameras/lights: {forbidden}")
@@ -375,6 +383,7 @@ def audit_open_master(
         "object_count": len(records),
         "unique_id_count": len(actual_ids),
         "manifest_solid_count": len(expected),
+        "published_artwork_count": len(artwork_records),
         **asdict(result),
         "source": source_after,
         "master": master_after,

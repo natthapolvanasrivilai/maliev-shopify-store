@@ -48,6 +48,16 @@ def _write_fixture_builder(path: Path) -> None:
 
             import bpy
 
+            repository_root = Path(sys.argv[sys.argv.index("--") + 3])
+            sys.path.insert(0, str(repository_root))
+            from scripts.blender.pimm_production.published_artwork import (
+                ARTWORK_SPECS_BY_MACHINE,
+                PUBLISHED_ARTWORK_COUNT_PROPERTY,
+                PUBLISHED_ARTWORK_SHA256_PROPERTY,
+                canonical_artwork_evidence,
+                capture_published_artwork,
+            )
+
             kind = sys.argv[sys.argv.index("--") + 1]
             root = Path(sys.argv[sys.argv.index("--") + 2])
             masters = root / "masters"
@@ -128,6 +138,60 @@ def _write_fixture_builder(path: Path) -> None:
                     if kind == "collection-evidence-digest-mismatch"
                     else hashlib.sha256(evidence_payload.encode("utf-8")).hexdigest().upper()
                 )
+            if published_name == "PIMM_PUBLISHED":
+                artwork_collection = bpy.data.collections.new("PIMM_SURFACE_DECALS")
+                published.children.link(artwork_collection)
+                asset_root = Path(r"M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders")
+                artwork_specs = list(ARTWORK_SPECS_BY_MACHINE["30G"])
+                if kind == "artwork-missing":
+                    artwork_specs = artwork_specs[:1]
+                if kind == "artwork-duplicate":
+                    artwork_specs.append(artwork_specs[0])
+                for index, spec in enumerate(artwork_specs, start=1):
+                    image = bpy.data.images.load(
+                        str(asset_root / Path(spec.image_relative_path)), check_existing=True
+                    )
+                    image.pack()
+                    material = bpy.data.materials.new(spec.material_name)
+                    material.use_nodes = True
+                    material["pimm_material_id"] = spec.material_id
+                    material["pimm_material_scope"] = "machine-local"
+                    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+                    texture.image = image
+                    mesh = bpy.data.meshes.new(f"{spec.object_name}_MESH")
+                    mesh.from_pydata(
+                        [(-0.1, 0.0, float(index)), (0.1, 0.0, float(index)), (0.0, 0.2, float(index))],
+                        [],
+                        [(0, 1, 2)],
+                    )
+                    mesh.materials.append(material)
+                    artwork_name = spec.object_name
+                    if kind == "artwork-duplicate" and index == len(artwork_specs):
+                        artwork_name += "_DUPLICATE"
+                    artwork = bpy.data.objects.new(artwork_name, mesh)
+                    artwork["pimm_machine"] = "30G"
+                    artwork["pimm_asset_role"] = spec.role
+                    artwork["pimm_identical_asset_key"] = spec.asset_key
+                    artwork["pimm_attached_parent"] = spec.attached_parent
+                    if kind == "artwork-wrong-parent" and index == 1:
+                        artwork["pimm_attached_parent"] = "30G__wrong-parent"
+                    if kind == "artwork-dual-classified" and index == 1:
+                        artwork["pimm_stable_id"] = "30G__invalid-artwork-stable-id"
+                    artwork["pimm_asset_image"] = Path(spec.image_relative_path).name
+                    artwork_collection.objects.link(artwork)
+                artwork_records, artwork_errors = capture_published_artwork(published, "30G")
+                if artwork_errors:
+                    raise RuntimeError(artwork_errors)
+                artwork_count, artwork_sha256 = canonical_artwork_evidence(artwork_records)
+                published[PUBLISHED_ARTWORK_COUNT_PROPERTY] = artwork_count
+                published[PUBLISHED_ARTWORK_SHA256_PROPERTY] = artwork_sha256
+                if kind == "artwork-stale-evidence":
+                    published[PUBLISHED_ARTWORK_SHA256_PROPERTY] = "0" * 64
+                if kind == "artwork-unclassified":
+                    mesh = bpy.data.meshes.new("PIMM_UNCLASSIFIED_MESH")
+                    mesh.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
+                    mesh.materials.append(linked_material)
+                    published.objects.link(bpy.data.objects.new("PIMM_UNCLASSIFIED", mesh))
             bpy.context.scene["pimm_master_machine"] = "30G"
             bpy.ops.wm.save_as_mainfile(filepath=str(master_path), check_existing=False)
             manifest_ids = stable_ids[:1] if kind == "manifest-truncated-partial" else stable_ids
@@ -349,6 +413,12 @@ def build_scene_fixture(kind: str, root: Path) -> tuple[Path, SceneContract]:
         "node-only-local-shared-material",
         "node-only-local-machine-material",
         "unpublished-master",
+        "artwork-missing",
+        "artwork-duplicate",
+        "artwork-wrong-parent",
+        "artwork-dual-classified",
+        "artwork-stale-evidence",
+        "artwork-unclassified",
     }
     if kind not in allowed:
         raise ValueError(f"unsupported fixture kind: {kind}")
@@ -365,6 +435,7 @@ def build_scene_fixture(kind: str, root: Path) -> tuple[Path, SceneContract]:
             "--",
             kind,
             str(root),
+            str(REPO_ROOT),
         ],
         cwd=REPO_ROOT,
     )
@@ -657,6 +728,21 @@ class SceneContractTests(unittest.TestCase):
         with TemporaryDirectory() as root:
             path, contract = build_scene_fixture("valid", Path(root))
             self.assertEqual(run_scene_fixture_validation(path, contract), [])
+
+    def test_published_artwork_contract_fails_closed(self):
+        expectations = {
+            "artwork-missing": "missing artwork roles",
+            "artwork-duplicate": "duplicate artwork roles",
+            "artwork-wrong-parent": "attached_parent mismatch",
+            "artwork-dual-classified": "stable_id",
+            "artwork-stale-evidence": "embedded artwork SHA-256",
+            "artwork-unclassified": "published mesh is unclassified",
+        }
+        for kind, expected in expectations.items():
+            with self.subTest(kind=kind), TemporaryDirectory() as root:
+                path, contract = build_scene_fixture(kind, Path(root))
+                errors = run_scene_fixture_validation(path, contract)
+                self.assertIn(expected, "\n".join(errors))
 
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
     def test_exact_authored_shadow_catcher_is_the_only_allowed_local_scene_mesh(self):

@@ -9,6 +9,11 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Iterable, Mapping
 
+from scripts.blender.pimm_production.published_artwork import (
+    PUBLISHED_ARTWORK_COUNT_PROPERTY,
+    PUBLISHED_ARTWORK_SHA256_PROPERTY,
+)
+
 
 _FIELDS = {
     "schema_version",
