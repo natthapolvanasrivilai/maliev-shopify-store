@@ -155,8 +155,22 @@ class StaticHeroSceneTests(unittest.TestCase):
             "AgX - Medium High Contrast",
         )
         self.assertEqual(module.DEFAULT_EXPOSURE, 0.0)
-        self.assertGreater(module.DEFAULT_WORLD_STRENGTH, 0.0)
-        self.assertLessEqual(module.DEFAULT_WORLD_STRENGTH, 0.2)
+
+    def test_studio_world_uses_the_approved_pinned_hdri_calibration(self):
+        module = self._module()
+
+        spec = module.studio_world_environment_spec()
+
+        self.assertEqual(
+            spec.path,
+            module.ASSET_ROOT / "assets" / "hdri" / "studio_kontrast_04_4k.exr",
+        )
+        self.assertEqual(
+            spec.sha256,
+            "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+        )
+        self.assertEqual(spec.strength, 0.5)
+        self.assertEqual(spec.rotation_degrees, 0.0)
 
     def test_world_setup_uses_the_existing_node_tree_without_deprecated_toggle(self):
         module = self._module()

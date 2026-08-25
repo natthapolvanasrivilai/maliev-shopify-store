@@ -534,7 +534,7 @@ def _run_allowlist_compatibility_audit(
                 "        if node_type in {'ShaderNodeGroup', 'GeometryNodeGroup'}:",
                 "            nested = bpy.data.node_groups.new(f'{key}_NESTED', tree_type)",
                 "            node.node_tree = nested",
-                "        elif node_type == 'ShaderNodeTexImage':",
+                "        elif node_type in {'ShaderNodeTexImage', 'ShaderNodeTexEnvironment'}:",
                 "            node.image = bpy.data.images.new(f'{key}_IMAGE', width=1, height=1)",
                 "        if node_type in {'NodeGroupInput', 'NodeGroupOutput'} and tree_type == 'GeometryNodeTree':",
                 "            tree.interface.new_socket(name='Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')",
@@ -2073,6 +2073,8 @@ class ProofContractTests(unittest.TestCase):
         self.assertTrue(
             {
                 "ShaderNodeBump",
+                "ShaderNodeMapping",
+                "ShaderNodeTexEnvironment",
                 "ShaderNodeTexCoord",
                 "ShaderNodeTexNoise",
                 "ShaderNodeTexWave",
@@ -2083,6 +2085,30 @@ class ProofContractTests(unittest.TestCase):
             proof_module._NODE_EXTRA_PROPERTY_FIELDS["ShaderNodeTexNoise"],
             frozenset({"noise_dimensions", "noise_type", "normalize"}),
         )
+        self.assertEqual(
+            proof_module._NODE_EXTRA_PROPERTY_FIELDS["ShaderNodeMapping"],
+            frozenset({"vector_type"}),
+        )
+        self.assertIn("NodeSocketVectorEuler", proof_module._NODE_SOCKET_TYPES)
+
+    def test_mapping_euler_socket_default_is_captured_as_three_numbers(self):
+        class EulerDefault:
+            def __getitem__(self, index):
+                values = (0.0, 0.0, 0.0)
+                if index >= len(values):
+                    raise IndexError
+                return values[index]
+
+        socket = SimpleNamespace(
+            bl_idname="NodeSocketVectorEuler",
+            name="Rotation",
+            identifier="Rotation",
+            default_value=EulerDefault(),
+            enabled=True,
+            is_linked=False,
+        )
+
+        self.assertEqual(render_module._socket_record(socket)["default"], [0.0, 0.0, 0.0])
         self.assertEqual(
             proof_module._NODE_STATIC_TYPES["ShaderNodeTexNoise"],
             "TEX_NOISE",

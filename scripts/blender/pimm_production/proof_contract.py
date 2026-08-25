@@ -268,11 +268,13 @@ _NODE_TYPES_BY_TREE = {
             "ShaderNodeBump",
             "ShaderNodeEmission",
             "ShaderNodeGroup",
+            "ShaderNodeMapping",
             "ShaderNodeMath",
             "ShaderNodeOutputLight",
             "ShaderNodeOutputMaterial",
             "ShaderNodeOutputWorld",
             "ShaderNodeTexImage",
+            "ShaderNodeTexEnvironment",
             "ShaderNodeTexCoord",
             "ShaderNodeTexNoise",
             "ShaderNodeTexWave",
@@ -327,6 +329,7 @@ _NODE_SOCKET_TYPES = frozenset(
         "NodeSocketShader",
         "NodeSocketString",
         "NodeSocketVector",
+        "NodeSocketVectorEuler",
         "NodeSocketVectorTranslation",
         "NodeSocketVectorXYZ",
         "NodeSocketVirtual",
@@ -396,12 +399,14 @@ _NODE_EXTRA_PROPERTY_FIELDS = {
     "ShaderNodeBump": frozenset({"invert"}),
     "ShaderNodeGroup": frozenset(),
     "ShaderNodeMath": frozenset({"operation", "use_clamp"}),
+    "ShaderNodeMapping": frozenset({"vector_type"}),
     "ShaderNodeOutputLight": frozenset({"is_active_output", "target"}),
     "ShaderNodeOutputMaterial": frozenset({"is_active_output", "target"}),
     "ShaderNodeOutputWorld": frozenset({"is_active_output", "target"}),
     "ShaderNodeTexImage": frozenset(
         {"extension", "interpolation", "projection", "projection_blend"}
     ),
+    "ShaderNodeTexEnvironment": frozenset({"interpolation", "projection"}),
     "ShaderNodeTexNoise": frozenset(
         {"noise_dimensions", "noise_type", "normalize"}
     ),
@@ -422,10 +427,12 @@ _NODE_STATIC_TYPES = {
     "ShaderNodeEmission": "EMISSION",
     "ShaderNodeGroup": "GROUP",
     "ShaderNodeMath": "MATH",
+    "ShaderNodeMapping": "MAPPING",
     "ShaderNodeOutputLight": "OUTPUT_LIGHT",
     "ShaderNodeOutputMaterial": "OUTPUT_MATERIAL",
     "ShaderNodeOutputWorld": "OUTPUT_WORLD",
     "ShaderNodeTexImage": "TEX_IMAGE",
+    "ShaderNodeTexEnvironment": "TEX_ENVIRONMENT",
     "ShaderNodeTexCoord": "TEX_COORD",
     "ShaderNodeTexNoise": "TEX_NOISE",
     "ShaderNodeTexWave": "TEX_WAVE",
@@ -1044,7 +1051,11 @@ def _validate_socket(value: object, label: str) -> None:
             raise ValueError(
                 f"{label} pointer default must be an identity or explicit value null"
             )
-    elif socket_type in {"NodeSocketVectorTranslation", "NodeSocketVectorXYZ"}:
+    elif socket_type in {
+        "NodeSocketVectorEuler",
+        "NodeSocketVectorTranslation",
+        "NodeSocketVectorXYZ",
+    }:
         _validate_vector(socket["default"], 3, f"{label} default")
     else:
         _validate_json_value(socket["default"], f"{label} default")
@@ -1231,7 +1242,7 @@ def _validate_pointer_mapping(
         allowed["node_tree"] = ("node_tree", "GeometryNodeTree")
     elif node_type == "CompositorNodeGroup":
         allowed["node_tree"] = ("node_tree", "CompositorNodeTree")
-    elif node_type == "ShaderNodeTexImage":
+    elif node_type in {"ShaderNodeTexImage", "ShaderNodeTexEnvironment"}:
         allowed.update(
             {
                 "color_mapping": ("embedded", frozenset({"ColorMapping"})),
@@ -1370,6 +1381,10 @@ def _validate_node_tree(
             enum_domains["type"] = frozenset({static_type})
         if node_type == "ShaderNodeMath":
             enum_domains["operation"] = _MATH_OPERATIONS
+        elif node_type == "ShaderNodeMapping":
+            enum_domains["vector_type"] = frozenset(
+                {"NORMAL", "POINT", "TEXTURE", "VECTOR"}
+            )
         elif node_type == "ShaderNodeTexImage":
             enum_domains.update(
                 {

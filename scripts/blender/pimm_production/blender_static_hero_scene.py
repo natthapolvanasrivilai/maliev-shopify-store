@@ -30,8 +30,11 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
 
 RESULT_MARKER = "PIMM_STATIC_HERO_JSON="
 DEFAULT_EXPOSURE = 0.0
-DEFAULT_WORLD_STRENGTH = 0.08
+DEFAULT_WORLD_STRENGTH = 0.5
 DEFAULT_WORLD_COLOR = (0.18, 0.18, 0.18, 1.0)
+DEFAULT_HDRI_RELATIVE_PATH = Path("assets") / "hdri" / "studio_kontrast_04_4k.exr"
+DEFAULT_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
+DEFAULT_HDRI_ROTATION_DEGREES = 0.0
 DEFAULT_PITCH_DEGREES = 0.0
 DEFAULT_LOOK = "AgX - Medium High Contrast"
 DEFAULT_FOCAL_LENGTH_MM = 85.0
@@ -88,6 +91,14 @@ class EnvironmentSpec:
     depth: float
     base_color: tuple[float, float, float, float]
     roughness: float
+
+
+@dataclass(frozen=True)
+class WorldEnvironmentSpec:
+    path: Path
+    sha256: str
+    strength: float
+    rotation_degrees: float
 
 
 MACHINE_CONFIGS = {
@@ -246,6 +257,17 @@ def studio_environment_specs(
     )
 
 
+def studio_world_environment_spec() -> WorldEnvironmentSpec:
+    """Return the owner-approved, content-pinned studio HDRI calibration."""
+
+    return WorldEnvironmentSpec(
+        path=ASSET_ROOT / DEFAULT_HDRI_RELATIVE_PATH,
+        sha256=DEFAULT_HDRI_SHA256,
+        strength=DEFAULT_WORLD_STRENGTH,
+        rotation_degrees=DEFAULT_HDRI_ROTATION_DEGREES,
+    )
+
+
 def _product_bounds(bpy: Any) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     from mathutils import Vector
 
@@ -277,6 +299,51 @@ def _set_world_strength(scene: Any, strength: float) -> None:
         raise ValueError("studio world is missing its Background node")
     background.inputs["Color"].default_value = DEFAULT_WORLD_COLOR
     background.inputs["Strength"].default_value = float(strength)
+
+
+def _install_world_environment(
+    bpy: Any, scene: Any, spec: WorldEnvironmentSpec
+) -> None:
+    path = require_within(spec.path, ASSET_ROOT / "assets" / "hdri")
+    if not path.is_file():
+        raise FileNotFoundError(f"studio HDRI is missing: {path}")
+    actual_sha256 = sha256_file(path)
+    if actual_sha256 != spec.sha256:
+        raise ValueError(
+            "studio HDRI SHA-256 mismatch: "
+            f"expected {spec.sha256}, found {actual_sha256}"
+        )
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("PIMM_STUDIO_WORLD")
+    tree = scene.world.node_tree
+    background = tree.nodes.get("Background")
+    output = tree.nodes.get("World Output")
+    if background is None or output is None:
+        raise ValueError("studio world is missing its Background or World Output node")
+    for name in (
+        "PIMM_STUDIO_HDRI_COORDINATES",
+        "PIMM_STUDIO_HDRI_MAPPING",
+        "PIMM_STUDIO_HDRI_ENVIRONMENT",
+    ):
+        existing = tree.nodes.get(name)
+        if existing is not None:
+            tree.nodes.remove(existing)
+    coordinates = tree.nodes.new("ShaderNodeTexCoord")
+    coordinates.name = "PIMM_STUDIO_HDRI_COORDINATES"
+    mapping = tree.nodes.new("ShaderNodeMapping")
+    mapping.name = "PIMM_STUDIO_HDRI_MAPPING"
+    environment = tree.nodes.new("ShaderNodeTexEnvironment")
+    environment.name = "PIMM_STUDIO_HDRI_ENVIRONMENT"
+    environment.image = bpy.data.images.load(str(path), check_existing=True)
+    environment.interpolation = "Linear"
+    environment.projection = "EQUIRECTANGULAR"
+    mapping.inputs["Rotation"].default_value[2] = math.radians(spec.rotation_degrees)
+    for link in list(background.inputs["Color"].links):
+        tree.links.remove(link)
+    tree.links.new(coordinates.outputs["Generated"], mapping.inputs["Vector"])
+    tree.links.new(mapping.outputs["Vector"], environment.inputs["Vector"])
+    tree.links.new(environment.outputs["Color"], background.inputs["Color"])
+    background.inputs["Strength"].default_value = float(spec.strength)
 
 
 def _install_lights(bpy: Any, specs: Sequence[LightSpec]) -> None:
@@ -413,7 +480,8 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     scene = bpy.context.scene
     _install_lights(bpy, studio_light_specs(bounds_min, bounds_max))
     _install_environment(bpy, studio_environment_specs(bounds_min, bounds_max))
-    _set_world_strength(scene, DEFAULT_WORLD_STRENGTH)
+    world_environment = studio_world_environment_spec()
+    _install_world_environment(bpy, scene, world_environment)
     scene.view_settings.view_transform = "AgX"
     scene.view_settings.look = DEFAULT_LOOK
     scene.view_settings.exposure = DEFAULT_EXPOSURE
@@ -444,6 +512,12 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
         "environment": [spec.name for spec in studio_environment_specs(bounds_min, bounds_max)],
         "exposure": scene.view_settings.exposure,
         "world_strength": DEFAULT_WORLD_STRENGTH,
+        "world_environment": {
+            "path": world_environment.path.relative_to(ASSET_ROOT).as_posix(),
+            "rotation_degrees": world_environment.rotation_degrees,
+            "sha256": world_environment.sha256,
+            "strength": world_environment.strength,
+        },
     }
 
 

@@ -442,6 +442,7 @@ def _socket_record(
             try:
                 raw_default = socket.default_value
                 if socket_type in {
+                    "NodeSocketVectorEuler",
                     "NodeSocketVectorTranslation",
                     "NodeSocketVectorXYZ",
                 }:
