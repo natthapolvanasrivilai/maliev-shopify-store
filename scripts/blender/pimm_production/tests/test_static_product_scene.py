@@ -166,6 +166,20 @@ class StaticProductSceneTests(unittest.TestCase):
                 contract = self.module.SceneContract.from_mapping(mutated)
                 self.assertTrue(self.module.validate_scene_contract(contract))
 
+    def test_governed_static_shot_requires_scene_path_and_render_setup(self):
+        """Catches a known static scene silently falling back to the legacy contract shape."""
+
+        payload = self.module.contract_payload(self.config)
+        payload.pop("scene_path")
+        payload.pop("static_render_setup")
+
+        contract = self.module.SceneContract.from_mapping(payload)
+
+        self.assertIn(
+            "governed static product scene contracts require scene_path and static_render_setup",
+            self.module.validate_scene_contract(contract),
+        )
+
     def test_existing_contract_is_never_overwritten(self):
         """Catches preparation replacing a previously approved contract file."""
 

@@ -161,7 +161,16 @@ def _canonical_relative(value: object, expected: str) -> bool:
 
 def _validate_static_render_setup(contract: SceneContract, errors: list[str]) -> None:
     if contract.scene_path is None or contract.static_render_setup is None:
-        if contract.scene_path is not None or contract.static_render_setup is not None:
+        if (
+            contract.scene_id in _STATIC_SHOT_CAMERAS
+            and contract.scene_path is None
+            and contract.static_render_setup is None
+        ):
+            errors.append(
+                "governed static product scene contracts require scene_path and "
+                "static_render_setup"
+            )
+        elif contract.scene_path is not None or contract.static_render_setup is not None:
             errors.append("static product scene contracts require both scene_path and static_render_setup")
         return
     expected_scene_path = f"scenes/stills/{contract.scene_id}.blend"
