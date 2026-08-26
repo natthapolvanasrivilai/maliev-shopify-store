@@ -1,1 +1,1 @@
-"""Tests for the PIMM production-governance package."""
+"""Tests for PIMM production-governance contracts and scene registries."""
