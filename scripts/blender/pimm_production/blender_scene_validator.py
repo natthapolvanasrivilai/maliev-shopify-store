@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 try:
     from .io_contract import sha256_file
@@ -246,6 +246,26 @@ def _validate_materials(
         elif scope not in {"shared", "machine-local"}:
             errors.append(f"product material scope is not approved: {name}/{material_name}")
     return errors
+
+
+def _validate_static_camera_clip_range(
+    camera: Any, contract: SceneContract, errors: list[str]
+) -> None:
+    """Require the open camera to retain the clip range pinned by a static contract."""
+
+    setup = contract.static_render_setup
+    if setup is None:
+        return
+    camera_setup = setup.get("camera")
+    if not isinstance(camera_setup, Mapping):
+        return
+    camera_data = getattr(camera, "data", None)
+    if camera_data is None:
+        return
+    if getattr(camera_data, "clip_start", None) != camera_setup.get("clip_start"):
+        errors.append("static product camera near clip does not match contract")
+    if getattr(camera_data, "clip_end", None) != camera_setup.get("clip_end"):
+        errors.append("static product camera far clip does not match contract")
 
 
 def validate_open_render_scene(
@@ -499,6 +519,7 @@ def validate_open_render_scene(
             bpy, getattr(camera, "data", None)
         ) is not None:
             errors.append(f"required camera must be scene-local: {contract.camera_name}")
+        _validate_static_camera_clip_range(camera, contract, errors)
 
     render = bpy.context.scene.render
     output_path = Path(bpy.path.abspath(render.filepath)).resolve()

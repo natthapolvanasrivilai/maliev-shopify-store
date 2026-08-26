@@ -71,6 +71,8 @@ RESULT_MARKER = "PIMM_STATIC_PRODUCT_SCENE_JSON="
 MASTER_COLLECTION = "PIMM_PUBLISHED"
 OUTPUT_WIDTH = 2400
 OUTPUT_HEIGHT = 1800
+STATIC_CAMERA_CLIP_START = 1.0
+STATIC_CAMERA_CLIP_END = 10000.0
 _ALLOWED_FOCAL_LENGTHS = {85.0, 135.0}
 _REQUIRED_LIGHT_NAMES = (
     "KEY_SOFTBOX",
@@ -396,6 +398,26 @@ def frame_coordinates(
     return tuple(projected)
 
 
+def stable_geometry_camera_depth_range(
+    bpy: Any, pose: CameraPose
+) -> tuple[float, float]:
+    """Return near/far camera depths for every stable product bounding-box corner."""
+
+    _right, _up, forward = _camera_basis(pose)
+    depths: list[float] = []
+    for obj in _stable_product_objects(bpy).values():
+        try:
+            from mathutils import Vector
+
+            points = (obj.matrix_world @ Vector(corner) for corner in obj.bound_box)
+        except ImportError:
+            points = (obj.matrix_world @ corner for corner in obj.bound_box)
+        depths.extend(_dot(_subtract(point, pose.location), forward) for point in points)
+    if not depths:
+        raise ValueError("stable product geometry has no camera-depth evidence")
+    return min(depths), max(depths)
+
+
 def camera_pose(
     bounds_min: Sequence[float], bounds_max: Sequence[float], config: ShotConfig
 ) -> CameraPose:
@@ -465,6 +487,8 @@ def _static_render_setup(config: ShotConfig) -> dict[str, object]:
     return {
         "camera": {
             "aperture_fstop": config.aperture_fstop,
+            "clip_end": STATIC_CAMERA_CLIP_END,
+            "clip_start": STATIC_CAMERA_CLIP_START,
             "focal_length_mm": config.focal_length_mm,
             "sensor_width_mm": DEFAULT_SENSOR_WIDTH_MM,
             "view": config.view,
@@ -732,6 +756,8 @@ def _configure_authored_scene(
     camera.data.lens = config.focal_length_mm
     camera.data.sensor_fit = "HORIZONTAL"
     camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
+    camera.data.clip_start = STATIC_CAMERA_CLIP_START
+    camera.data.clip_end = STATIC_CAMERA_CLIP_END
     camera.data.shift_x = 0.0
     camera.data.shift_y = 0.0
     camera.data.dof.use_dof = True
@@ -791,6 +817,20 @@ def _validate_authored_scene_state(
         or camera_data.dof.aperture_fstop != config.aperture_fstop
     ):
         errors.append("camera optics do not match the governed static shot")
+    if camera_data is not None and camera_data.clip_start != STATIC_CAMERA_CLIP_START:
+        errors.append("static product camera near clip must equal 1 scene unit")
+    if camera_data is not None and camera_data.clip_end != STATIC_CAMERA_CLIP_END:
+        errors.append("static product camera far clip must equal 10000 scene units")
+    try:
+        depth_min, depth_max = stable_geometry_camera_depth_range(bpy, pose)
+        if camera_data is not None and (
+            depth_min <= camera_data.clip_start or depth_max >= camera_data.clip_end
+        ):
+            errors.append(
+                "stable product geometry lies outside the governed camera clip range"
+            )
+    except ValueError as error:
+        errors.append(str(error))
     view = scene.view_settings
     if (
         view.view_transform != "AgX"

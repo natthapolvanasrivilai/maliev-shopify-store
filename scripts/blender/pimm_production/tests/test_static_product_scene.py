@@ -217,6 +217,44 @@ class StaticProductSceneTests(unittest.TestCase):
                 self.assertGreaterEqual(min(y for _x, y in frame), 0.05)
                 self.assertLessEqual(max(y for _x, y in frame), 0.95)
 
+    def test_governed_clip_range_contains_current_farthest_stable_geometry(self):
+        """Catches the camera far plane clipping the observed 3622-unit product depth."""
+
+        pose = self.module.CameraPose(
+            location=(0.0, 0.0, 0.0),
+            target=(0.0, 1.0, 0.0),
+            pitch_degrees=0.0,
+        )
+        objects = [
+            StableMesh("near", (-10.0, 1318.0, -10.0), (10.0, 1400.0, 10.0)),
+            StableMesh("far", (-10.0, 3500.0, -10.0), (10.0, 3622.0, 10.0)),
+        ]
+        bpy = SimpleNamespace(
+            context=SimpleNamespace(scene=SimpleNamespace(objects=objects))
+        )
+
+        depth_min, depth_max = self.module.stable_geometry_camera_depth_range(bpy, pose)
+
+        self.assertEqual((depth_min, depth_max), (1318.0, 3622.0))
+        self.assertLess(depth_max, self.module.STATIC_CAMERA_CLIP_END)
+
+    def test_authoring_rejects_default_blender_far_clip(self):
+        """Catches authored static cameras retaining Blender's 1000-unit far plane."""
+
+        config = self.config
+        target = self.module.TargetResolution(
+            (-200.0, -180.0, 0.0),
+            (220.0, 160.0, 900.0),
+            {"complete_product": ("part",)},
+            ("part",),
+        )
+        pose = self.module.camera_pose(target.bounds_min, target.bounds_max, config)
+        bpy = self._minimal_authoring_bpy(config)
+        bpy.context.scene.camera.data.clip_end = 1000.0
+
+        with self.assertRaisesRegex(ValueError, "far clip"):
+            self._call_author_with_configured_state(config, bpy, target, pose)
+
     def _contract_and_bytes(self, config):
         payload = self.module.contract_payload(config)
         contract = self.module.SceneContract.from_mapping(payload)
@@ -226,6 +264,8 @@ class StaticProductSceneTests(unittest.TestCase):
         camera_data = SimpleNamespace(
             lens=config.focal_length_mm,
             sensor_width=36.0,
+            clip_start=1.0,
+            clip_end=10000.0,
             sensor_fit="HORIZONTAL",
             shift_x=0.0,
             shift_y=0.0,
@@ -634,6 +674,8 @@ class StaticProductSceneTests(unittest.TestCase):
             {
                 "camera": {
                     "aperture_fstop": 11.0,
+                    "clip_end": 10000.0,
+                    "clip_start": 1.0,
                     "focal_length_mm": 85.0,
                     "sensor_width_mm": 36.0,
                     "view": "three-quarter",
@@ -697,6 +739,14 @@ class StaticProductSceneTests(unittest.TestCase):
             self.module.validate_scene_contract(contract),
         )
 
+        mutated = deepcopy(payload)
+        mutated["static_render_setup"]["camera"]["clip_end"] = 1000.0
+        contract = self.module.SceneContract.from_mapping(mutated)
+        self.assertIn(
+            "static product camera far clip must equal 10000 scene units",
+            self.module.validate_scene_contract(contract),
+        )
+
         for setup_area, field, replacement in (
             ("color_management", "gamma", 0.9),
             ("lighting", "temperature_kelvin", 5000.0),
@@ -707,6 +757,28 @@ class StaticProductSceneTests(unittest.TestCase):
                 mutated["static_render_setup"][setup_area][field] = replacement
                 contract = self.module.SceneContract.from_mapping(mutated)
                 self.assertTrue(self.module.validate_scene_contract(contract))
+
+    def test_open_scene_validation_rejects_camera_far_clip_drift(self):
+        """Catches a structurally valid scene whose actual camera clips the product away."""
+
+        from scripts.blender.pimm_production import blender_scene_validator
+
+        contract = self.module.SceneContract.from_mapping(
+            self.module.contract_payload(self.config)
+        )
+        camera = SimpleNamespace(
+            data=SimpleNamespace(clip_start=1.0, clip_end=1000.0)
+        )
+        errors = []
+
+        blender_scene_validator._validate_static_camera_clip_range(
+            camera, contract, errors
+        )
+
+        self.assertIn(
+            "static product camera far clip does not match contract",
+            errors,
+        )
 
     def test_governed_static_shot_requires_scene_path_and_render_setup(self):
         """Catches a known static scene silently falling back to the legacy contract shape."""

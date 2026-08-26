@@ -37,7 +37,14 @@ _CAMERA = re.compile(r"^CAM_[A-Z0-9_]+$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _OUTPUT_FIELDS = {"width", "height", "alpha"}
 _STATIC_RENDER_SETUP_FIELDS = {"camera", "color_management", "lighting", "world"}
-_STATIC_CAMERA_FIELDS = {"aperture_fstop", "focal_length_mm", "sensor_width_mm", "view"}
+_STATIC_CAMERA_FIELDS = {
+    "aperture_fstop",
+    "clip_end",
+    "clip_start",
+    "focal_length_mm",
+    "sensor_width_mm",
+    "view",
+}
 _STATIC_COLOR_FIELDS = {"exposure", "gamma", "look", "view_transform"}
 _STATIC_LIGHTING_FIELDS = {"lower_bounce_name", "required_light_names", "temperature_kelvin"}
 _STATIC_WORLD_FIELDS = {"hdri_path", "hdri_sha256", "rotation_degrees", "strength"}
@@ -198,6 +205,10 @@ def _validate_static_render_setup(contract: SceneContract, errors: list[str]) ->
             errors.append("static product camera must match the governed shot configuration")
         if camera["sensor_width_mm"] != 36.0:
             errors.append("static product camera sensor width must be 36mm")
+        if camera["clip_start"] != 1.0:
+            errors.append("static product camera near clip must equal 1 scene unit")
+        if camera["clip_end"] != 10000.0:
+            errors.append("static product camera far clip must equal 10000 scene units")
         if not isinstance(camera["view"], str) or not _SLUG.fullmatch(camera["view"]):
             errors.append("static product camera view must be a lowercase slug")
     if not isinstance(color, Mapping) or set(color) != _STATIC_COLOR_FIELDS:
