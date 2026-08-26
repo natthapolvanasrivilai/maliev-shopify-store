@@ -73,6 +73,7 @@ OUTPUT_WIDTH = 2400
 OUTPUT_HEIGHT = 1800
 STATIC_CAMERA_CLIP_START = 1.0
 STATIC_CAMERA_CLIP_END = 10000.0
+OVERVIEW_CAMERA_DISTANCE_MULTIPLIER = 1.25
 _ALLOWED_FOCAL_LENGTHS = {85.0, 135.0}
 _REQUIRED_LIGHT_NAMES = (
     "KEY_SOFTBOX",
@@ -443,7 +444,10 @@ def camera_pose(
             abs(_dot(offset, up)) / (2.0 * usable_half_frame * vertical_tangent)
             - along,
         )
-    return orbit_camera_pose(bounds_min, bounds_max, distance * 1.001, azimuth, 0.0)
+    distance *= 1.001
+    if config.purpose == "overview":
+        distance *= OVERVIEW_CAMERA_DISTANCE_MULTIPLIER
+    return orbit_camera_pose(bounds_min, bounds_max, distance, azimuth, 0.0)
 
 
 def _contract_path(config: ShotConfig) -> Path:
@@ -503,6 +507,10 @@ def _static_render_setup(config: ShotConfig) -> dict[str, object]:
             "lower_bounce_name": "BASE_BOUNCE",
             "required_light_names": list(light_names),
             "temperature_kelvin": DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+        },
+        "physical_shadow": {
+            "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+            "gate": "not-applicable" if config.purpose == "engineering" else "required",
         },
         "world": {
             "hdri_path": hdri_path.as_posix(),

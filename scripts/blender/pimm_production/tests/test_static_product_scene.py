@@ -217,6 +217,32 @@ class StaticProductSceneTests(unittest.TestCase):
                 self.assertGreaterEqual(min(y for _x, y in frame), 0.05)
                 self.assertLessEqual(max(y for _x, y in frame), 0.95)
 
+    def test_overview_camera_distance_has_exact_reviewed_margin_without_detail_drift(self):
+        """Locks the controller-approved 1.25 overview-only distance correction."""
+
+        bounds_min = (-200.0, -180.0, 0.0)
+        bounds_max = (220.0, 160.0, 900.0)
+        overview = self.module.camera_pose(
+            bounds_min,
+            bounds_max,
+            self.module.SHOT_CONFIGS["pimm-30g--overview--three-quarter"],
+        )
+        engineering = self.module.camera_pose(
+            bounds_min,
+            bounds_max,
+            self.module.SHOT_CONFIGS["pimm-30g--engineering--controls"],
+        )
+        tooling = self.module.camera_pose(
+            bounds_min,
+            bounds_max,
+            self.module.SHOT_CONFIGS["pimm-30g--tooling--front-detail"],
+        )
+
+        self.assertAlmostEqual(math.dist(overview.location, overview.target), 4240.318045705377)
+        self.assertAlmostEqual(math.dist(engineering.location, engineering.target), 5175.169999999998)
+        self.assertAlmostEqual(math.dist(tooling.location, tooling.target), 5175.169999999998)
+        self.assertEqual(overview.target, (10.0, -10.0, 450.0))
+
     def test_governed_clip_range_contains_current_farthest_stable_geometry(self):
         """Catches the camera far plane clipping the observed 3622-unit product depth."""
 
@@ -697,6 +723,10 @@ class StaticProductSceneTests(unittest.TestCase):
                     ],
                     "temperature_kelvin": 5500.0,
                 },
+                "physical_shadow": {
+                    "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                    "gate": "required",
+                },
                 "world": {
                     "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
                     "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
@@ -705,6 +735,46 @@ class StaticProductSceneTests(unittest.TestCase):
                 },
             },
         )
+
+    def test_physical_shadow_gate_is_contract_bound_by_shot_class(self):
+        expected = {
+            "overview": "required",
+            "engineering": "not-applicable",
+            "tooling": "required",
+        }
+        for config in self.module.SHOT_CONFIGS.values():
+            with self.subTest(shot_id=config.scene_id):
+                payload = self.module.contract_payload(config)
+                self.assertEqual(
+                    payload["static_render_setup"]["physical_shadow"],
+                    {
+                        "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                        "gate": expected[config.purpose],
+                    },
+                )
+
+    def test_scene_contract_rejects_shadow_policy_drift(self):
+        for purpose, invalid_gate in (
+            ("overview", "not-applicable"),
+            ("engineering", "required"),
+            ("tooling", "not-applicable"),
+        ):
+            config = next(
+                candidate
+                for candidate in self.module.SHOT_CONFIGS.values()
+                if candidate.machine == "30G" and candidate.purpose == purpose
+            )
+            payload = self.module.contract_payload(config)
+            payload["static_render_setup"]["physical_shadow"]["gate"] = invalid_gate
+
+            errors = self.module.validate_scene_contract(
+                self.module.SceneContract.from_mapping(payload)
+            )
+
+            self.assertIn(
+                "static product physical shadow policy must match the governed shot class",
+                errors,
+            )
 
     def test_unknown_shot_id_is_rejected_before_contract_write(self):
         """Catches a CLI path that could create a contract for an ungoverned shot."""

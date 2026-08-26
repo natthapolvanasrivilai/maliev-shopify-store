@@ -1360,6 +1360,10 @@ def _expected_product_rgba_path(output_root: Path, shot_id: str) -> Path:
     return output_root / f".{shot_id}--product-only.tmp.png"
 
 
+def _expected_shadow_catcher_path(output_root: Path, shot_id: str) -> Path:
+    return output_root / f".{shot_id}--shadow-catcher.tmp.png"
+
+
 def _lexical_absolute(path: Path) -> Path:
     return Path(os.path.abspath(os.fspath(path)))
 
@@ -1481,13 +1485,161 @@ def _unlink_validated_product_scratch(
     current.path.unlink()
 
 
+def _validate_shadow_catcher_path(
+    asset_root: Path,
+    output_root: Path,
+    shot_id: str,
+    shadow_catcher_path: Path,
+) -> _ScratchIdentity:
+    """Validate only the exact governed lossless shadow-catcher scratch image."""
+
+    output_root = _require_lexical_canonical(output_root, "proof output root")
+    supplied = _require_lexical_canonical(
+        shadow_catcher_path, "physical shadow evidence temporary path"
+    )
+    expected = _expected_shadow_catcher_path(output_root, shot_id)
+    if supplied != expected or supplied.name != f".{shot_id}--shadow-catcher.tmp.png":
+        raise ValueError(
+            "physical shadow evidence temporary path is not the exact contained generation file"
+        )
+    _validate_no_reparse_ancestors(asset_root, supplied)
+    try:
+        resolved_root = output_root.resolve(strict=True)
+        resolved = supplied.resolve(strict=True)
+        resolved.relative_to(resolved_root)
+    except (OSError, ValueError) as error:
+        raise ValueError("physical shadow evidence is not a readable contained file") from error
+    if (
+        resolved != expected.resolve()
+        or not resolved.is_file()
+        or os.lstat(supplied).st_nlink != 1
+    ):
+        raise ValueError("physical shadow evidence is not the exact readable generation file")
+    return _ScratchIdentity(supplied, resolved, _scratch_stat_identity(supplied))
+
+
+def _unlink_validated_shadow_scratch(
+    initial: _ScratchIdentity,
+    asset_root: Path,
+    output_root: Path,
+    shot_id: str,
+) -> None:
+    current = _validate_shadow_catcher_path(
+        asset_root, output_root, shot_id, initial.path
+    )
+    if current != initial:
+        raise ValueError("physical shadow evidence was replaced in a cleanup race")
+    current.path.unlink()
+
+
+def _install_shadow_catcher_output(
+    bpy: Any, scene: object, view_layer: object, destination: Path
+) -> tuple[object, object | None, list[object], Path]:
+    """Install a temporary lossless compositor output for the Cycles catcher pass."""
+
+    prior_tree = getattr(scene, "compositing_node_group", None)
+    tree = prior_tree
+    created_tree = None
+    created_nodes: list[object] = []
+    try:
+        if tree is None:
+            created_tree = bpy.data.node_groups.new(
+                f"PIMM_SHADOW_CAPTURE_{destination.stem}", "CompositorNodeTree"
+            )
+            tree = created_tree
+            scene.compositing_node_group = tree
+        render_layers = tree.nodes.new("CompositorNodeRLayers")
+        created_nodes.append(render_layers)
+        render_layers.name = f"PIMM_SHADOW_CAPTURE_RENDER_{destination.stem}"
+        render_layers.layer = view_layer.name
+        file_output = tree.nodes.new("CompositorNodeOutputFile")
+        created_nodes.append(file_output)
+        file_output.name = f"PIMM_SHADOW_CAPTURE_FILE_{destination.stem}"
+        file_output.directory = str(destination.parent)
+        file_output.file_name = destination.name.removesuffix(".tmp.png") + ".raw"
+        file_output.file_output_items.new("RGBA", "Shadow")
+        shadow_socket = render_layers.outputs.get("Shadow Catcher")
+        if shadow_socket is None:
+            raise ValueError("Cycles Render Layers node exposes no Shadow Catcher pass")
+        tree.links.new(shadow_socket, file_output.inputs["Shadow"])
+        raw_path = destination.parent / f"{file_output.file_name}.exr"
+        return prior_tree, created_tree, [file_output, render_layers], raw_path
+    except Exception:
+        for node in reversed(created_nodes):
+            tree.nodes.remove(node)
+        scene.compositing_node_group = prior_tree
+        if created_tree is not None:
+            bpy.data.node_groups.remove(created_tree)
+        raise
+
+
+def _remove_shadow_catcher_output(
+    bpy: Any,
+    scene: object,
+    prior_tree: object | None,
+    created_tree: object | None,
+    nodes: Sequence[object],
+) -> None:
+    tree = getattr(scene, "compositing_node_group", None)
+    if tree is not None:
+        for node in nodes:
+            if node.name in tree.nodes:
+                tree.nodes.remove(node)
+    scene.compositing_node_group = prior_tree
+    if created_tree is not None:
+        bpy.data.node_groups.remove(created_tree)
+
+
+def _publish_shadow_catcher_output(destination: Path, raw_path: Path) -> None:
+    """Convert the isolated float catcher pass into a lossless shadow-opacity mask."""
+
+    if not raw_path.is_file() or raw_path.is_symlink():
+        raise ValueError("Cycles did not create physical shadow pass evidence")
+    import numpy
+    import OpenImageIO as oiio
+
+    image_input = oiio.ImageInput.open(str(raw_path))
+    if image_input is None:
+        raise ValueError("Cycles physical shadow pass evidence is corrupt")
+    try:
+        spec = image_input.spec()
+        if tuple(spec.channelnames) != (
+            "Shadow.R",
+            "Shadow.G",
+            "Shadow.B",
+            "Shadow.A",
+        ):
+            raise ValueError("Cycles physical shadow pass channels are invalid")
+        pixels = image_input.read_image(format=oiio.FLOAT)
+    finally:
+        image_input.close()
+    if pixels is None or pixels.shape != (spec.height, spec.width, 4):
+        raise ValueError("Cycles physical shadow pass pixels are invalid")
+    # The catcher pass is a multiplicative plate: neutral is RGB 1, shadows are lower.
+    shadow = numpy.clip(1.0 - pixels[:, :, :3].mean(axis=2), 0.0, 1.0)
+    encoded = numpy.rint(shadow * 255.0).astype(numpy.uint8)[:, :, numpy.newaxis]
+    output = oiio.ImageOutput.create(str(destination))
+    if output is None:
+        raise ValueError("lossless physical shadow mask writer is unavailable")
+    try:
+        if not output.open(
+            str(destination), oiio.ImageSpec(spec.width, spec.height, 1, oiio.UINT8)
+        ):
+            raise ValueError("lossless physical shadow mask could not be opened")
+        if not output.write_image(encoded):
+            raise ValueError("lossless physical shadow mask could not be written")
+    finally:
+        output.close()
+    raw_path.unlink()
+
+
 def _render_rgba(
     bpy: Any,
     contract: ProofContract,
     destination: Path,
     *,
     fixture_mode: bool,
-) -> tuple[dict[str, object], list[object], list[object], Path | None]:
+) -> tuple[dict[str, object], list[object], list[object], Path | None, Path | None]:
     scene = bpy.context.scene
     camera = scene.camera
     if camera is None:
@@ -1499,10 +1651,8 @@ def _render_rgba(
     scene.cycles.device = "CPU"
     scene.cycles.samples = contract.samples
     scene.cycles.use_denoising = contract.denoise
-    width, height = effective_dimensions(
-        SceneContract.from_json(destination.parent / "scene-contract.json"),
-        contract.resolution_percentage,
-    )
+    scene_contract = SceneContract.from_json(destination.parent / "scene-contract.json")
+    width, height = effective_dimensions(scene_contract, contract.resolution_percentage)
     scene.render.resolution_percentage = 100
     scene.render.resolution_x = width
     scene.render.resolution_y = height
@@ -1523,9 +1673,50 @@ def _render_rgba(
             break
     scene.view_settings.exposure = 0.0
     scene.view_settings.gamma = 1.0
-    started = time.perf_counter()
-    bpy.ops.render.render(write_still=True)
-    elapsed = time.perf_counter() - started
+    shadow_policy = (scene_contract.static_render_setup or {}).get("physical_shadow", {})
+    shadow_required = (
+        not fixture_mode
+        and isinstance(shadow_policy, Mapping)
+        and shadow_policy.get("gate") == "required"
+    )
+    view_layer = bpy.context.view_layer
+    shadow_pass_before = bool(view_layer.cycles.use_pass_shadow_catcher)
+    shadow_catcher_path = None
+    shadow_output_state = None
+    if shadow_required:
+        expected_name = shadow_policy.get("catcher_name")
+        catchers = [
+            obj
+            for obj in bpy.data.objects
+            if obj.name == expected_name
+            and obj.type == "MESH"
+            and obj.library is None
+            and getattr(obj, "is_shadow_catcher", False) is True
+        ]
+        if len(catchers) != 1:
+            raise ValueError("canonical proof requires the exact governed shadow catcher")
+    try:
+        if shadow_required:
+            view_layer.cycles.use_pass_shadow_catcher = True
+            shadow_catcher_path = _expected_shadow_catcher_path(
+                destination.parent, scene_contract.scene_id
+            )
+            shadow_output_state = _install_shadow_catcher_output(
+                bpy, scene, view_layer, shadow_catcher_path
+            )
+        started = time.perf_counter()
+        bpy.ops.render.render(write_still=True)
+        elapsed = time.perf_counter() - started
+        if shadow_required:
+            _publish_shadow_catcher_output(
+                shadow_catcher_path, shadow_output_state[3]
+            )
+    finally:
+        if shadow_output_state is not None:
+            _remove_shadow_catcher_output(
+                bpy, scene, *shadow_output_state[:3]
+            )
+        view_layer.cycles.use_pass_shadow_catcher = shadow_pass_before
     actual = destination if destination.is_file() else destination.with_suffix(".png")
     if actual != destination and actual.is_file():
         os.replace(actual, destination)
@@ -1550,8 +1741,8 @@ def _render_rgba(
         "samples": contract.samples,
         "resolution_percentage": contract.resolution_percentage,
         "base_dimensions": [
-            SceneContract.from_json(destination.parent / "scene-contract.json").output_contract["width"],
-            SceneContract.from_json(destination.parent / "scene-contract.json").output_contract["height"],
+            scene_contract.output_contract["width"],
+            scene_contract.output_contract["height"],
         ],
         "actual_dimensions": actual_dimensions,
         "image_settings": {
@@ -1577,10 +1768,13 @@ def _render_rgba(
         },
         "render_seconds": round(elapsed, 6),
         "named_shaft_regions": _project_named_shafts(bpy, camera),
-        "shadow_pass_available": fixture_mode,
+        "shadow_pass_available": fixture_mode or shadow_catcher_path is not None,
+        "shadow_evidence_sha256": (
+            sha256_file(shadow_catcher_path) if shadow_catcher_path is not None else None
+        ),
         "fixture_mode": fixture_mode,
     }
-    return metadata, lights, environment, product_rgba
+    return metadata, lights, environment, product_rgba, shadow_catcher_path
 
 
 def _save_png_once(image: object, path: Path, *, mode: str | None = None) -> None:
@@ -1600,6 +1794,7 @@ def finalize_proof(
     rgba_path: Path,
     asset_root: Path,
     product_rgba_path: Path | None = None,
+    shadow_catcher_path: Path | None = None,
 ) -> dict[str, object]:
     """Create lossless composites/masks, quantitative manifest, and contact sheet."""
 
@@ -1625,7 +1820,11 @@ def finalize_proof(
     metadata_path = output_root / "render-metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     fixture_mode = metadata.get("fixture_mode") is True
+    shadow_policy = (scene_contract.static_render_setup or {}).get("physical_shadow", {})
+    shadow_gate = shadow_policy.get("gate") if isinstance(shadow_policy, Mapping) else None
+    shadow_required = shadow_gate == "required"
     validated_product = None
+    validated_shadow = None
     if product_rgba_path is not None:
         if not fixture_mode:
             raise ValueError("product-only temporary path is fixture-only")
@@ -1634,6 +1833,19 @@ def finalize_proof(
         )
     elif fixture_mode:
         raise ValueError("fixture proof QA requires the exact product-only temporary path")
+    if shadow_catcher_path is not None:
+        if fixture_mode:
+            raise ValueError("canonical physical shadow evidence is forbidden in fixture mode")
+        if not shadow_required:
+            raise ValueError("physical shadow evidence is not applicable to this contracted shot")
+        validated_shadow = _validate_shadow_catcher_path(
+            asset_root, output_root, shot_id, shadow_catcher_path
+        )
+        expected_hash = metadata.get("shadow_evidence_sha256")
+        if not isinstance(expected_hash, str) or sha256_file(validated_shadow.path) != expected_hash:
+            raise ValueError("physical shadow evidence hash does not match render metadata")
+    elif shadow_required:
+        raise ValueError("required physical shadow evidence is missing")
     with Image.open(rgba_path) as loaded:
         source = loaded.convert("RGBA")
         source.load()
@@ -1661,7 +1873,22 @@ def finalize_proof(
         destination = output_root / f"{shot_id}--{background}.png"
         _save_png_once(composite, destination)
         outputs.append(destination)
-    if validated_product is not None:
+    if validated_shadow is not None:
+        try:
+            with Image.open(validated_shadow.path) as loaded_shadow:
+                if loaded_shadow.size != source.size:
+                    raise ValueError("physical shadow evidence dimensions do not match proof RGBA")
+                shadow_alpha = loaded_shadow.convert("L")
+                shadow_alpha.load()
+        except (OSError, ValueError) as error:
+            raise ValueError(f"physical shadow evidence image is corrupt: {error}") from error
+        shadow_alpha = shadow_alpha.point(lambda value: value if value >= 16 else 0)
+        if shadow_alpha.getextrema()[1] == 0:
+            raise ValueError("physical shadow evidence is empty")
+        from PIL import ImageChops
+
+        product_alpha = ImageChops.subtract(source.getchannel("A"), shadow_alpha)
+    elif validated_product is not None:
         with Image.open(validated_product.path) as loaded_product:
             product_alpha = loaded_product.convert("RGBA").getchannel("A")
             product_alpha.load()
@@ -1673,6 +1900,25 @@ def finalize_proof(
     else:
         product_alpha = source.getchannel("A")
         shadow_alpha = Image.new("L", source.size, 0)
+    if scene_contract.purpose == "overview":
+        meaningful_combined = source.getchannel("A").point(
+            lambda value: 255 if value >= 16 else 0
+        )
+        meaningful_product = product_alpha.point(lambda value: 255 if value >= 16 else 0)
+        for label, mask in (
+            ("combined alpha", meaningful_combined),
+            ("product alpha", meaningful_product),
+        ):
+            bounds = mask.getbbox()
+            if bounds is not None and (
+                bounds[0] == 0
+                or bounds[1] == 0
+                or bounds[2] == source.width
+                or bounds[3] == source.height
+            ):
+                raise ValueError(
+                    f"overview meaningful {label} touches a disallowed frame edge"
+                )
     metadata["intended_subject_metrics"] = analyze_mask_metrics(product_alpha)
     metadata["physical_shadow_metrics"] = analyze_mask_metrics(shadow_alpha)
     atomic_write_json(metadata_path, metadata)
@@ -1689,6 +1935,10 @@ def finalize_proof(
     if validated_product is not None:
         _unlink_validated_product_scratch(
             validated_product, asset_root, output_root, shot_id
+        )
+    if validated_shadow is not None:
+        _unlink_validated_shadow_scratch(
+            validated_shadow, asset_root, output_root, shot_id
         )
 
     manifest_path = write_proof_manifest(
@@ -1760,6 +2010,7 @@ def _run_pillow_finalizer(
     output_root: Path,
     rgba_path: Path,
     product_rgba_path: Path | None,
+    shadow_catcher_path: Path | None,
 ) -> dict[str, object]:
     command = [
         str(pillow_python),
@@ -1777,6 +2028,8 @@ def _run_pillow_finalizer(
     ]
     if product_rgba_path is not None:
         command.extend(["--product-rgba", str(product_rgba_path)])
+    if shadow_catcher_path is not None:
+        command.extend(["--shadow-catcher", str(shadow_catcher_path)])
     result = subprocess.run(
         command,
         cwd=Path(__file__).resolve().parents[3],
@@ -1879,11 +2132,16 @@ def _run_one(
         lights: list[object] = []
         environment: list[object] = []
         product_rgba_path: Path | None = None
+        shadow_catcher_path: Path | None = None
         try:
             rgba_path = output_root / f"{scene.scene_id}--rgba.png"
-            metadata, lights, environment, product_rgba_path = _render_rgba(
-                bpy, contract, rgba_path, fixture_mode=fixture_mode
-            )
+            (
+                metadata,
+                lights,
+                environment,
+                product_rgba_path,
+                shadow_catcher_path,
+            ) = _render_rgba(bpy, contract, rgba_path, fixture_mode=fixture_mode)
         finally:
             for obj in environment:
                 mesh = obj.data
@@ -1962,6 +2220,7 @@ def _run_one(
                 output_root,
                 rgba_path,
                 product_rgba_path,
+                shadow_catcher_path,
             )
         except Exception as error:
             _cleanup_pending_artifacts(output_root)
@@ -2028,6 +2287,7 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--rgba", type=Path)
     parser.add_argument("--product-rgba", type=Path)
+    parser.add_argument("--shadow-catcher", type=Path)
     return parser.parse_args(argv)
 
 
@@ -2050,6 +2310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             arguments.rgba,
             arguments.asset_root,
             arguments.product_rgba,
+            arguments.shadow_catcher,
         )
         print(json.dumps(result, sort_keys=True), flush=True)
         return 0

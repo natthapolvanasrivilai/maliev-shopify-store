@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import textwrap
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
@@ -54,6 +55,78 @@ def scene_contract_fixture() -> SceneContract:
             "output_contract": {"width": 1200, "height": 1200, "alpha": True},
         }
     )
+
+
+def overview_scene_contract_fixture() -> SceneContract:
+    """Return a governed static overview contract with a required shadow gate."""
+
+    return SceneContract.from_mapping(
+        {
+            "schema_version": 1,
+            "scene_id": "pimm-30g--overview--three-quarter",
+            "machine": "30G",
+            "purpose": "overview",
+            "master_path": "masters/PIMM-30G-MASTER.blend",
+            "master_sha256": "a" * 64,
+            "master_collection": "PIMM_PUBLISHED",
+            "material_library_path": "masters/PIMM-MATERIAL-LIBRARY.blend",
+            "material_library_sha256": "b" * 64,
+            "camera_name": "CAM_PRODUCT",
+            "complete_product": True,
+            "animation_contract": None,
+            "output_contract": {"width": 1200, "height": 1200, "alpha": True},
+            "scene_path": "scenes/stills/pimm-30g--overview--three-quarter.blend",
+            "static_render_setup": {
+                "camera": {
+                    "aperture_fstop": 11.0,
+                    "clip_end": 10000.0,
+                    "clip_start": 1.0,
+                    "focal_length_mm": 85.0,
+                    "sensor_width_mm": 36.0,
+                    "view": "three-quarter",
+                },
+                "color_management": {
+                    "exposure": 0.0,
+                    "gamma": 1.0,
+                    "look": "AgX - Medium High Contrast",
+                    "view_transform": "AgX",
+                },
+                "lighting": {
+                    "lower_bounce_name": "BASE_BOUNCE",
+                    "required_light_names": [
+                        "KEY_SOFTBOX",
+                        "FILL_SOFTBOX",
+                        "BASE_BOUNCE",
+                        "STRIP_LEFT",
+                        "STRIP_RIGHT",
+                    ],
+                    "temperature_kelvin": 5500.0,
+                },
+                "physical_shadow": {
+                    "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                    "gate": "required",
+                },
+                "world": {
+                    "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                    "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                    "rotation_degrees": 0.0,
+                    "strength": 0.5,
+                },
+            },
+        }
+    )
+
+
+def engineering_scene_contract_fixture() -> SceneContract:
+    payload = overview_scene_contract_fixture().to_mapping()
+    payload["scene_id"] = "pimm-30g--engineering--controls"
+    payload["purpose"] = "engineering"
+    payload["scene_path"] = "scenes/stills/pimm-30g--engineering--controls.blend"
+    payload["static_render_setup"]["camera"].update(
+        {"aperture_fstop": 8.0, "focal_length_mm": 135.0, "view": "controls"}
+    )
+    payload["static_render_setup"]["physical_shadow"]["gate"] = "not-applicable"
+    return SceneContract.from_mapping(payload)
 
 
 def composition_contract() -> ProofContract:
@@ -1088,6 +1161,7 @@ def _valid_render_metadata(
         "render_seconds": 0.25,
         "named_shaft_regions": named_shaft_regions or {},
         "shadow_pass_available": True,
+        "shadow_evidence_sha256": None,
         "fixture_mode": True,
         "proof_contract_sha256": "5" * 64,
         "scene_contract_sha256": "6" * 64,
@@ -1174,7 +1248,250 @@ def _prepare_finalizer_fixture(
     return contract, scene, proof_path, rgba, product
 
 
+def _prepare_canonical_shadow_fixture(
+    root: Path,
+) -> tuple[ProofContract, SceneContract, Path, Path, Path, Path]:
+    scene = overview_scene_contract_fixture()
+    contract = ProofContract.from_mapping(
+        {
+            **composition_contract().to_mapping(),
+            "scene_contract_path": "scenes/contracts/pimm-30g--overview--three-quarter.json",
+        }
+    )
+    output_root = root / contract.output_root
+    output_root.mkdir(parents=True)
+    proof_path = root / "canonical-proof.json"
+    proof_path.write_text(json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8")
+    _write_scene_contract(root, scene, contract.scene_contract_path)
+    metadata = _valid_render_metadata(contract)
+    metadata["fixture_mode"] = False
+    metadata["shadow_pass_available"] = True
+    shadow = output_root / f".{scene.scene_id}--shadow-catcher.tmp.png"
+    shadow_image = Image.new("L", (300, 300), 0)
+    for y in range(205, 231):
+        for x in range(65, 236):
+            shadow_image.putpixel((x, y), 96)
+    shadow_image.save(shadow)
+    metadata["shadow_evidence_sha256"] = sha256_file(shadow)
+    _write_manifest_evidence(root, output_root, contract, scene, metadata)
+    rgba = output_root / f"{scene.scene_id}--rgba.png"
+    source = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
+    for y in range(40, 221):
+        for x in range(50, 251):
+            source.putpixel((x, y), (90, 110, 130, 255))
+    source.save(rgba)
+    return contract, scene, proof_path, output_root, rgba, shadow
+
+
 class ProofContractTests(unittest.TestCase):
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_blender_captures_lossless_canonical_shadow_pass_and_restores_state(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            script = root / "capture_shadow.py"
+            destination = root / ".pimm-30g--overview--three-quarter--shadow-catcher.tmp.png"
+            script.write_text(
+                textwrap.dedent(
+                    f"""
+                    import json
+                    from pathlib import Path
+                    import sys
+                    import bpy
+                    from mathutils import Vector
+                    sys.path.insert(0, {str(REPO_ROOT)!r})
+                    from scripts.blender.pimm_production import blender_proof_render as module
+
+                    destination = Path({str(destination)!r})
+                    scene = bpy.context.scene
+                    scene.render.engine = "CYCLES"
+                    scene.cycles.samples = 4
+                    scene.render.resolution_x = 32
+                    scene.render.resolution_y = 32
+                    scene.render.resolution_percentage = 100
+                    scene.render.film_transparent = True
+                    scene.render.filepath = str(destination.parent / "combined.png")
+                    scene.render.image_settings.file_format = "PNG"
+                    scene.render.image_settings.color_mode = "RGBA"
+                    bpy.ops.mesh.primitive_plane_add(size=20, location=(0, 0, 0))
+                    catcher = bpy.context.object
+                    catcher.name = "PIMM_SCENE_SHADOW_CATCHER"
+                    catcher.is_shadow_catcher = True
+                    bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 1))
+                    bpy.ops.object.light_add(type="AREA", location=(4, -4, 6))
+                    bpy.context.object.data.energy = 1000
+                    bpy.ops.object.camera_add(location=(6, -6, 5))
+                    camera = bpy.context.object
+                    camera.rotation_euler = (
+                        Vector((0, 0, 1)) - camera.location
+                    ).to_track_quat("-Z", "Y").to_euler()
+                    scene.camera = camera
+                    view_layer = bpy.context.view_layer
+                    prior_pass = view_layer.cycles.use_pass_shadow_catcher
+                    prior_tree = scene.compositing_node_group
+                    view_layer.cycles.use_pass_shadow_catcher = True
+                    state = module._install_shadow_catcher_output(
+                        bpy, scene, view_layer, destination
+                    )
+                    try:
+                        bpy.ops.render.render(write_still=True)
+                        module._publish_shadow_catcher_output(destination, state[3])
+                    finally:
+                        module._remove_shadow_catcher_output(bpy, scene, *state[:3])
+                        view_layer.cycles.use_pass_shadow_catcher = prior_pass
+                    import OpenImageIO as oiio
+                    image = oiio.ImageInput.open(str(destination))
+                    pixels = image.read_image()
+                    image.close()
+                    print("PIMM_SHADOW_CAPTURE_JSON=" + json.dumps({{
+                        "max": float(pixels.max()),
+                        "pass_restored": view_layer.cycles.use_pass_shadow_catcher == prior_pass,
+                        "tree_restored": scene.compositing_node_group == prior_tree,
+                    }}, sort_keys=True))
+                    """
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [str(BLENDER), "--background", "--factory-startup", "--python", str(script)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            markers = [
+                line.removeprefix("PIMM_SHADOW_CAPTURE_JSON=")
+                for line in result.stdout.splitlines()
+                if line.startswith("PIMM_SHADOW_CAPTURE_JSON=")
+            ]
+            self.assertEqual(len(markers), 1, msg=result.stdout + result.stderr)
+            marker = markers[0]
+            payload = json.loads(marker)
+            self.assertGreater(payload["max"], 0)
+            self.assertTrue(payload["pass_restored"])
+            self.assertTrue(payload["tree_restored"])
+
+    def test_canonical_shadow_evidence_populates_real_physical_shadow_metrics(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            _contract, _scene, proof_path, output_root, rgba, shadow = (
+                _prepare_canonical_shadow_fixture(root)
+            )
+
+            result = render_module.finalize_proof(
+                proof_path,
+                output_root,
+                rgba,
+                root,
+                shadow_catcher_path=shadow,
+            )
+
+            metadata = json.loads(
+                (output_root / "render-metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertGreater(metadata["physical_shadow_metrics"]["nonzero_fraction"], 0)
+            self.assertEqual(metadata["physical_shadow_metrics"]["bounds"]["bottom"], 230)
+            self.assertFalse(shadow.exists())
+            self.assertTrue(Path(result["manifest_pending_path"]).is_file())
+
+    def test_required_canonical_shadow_evidence_rejects_missing_empty_and_corrupt_inputs(self):
+        cases = ("missing", "empty", "hash-mismatch", "corrupt")
+        for case in cases:
+            with self.subTest(case=case), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                _contract, _scene, proof_path, output_root, rgba, shadow = (
+                    _prepare_canonical_shadow_fixture(root)
+                )
+                supplied = shadow
+                expected = "physical shadow evidence"
+                if case == "missing":
+                    supplied = None
+                elif case == "empty":
+                    Image.new("L", (300, 300), 0).save(shadow)
+                    metadata_path = output_root / "render-metadata.json"
+                    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                    metadata["shadow_evidence_sha256"] = sha256_file(shadow)
+                    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+                    expected = "empty"
+                elif case == "hash-mismatch":
+                    Image.new("L", (300, 300), 64).save(shadow)
+                    expected = "hash"
+                else:
+                    shadow.write_bytes(b"not-a-png")
+                    metadata_path = output_root / "render-metadata.json"
+                    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                    metadata["shadow_evidence_sha256"] = sha256_file(shadow)
+                    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+                    expected = "corrupt|image"
+
+                with self.assertRaisesRegex(ValueError, expected):
+                    render_module.finalize_proof(
+                        proof_path,
+                        output_root,
+                        rgba,
+                        root,
+                        shadow_catcher_path=supplied,
+                    )
+
+                self.assertFalse((output_root / "manifest.json").exists())
+
+    def test_overview_rejects_meaningful_combined_alpha_on_disallowed_frame_edge(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            _contract, _scene, proof_path, output_root, rgba, shadow = (
+                _prepare_canonical_shadow_fixture(root)
+            )
+            with Image.open(rgba) as loaded:
+                source = loaded.convert("RGBA")
+            for y in range(100, 151):
+                source.putpixel((0, y), (90, 110, 130, 255))
+            source.save(rgba)
+
+            with self.assertRaisesRegex(ValueError, "overview.*frame edge"):
+                render_module.finalize_proof(
+                    proof_path,
+                    output_root,
+                    rgba,
+                    root,
+                    shadow_catcher_path=shadow,
+                )
+
+    def test_engineering_close_crop_may_finalize_without_shadow_only_when_contract_bound(self):
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            scene = engineering_scene_contract_fixture()
+            contract = ProofContract.from_mapping(
+                {
+                    **composition_contract().to_mapping(),
+                    "scene_contract_path": "scenes/contracts/pimm-30g--engineering--controls.json",
+                }
+            )
+            output_root = root / contract.output_root
+            output_root.mkdir(parents=True)
+            proof_path = root / "engineering-proof.json"
+            proof_path.write_text(
+                json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8"
+            )
+            _write_scene_contract(root, scene, contract.scene_contract_path)
+            metadata = _valid_render_metadata(contract)
+            metadata["fixture_mode"] = False
+            metadata["shadow_pass_available"] = False
+            _write_manifest_evidence(root, output_root, contract, scene, metadata)
+            rgba = output_root / f"{scene.scene_id}--rgba.png"
+            Image.new("RGBA", (300, 300), (90, 110, 130, 255)).save(rgba)
+
+            result = render_module.finalize_proof(
+                proof_path, output_root, rgba, root
+            )
+
+            metadata = json.loads(
+                (output_root / "render-metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["physical_shadow_metrics"]["nonzero_fraction"], 0)
+            self.assertTrue(Path(result["manifest_pending_path"]).is_file())
+
     def test_blender_52_node_capture_does_not_read_deprecated_use_nodes(self):
         class Property:
             identifier = "use_nodes"

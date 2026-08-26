@@ -36,7 +36,13 @@ _SLUG = re.compile(r"^[a-z0-9-]+$")
 _CAMERA = re.compile(r"^CAM_[A-Z0-9_]+$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _OUTPUT_FIELDS = {"width", "height", "alpha"}
-_STATIC_RENDER_SETUP_FIELDS = {"camera", "color_management", "lighting", "world"}
+_STATIC_RENDER_SETUP_FIELDS = {
+    "camera",
+    "color_management",
+    "lighting",
+    "physical_shadow",
+    "world",
+}
 _STATIC_CAMERA_FIELDS = {
     "aperture_fstop",
     "clip_end",
@@ -48,6 +54,7 @@ _STATIC_CAMERA_FIELDS = {
 _STATIC_COLOR_FIELDS = {"exposure", "gamma", "look", "view_transform"}
 _STATIC_LIGHTING_FIELDS = {"lower_bounce_name", "required_light_names", "temperature_kelvin"}
 _STATIC_WORLD_FIELDS = {"hdri_path", "hdri_sha256", "rotation_degrees", "strength"}
+_STATIC_PHYSICAL_SHADOW_FIELDS = {"catcher_name", "gate"}
 _STATIC_LIGHT_NAMES = ["KEY_SOFTBOX", "FILL_SOFTBOX", "BASE_BOUNCE", "STRIP_LEFT", "STRIP_RIGHT"]
 _STATIC_HDRI_PATH = "assets/hdri/studio_kontrast_04_4k.exr"
 _STATIC_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
@@ -190,6 +197,7 @@ def _validate_static_render_setup(contract: SceneContract, errors: list[str]) ->
     camera = setup["camera"]
     color = setup["color_management"]
     lighting = setup["lighting"]
+    physical_shadow = setup["physical_shadow"]
     world = setup["world"]
     if not isinstance(camera, Mapping) or set(camera) != _STATIC_CAMERA_FIELDS:
         errors.append("static product camera setup has unexpected fields")
@@ -228,6 +236,21 @@ def _validate_static_render_setup(contract: SceneContract, errors: list[str]) ->
         or lighting["lower_bounce_name"] != "BASE_BOUNCE"
     ):
         errors.append("static product lighting must use the approved 5500K lower-bounce rig")
+    expected_shadow_gate = (
+        "not-applicable" if contract.purpose == "engineering" else "required"
+    )
+    if (
+        not isinstance(physical_shadow, Mapping)
+        or set(physical_shadow) != _STATIC_PHYSICAL_SHADOW_FIELDS
+    ):
+        errors.append("static product physical shadow policy has unexpected fields")
+    elif (
+        physical_shadow["catcher_name"] != "PIMM_SCENE_SHADOW_CATCHER"
+        or physical_shadow["gate"] != expected_shadow_gate
+    ):
+        errors.append(
+            "static product physical shadow policy must match the governed shot class"
+        )
     if not isinstance(world, Mapping) or set(world) != _STATIC_WORLD_FIELDS:
         errors.append("static product world setup has unexpected fields")
     elif (

@@ -60,6 +60,7 @@ _RENDER_METADATA_FIELDS = {
     "render_seconds",
     "named_shaft_regions",
     "shadow_pass_available",
+    "shadow_evidence_sha256",
     "fixture_mode",
     "proof_contract_sha256",
     "scene_contract_sha256",
@@ -2458,8 +2459,25 @@ def _validate_render_metadata(
         raise ValueError("render metadata shadow_pass_available must be boolean")
     if not isinstance(metadata["fixture_mode"], bool):
         raise ValueError("render metadata fixture_mode must be boolean")
-    if metadata["shadow_pass_available"] is not metadata["fixture_mode"]:
-        raise ValueError("render metadata shadow pass must exactly match fixture render support")
+    shadow_policy = (scene.static_render_setup or {}).get("physical_shadow", {})
+    shadow_required = (
+        isinstance(shadow_policy, Mapping) and shadow_policy.get("gate") == "required"
+    )
+    expected_shadow_pass = metadata["fixture_mode"] or shadow_required
+    if metadata["shadow_pass_available"] is not expected_shadow_pass:
+        raise ValueError(
+            "render metadata shadow pass must match fixture support or the contracted canonical gate"
+        )
+    shadow_evidence_sha256 = metadata["shadow_evidence_sha256"]
+    if metadata["fixture_mode"]:
+        if shadow_evidence_sha256 is not None:
+            raise ValueError("fixture render metadata must not claim canonical shadow evidence")
+    elif shadow_required:
+        _validate_sha256(
+            shadow_evidence_sha256, "render metadata physical shadow evidence"
+        )
+    elif shadow_evidence_sha256 is not None:
+        raise ValueError("render metadata shadow evidence is not applicable to this shot")
 
     proof_snapshot = output_root / "proof-contract.json"
     scene_snapshot = output_root / "scene-contract.json"
