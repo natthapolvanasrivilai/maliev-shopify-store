@@ -11,10 +11,10 @@ from typing import Sequence
 
 try:
     from .blender_static_hero_scene import (
-        CameraPose,
-        MachineConfig,
-        scaled_camera_distance,
-        studio_environment_specs,
+        DEFAULT_EXPOSURE,
+        DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+        DEFAULT_LOOK,
+        DEFAULT_SENSOR_WIDTH_MM,
         studio_light_specs,
         studio_world_environment_spec,
     )
@@ -26,10 +26,10 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
     if str(repository_root) not in sys.path:
         sys.path.insert(0, str(repository_root))
     from scripts.blender.pimm_production.blender_static_hero_scene import (
-        CameraPose,
-        MachineConfig,
-        scaled_camera_distance,
-        studio_environment_specs,
+        DEFAULT_EXPOSURE,
+        DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+        DEFAULT_LOOK,
+        DEFAULT_SENSOR_WIDTH_MM,
         studio_light_specs,
         studio_world_environment_spec,
     )
@@ -43,19 +43,13 @@ MASTER_COLLECTION = "PIMM_PUBLISHED"
 OUTPUT_WIDTH = 2400
 OUTPUT_HEIGHT = 1800
 _ALLOWED_FOCAL_LENGTHS = {85.0, 135.0}
-
-__all__ = [
-    "CameraPose",
-    "MachineConfig",
-    "SHOT_CONFIGS",
-    "ShotConfig",
-    "contract_payload",
-    "prepare_contract",
-    "scaled_camera_distance",
-    "studio_environment_specs",
-    "studio_light_specs",
-    "studio_world_environment_spec",
-]
+_REQUIRED_LIGHT_NAMES = (
+    "KEY_SOFTBOX",
+    "FILL_SOFTBOX",
+    "BASE_BOUNCE",
+    "STRIP_LEFT",
+    "STRIP_RIGHT",
+)
 
 
 @dataclass(frozen=True)
@@ -98,6 +92,46 @@ def _master_path(config: ShotConfig) -> Path:
     return ASSET_ROOT / "masters" / f"PIMM-{config.machine}-MASTER.blend"
 
 
+def _static_render_setup(config: ShotConfig) -> dict[str, object]:
+    """Return the governed camera, color, world, and lighting contract."""
+
+    light_specs = studio_light_specs((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    light_names = tuple(spec.name for spec in light_specs)
+    if light_names != _REQUIRED_LIGHT_NAMES:
+        raise ValueError("static product studio rig must retain the approved light arrangement")
+    if any(spec.temperature_kelvin != DEFAULT_LIGHT_TEMPERATURE_KELVIN for spec in light_specs):
+        raise ValueError("static product studio rig must retain 5500K lights")
+    world = studio_world_environment_spec()
+    hdri_path = world.path.relative_to(world.path.parents[2])
+    if hdri_path != Path("assets") / "hdri" / "studio_kontrast_04_4k.exr":
+        raise ValueError("static product world must retain the approved studio HDRI")
+    return {
+        "camera": {
+            "aperture_fstop": config.aperture_fstop,
+            "focal_length_mm": config.focal_length_mm,
+            "sensor_width_mm": DEFAULT_SENSOR_WIDTH_MM,
+            "view": config.view,
+        },
+        "color_management": {
+            "exposure": DEFAULT_EXPOSURE,
+            "gamma": 1.0,
+            "look": DEFAULT_LOOK,
+            "view_transform": "AgX",
+        },
+        "lighting": {
+            "lower_bounce_name": "BASE_BOUNCE",
+            "required_light_names": list(light_names),
+            "temperature_kelvin": DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+        },
+        "world": {
+            "hdri_path": hdri_path.as_posix(),
+            "hdri_sha256": world.sha256,
+            "rotation_degrees": world.rotation_degrees,
+            "strength": world.strength,
+        },
+    }
+
+
 def _validate_shot_config(config: ShotConfig) -> None:
     if config.machine not in {"30G", "50G"}:
         raise ValueError("static product shot machine must be 30G or 50G")
@@ -134,7 +168,9 @@ def contract_payload(config: ShotConfig) -> dict[str, object]:
         },
         "purpose": config.purpose,
         "scene_id": config.scene_id,
+        "scene_path": _scene_path(config).relative_to(ASSET_ROOT).as_posix(),
         "schema_version": 1,
+        "static_render_setup": _static_render_setup(config),
     }
 
 

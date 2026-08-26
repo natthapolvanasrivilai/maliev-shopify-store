@@ -30,11 +30,28 @@ _FIELDS = {
     "animation_contract",
     "output_contract",
 }
+_STATIC_PRODUCT_FIELDS = {"scene_path", "static_render_setup"}
 _SCENE_ID = re.compile(r"^pimm-(30g|50g)--[a-z0-9-]+(?:--[a-z0-9-]+)*$")
 _SLUG = re.compile(r"^[a-z0-9-]+$")
 _CAMERA = re.compile(r"^CAM_[A-Z0-9_]+$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
 _OUTPUT_FIELDS = {"width", "height", "alpha"}
+_STATIC_RENDER_SETUP_FIELDS = {"camera", "color_management", "lighting", "world"}
+_STATIC_CAMERA_FIELDS = {"aperture_fstop", "focal_length_mm", "sensor_width_mm", "view"}
+_STATIC_COLOR_FIELDS = {"exposure", "gamma", "look", "view_transform"}
+_STATIC_LIGHTING_FIELDS = {"lower_bounce_name", "required_light_names", "temperature_kelvin"}
+_STATIC_WORLD_FIELDS = {"hdri_path", "hdri_sha256", "rotation_degrees", "strength"}
+_STATIC_LIGHT_NAMES = ["KEY_SOFTBOX", "FILL_SOFTBOX", "BASE_BOUNCE", "STRIP_LEFT", "STRIP_RIGHT"]
+_STATIC_HDRI_PATH = "assets/hdri/studio_kontrast_04_4k.exr"
+_STATIC_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
+_STATIC_SHOT_CAMERAS = {
+    "pimm-30g--overview--three-quarter": ("three-quarter", 85.0, 11.0),
+    "pimm-30g--engineering--controls": ("controls", 135.0, 8.0),
+    "pimm-30g--tooling--front-detail": ("front-detail", 135.0, 11.0),
+    "pimm-50g--overview--three-quarter": ("three-quarter", 85.0, 11.0),
+    "pimm-50g--engineering--controls": ("controls", 135.0, 8.0),
+    "pimm-50g--tooling--front-detail": ("front-detail", 135.0, 11.0),
+}
 PUBLISHED_STABLE_ID_COUNT_PROPERTY = "pimm_published_stable_id_count"
 PUBLISHED_STABLE_ID_SHA256_PROPERTY = "pimm_published_stable_id_sha256"
 
@@ -56,14 +73,17 @@ class SceneContract:
     complete_product: bool
     animation_contract: str | None
     output_contract: dict[str, object]
+    scene_path: str | None = None
+    static_render_setup: dict[str, object] | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, object]) -> "SceneContract":
         """Construct from an exact mapping without silently dropping fields."""
 
-        if set(payload) != _FIELDS:
+        fields = set(payload)
+        if fields != _FIELDS and fields != _FIELDS | _STATIC_PRODUCT_FIELDS:
             missing = sorted(_FIELDS - set(payload))
-            extra = sorted(set(payload) - _FIELDS)
+            extra = sorted(fields - (_FIELDS | _STATIC_PRODUCT_FIELDS))
             raise ValueError(
                 "scene contract must contain exactly the required fields "
                 f"(missing={missing}, extra={extra})"
@@ -71,6 +91,9 @@ class SceneContract:
         output = payload["output_contract"]
         if not isinstance(output, Mapping):
             raise ValueError("scene contract output_contract must be an object")
+        static_render_setup = payload.get("static_render_setup")
+        if static_render_setup is not None and not isinstance(static_render_setup, Mapping):
+            raise ValueError("scene contract static_render_setup must be an object")
         return cls(
             schema_version=payload["schema_version"],
             scene_id=payload["scene_id"],
@@ -85,6 +108,10 @@ class SceneContract:
             complete_product=payload["complete_product"],
             animation_contract=payload["animation_contract"],
             output_contract=dict(output),
+            scene_path=payload.get("scene_path"),
+            static_render_setup=(
+                dict(static_render_setup) if isinstance(static_render_setup, Mapping) else None
+            ),
         )
 
     @classmethod
@@ -99,7 +126,11 @@ class SceneContract:
     def to_mapping(self) -> dict[str, object]:
         """Return the deterministic JSON-ready field mapping."""
 
-        return asdict(self)
+        return {
+            key: value
+            for key, value in asdict(self).items()
+            if key not in _STATIC_PRODUCT_FIELDS or value is not None
+        }
 
 
 def canonical_scene_contract_json(contract: SceneContract) -> str:
@@ -126,6 +157,66 @@ def _canonical_relative(value: object, expected: str) -> bool:
         return False
     path = PurePosixPath(value)
     return not path.is_absolute() and ".." not in path.parts and "\\" not in value
+
+
+def _validate_static_render_setup(contract: SceneContract, errors: list[str]) -> None:
+    if contract.scene_path is None or contract.static_render_setup is None:
+        if contract.scene_path is not None or contract.static_render_setup is not None:
+            errors.append("static product scene contracts require both scene_path and static_render_setup")
+        return
+    expected_scene_path = f"scenes/stills/{contract.scene_id}.blend"
+    if not _canonical_relative(contract.scene_path, expected_scene_path):
+        errors.append(f"static product scene_path must equal {expected_scene_path}")
+    setup = contract.static_render_setup
+    if set(setup) != _STATIC_RENDER_SETUP_FIELDS:
+        errors.append("static product static_render_setup has unexpected fields")
+        return
+    camera = setup["camera"]
+    color = setup["color_management"]
+    lighting = setup["lighting"]
+    world = setup["world"]
+    if not isinstance(camera, Mapping) or set(camera) != _STATIC_CAMERA_FIELDS:
+        errors.append("static product camera setup has unexpected fields")
+    else:
+        expected_camera = _STATIC_SHOT_CAMERAS.get(contract.scene_id)
+        if expected_camera is None:
+            errors.append("static product scene_id must be one of the governed static shots")
+        elif (
+            camera["view"],
+            camera["focal_length_mm"],
+            camera["aperture_fstop"],
+        ) != expected_camera:
+            errors.append("static product camera must match the governed shot configuration")
+        if camera["sensor_width_mm"] != 36.0:
+            errors.append("static product camera sensor width must be 36mm")
+        if not isinstance(camera["view"], str) or not _SLUG.fullmatch(camera["view"]):
+            errors.append("static product camera view must be a lowercase slug")
+    if not isinstance(color, Mapping) or set(color) != _STATIC_COLOR_FIELDS:
+        errors.append("static product color management has unexpected fields")
+    elif (
+        color["view_transform"] != "AgX"
+        or color["look"] != "AgX - Medium High Contrast"
+        or color["exposure"] != 0.0
+        or color["gamma"] != 1.0
+    ):
+        errors.append("static product color management must use the approved AgX setup")
+    if not isinstance(lighting, Mapping) or set(lighting) != _STATIC_LIGHTING_FIELDS:
+        errors.append("static product lighting setup has unexpected fields")
+    elif (
+        lighting["temperature_kelvin"] != 5500.0
+        or lighting["required_light_names"] != _STATIC_LIGHT_NAMES
+        or lighting["lower_bounce_name"] != "BASE_BOUNCE"
+    ):
+        errors.append("static product lighting must use the approved 5500K lower-bounce rig")
+    if not isinstance(world, Mapping) or set(world) != _STATIC_WORLD_FIELDS:
+        errors.append("static product world setup has unexpected fields")
+    elif (
+        world["hdri_path"] != _STATIC_HDRI_PATH
+        or world["hdri_sha256"] != _STATIC_HDRI_SHA256
+        or world["strength"] != 0.5
+        or world["rotation_degrees"] != 0.0
+    ):
+        errors.append("static product world must use the approved pinned HDRI setup")
 
 
 def validate_scene_contract(contract: SceneContract) -> list[str]:
@@ -194,6 +285,7 @@ def validate_scene_contract(contract: SceneContract) -> list[str]:
         errors.append("scene contract output_contract height must be a positive integer")
     if not isinstance(alpha, bool):
         errors.append("scene contract output_contract alpha must be boolean")
+    _validate_static_render_setup(contract, errors)
     return errors
 
 

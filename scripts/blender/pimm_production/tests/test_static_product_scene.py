@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr
+from copy import deepcopy
 from io import StringIO
 import importlib
 import importlib.util
@@ -16,12 +17,12 @@ from unittest.mock import patch
 MODULE = "scripts.blender.pimm_production.blender_static_product_scene"
 
 EXPECTED = {
-    "pimm-30g--overview--three-quarter": ("30G", "overview", "three-quarter", 85.0),
-    "pimm-30g--engineering--controls": ("30G", "engineering", "controls", 135.0),
-    "pimm-30g--tooling--front-detail": ("30G", "tooling", "front-detail", 135.0),
-    "pimm-50g--overview--three-quarter": ("50G", "overview", "three-quarter", 85.0),
-    "pimm-50g--engineering--controls": ("50G", "engineering", "controls", 135.0),
-    "pimm-50g--tooling--front-detail": ("50G", "tooling", "front-detail", 135.0),
+    "pimm-30g--overview--three-quarter": ("30G", "overview", "three-quarter", 85.0, 11.0),
+    "pimm-30g--engineering--controls": ("30G", "engineering", "controls", 135.0, 8.0),
+    "pimm-30g--tooling--front-detail": ("30G", "tooling", "front-detail", 135.0, 11.0),
+    "pimm-50g--overview--three-quarter": ("50G", "overview", "three-quarter", 85.0, 11.0),
+    "pimm-50g--engineering--controls": ("50G", "engineering", "controls", 135.0, 8.0),
+    "pimm-50g--tooling--front-detail": ("50G", "tooling", "front-detail", 135.0, 11.0),
 }
 
 
@@ -38,10 +39,11 @@ class StaticProductSceneTests(unittest.TestCase):
 
         module = self._module()
         self.assertEqual(set(module.SHOT_CONFIGS), set(EXPECTED))
-        for shot_id, (machine, purpose, view, lens) in EXPECTED.items():
+        for shot_id, (machine, purpose, view, lens, aperture) in EXPECTED.items():
             config = module.SHOT_CONFIGS[shot_id]
             self.assertEqual((config.machine, config.purpose, config.view), (machine, purpose, view))
             self.assertEqual(config.focal_length_mm, lens)
+            self.assertEqual(config.aperture_fstop, aperture)
             self.assertEqual((config.output_width, config.output_height), (2400, 1800))
             self.assertIsNone(config.animation_contract)
 
@@ -67,6 +69,10 @@ class StaticProductSceneTests(unittest.TestCase):
 
         self.assertEqual(payload["scene_id"], "pimm-30g--overview--three-quarter")
         self.assertEqual(payload["purpose"], "overview")
+        self.assertEqual(
+            payload["scene_path"],
+            "scenes/stills/pimm-30g--overview--three-quarter.blend",
+        )
         self.assertEqual(payload["master_path"], "masters/PIMM-30G-MASTER.blend")
         self.assertEqual(
             payload["master_sha256"],
@@ -81,6 +87,40 @@ class StaticProductSceneTests(unittest.TestCase):
         self.assertTrue(payload["complete_product"])
         self.assertIsNone(payload["animation_contract"])
         self.assertEqual(payload["output_contract"], {"width": 2400, "height": 1800, "alpha": True})
+        self.assertEqual(
+            payload["static_render_setup"],
+            {
+                "camera": {
+                    "aperture_fstop": 11.0,
+                    "focal_length_mm": 85.0,
+                    "sensor_width_mm": 36.0,
+                    "view": "three-quarter",
+                },
+                "color_management": {
+                    "exposure": 0.0,
+                    "gamma": 1.0,
+                    "look": "AgX - Medium High Contrast",
+                    "view_transform": "AgX",
+                },
+                "lighting": {
+                    "lower_bounce_name": "BASE_BOUNCE",
+                    "required_light_names": [
+                        "KEY_SOFTBOX",
+                        "FILL_SOFTBOX",
+                        "BASE_BOUNCE",
+                        "STRIP_LEFT",
+                        "STRIP_RIGHT",
+                    ],
+                    "temperature_kelvin": 5500.0,
+                },
+                "world": {
+                    "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                    "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                    "rotation_degrees": 0.0,
+                    "strength": 0.5,
+                },
+            },
+        )
 
     def test_unknown_shot_id_is_rejected_before_contract_write(self):
         """Catches a CLI path that could create a contract for an ungoverned shot."""
@@ -91,6 +131,40 @@ class StaticProductSceneTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 2)
         self.assertFalse((self.asset_root / "scenes" / "contracts").exists())
+
+    def test_scene_contract_rejects_static_render_setup_or_scene_path_drift(self):
+        """Catches a consumer changing the governed setup after contract preparation."""
+
+        payload = self.module.contract_payload(self.config)
+        mutations = (
+            ("scene_path", "scenes/stills/unrelated.blend"),
+            ("static_render_setup", {"world": {}}),
+        )
+        for key, replacement in mutations:
+            with self.subTest(key=key):
+                mutated = deepcopy(payload)
+                mutated[key] = replacement
+                contract = self.module.SceneContract.from_mapping(mutated)
+                self.assertTrue(self.module.validate_scene_contract(contract))
+
+        mutated = deepcopy(payload)
+        mutated["static_render_setup"]["camera"]["aperture_fstop"] = 8.0
+        contract = self.module.SceneContract.from_mapping(mutated)
+        self.assertIn(
+            "static product camera must match the governed shot configuration",
+            self.module.validate_scene_contract(contract),
+        )
+
+        for setup_area, field, replacement in (
+            ("color_management", "gamma", 0.9),
+            ("lighting", "temperature_kelvin", 5000.0),
+            ("world", "hdri_sha256", "0" * 64),
+        ):
+            with self.subTest(setup_area=setup_area, field=field):
+                mutated = deepcopy(payload)
+                mutated["static_render_setup"][setup_area][field] = replacement
+                contract = self.module.SceneContract.from_mapping(mutated)
+                self.assertTrue(self.module.validate_scene_contract(contract))
 
     def test_existing_contract_is_never_overwritten(self):
         """Catches preparation replacing a previously approved contract file."""
