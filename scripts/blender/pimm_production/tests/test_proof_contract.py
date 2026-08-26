@@ -1162,6 +1162,7 @@ def _valid_render_metadata(
         "named_shaft_regions": named_shaft_regions or {},
         "shadow_pass_available": True,
         "shadow_evidence_sha256": None,
+        "meaningful_physical_shadow_threshold": 32,
         "fixture_mode": True,
         "proof_contract_sha256": "5" * 64,
         "scene_contract_sha256": "6" * 64,
@@ -1391,10 +1392,32 @@ class ProofContractTests(unittest.TestCase):
             metadata = json.loads(
                 (output_root / "render-metadata.json").read_text(encoding="utf-8")
             )
+            self.assertEqual(metadata["meaningful_physical_shadow_threshold"], 32)
             self.assertGreater(metadata["physical_shadow_metrics"]["nonzero_fraction"], 0)
             self.assertEqual(metadata["physical_shadow_metrics"]["bounds"]["bottom"], 230)
             self.assertFalse(shadow.exists())
             self.assertTrue(Path(result["manifest_pending_path"]).is_file())
+
+    def test_render_metadata_rejects_physical_shadow_threshold_drift(self):
+        for drifted in (31, 32.0, True):
+            with self.subTest(drifted=drifted), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                _contract, _scene, proof_path, output_root, rgba, shadow = (
+                    _prepare_canonical_shadow_fixture(root)
+                )
+                metadata_path = output_root / "render-metadata.json"
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                metadata["meaningful_physical_shadow_threshold"] = drifted
+                metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+                with self.assertRaisesRegex(ValueError, "physical shadow threshold"):
+                    render_module.finalize_proof(
+                        proof_path,
+                        output_root,
+                        rgba,
+                        root,
+                        shadow_catcher_path=shadow,
+                    )
 
     def test_required_canonical_shadow_evidence_rejects_missing_empty_and_corrupt_inputs(self):
         cases = ("missing", "empty", "hash-mismatch", "corrupt")
@@ -1473,7 +1496,7 @@ class ProofContractTests(unittest.TestCase):
                 with Image.open(shadow) as loaded:
                     shadow_image = loaded.convert("L")
                 for pixel in pixels:
-                    shadow_image.putpixel(pixel, 96)
+                    shadow_image.putpixel(pixel, 32)
                 shadow_image.save(shadow)
                 metadata_path = output_root / "render-metadata.json"
                 metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -1490,6 +1513,42 @@ class ProofContractTests(unittest.TestCase):
                         root,
                         shadow_catcher_path=shadow,
                     )
+
+    def test_overview_ignores_subthreshold_shadow_edges_and_keeps_strong_inset_metrics(self):
+        edge_pixels = {
+            "left": ((0, y) for y in range(205, 231)),
+            "right": ((299, y) for y in range(205, 231)),
+            "bottom": ((x, 299) for x in range(65, 236)),
+        }
+        for edge, pixels in edge_pixels.items():
+            with self.subTest(edge=edge), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                _contract, _scene, proof_path, output_root, rgba, shadow = (
+                    _prepare_canonical_shadow_fixture(root)
+                )
+                with Image.open(shadow) as loaded:
+                    shadow_image = loaded.convert("L")
+                for pixel in pixels:
+                    shadow_image.putpixel(pixel, 31)
+                shadow_image.save(shadow)
+                metadata_path = output_root / "render-metadata.json"
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                metadata["shadow_evidence_sha256"] = sha256_file(shadow)
+                metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+                render_module.finalize_proof(
+                    proof_path,
+                    output_root,
+                    rgba,
+                    root,
+                    shadow_catcher_path=shadow,
+                )
+
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    metadata["physical_shadow_metrics"]["bounds"],
+                    {"left": 65, "top": 205, "right": 235, "bottom": 230},
+                )
 
     def test_engineering_close_crop_may_finalize_without_shadow_only_when_contract_bound(self):
         with TemporaryDirectory() as root_text:

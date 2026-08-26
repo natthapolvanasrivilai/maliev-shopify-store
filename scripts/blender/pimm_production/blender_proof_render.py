@@ -27,6 +27,7 @@ from scripts.blender.pimm_production.io_contract import atomic_write_json, sha25
 from scripts.blender.pimm_production.paths import ASSET_ROOT as CANONICAL_ASSET_ROOT
 from scripts.blender.pimm_production.paths import require_within
 from scripts.blender.pimm_production.proof_contract import (
+    MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD,
     ProofContract,
     analyze_mask_metrics,
     effective_dimensions,
@@ -38,6 +39,7 @@ from scripts.blender.pimm_production.tool_policy import validate_tool_lock
 
 
 RESULT_MARKER = "PIMM_PROOF_RENDER_JSON="
+MEANINGFUL_SUBJECT_ALPHA_THRESHOLD = 16
 _PENDING_TO_PUBLISHED = {
     ".contact-sheet.pending.png": "contact-sheet.png",
     ".contact-sheet.pending.json": "contact-sheet.json",
@@ -1772,6 +1774,7 @@ def _render_rgba(
         "shadow_evidence_sha256": (
             sha256_file(shadow_catcher_path) if shadow_catcher_path is not None else None
         ),
+        "meaningful_physical_shadow_threshold": MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD,
         "fixture_mode": fixture_mode,
     }
     return metadata, lights, environment, product_rgba, shadow_catcher_path
@@ -1882,7 +1885,11 @@ def finalize_proof(
                 shadow_alpha.load()
         except (OSError, ValueError) as error:
             raise ValueError(f"physical shadow evidence image is corrupt: {error}") from error
-        shadow_alpha = shadow_alpha.point(lambda value: value if value >= 16 else 0)
+        shadow_alpha = shadow_alpha.point(
+            lambda value: (
+                value if value >= MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD else 0
+            )
+        )
         if shadow_alpha.getextrema()[1] == 0:
             raise ValueError("physical shadow evidence is empty")
         from PIL import ImageChops
@@ -1895,17 +1902,25 @@ def finalize_proof(
         from PIL import ImageChops
 
         shadow_alpha = ImageChops.subtract(source.getchannel("A"), product_alpha).point(
-            lambda value: value if value >= 16 else 0
+            lambda value: (
+                value if value >= MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD else 0
+            )
         )
     else:
         product_alpha = source.getchannel("A")
         shadow_alpha = Image.new("L", source.size, 0)
     if scene_contract.purpose == "overview":
         meaningful_combined = source.getchannel("A").point(
-            lambda value: 255 if value >= 16 else 0
+            lambda value: 255 if value >= MEANINGFUL_SUBJECT_ALPHA_THRESHOLD else 0
         )
-        meaningful_product = product_alpha.point(lambda value: 255 if value >= 16 else 0)
-        meaningful_shadow = shadow_alpha.point(lambda value: 255 if value >= 16 else 0)
+        meaningful_product = product_alpha.point(
+            lambda value: 255 if value >= MEANINGFUL_SUBJECT_ALPHA_THRESHOLD else 0
+        )
+        meaningful_shadow = shadow_alpha.point(
+            lambda value: (
+                255 if value >= MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD else 0
+            )
+        )
         for label, mask in (
             ("combined alpha", meaningful_combined),
             ("product alpha", meaningful_product),

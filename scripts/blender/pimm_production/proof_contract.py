@@ -20,6 +20,7 @@ from .paths import ASSET_ROOT, require_within
 from .scene_contract import SceneContract
 
 
+MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD = 32
 _FIELDS = {
     "schema_version",
     "generation_id",
@@ -61,6 +62,7 @@ _RENDER_METADATA_FIELDS = {
     "named_shaft_regions",
     "shadow_pass_available",
     "shadow_evidence_sha256",
+    "meaningful_physical_shadow_threshold",
     "fixture_mode",
     "proof_contract_sha256",
     "scene_contract_sha256",
@@ -2457,6 +2459,16 @@ def _validate_render_metadata(
             raise ValueError("render metadata named shaft regions are invalid")
     if not isinstance(metadata["shadow_pass_available"], bool):
         raise ValueError("render metadata shadow_pass_available must be boolean")
+    shadow_threshold = metadata["meaningful_physical_shadow_threshold"]
+    if (
+        not isinstance(shadow_threshold, int)
+        or isinstance(shadow_threshold, bool)
+        or shadow_threshold != MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD
+    ):
+        raise ValueError(
+            "render metadata meaningful physical shadow threshold must equal "
+            f"{MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD}"
+        )
     if not isinstance(metadata["fixture_mode"], bool):
         raise ValueError("render metadata fixture_mode must be boolean")
     shadow_policy = (scene.static_render_setup or {}).get("physical_shadow", {})
