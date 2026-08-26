@@ -758,6 +758,42 @@ class StaticProductSceneTests(unittest.TestCase):
                 contract = self.module.SceneContract.from_mapping(mutated)
                 self.assertTrue(self.module.validate_scene_contract(contract))
 
+    def test_scene_contract_rejects_static_camera_near_clip_drift(self):
+        """Catches a known static contract weakening near-plane depth precision."""
+
+        payload = self.module.contract_payload(self.config)
+        payload["static_render_setup"]["camera"]["clip_start"] = 0.1
+        contract = self.module.SceneContract.from_mapping(payload)
+
+        self.assertIn(
+            "static product camera near clip must equal 1 scene unit",
+            self.module.validate_scene_contract(contract),
+        )
+
+    def test_scene_contract_rejects_missing_static_camera_clip_start(self):
+        """Catches a known static contract omitting its governed near plane."""
+
+        payload = self.module.contract_payload(self.config)
+        payload["static_render_setup"]["camera"].pop("clip_start")
+        contract = self.module.SceneContract.from_mapping(payload)
+
+        self.assertIn(
+            "static product camera setup has unexpected fields",
+            self.module.validate_scene_contract(contract),
+        )
+
+    def test_scene_contract_rejects_missing_static_camera_clip_end(self):
+        """Catches a known static contract falling back to Blender's default far plane."""
+
+        payload = self.module.contract_payload(self.config)
+        payload["static_render_setup"]["camera"].pop("clip_end")
+        contract = self.module.SceneContract.from_mapping(payload)
+
+        self.assertIn(
+            "static product camera setup has unexpected fields",
+            self.module.validate_scene_contract(contract),
+        )
+
     def test_open_scene_validation_rejects_camera_far_clip_drift(self):
         """Catches a structurally valid scene whose actual camera clips the product away."""
 
@@ -777,6 +813,28 @@ class StaticProductSceneTests(unittest.TestCase):
 
         self.assertIn(
             "static product camera far clip does not match contract",
+            errors,
+        )
+
+    def test_open_scene_validation_rejects_camera_near_clip_drift(self):
+        """Catches a reopened static scene whose actual near plane drifted from contract."""
+
+        from scripts.blender.pimm_production import blender_scene_validator
+
+        contract = self.module.SceneContract.from_mapping(
+            self.module.contract_payload(self.config)
+        )
+        camera = SimpleNamespace(
+            data=SimpleNamespace(clip_start=0.1, clip_end=10000.0)
+        )
+        errors = []
+
+        blender_scene_validator._validate_static_camera_clip_range(
+            camera, contract, errors
+        )
+
+        self.assertIn(
+            "static product camera near clip does not match contract",
             errors,
         )
 
