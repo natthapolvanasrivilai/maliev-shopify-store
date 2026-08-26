@@ -7,9 +7,12 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
+import stat
 import sys
 from typing import Any, Sequence
+import uuid
 
 try:
     from .blender_static_hero_scene import (
@@ -103,6 +106,15 @@ class TargetResolution:
     stable_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class ValidatedTargetManifest:
+    """Immutable handle proving a canonical target manifest passed strict loading."""
+
+    path: Path
+    sha256: str
+    canonical_json: str
+
+
 SHOT_CONFIGS = {
     shot.scene_id: shot
     for shot in (
@@ -120,6 +132,10 @@ _DETAIL_TARGET_GROUPS = {
     "tooling": ("nozzle", "platen", "fixture"),
 }
 _FRAME_MARGIN = 0.05
+
+
+def _target_manifest_path() -> Path:
+    return ASSET_ROOT / "manifests" / "PIMM-static-shot-targets-v1.json"
 
 
 def orbit_camera_pose(
@@ -176,13 +192,7 @@ def bounds_for_objects(
     )
 
 
-def load_target_manifest(path: Path) -> dict[str, object]:
-    """Load the exact v1 stable-ID target manifest for all governed detail shots."""
-
-    try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"target manifest cannot be read: {path}: {error}") from error
+def _validate_target_manifest_payload(payload: object) -> dict[str, object]:
     if not isinstance(payload, dict) or set(payload) != {"schema_version", "shots"}:
         raise ValueError("target manifest must contain exactly schema_version and shots")
     if payload["schema_version"] != 1 or not isinstance(payload["shots"], dict):
@@ -218,6 +228,48 @@ def load_target_manifest(path: Path) -> dict[str, object]:
     return payload
 
 
+def load_target_manifest(path: Path) -> ValidatedTargetManifest:
+    """Load only the canonical v1 stable-ID target manifest and validate every shot."""
+
+    canonical_root = ASSET_ROOT / "manifests"
+    try:
+        resolved = require_within(Path(path), canonical_root)
+    except ValueError as error:
+        raise ValueError(f"canonical target manifest path is required: {path}") from error
+    canonical = _target_manifest_path().resolve()
+    if resolved != canonical:
+        raise ValueError(f"canonical target manifest path is required: {canonical}")
+    try:
+        manifest_bytes = resolved.read_bytes()
+        payload = json.loads(manifest_bytes.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"target manifest cannot be read: {resolved}: {error}") from error
+    validated = _validate_target_manifest_payload(payload)
+    canonical_json = json.dumps(
+        validated,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return ValidatedTargetManifest(
+        path=canonical,
+        sha256=hashlib.sha256(manifest_bytes).hexdigest().upper(),
+        canonical_json=canonical_json,
+    )
+
+
+def _validated_target_manifest_payload(
+    manifest: ValidatedTargetManifest,
+) -> dict[str, object]:
+    if not isinstance(manifest, ValidatedTargetManifest):
+        raise ValueError("authoring requires a validated canonical target manifest")
+    refreshed = load_target_manifest(manifest.path)
+    if refreshed != manifest:
+        raise ValueError("validated canonical target manifest changed after loading")
+    payload = json.loads(manifest.canonical_json)
+    return _validate_target_manifest_payload(payload)
+
+
 def _stable_product_objects(bpy: Any) -> dict[str, Any]:
     by_stable_id: dict[str, Any] = {}
     for obj in bpy.context.scene.objects:
@@ -235,17 +287,18 @@ def _stable_product_objects(bpy: Any) -> dict[str, Any]:
 
 
 def resolve_target_bounds(
-    bpy: Any, config: ShotConfig, target_manifest: dict[str, object]
+    bpy: Any, config: ShotConfig, target_manifest: ValidatedTargetManifest
 ) -> TargetResolution:
     """Resolve overview or semantic detail bounds without using display names."""
 
     _validate_shot_config(config)
+    target_payload = _validated_target_manifest_payload(target_manifest)
     by_stable_id = _stable_product_objects(bpy)
     if config.purpose == "overview":
         stable_ids = tuple(sorted(by_stable_id))
         groups = {"complete_product": stable_ids}
     else:
-        shots = target_manifest.get("shots") if isinstance(target_manifest, dict) else None
+        shots = target_payload["shots"]
         shot = shots.get(config.scene_id) if isinstance(shots, dict) else None
         source_groups = shot.get("groups") if isinstance(shot, dict) else None
         expected_groups = _DETAIL_TARGET_GROUPS[config.purpose]
@@ -782,11 +835,12 @@ def _validate_authored_scene_state(
 
 
 def author_scene(
-    bpy: Any, config: ShotConfig, target_manifest: dict[str, object]
+    bpy: Any, config: ShotConfig, target_manifest: ValidatedTargetManifest
 ) -> dict[str, object]:
     """Author and fresh-process validate one new governed static product scene."""
 
     _validate_shot_config(config)
+    _validated_target_manifest_payload(target_manifest)
     source = Path(str(bpy.data.filepath)).resolve()
     expected_source = _template_path(config).resolve()
     if source != expected_source:
@@ -806,16 +860,49 @@ def author_scene(
     master_before = sha256_file(_master_path(config))
     material_before = sha256_file(_material_library_path())
     destination.parent.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(destination), check_existing=False)
-    validation_errors = _run_fresh_validation(destination, _contract_path(config))
-    master_after = sha256_file(_master_path(config))
-    material_after = sha256_file(_material_library_path())
-    if master_after != master_before or material_after != material_before:
-        validation_errors.append("scene authoring changed a protected library fingerprint")
-    if validation_errors:
-        if destination.is_file():
-            destination.unlink()
-        raise ValueError("fresh Blender scene validation failed: " + "; ".join(validation_errors))
+    nonce = uuid.uuid4().hex
+    temporary = destination.with_name(f".{destination.stem}.{nonce}.tmp.blend")
+    contract_snapshot = destination.with_name(
+        f".{destination.stem}.{nonce}.contract.json"
+    )
+    contract_sha256 = hashlib.sha256(contract_bytes).hexdigest().upper()
+    try:
+        with contract_snapshot.open("xb") as snapshot:
+            snapshot.write(contract_bytes)
+            snapshot.flush()
+            os.fsync(snapshot.fileno())
+        contract_snapshot.chmod(stat.S_IREAD)
+        bpy.ops.wm.save_as_mainfile(filepath=str(temporary), check_existing=False)
+        if not temporary.is_file():
+            raise RuntimeError("Blender did not create the temporary static product scene")
+        validation_errors = _run_fresh_validation(temporary, contract_snapshot)
+        master_after = sha256_file(_master_path(config))
+        material_after = sha256_file(_material_library_path())
+        if master_after != master_before or material_after != material_before:
+            validation_errors.append("scene authoring changed a protected library fingerprint")
+        if sha256_file(contract_snapshot) != contract_sha256:
+            validation_errors.append("immutable scene contract snapshot changed during validation")
+        try:
+            original_contract_unchanged = (
+                sha256_file(_contract_path(config)) == contract_sha256
+            )
+        except OSError:
+            original_contract_unchanged = False
+        if not original_contract_unchanged:
+            validation_errors.append("original scene contract changed during authoring")
+        if validation_errors:
+            raise ValueError(
+                "fresh Blender scene validation failed: " + "; ".join(validation_errors)
+            )
+        if destination.exists():
+            raise FileExistsError(f"static product scene already exists: {destination}")
+        temporary.rename(destination)
+    finally:
+        if temporary.is_file():
+            temporary.unlink()
+        if contract_snapshot.is_file():
+            contract_snapshot.chmod(stat.S_IWRITE)
+            contract_snapshot.unlink()
     return {
         "status": "scene_created",
         "machine": config.machine,
@@ -844,6 +931,15 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
         parser.error("--author-scene requires --target-manifest")
     if not arguments.author_scene and arguments.target_manifest is not None:
         parser.error("--target-manifest is valid only with --author-scene")
+    if arguments.author_scene:
+        canonical = _target_manifest_path().resolve()
+        try:
+            supplied = require_within(arguments.target_manifest, ASSET_ROOT / "manifests")
+        except ValueError:
+            parser.error(f"--target-manifest must equal canonical target manifest: {canonical}")
+        if supplied != canonical:
+            parser.error(f"--target-manifest must equal canonical target manifest: {canonical}")
+        arguments.target_manifest = canonical
     return arguments
 
 

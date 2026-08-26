@@ -132,7 +132,12 @@ class StaticProductSceneTests(unittest.TestCase):
     def test_target_manifest_requires_every_semantic_stable_id_group(self):
         """Catches mutable-name targeting or a missing engineering/tooling component group."""
 
-        path = Path(self.temporary_directory.name) / "targets.json"
+        path = (
+            self.asset_root
+            / "manifests"
+            / "PIMM-static-shot-targets-v1.json"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
         payload = self._target_manifest()
         payload["shots"]["pimm-30g--engineering--controls"]["groups"][
             "actuator_artwork"
@@ -146,7 +151,7 @@ class StaticProductSceneTests(unittest.TestCase):
         """Catches detail targeting by display name or loss of semantic target evidence."""
 
         config = self.module.SHOT_CONFIGS["pimm-30g--engineering--controls"]
-        manifest = self._target_manifest()
+        _manifest_path, manifest = self._write_canonical_target_manifest()
         objects = [
             StableMesh("30g-gauge", (-10, -5, 100), (10, 5, 120), name="renamed-A"),
             StableMesh("30g-regulator", (20, -4, 80), (35, 4, 110), name="renamed-B"),
@@ -178,7 +183,7 @@ class StaticProductSceneTests(unittest.TestCase):
         """Catches an engineering crop that silently omits the actuator artwork."""
 
         config = self.module.SHOT_CONFIGS["pimm-30g--engineering--controls"]
-        manifest = self._target_manifest()
+        _manifest_path, manifest = self._write_canonical_target_manifest()
         objects = [
             StableMesh("30g-gauge", (-10, -5, 100), (10, 5, 120)),
             StableMesh("30g-regulator", (20, -4, 80), (35, 4, 110)),
@@ -277,6 +282,7 @@ class StaticProductSceneTests(unittest.TestCase):
 
     def _call_author_with_configured_state(self, config, bpy, target, pose):
         contract, contract_bytes = self._contract_and_bytes(config)
+        _manifest_path, target_manifest = self._write_canonical_target_manifest()
         with (
             patch.object(
                 self.module,
@@ -292,7 +298,7 @@ class StaticProductSceneTests(unittest.TestCase):
                 return_value=(bpy.context.scene.camera, pose),
             ),
         ):
-            return self.module.author_scene(bpy, config, self._target_manifest())
+            return self.module.author_scene(bpy, config, target_manifest)
 
     def test_authoring_rejects_nonzero_exposure_after_configuration(self):
         """Catches scene setup leaving exposure compensation outside the governed zero value."""
@@ -335,9 +341,10 @@ class StaticProductSceneTests(unittest.TestCase):
         destination.parent.mkdir(parents=True)
         destination.write_bytes(b"approved-scene")
         bpy = self._minimal_authoring_bpy(self.config)
+        _manifest_path, manifest = self._write_canonical_target_manifest()
 
         with self.assertRaises(FileExistsError):
-            self.module.author_scene(bpy, self.config, self._target_manifest())
+            self.module.author_scene(bpy, self.config, manifest)
 
         self.assertEqual(destination.read_bytes(), b"approved-scene")
 
@@ -350,6 +357,7 @@ class StaticProductSceneTests(unittest.TestCase):
         hdri.write_bytes(b"wrong-hdri")
         contract, contract_bytes = self._contract_and_bytes(config)
         bpy = self._minimal_authoring_bpy(config)
+        _manifest_path, manifest = self._write_canonical_target_manifest()
 
         with (
             patch.object(
@@ -360,7 +368,7 @@ class StaticProductSceneTests(unittest.TestCase):
             patch.object(self.module, "_validate_open_template_authority"),
         ):
             with self.assertRaisesRegex(ValueError, "HDRI SHA-256 mismatch"):
-                self.module.author_scene(bpy, config, self._target_manifest())
+                self.module.author_scene(bpy, config, manifest)
 
     def test_authoring_rejects_local_product_mesh_and_localized_material(self):
         """Catches private geometry or localized governed materials entering the shot."""
@@ -369,6 +377,7 @@ class StaticProductSceneTests(unittest.TestCase):
         contract, contract_bytes = self._contract_and_bytes(config)
         expected_master = self.module._master_path(config).resolve()
         material_path = (self.asset_root / "masters" / "PIMM-MATERIAL-LIBRARY.blend").resolve()
+        _manifest_path, manifest = self._write_canonical_target_manifest()
 
         for mutation in ("local_mesh", "localized_material"):
             with self.subTest(mutation=mutation):
@@ -413,7 +422,7 @@ class StaticProductSceneTests(unittest.TestCase):
                     return_value=(contract, contract_bytes),
                 ):
                     with self.assertRaisesRegex(ValueError, expected):
-                        self.module.author_scene(bpy, config, self._target_manifest())
+                        self.module.author_scene(bpy, config, manifest)
 
     def test_cli_exposes_inspection_and_manifest_gated_authoring_modes(self):
         """Catches Task 3 losing either the read-only inspection or manifest-gated author path."""
@@ -423,7 +432,11 @@ class StaticProductSceneTests(unittest.TestCase):
         self.assertTrue(inspected.inspect_targets)
         self.assertFalse(inspected.author_scene)
 
-        manifest = Path(self.temporary_directory.name) / "targets.json"
+        manifest = (
+            self.asset_root
+            / "manifests"
+            / "PIMM-static-shot-targets-v1.json"
+        )
         authored = self.module._arguments(
             [
                 "--shot-id",
@@ -451,6 +464,130 @@ class StaticProductSceneTests(unittest.TestCase):
             self.module._resolved_library_path(bpy, datablock),
             expected.resolve(),
         )
+
+    def _write_canonical_target_manifest(self):
+        path = (
+            self.asset_root
+            / "manifests"
+            / "PIMM-static-shot-targets-v1.json"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self._target_manifest()), encoding="utf-8")
+        return path, self.module.load_target_manifest(path)
+
+    def test_target_manifest_loader_and_cli_reject_noncanonical_paths(self):
+        """Catches an otherwise valid manifest bypassing canonical asset authority."""
+
+        outside = Path(self.temporary_directory.name) / "alternate-targets.json"
+        outside.write_text(json.dumps(self._target_manifest()), encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "canonical target manifest"):
+            self.module.load_target_manifest(outside)
+
+        with redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit):
+                self.module._arguments(
+                    [
+                        "--shot-id",
+                        self.config.scene_id,
+                        "--author-scene",
+                        "--target-manifest",
+                        str(outside),
+                    ]
+                )
+
+    def test_author_scene_rejects_an_unvalidated_manifest_dictionary(self):
+        """Catches direct Python callers bypassing all-shot schema and file authority checks."""
+
+        bpy = self._minimal_authoring_bpy(self.config)
+
+        with self.assertRaisesRegex(ValueError, "validated canonical target manifest"):
+            self.module.author_scene(bpy, self.config, self._target_manifest())
+
+    def _run_authoring_publication_scenario(self, save, fresh_validate):
+        config = self.config
+        target = self.module.TargetResolution(
+            (-200.0, -180.0, 0.0),
+            (220.0, 160.0, 900.0),
+            {"complete_product": ("part",)},
+            ("part",),
+        )
+        pose = self.module.camera_pose(target.bounds_min, target.bounds_max, config)
+        bpy = self._minimal_authoring_bpy(config)
+        bpy.ops.wm.save_as_mainfile = save
+        contract, contract_bytes = self._contract_and_bytes(config)
+        contract_path = self.module._contract_path(config)
+        contract_path.parent.mkdir(parents=True, exist_ok=True)
+        contract_path.write_bytes(contract_bytes)
+        _manifest_path, manifest = self._write_canonical_target_manifest()
+        with (
+            patch.object(
+                self.module,
+                "_load_authoring_contract",
+                return_value=(contract, contract_bytes),
+            ),
+            patch.object(self.module, "_validate_open_template_authority"),
+            patch.object(self.module, "_require_pinned_hdri"),
+            patch.object(self.module, "resolve_target_bounds", return_value=target),
+            patch.object(
+                self.module,
+                "_configure_authored_scene",
+                return_value=(bpy.context.scene.camera, pose),
+            ),
+            patch.object(self.module, "_validate_authored_scene_state"),
+            patch.object(self.module, "_run_fresh_validation", side_effect=fresh_validate),
+        ):
+            return self.module.author_scene(bpy, config, manifest)
+
+    def test_authoring_destination_race_preserves_competitor_and_cleans_temporary_files(self):
+        """Catches validation-success publication overwriting a destination created mid-run."""
+
+        destination = self.module._scene_path(self.config)
+
+        def save(*, filepath, **_kwargs):
+            Path(filepath).write_bytes(b"candidate")
+
+        def race(_temporary, _snapshot):
+            destination.write_bytes(b"competitor")
+            return []
+
+        with self.assertRaises(FileExistsError):
+            self._run_authoring_publication_scenario(save, race)
+
+        self.assertEqual(destination.read_bytes(), b"competitor")
+        self.assertEqual(list(destination.parent.glob(".*.tmp.blend")), [])
+        self.assertEqual(list(destination.parent.glob(".*.contract.json")), [])
+
+    def test_authoring_exceptions_leave_no_unvalidated_candidate_or_final_scene(self):
+        """Catches save or fresh-Blender exceptions leaking unvalidated scene files."""
+
+        destination = self.module._scene_path(self.config)
+
+        def save_then_raise(*, filepath, **_kwargs):
+            Path(filepath).write_bytes(b"candidate")
+            raise RuntimeError("save failed after write")
+
+        with self.subTest(stage="save"):
+            with self.assertRaisesRegex(RuntimeError, "save failed"):
+                self._run_authoring_publication_scenario(save_then_raise, lambda *_args: [])
+            self.assertFalse(destination.exists())
+            self.assertEqual(list(destination.parent.glob(".*.tmp.blend")), [])
+            self.assertEqual(list(destination.parent.glob(".*.contract.json")), [])
+
+        def save(*, filepath, **_kwargs):
+            Path(filepath).write_bytes(b"candidate")
+
+        with self.subTest(stage="fresh_validation"):
+            with self.assertRaisesRegex(TimeoutError, "fresh Blender timeout"):
+                self._run_authoring_publication_scenario(
+                    save,
+                    lambda *_args: (_ for _ in ()).throw(
+                        TimeoutError("fresh Blender timeout")
+                    ),
+                )
+            self.assertFalse(destination.exists())
+            self.assertEqual(list(destination.parent.glob(".*.tmp.blend")), [])
+            self.assertEqual(list(destination.parent.glob(".*.contract.json")), [])
 
     def setUp(self):
         self.module = self._module()
