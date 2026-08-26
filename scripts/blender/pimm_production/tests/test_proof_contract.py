@@ -1458,6 +1458,39 @@ class ProofContractTests(unittest.TestCase):
                     shadow_catcher_path=shadow,
                 )
 
+    def test_overview_rejects_shadow_only_left_right_and_bottom_frame_edges(self):
+        edge_pixels = {
+            "left": ((0, y) for y in range(205, 231)),
+            "right": ((299, y) for y in range(205, 231)),
+            "bottom": ((x, 299) for x in range(65, 236)),
+        }
+        for edge, pixels in edge_pixels.items():
+            with self.subTest(edge=edge), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                _contract, _scene, proof_path, output_root, rgba, shadow = (
+                    _prepare_canonical_shadow_fixture(root)
+                )
+                with Image.open(shadow) as loaded:
+                    shadow_image = loaded.convert("L")
+                for pixel in pixels:
+                    shadow_image.putpixel(pixel, 96)
+                shadow_image.save(shadow)
+                metadata_path = output_root / "render-metadata.json"
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                metadata["shadow_evidence_sha256"] = sha256_file(shadow)
+                metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+                with self.assertRaisesRegex(
+                    ValueError, f"overview meaningful shadow alpha touches.*{edge}.*frame edge"
+                ):
+                    render_module.finalize_proof(
+                        proof_path,
+                        output_root,
+                        rgba,
+                        root,
+                        shadow_catcher_path=shadow,
+                    )
+
     def test_engineering_close_crop_may_finalize_without_shadow_only_when_contract_bound(self):
         with TemporaryDirectory() as root_text:
             root = Path(root_text)

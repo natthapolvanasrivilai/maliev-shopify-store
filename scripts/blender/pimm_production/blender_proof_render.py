@@ -1905,19 +1905,24 @@ def finalize_proof(
             lambda value: 255 if value >= 16 else 0
         )
         meaningful_product = product_alpha.point(lambda value: 255 if value >= 16 else 0)
+        meaningful_shadow = shadow_alpha.point(lambda value: 255 if value >= 16 else 0)
         for label, mask in (
             ("combined alpha", meaningful_combined),
             ("product alpha", meaningful_product),
+            ("shadow alpha", meaningful_shadow),
         ):
             bounds = mask.getbbox()
-            if bounds is not None and (
-                bounds[0] == 0
-                or bounds[1] == 0
-                or bounds[2] == source.width
-                or bounds[3] == source.height
-            ):
+            edge_checks = (
+                ("left", bounds is not None and bounds[0] == 0),
+                ("top", bounds is not None and bounds[1] == 0),
+                ("right", bounds is not None and bounds[2] == source.width),
+                ("bottom", bounds is not None and bounds[3] == source.height),
+            )
+            touched_edges = [name for name, touched in edge_checks if touched]
+            if touched_edges:
                 raise ValueError(
-                    f"overview meaningful {label} touches a disallowed frame edge"
+                    f"overview meaningful {label} touches disallowed "
+                    f"{'/'.join(touched_edges)} frame edge"
                 )
     metadata["intended_subject_metrics"] = analyze_mask_metrics(product_alpha)
     metadata["physical_shadow_metrics"] = analyze_mask_metrics(shadow_alpha)
