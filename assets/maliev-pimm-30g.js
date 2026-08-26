@@ -1,17 +1,16 @@
 (() => {
   const STORY_SELECTOR = '[data-pimm30-story]';
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
-
   function visibleVideo(layer) {
     if (!layer) return null;
-    // Keep media selection aligned with the fluid 700px layout contract. The
-    // old 749px boundary caused a one-pixel media swap and abrupt crop change.
-    const mobile = window.matchMedia('(max-width: 699px)').matches;
-    return layer.querySelector(
-      mobile
-        ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
-        : '.pimm30-stage__video--desktop, .pimm30-stage__video--all-devices'
-    );
+    // Portrait assets fill tall media regions; landscape windows use the wide
+    // assets so the machine remains large without cropping. Keep this selector
+    // in lockstep with the CSS art-direction and Liquid <picture> breakpoint.
+    const mobile = window.matchMedia('(max-width: 539px), (max-aspect-ratio: 6/5)').matches;
+    const preferredSelector = mobile
+      ? '.pimm30-stage__video--mobile, .pimm30-stage__video--all-devices'
+      : '.pimm30-stage__video--desktop, .pimm30-stage__video--all-devices';
+    return layer.querySelector(preferredSelector);
   }
 
   function initStory(story) {
@@ -36,7 +35,6 @@
       final: Number(counter.dataset.pimm30SpecFinal || 0),
       decimals: Number(counter.dataset.pimm30SpecDecimals || 0),
     }));
-    const lightMilestone = Number(story.dataset.pimm30LightMilestone || 3500) / 1000;
     const consentRevealDelay = 900;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
     const designMode = Boolean(window.Shopify && window.Shopify.designMode);
@@ -61,6 +59,11 @@
     let specCountHasPlayed = reduced || activeId !== 'pimm30-overview';
     let specCountFrame = 0;
     let responsiveVideoFrame = 0;
+    let turntablePreviewLayer = null;
+    let turntablePreviewToken = 0;
+    const turntableSeekableSources = new WeakMap();
+    const turntableRotationStart = 65 / 24;
+    const turntableRotationEnd = 101 / 24;
 
     story.classList.toggle('is-reduced-motion', reduced);
     // Theme-editor previews are intentionally static on the hosted storefront,
@@ -71,6 +74,11 @@
 
     function revealHeroPoster() {
       story.classList.remove('is-hero-pending');
+    }
+
+    function setHeroComplete(complete) {
+      story.classList.toggle('is-hero-complete', complete);
+      story.classList.toggle('is-hero-sequencing', !complete);
     }
 
     function revealConsentAfterHero() {
@@ -131,11 +139,144 @@
 
     function setHeroTone(bright) {
       story.classList.toggle('is-hero-bright', bright);
+      story.classList.toggle('is-hero-dark', !bright);
       story.dataset.pimm30HeroTone = bright ? 'bright' : 'dark';
-      overlaySentinel.setAttribute('data-header-overlay-tone', activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark');
+      overlaySentinel.setAttribute(
+        'data-header-overlay-tone',
+        activeId === 'pimm30-next_model' ? 'dark' : bright ? 'bright' : 'dark'
+      );
       if (bright) {
         revealConsentAfterHero();
         startSpecCounts();
+      }
+    }
+
+    function cancelTurntablePreview(layer = turntablePreviewLayer) {
+      turntablePreviewToken += 1;
+      if (layer) layer.classList.remove('is-turntable-previewing');
+      if (turntablePreviewLayer === layer) turntablePreviewLayer = null;
+    }
+
+    function turntableTime(progress) {
+      return turntableRotationStart + progress * (turntableRotationEnd - turntableRotationStart);
+    }
+
+    function hasTurntableSeekRange(video) {
+      for (let index = 0; index < video.seekable.length; index += 1) {
+        if (
+          video.seekable.start(index) <= turntableRotationStart + 1 / 48 &&
+          video.seekable.end(index) >= turntableRotationEnd - 1 / 48
+        ) return true;
+      }
+      return false;
+    }
+
+    function prepareTurntableSeekable(layer, video) {
+      if (video.currentSrc.startsWith('blob:') || hasTurntableSeekRange(video)) {
+        layer.dataset.pimm30Seekable = 'true';
+        return Promise.resolve(true);
+      }
+
+      const pendingSource = turntableSeekableSources.get(video);
+      if (pendingSource) return pendingSource;
+
+      const sourceUrl = video.currentSrc || video.querySelector('source')?.src;
+      if (!sourceUrl) return Promise.resolve(false);
+
+      const seekableSource = fetch(sourceUrl, { cache: 'force-cache' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`Turntable media request failed: ${response.status}`);
+          return response.blob();
+        })
+        .then((blob) => URL.createObjectURL(blob))
+        .then((objectUrl) => new Promise((resolve) => {
+          const resumeTime = video.currentTime;
+          const handleMetadata = () => {
+            const finalFrameTime = Math.max(0, video.duration - 1 / 24);
+            video.currentTime = Math.min(resumeTime, finalFrameTime);
+            layer.dataset.pimm30Seekable = 'true';
+            resolve(true);
+          };
+
+          video.addEventListener('loadedmetadata', handleMetadata, { once: true });
+          video.src = objectUrl;
+          video.load();
+          window.addEventListener('pagehide', () => URL.revokeObjectURL(objectUrl), { once: true });
+        }))
+        .catch(() => {
+          turntableSeekableSources.delete(video);
+          layer.dataset.pimm30Seekable = 'false';
+          return false;
+        });
+
+      turntableSeekableSources.set(video, seekableSource);
+      return seekableSource;
+    }
+
+    function completeTurntablePreview(layer, video) {
+      cancelTurntablePreview(layer);
+      video.pause();
+      video.currentTime = turntableTime(0.5);
+      video.classList.remove('is-playing');
+      video.classList.add('is-paused');
+      layer.dataset.pimm30PreviewComplete = 'true';
+      layer.classList.add('has-active-video', 'is-turntable-ready');
+      layer.removeAttribute('aria-disabled');
+      if (layer.classList.contains('is-active')) layer.tabIndex = 0;
+    }
+
+    function playTurntablePreview(layer, video) {
+      cancelTurntablePreview();
+      const previewToken = ++turntablePreviewToken;
+      turntablePreviewLayer = layer;
+      layer.classList.remove('is-turntable-ready');
+      layer.classList.add('is-turntable-previewing');
+      layer.setAttribute('aria-disabled', 'true');
+      layer.tabIndex = -1;
+
+      const beginPreview = () => {
+        const previewIsCurrent = () => (
+          previewToken === turntablePreviewToken &&
+          activeVideo === video &&
+          layer.classList.contains('is-active')
+        );
+        const failPreview = () => {
+          if (!previewIsCurrent()) return;
+          cancelTurntablePreview(layer);
+          layer.classList.add('is-video-failed');
+        };
+        const finishPreview = () => {
+          if (!previewIsCurrent()) return;
+          prepareTurntableSeekable(layer, video).then((seekable) => {
+            if (!previewIsCurrent()) return;
+            if (!seekable) {
+              failPreview();
+              return;
+            }
+            completeTurntablePreview(layer, video);
+          });
+        };
+
+        if (reduced || layer.dataset.pimm30PreviewComplete === 'true') {
+          finishPreview();
+          return;
+        }
+
+        // The authored clip is one continuous front -> left -> front -> right ->
+        // front presentation. Playing it normally avoids unreliable pre-buffer
+        // seeking and guarantees that drag cannot unlock before both sides show.
+        video.currentTime = 0;
+        video.classList.add('is-playing');
+        video.classList.remove('is-paused');
+        layer.classList.add('has-active-video');
+        video.addEventListener('ended', finishPreview, { once: true });
+        video.play().catch(failPreview);
+      };
+
+      if (video.readyState >= 1) beginPreview();
+      else {
+        video.addEventListener('loadedmetadata', beginPreview, { once: true });
+        video.load();
       }
     }
 
@@ -144,7 +285,14 @@
       video.pause();
       video.classList.remove('is-playing', 'is-paused');
       const layer = video.closest('[data-pimm30-layer]');
-      if (layer) layer.classList.remove('has-active-video');
+      if (layer) {
+        cancelTurntablePreview(layer);
+        layer.classList.remove('has-active-video', 'is-turntable-ready');
+        if (layer.matches('[data-pimm30-turntable]')) {
+          layer.setAttribute('aria-disabled', 'true');
+          layer.tabIndex = -1;
+        }
+      }
       try {
         video.currentTime = 0;
       } catch (_error) {
@@ -156,28 +304,41 @@
       const layer = layers.get(activeId);
       const video = visibleVideo(layer);
       activeVideo = video;
-      if (!video || reduced) return;
+      if (!video) return;
+
+      if (layer.matches('[data-pimm30-turntable]')) {
+        if (restart) resetVideo(video);
+        playTurntablePreview(layer, video);
+        return;
+      }
+
+      if (reduced) return;
 
       if (activeId === 'pimm30-overview' && heroHasPlayed) {
         resetVideo(video);
         revealHeroPoster();
+        setHeroComplete(true);
         setHeroTone(true);
         return;
       }
 
       if (restart) resetVideo(video);
       video.classList.add('is-playing');
-      layer.classList.add('has-active-video');
-      video.play().catch(() => {
-        layer.classList.add('is-video-failed');
-        layer.classList.remove('has-active-video');
-        video.classList.remove('is-playing', 'is-paused');
-        if (activeId === 'pimm30-overview') {
-          heroHasPlayed = true;
-          revealHeroPoster();
-          setHeroTone(true);
-        }
-      });
+      video.play()
+        .then(() => {
+          if (activeVideo === video && !video.paused) layer.classList.add('has-active-video');
+        })
+        .catch(() => {
+          layer.classList.add('is-video-failed');
+          layer.classList.remove('has-active-video');
+          video.classList.remove('is-playing', 'is-paused');
+          if (activeId === 'pimm30-overview') {
+            heroHasPlayed = true;
+            revealHeroPoster();
+            setHeroComplete(true);
+            setHeroTone(true);
+          }
+        });
     }
 
     function syncResponsiveVideo() {
@@ -203,6 +364,7 @@
       if (previousId === 'pimm30-overview' && chapterId !== 'pimm30-overview') {
         heroHasPlayed = true;
         revealHeroPoster();
+        setHeroComplete(true);
         completeSpecCounts();
         setHeroTone(true);
       }
@@ -216,7 +378,9 @@
         const active = id === chapterId;
         layer.classList.toggle('is-active', active);
         layer.setAttribute('aria-hidden', String(!active));
-        if (layer.matches('[data-pimm30-turntable]')) layer.tabIndex = active ? 0 : -1;
+        if (layer.matches('[data-pimm30-turntable]')) {
+          layer.tabIndex = active && layer.classList.contains('is-turntable-ready') ? 0 : -1;
+        }
         if (!active) {
           const video = visibleVideo(layer);
           if (video) resetVideo(video);
@@ -228,16 +392,24 @@
     }
 
     story.querySelectorAll('[data-pimm30-video]').forEach((video) => {
-      video.addEventListener('timeupdate', () => {
-        if (video !== activeVideo || activeId !== 'pimm30-overview' || heroHasPlayed) return;
-        setHeroTone(video.currentTime >= lightMilestone);
-      });
       video.addEventListener('ended', () => {
         const layer = video.closest('[data-pimm30-layer]');
-        if (layer && layer.matches('[data-pimm30-turntable]')) {
+        const holdsFinalFrame = layer && (
+          layer.matches('[data-pimm30-turntable]') ||
+          layer.dataset.pimm30Layer === 'pimm30-overview'
+        );
+        if (holdsFinalFrame) {
           video.classList.remove('is-playing');
           video.classList.add('is-paused');
-          layer.classList.add('has-active-video', 'is-turntable-ready');
+          layer.classList.add('has-active-video');
+          if (layer.matches('[data-pimm30-turntable]')) {
+            video.currentTime = (65 / 24 + 101 / 24) / 2;
+            if (layer.dataset.pimm30PreviewComplete === 'true') {
+              layer.classList.add('is-turntable-ready');
+              layer.removeAttribute('aria-disabled');
+              if (layer.classList.contains('is-active')) layer.tabIndex = 0;
+            }
+          }
         } else {
           video.classList.remove('is-playing', 'is-paused');
           if (layer) layer.classList.remove('has-active-video');
@@ -245,6 +417,7 @@
         if (activeId === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
+          setHeroComplete(true);
           setHeroTone(true);
         }
       });
@@ -258,6 +431,7 @@
         if (layer && layer.dataset.pimm30Layer === 'pimm30-overview') {
           heroHasPlayed = true;
           revealHeroPoster();
+          setHeroComplete(true);
           setHeroTone(true);
         }
       });
@@ -275,48 +449,8 @@
       let rotationProgress = 0.5;
       let pendingTime = null;
       let scrubFrame = 0;
-      let seekableSourcePromise = null;
       const rotationStartTime = 65 / 24;
       const rotationEndTime = 101 / 24;
-
-      const prepareSeekableVideo = () => {
-        if (video.currentSrc.startsWith('blob:')) return Promise.resolve(true);
-        if (seekableSourcePromise) return seekableSourcePromise;
-
-        const sourceUrl = video.currentSrc || video.querySelector('source')?.src;
-        if (!sourceUrl) return Promise.resolve(false);
-
-        seekableSourcePromise = fetch(sourceUrl, { cache: 'force-cache' })
-          .then((response) => {
-            if (!response.ok) throw new Error(`Turntable media request failed: ${response.status}`);
-            return response.blob();
-          })
-          .then((blob) => URL.createObjectURL(blob))
-          .then((objectUrl) => new Promise((resolve) => {
-            const resumeTime = video.currentTime;
-            const resumePlayback = !video.paused && !video.ended;
-            const handleMetadata = () => {
-              const finalFrameTime = Math.max(0, video.duration - 1 / 24);
-              video.currentTime = Math.min(resumeTime, finalFrameTime);
-              turntable.dataset.pimm30Seekable = 'true';
-              if (resumePlayback) video.play().catch(() => {});
-              resolve(true);
-            };
-
-            video.addEventListener('loadedmetadata', handleMetadata, { once: true });
-            video.src = objectUrl;
-            video.load();
-            window.addEventListener('pagehide', () => URL.revokeObjectURL(objectUrl), { once: true });
-          }))
-          .catch(() => {
-            turntable.dataset.pimm30Seekable = 'false';
-            return false;
-          });
-
-        return seekableSourcePromise;
-      };
-
-      video.addEventListener('playing', prepareSeekableVideo, { once: true });
 
       const progressPerPixel = () => 1 / Math.max(turntable.clientWidth, 720);
 
@@ -343,6 +477,7 @@
       };
 
       turntable.addEventListener('pointerdown', (event) => {
+        if (!turntable.classList.contains('is-turntable-ready')) return;
         if (event.pointerType === 'mouse' && event.button !== 0) return;
         dragging = true;
         dragStartX = event.clientX;
@@ -377,6 +512,7 @@
       turntable.addEventListener('pointercancel', stopDragging);
 
       turntable.addEventListener('keydown', (event) => {
+        if (!turntable.classList.contains('is-turntable-ready')) return;
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         event.preventDefault();
         showInteractiveFrame();
@@ -394,16 +530,24 @@
       let pendingChapterId = '';
       let pendingChapterFrame = 0;
       let pendingChapterToken = 0;
+      const chapterActivationLine = () => {
+        const scrollPaddingTop = Number.parseFloat(
+          window.getComputedStyle(document.documentElement).scrollPaddingTop
+        );
+        return Number.isFinite(scrollPaddingTop) ? scrollPaddingTop : 0;
+      };
       const selectVisibleChapter = () => {
         chapterFrame = 0;
         if (pendingChapterId) return;
 
         // Keep the stage on the current chapter until the next chapter has
-        // reached the top of the viewport. Switching at the midpoint leaves
-        // the old chapter copy over the new media during a free scroll.
+        // reached the document's snap activation line below the fixed header.
+        // Switching at the midpoint leaves old copy over new media during a
+        // free scroll.
+        const activationLine = chapterActivationLine();
         const nextChapter = chapters.find((chapter) => {
           const rect = chapter.getBoundingClientRect();
-          return rect.top <= 8 && rect.bottom > 8;
+          return rect.top <= activationLine + 8 && rect.bottom > activationLine + 8;
         });
         const nextId = nextChapter && nextChapter.dataset.pimm30Chapter;
         if (nextId && nextId !== activeId) activate(nextId, true);
@@ -448,9 +592,11 @@
       const settleChapterTransition = (chapter, chapterId, token, startedAt) => {
         if (token !== pendingChapterToken || pendingChapterId !== chapterId) return;
 
-        const distanceFromTop = Math.abs(chapter.getBoundingClientRect().top);
+        const distanceFromActivationLine = Math.abs(
+          chapter.getBoundingClientRect().top - chapterActivationLine()
+        );
         const timedOut = performance.now() - startedAt >= 1400;
-        if (distanceFromTop <= 8 || timedOut) {
+        if (distanceFromActivationLine <= 8 || timedOut) {
           pendingChapterFrame = 0;
           pendingChapterId = '';
           gestureLocked = false;
@@ -458,7 +604,7 @@
           // If the browser interrupted smooth scrolling, let the regular
           // selector choose the chapter actually under the viewport instead
           // of switching the stage to a destination that was never reached.
-          if (distanceFromTop <= 8) activate(chapterId, true);
+          if (distanceFromActivationLine <= 8) activate(chapterId, true);
           queueChapterSelection();
           return;
         }
@@ -548,10 +694,12 @@
     if (reduced || !initialHeroVideo || activeId !== 'pimm30-overview') {
       heroHasPlayed = true;
       revealHeroPoster();
+      setHeroComplete(true);
       completeSpecCounts();
       setHeroTone(true);
     } else {
       setSpecCounts(0);
+      setHeroComplete(false);
       setHeroTone(false);
     }
     activate(activeId, true);

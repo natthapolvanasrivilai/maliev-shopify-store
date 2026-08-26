@@ -12,42 +12,5 @@
   "context": {
     "market": "thailand"
   },
-  "sections": {
-    "main": {
-      "blocks": {
-        "custom_liquid_THGrri": {
-          "settings": {
-            "custom_liquid": "{% if product.metafields.custom.lead_time != blank %}\n\t<p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">{{ product.metafields.custom.lead_time }} วัน</span></p>\n{% else %}\n\t<p class=\"leadtime\">ระยะเวลาผลิต: <span class=\"leadtime_duration\">1 วัน</span></p>\n{% endif %}"
-          }
-        }
-      }
-    },
-    "related-products": {
-      "settings": {
-        "heading": "<strong>สินค้าแนะนำเพิ่มเติม</strong>"
-      }
-    },
-    "multicolumn_RtD7RH": {
-      "blocks": {
-        "column_bL4aVi": {
-          "settings": {
-            "title": "<strong>ทีมงานอยู่ในประเทศไทย</strong>",
-            "text": "<p>ทีมงานของเราอยู่ที่ <strong>นนทบุรี ประเทศไทย</strong> ดูแลการซัพพอร์ต การจัดส่ง และการพัฒนาสินค้าจากสำนักงานใหญ่</p>"
-          }
-        },
-        "column_CKCz3M": {
-          "settings": {
-            "title": "<strong>ซัพพอร์ตออนไลน์</strong>",
-            "text": "<p>ติดต่อเราผ่าน LINE Official Account <a href=\"http://line.me/ti/p/@maliev\" target=\"_blank\" title=\"เพิ่มเพื่อน LINE Official Account\">@maliev</a> เพื่อสอบถามเรื่องแม่พิมพ์ วัสดุ หรือการเลือกรุ่นเครื่อง</p>"
-          }
-        },
-        "column_k4Tjrj": {
-          "settings": {
-            "title": "<strong>ชำระเงินปลอดภัย</strong>",
-            "text": "<p>รองรับการชำระเงินผ่าน Opn Payment รวมถึงบัตรเครดิต/เดบิต ShopeePay LINE Pay QR PromptPay และช่องทางอื่น ๆ</p>"
-          }
-        }
-      }
-    }
-  }
+  "sections": {}
 }

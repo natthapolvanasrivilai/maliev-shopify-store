@@ -11,6 +11,7 @@
 {%- liquid
   assign desktop_poster_url = blank
   assign mobile_poster_url = blank
+  assign stage_poster_url = blank
   assign poster_width = 2400
   assign poster_loading = 'lazy'
 
@@ -30,6 +31,14 @@
     assign mobile_poster_url = block.settings.mobile_poster_asset | asset_url
   else
     assign mobile_poster_url = desktop_poster_url
+  endif
+
+  # Keep the default poster aligned with the wide desktop source. The picture's
+  # mobile source still art-directs portrait screens, while the img fallback
+  # must not paint a portrait canvas into a landscape hero column.
+  assign stage_poster_url = desktop_poster_url
+  if stage_poster_url == blank
+    assign stage_poster_url = mobile_poster_url
   endif
 
   assign has_desktop_video = false
@@ -56,7 +65,7 @@
 
 {%- if mode == 'static' -%}
   <picture class="pimm30-chapter-media pimm30-chapter-media--static">
-    {%- if mobile_poster_url != blank -%}<source media="(max-width: 699px)" srcset="{{ mobile_poster_url }}">{%- endif -%}
+    {%- if mobile_poster_url != blank -%}<source media="(max-width: 539px), (max-aspect-ratio: 6/5)" srcset="{{ mobile_poster_url }}">{%- endif -%}
     {%- if desktop_poster_url != blank -%}
       <img src="{{ desktop_poster_url }}" alt="{{ media_alt | escape }}" loading="{{ poster_loading }}" width="1800" height="2200">
     {%- endif -%}
@@ -68,15 +77,16 @@
     {% if block.settings.role == 'configuration' %}
       data-pimm30-turntable
       role="group"
-      tabindex="0"
+      tabindex="-1"
+      aria-disabled="true"
       aria-label="{{ media_alt | escape }}. {% if localization.language.iso_code contains 'th' %}ลากไปทางซ้ายหรือขวาเพื่อหมุนดูเครื่อง{% else %}Drag left or right to rotate the machine{% endif %}."
     {% endif %}
     aria-hidden="{% if eager %}false{% else %}true{% endif %}"
   >
     <picture class="pimm30-stage__poster">
-      {%- if mobile_poster_url != blank -%}<source media="(max-width: 699px)" srcset="{{ mobile_poster_url }}">{%- endif -%}
-      {%- if desktop_poster_url != blank -%}
-        <img src="{{ desktop_poster_url }}" alt="{{ media_alt | escape }}" loading="{{ poster_loading }}" width="1800" height="2200">
+      {%- if mobile_poster_url != blank -%}<source media="(max-width: 539px), (max-aspect-ratio: 6/5)" srcset="{{ mobile_poster_url }}">{%- endif -%}
+      {%- if stage_poster_url != blank -%}
+        <img src="{{ stage_poster_url }}" alt="{{ media_alt | escape }}" loading="{{ poster_loading }}" width="1800" height="2200">
       {%- endif -%}
     </picture>
 
@@ -120,7 +130,8 @@
 
     {%- if block.settings.role == 'configuration' -%}
       <span class="pimm30-stage__turntable-hint" aria-hidden="true">
-        {% if localization.language.iso_code contains 'th' %}ลากเพื่อหมุนดูเครื่อง{% else %}Drag to rotate{% endif %}
+        <span class="pimm30-stage__turntable-preview-label">{% if localization.language.iso_code contains 'th' %}กำลังแสดงมุมรอบเครื่อง{% else %}Previewing machine{% endif %}</span>
+        <span class="pimm30-stage__turntable-ready-label">{% if localization.language.iso_code contains 'th' %}ลากเพื่อหมุนดูเครื่อง{% else %}Drag to rotate{% endif %}</span>
       </span>
     {%- endif -%}
   </figure>

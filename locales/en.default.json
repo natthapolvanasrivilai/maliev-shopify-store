@@ -186,9 +186,9 @@
           "eyebrow": "Direct operation",
           "heading": "Air driven, switched by hand.",
           "body": "A pneumatic toggle switch controls the injection action. The machine requires a suitable compressed-air supply, available separately or with the optional PUMA 25L compressor variant.",
-          "metric": "Pneumatic",
-          "metric_label": "Injection control system",
-          "media_alt": "Pneumatic toggle switch and blue air line on the PIMM 30G"
+          "metric": "200 mm",
+          "metric_label": "Injection stroke",
+          "media_alt": "Hand valve toggling between retract and extend while the PIMM 30G injection plunger travels its full 200-millimetre stroke"
         },
         "regulator": {
           "nav": "Pressure regulator",
