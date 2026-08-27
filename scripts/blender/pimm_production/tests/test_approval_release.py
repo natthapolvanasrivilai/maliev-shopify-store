@@ -1152,6 +1152,37 @@ def _declare_fake_zip_compression(path: Path) -> None:
 
 
 class ApprovalReleaseTests(unittest.TestCase):
+    def test_native_animation_state_ignores_only_factory_startup_addon_metadata(self) -> None:
+        """Catches harmless Poliigon normalization hiding any real object-state drift."""
+
+        expected = _approved_component_authored_state()
+        for obj in expected["objects"]:
+            obj.setdefault("properties", {})
+        expected["objects"][0]["transform"] = {"location": [0.0, 0.0, 0.0]}
+        live = copy.deepcopy(expected)
+        for obj in expected["objects"]:
+            obj["properties"]["poliigon"] = "addon-runtime"
+            obj["properties"]["poliigon_lod"] = "LOD0"
+
+        self.assertEqual(
+            final_module._animation_state_sha256(expected, None),
+            final_module._animation_state_sha256(live, None),
+        )
+
+        transform_drift = copy.deepcopy(live)
+        transform_drift["objects"][0]["transform"]["location"][0] += 1.0
+        self.assertNotEqual(
+            final_module._animation_state_sha256(expected, None),
+            final_module._animation_state_sha256(transform_drift, None),
+        )
+
+        property_drift = copy.deepcopy(live)
+        property_drift["objects"][0].setdefault("properties", {})["unexpected"] = True
+        self.assertNotEqual(
+            final_module._animation_state_sha256(expected, None),
+            final_module._animation_state_sha256(property_drift, None),
+        )
+
     def test_static_scene_hdri_external_dependency_requires_exact_evidence(self) -> None:
         """Catches any external image except the one proof-bound governed studio HDRI."""
 

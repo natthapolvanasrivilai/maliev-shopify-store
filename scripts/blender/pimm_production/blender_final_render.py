@@ -544,6 +544,31 @@ def _live_state_hashes(
     }
 
 
+def _animation_state_sha256(
+    authored: Mapping[str, object], animation_contract: object
+) -> str:
+    """Hash animation-relevant object state without two factory-startup addon caches."""
+
+    raw_objects = authored.get("objects")
+    if not isinstance(raw_objects, list):
+        raise ValueError("native animation state objects must be a list")
+    objects: list[dict[str, object]] = []
+    for index, raw_object in enumerate(raw_objects):
+        obj = dict(_mapping(raw_object, f"native animation object {index}"))
+        properties = obj.get("properties")
+        if isinstance(properties, Mapping):
+            obj["properties"] = {
+                key: value
+                for key, value in properties.items()
+                if key not in {"poliigon", "poliigon_lod"}
+            }
+        objects.append(obj)
+    return canonical_json_sha256({
+        "animation_contract": animation_contract,
+        "objects": objects,
+    })
+
+
 def _owned_identity(path: Path) -> dict[str, object]:
     status = os.stat(path, follow_symlinks=False)
     return {
@@ -728,11 +753,22 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             )
             if live_component_contract != approved_component_contract:
                 raise ValueError("native component identities drifted from approved scene/machine")
-            live_hashes = _live_state_hashes(authored, scene_contract.get("animation_contract"))
+            animation_contract = scene_contract.get("animation_contract")
+            live_hashes = _live_state_hashes(authored, animation_contract)
             expected_settings = _mapping(final.get("render_settings"), "final render settings")
             for field, actual in live_hashes.items():
+                if field == "animation_sha256":
+                    continue
                 if expected_settings.get(field) != actual:
                     raise ValueError(f"native current {field.replace('_sha256', '')} state drift")
+            approved_before = _mapping(
+                approved_authored_settings.get("before"),
+                "approved authored settings before",
+            )
+            if _animation_state_sha256(
+                approved_before, animation_contract
+            ) != _animation_state_sha256(authored, animation_contract):
+                raise ValueError("native current animation state drift")
             _validate_rgba(png, dimensions)
             from PIL import Image
             with Image.open(png) as image:
