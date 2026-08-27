@@ -1,0 +1,55 @@
+{% doc %}
+  Renders the single contained engineering bento and its validated specifications.
+
+  @param {block} selected_model_block - The matching model media block.
+  @param {object} specifications - The validated versioned specifications object.
+  @param {boolean} model_contract_valid - Whether commerce and presentation data agree.
+  @param {section} section - The owning machine-product section.
+{% enddoc %}
+
+{%- liquid
+  assign engineering_alt = selected_model_block.settings.engineering_alt_en
+  if request.locale.iso_code contains 'th'
+    assign engineering_alt = selected_model_block.settings.engineering_alt_th
+  endif
+-%}
+
+<section class="pimm-machine__engineering" data-pimm-engineering-bento aria-labelledby="PimmMachineEngineering-{{ section.id }}">
+  <header class="pimm-machine__engineering-intro">
+    <h2 id="PimmMachineEngineering-{{ section.id }}">{{ 'products.pimm30_story.identity' | t }}</h2>
+    <p>{{ 'products.pimm30_story.chapters.regulator.body' | t }}</p>
+  </header>
+
+  {%- if model_contract_valid -%}
+    <figure class="pimm-machine__engineering-media">
+      <img
+        src="{{ selected_model_block.settings.engineering_asset | asset_url }}"
+        alt="{{ engineering_alt | escape }}"
+        width="1600"
+        height="1600"
+        loading="lazy"
+      >
+    </figure>
+
+    <dl class="pimm-machine__specifications" data-pimm-specifications>
+      <div>
+        <dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt>
+        <dd>{{ specifications.shot_capacity_g }} g</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt>
+        <dd>{{ specifications.max_melt_temperature_c }} °C</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt>
+        <dd>{{ specifications.max_air_pressure_mpa }} MPa</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.pimm30_story.chapters.fixture.eyebrow' | t }}</dt>
+        <dd>{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }} mm</dd>
+      </div>
+    </dl>
+  {%- else -%}
+    <p role="status">{{ 'products.product.unavailable' | t }}</p>
+  {%- endif -%}
+</section>

@@ -1,0 +1,216 @@
+{%- liquid
+  assign selected_variant = product.selected_or_first_available_variant
+  assign selected_model_code = selected_variant.option1 | strip
+  assign selected_model_block = nil
+  assign model_block_match_count = 0
+
+  for block in section.blocks
+    if block.type == 'model' and block.settings.model_code == selected_model_code
+      assign model_block_match_count = model_block_match_count | plus: 1
+      if selected_model_block == nil
+        assign selected_model_block = block
+      endif
+    endif
+  endfor
+
+  assign specifications = selected_variant.metafields.custom.pimm_specifications.value
+  assign full_price = selected_variant.metafields.custom.full_machine_price.value
+  assign lead_time = selected_variant.metafields.custom.lead_time_days.value
+  assign model_contract_valid = false
+
+  if selected_model_code == '30G' or selected_model_code == '50G'
+    if selected_model_block != blank and model_block_match_count == 1 and specifications != blank
+      if specifications.schema_version == 1 and specifications.model == selected_model_code
+        if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
+          if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
+            if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
+              if full_price != blank and lead_time > 0
+                assign model_contract_valid = true
+              endif
+            endif
+          endif
+        endif
+      endif
+    endif
+  endif
+
+  assign use_thai_alt = false
+  if request.locale.iso_code contains 'th'
+    assign use_thai_alt = true
+  endif
+
+  assign hero_alt = selected_model_block.settings.hero_alt_en
+  assign overview_alt = selected_model_block.settings.overview_alt_en
+  assign tooling_alt = selected_model_block.settings.tooling_alt_en
+  if use_thai_alt
+    assign hero_alt = selected_model_block.settings.hero_alt_th
+    assign overview_alt = selected_model_block.settings.overview_alt_th
+    assign tooling_alt = selected_model_block.settings.tooling_alt_th
+  endif
+
+  assign product_form_id = 'PimmMachineProductForm-' | append: section.id
+-%}
+
+<product-form data-section-id="{{ section.id }}">
+  <div class="product-form__error-message-wrapper" role="alert" hidden>
+    <span class="product-form__error-message"></span>
+  </div>
+
+  {%- form 'product', product, id: product_form_id, novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+    <pimm-machine-product
+      class="pimm-machine"
+      data-pimm-machine-product
+      data-section-id="{{ section.id }}"
+      data-model-contract-valid="{{ model_contract_valid }}"
+    >
+      <section class="pimm-machine__hero" aria-labelledby="PimmMachineTitle-{{ section.id }}">
+        <div class="pimm-machine__hero-copy">
+          <h1 id="PimmMachineTitle-{{ section.id }}">{{ product.title | escape }}</h1>
+          {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
+        </div>
+
+        {%- if model_contract_valid -%}
+          <figure class="pimm-machine__hero-media" data-pimm-hero-media {{ selected_model_block.shopify_attributes }}>
+            <img
+              src="{{ selected_model_block.settings.hero_asset | asset_url }}"
+              alt="{{ hero_alt | escape }}"
+              width="1600"
+              height="1600"
+              loading="eager"
+              fetchpriority="high"
+            >
+          </figure>
+        {%- endif -%}
+      </section>
+
+      <section class="pimm-machine__fit" aria-labelledby="PimmMachineFit-{{ section.id }}" data-pimm-fit>
+        <div class="pimm-machine__prose">
+          <h2 id="PimmMachineFit-{{ section.id }}">{{ 'maliev_home_i18n.featured.title' | t }}</h2>
+          <p>{{ 'maliev_home_i18n.featured.text' | t }}</p>
+        </div>
+        {%- if model_contract_valid -%}
+          <figure class="pimm-machine__figure">
+            <img
+              src="{{ selected_model_block.settings.overview_asset | asset_url }}"
+              alt="{{ overview_alt | escape }}"
+              width="1600"
+              height="1600"
+              loading="lazy"
+            >
+          </figure>
+        {%- endif -%}
+      </section>
+
+      {% render 'pimm-engineering-bento',
+        selected_model_block: selected_model_block,
+        specifications: specifications,
+        model_contract_valid: model_contract_valid,
+        section: section
+      %}
+
+      <section class="pimm-machine__tooling" aria-labelledby="PimmMachineTooling-{{ section.id }}" data-pimm-tooling>
+        {%- if model_contract_valid -%}
+          <figure class="pimm-machine__figure">
+            <img
+              src="{{ selected_model_block.settings.tooling_asset | asset_url }}"
+              alt="{{ tooling_alt | escape }}"
+              width="1600"
+              height="1600"
+              loading="lazy"
+            >
+          </figure>
+        {%- endif -%}
+        <div class="pimm-machine__prose">
+          <h2 id="PimmMachineTooling-{{ section.id }}">{{ 'products.pimm30_story.chapters.fixture.heading' | t }}</h2>
+          <p>{{ 'products.pimm30_story.chapters.fixture.body' | t }}</p>
+        </div>
+      </section>
+
+      {% render 'pimm-ownership', section: section %}
+      {% render 'pimm-purchase-qualification',
+        selected_variant: selected_variant,
+        full_price: full_price,
+        lead_time: lead_time,
+        model_contract_valid: model_contract_valid,
+        section: section
+      %}
+    </pimm-machine-product>
+  {%- endform -%}
+</product-form>
+
+{%- assign app_blocks = section.blocks | where: 'type', '@app' -%}
+{%- if app_blocks.size > 0 -%}
+  <aside class="pimm-machine__app-integrations" data-pimm-app-integrations aria-label="{{ 'maliev_home_i18n.aria.buying_workflow' | t }}">
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when '@app' -%}
+          <div class="pimm-machine__app-block" {{ block.shopify_attributes }}>{% render block %}</div>
+      {%- endcase -%}
+    {%- endfor -%}
+  </aside>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "PIMM machine product",
+  "tag": "section",
+  "class": "section-pimm-machine-product",
+  "max_blocks": 6,
+  "settings": [
+    {
+      "type": "url",
+      "id": "factory_visit_url",
+      "label": "Factory visit URL"
+    },
+    {
+      "type": "url",
+      "id": "document_url",
+      "label": "Documentation URL"
+    },
+    {
+      "type": "url",
+      "id": "support_url",
+      "label": "Support URL"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "model",
+      "name": "Machine model",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "select",
+          "id": "model_code",
+          "label": "Model",
+          "options": [
+            { "value": "30G", "label": "30G" },
+            { "value": "50G", "label": "50G" }
+          ],
+          "default": "30G"
+        },
+        { "type": "text", "id": "hero_asset", "label": "Hero asset filename" },
+        { "type": "text", "id": "overview_asset", "label": "Overview asset filename" },
+        { "type": "text", "id": "engineering_asset", "label": "Engineering asset filename" },
+        { "type": "text", "id": "tooling_asset", "label": "Tooling asset filename" },
+        { "type": "text", "id": "hero_alt_en", "label": "Hero alt text — English" },
+        { "type": "text", "id": "hero_alt_th", "label": "Hero alt text — Thai" },
+        { "type": "text", "id": "overview_alt_en", "label": "Overview alt text — English" },
+        { "type": "text", "id": "overview_alt_th", "label": "Overview alt text — Thai" },
+        { "type": "text", "id": "engineering_alt_en", "label": "Engineering alt text — English" },
+        { "type": "text", "id": "engineering_alt_th", "label": "Engineering alt text — Thai" },
+        { "type": "text", "id": "tooling_alt_en", "label": "Tooling alt text — English" },
+        { "type": "text", "id": "tooling_alt_th", "label": "Tooling alt text — Thai" }
+      ]
+    },
+    {
+      "type": "@app"
+    }
+  ],
+  "presets": [
+    {
+      "name": "PIMM machine product"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,57 @@
+{% doc %}
+  Renders qualification copy, the primary factory-visit link and secondary deposit submit.
+
+  @param {object} selected_variant - The selected Shopify variant.
+  @param {object} full_price - The selected variant's full-price money value.
+  @param {string} lead_time - The selected variant's production lead time.
+  @param {boolean} model_contract_valid - Whether deposit submission is safe.
+  @param {section} section - The owning machine-product section.
+{% enddoc %}
+
+{%- liquid
+  assign factory_visit_url = section.settings.factory_visit_url
+  if factory_visit_url == blank
+    assign factory_visit_url = routes.root_url | append: 'pages/contact'
+  endif
+-%}
+
+<section class="pimm-machine__purchase" data-pimm-purchase-qualification aria-labelledby="PimmMachinePurchase-{{ section.id }}">
+  <div class="pimm-machine__purchase-copy">
+    <h2 id="PimmMachinePurchase-{{ section.id }}">{{ 'templates.contact.form.demo_title' | t }}</h2>
+    <p>{{ 'templates.contact.form.demo_intro' | t }}</p>
+  </div>
+
+  {%- if model_contract_valid -%}
+    <dl class="pimm-machine__purchase-summary" data-pimm-purchase-summary>
+      <div>
+        <dt>{{ 'products.product.price.regular_price' | t }}</dt>
+        <dd>{{ full_price.amount | times: 100 | money_with_currency }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.product.price.sale_price' | t }}</dt>
+        <dd>{{ selected_variant.price | money_with_currency }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.pimm30_story.next_model.made_to_order' | t }}</dt>
+        <dd>{{ 'products.pimm30_story.next_model.lead_time' | t: days: lead_time }}</dd>
+      </div>
+    </dl>
+  {%- else -%}
+    <p class="pimm-machine__contract-message" role="status">{{ 'products.product.unavailable' | t }}</p>
+  {%- endif -%}
+
+  <div class="pimm-machine__actions">
+    <a class="button button--primary" href="{{ factory_visit_url }}" data-pimm-book-visit>
+      {{ 'products.pimm30_story.book_visit' | t }}
+    </a>
+    <button
+      class="button button--secondary"
+      type="submit"
+      name="add"
+      data-pimm-deposit-action
+      {% unless model_contract_valid and selected_variant.available %}disabled{% endunless %}
+    >
+      {{ 'products.product.add_to_cart' | t }}
+    </button>
+  </div>
+</section>

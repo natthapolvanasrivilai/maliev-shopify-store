@@ -1,0 +1,30 @@
+{% doc %}
+  Renders the native 30G/50G variant selector for the unified PIMM product form.
+
+  @param {product} product - The unified PIMM product.
+  @param {object} selected_variant - The initially selected Shopify variant.
+  @param {section} section - The owning machine-product section.
+{% enddoc %}
+
+<fieldset class="pimm-machine__model-selector" data-pimm-model-selector>
+  <legend>{{ 'maliev_home_i18n.featured.compare_lineup' | t }}</legend>
+  <div class="pimm-machine__model-options">
+    {%- for variant in product.variants -%}
+      {%- if variant.option1 == '30G' or variant.option1 == '50G' -%}
+        <label class="pimm-machine__model-option" for="PimmModel-{{ section.id }}-{{ variant.id }}">
+          <input
+            id="PimmModel-{{ section.id }}-{{ variant.id }}"
+            type="radio"
+            name="id"
+            value="{{ variant.id }}"
+            data-pimm-model-option
+            data-model-code="{{ variant.option1 | escape }}"
+            {% if variant.id == selected_variant.id %}checked{% endif %}
+          >
+          <span>{{ variant.option1 | escape }}</span>
+          <span>{{ variant.price | money_with_currency }}</span>
+        </label>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+</fieldset>
