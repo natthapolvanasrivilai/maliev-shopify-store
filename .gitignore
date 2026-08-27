@@ -3,6 +3,7 @@
 !.env.example
 .shopify/
 .worktrees/
+/.codex-tmp/
 node_modules/
 npm-debug.log*
 theme-check-results.json
