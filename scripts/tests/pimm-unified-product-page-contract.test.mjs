@@ -65,12 +65,17 @@ const variantFixture = ({ model, id, available = true, contractValid = true }) =
     max_air_pressure_mpa: 0.7,
   },
   media: {
-    hero: { src: `https://cdn.example.test/${model}/hero.webp`, alt: `${model} machine front view` },
-    overview: { src: `https://cdn.example.test/${model}/overview.webp`, alt: `${model} machine overview` },
-    engineering: { src: `https://cdn.example.test/${model}/engineering.webp`, alt: `${model} engineering detail` },
-    tooling: { src: `https://cdn.example.test/${model}/tooling.webp`, alt: `${model} tooling detail` },
+    hero: { src: `https://cdn.example.test/${model}/hero.webp`, alt: `${model} machine front view`, width: 1800, height: 2200 },
+    overview: { src: `https://cdn.example.test/${model}/overview.webp`, alt: `${model} machine overview`, width: 2400, height: 1800 },
+    engineering: { src: `https://cdn.example.test/${model}/engineering.webp`, alt: `${model} engineering detail`, width: 2400, height: 1800 },
+    tooling: { src: `https://cdn.example.test/${model}/tooling.webp`, alt: `${model} tooling detail`, width: 2400, height: 1800 },
   },
   statusText: available && contractValid ? 'Made to order' : available ? 'Unavailable' : 'Out of stock',
+  announcementText: available && contractValid
+    ? `Made to order. Deposit price: ${model === '30G' ? 'THB 49,500.00' : 'THB 79,439.25'}`
+    : available
+      ? 'Unavailable'
+      : `Out of stock. Deposit price: ${model === '30G' ? 'THB 49,500.00' : 'THB 79,439.25'}`,
   contractValid,
 });
 
@@ -89,13 +94,29 @@ const createControllerHarness = (variants) => {
     },
     window: {
       location: { href: 'https://shop.example.test/products/pimm' },
+      matchMedia: () => ({ matches: false }),
       history: {
         replaceState(_state, _title, url) {
           browser.window.location.href = String(url);
         },
       },
     },
+    requestAnimationFrame(callback) {
+      callback();
+      return 1;
+    },
+    cancelAnimationFrame() {},
   };
+
+  const pendingTimers = new Map();
+  let nextTimerId = 1;
+  browser.window.setTimeout = (callback) => {
+    const timerId = nextTimerId;
+    nextTimerId += 1;
+    pendingTimers.set(timerId, callback);
+    return timerId;
+  };
+  browser.window.clearTimeout = (timerId) => pendingTimers.delete(timerId);
 
   vm.runInNewContext(js, browser);
   assert.ok(Controller, 'controller must register the pimm-machine-product custom element');
@@ -109,13 +130,14 @@ const createControllerHarness = (variants) => {
     textContent: '',
   }));
   const selected = { textContent: '' };
-  const status = { textContent: '' };
+  const status = { textContent: variants[0]?.announcementText ?? '' };
   const deposit = { disabled: false };
   const factoryVisit = { href: '/pages/contact' };
   const radios = variants.map((variant, index) => ({ value: String(variant.id), checked: index === 0 }));
   const mediaGroups = variants.flatMap((variant) =>
     ['hero', 'overview', 'engineering', 'tooling'].map((slot) => {
       const image = {
+        dataset: { pimmMediaSlot: slot },
         src: variant.media[slot].src,
         alt: variant.media[slot].alt,
         decodeCount: 0,
@@ -126,9 +148,12 @@ const createControllerHarness = (variants) => {
       };
 
       return {
-        dataset: { pimmMediaModel: variant.model, pimmMediaSlot: slot },
-        hidden: false,
-        ariaHidden: 'false',
+        dataset: slot === 'hero'
+          ? { pimmMediaModel: variant.model, pimmMediaSlot: slot }
+          : { pimmMediaModel: variant.model },
+        hidden: variant !== variants[0],
+        ariaHidden: String(variant !== variants[0]),
+        inert: variant !== variants[0],
         image,
         querySelector(selector) {
           return selector === 'img' ? image : null;
@@ -179,6 +204,10 @@ const createControllerHarness = (variants) => {
     specificationNodes,
     specificationUnits,
     browser,
+    flushTimers() {
+      for (const callback of [...pendingTimers.values()]) callback();
+      pendingTimers.clear();
+    },
   };
 };
 
@@ -358,7 +387,46 @@ test('one asymmetric engineering bento exposes stable model media and semantic s
   assert.match(renderedContract, /data-pimm-media-model="\{\{ block\.settings\.model_code \}\}"/);
   assert.match(renderedContract, /aria-hidden="\{%-? if media_is_selected/);
   assert.match(renderedContract, /unless media_is_selected[^]*hidden/);
-  assert.doesNotMatch(renderedContract, /<img(?![^>]*width="1600"[^>]*height="1600")[^>]*data-pimm-media-slot/s);
+  assert.match(section, /width="1800"[\s\S]*height="2200"[\s\S]*data-pimm-media-image/);
+  for (const slot of ['overview', 'tooling']) {
+    assert.match(section, new RegExp(`assign block_${slot}_width = 2400[\\s\\S]*assign block_${slot}_height = 1800`));
+    assert.match(section, new RegExp(`width="\\{\\{ block_${slot}_width \\}\\}"[\\s\\S]*height="\\{\\{ block_${slot}_height \\}\\}"[\\s\\S]*data-pimm-media-slot="${slot}"`));
+  }
+  assert.match(bento, /assign block_engineering_width = 2400[\s\S]*assign block_engineering_height = 1800/);
+  assert.match(bento, /width="\{\{ block_engineering_width \}\}"[\s\S]*height="\{\{ block_engineering_height \}\}"[\s\S]*data-pimm-media-slot="engineering"/);
+});
+
+test('missing non-hero media resolves to the selected model hero without invalidating commerce', () => {
+  assert.match(section, /if selected_model_block\.settings\.hero_asset != blank[\s\S]*assign model_contract_valid = true/);
+  assert.doesNotMatch(section, /settings\.hero_asset != blank and selected_model_block\.settings\.overview_asset != blank/);
+  for (const slot of ['overview', 'engineering', 'tooling']) {
+    assert.match(section, new RegExp(`if variant_${slot}_url == blank[\\s\\S]*assign variant_${slot}_url = variant_hero_url[\\s\\S]*assign variant_${slot}_alt = variant_hero_alt`));
+  }
+  assert.match(section, /assign variant_hero_width = 1800[\s\S]*assign variant_hero_height = 2200/);
+  for (const slot of ['overview', 'engineering', 'tooling']) {
+    assert.match(section, new RegExp(`assign variant_${slot}_width = 2400[\\s\\S]*assign variant_${slot}_height = 1800`));
+  }
+  assert.equal((variantPayloadSource.match(/"width": \{\{ variant_[a-z]+_width \| json \}\}/g) ?? []).length, 4);
+  assert.equal((variantPayloadSource.match(/"height": \{\{ variant_[a-z]+_height \| json \}\}/g) ?? []).length, 4);
+  assert.match(js, /resolveMedia\(variant\)/);
+  assert.match(js, /resolved\[slot\] = \{ \.\.\.hero \}/);
+});
+
+test('variant state exposes one localized price and availability announcement', () => {
+  assert.equal((purchase.match(/role="status"/g) ?? []).length, 1);
+  assert.match(purchase, /products\.pimm_machine\.purchase\.deposit_price/);
+  assert.match(purchase, /selected_variant\.price \| money_with_currency/);
+  assert.match(variantPayloadSource, /"announcementText"/);
+  assert.match(section, /variant_status_text[\s\S]*products\.pimm_machine\.purchase\.deposit_price[\s\S]*variant\.price \| money_with_currency/);
+});
+
+test('model media crossfade retains stable nodes and cleans rapid transitions', () => {
+  assert.match(css, /data-pimm-media-state="entering"[^}]*opacity:\s*0/s);
+  assert.match(css, /data-pimm-media-state="exiting"[^}]*opacity:\s*0/s);
+  assert.match(css, /aria-hidden="true"[^}]*pointer-events:\s*none/s);
+  assert.match(js, /window\.setTimeout\([^]*180\)/);
+  assert.match(js, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+  assert.match(js, /mediaTransitionToken/);
 });
 
 test('only the selected hero is eager while below-fold model media stays lazy and async', () => {
@@ -498,7 +566,7 @@ test('merchant model alt settings resolve initial and switched media with locale
     assert.match(
       initialSource,
       new RegExp(
-        `if use_thai_alt[\\s\\S]*?if block\\.settings\\.${slot}_alt_th != blank[\\s\\S]*?assign ${initialVariable} = block\\.settings\\.${slot}_alt_th[\\s\\S]*?elsif block\\.settings\\.${slot}_alt_en != blank[\\s\\S]*?assign ${initialVariable} = block\\.settings\\.${slot}_alt_en`,
+        `if use_thai_alt[\\s\\S]*?if block\\.settings\\.${slot}_alt_th != blank[\\s\\S]*?assign ${initialVariable} = block\\.settings\\.${slot}_alt_th[\\s\\S]*?(?:elsif block\\.settings\\.${slot}_alt_en != blank|else[\\s\\S]*?if block\\.settings\\.${slot}_alt_en != blank)[\\s\\S]*?assign ${initialVariable} = block\\.settings\\.${slot}_alt_en`,
       ),
     );
 
@@ -576,6 +644,7 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
     'specifications',
     'media',
     'statusText',
+    'announcementText',
     'contractValid',
   ]) {
     assert.match(variantPayloadSource, new RegExp(`"${key}"\\s*:`));
@@ -584,7 +653,7 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
     assert.match(variantPayloadSource, new RegExp(`"${slot}"\\s*:`));
     assert.match(
       variantPayloadSource,
-      new RegExp(`"${slot}"\\s*:\\s*\\{[\\s\\S]*?"src"\\s*:[\\s\\S]*?"alt"\\s*:`, 'm'),
+      new RegExp(`"${slot}"\\s*:\\s*\\{[\\s\\S]*?"src"\\s*:[\\s\\S]*?"alt"\\s*:[\\s\\S]*?"width"\\s*:[\\s\\S]*?"height"\\s*:`, 'm'),
     );
   }
   assert.match(variantPayloadSource, /variant_model_block_count == 1/);
@@ -626,7 +695,10 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
   assert.match(variantPayloadSource, /variant_overview_alt \| strip_html \| json/);
   assert.match(variantPayloadSource, /variant_engineering_alt \| strip_html \| json/);
   assert.match(variantPayloadSource, /variant_tooling_alt \| strip_html \| json/);
-  assert.doesNotMatch(js, /\b[a-zA-Z_$][\w$]*\.(?:src|alt)\s*=(?!=)/);
+  assert.match(js, /image\.src = item\.src/);
+  assert.match(js, /image\.alt = item\.alt/);
+  assert.match(js, /image\.width = item\.width/);
+  assert.match(js, /image\.height = item\.height/);
   assert.match(purchase, /role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
   assert.match(purchase, /render 'loading-spinner'/);
   assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|document\.write/);
@@ -651,8 +723,16 @@ test('controller selects a valid variant without rebuilding DOM', () => {
 
   harness.controller.selectVariant(202);
 
+  assert.equal(harness.status.textContent, 'Made to order. Deposit price: THB 79,439.25');
+  assert.deepEqual(harness.mediaGroups.slice(0, 4).map((group) => [group.hidden, group.ariaHidden, group.inert, group.dataset.pimmMediaState]), [
+    [false, 'true', true, 'exiting'],
+    [false, 'true', true, 'exiting'],
+    [false, 'true', true, 'exiting'],
+    [false, 'true', true, 'exiting'],
+  ]);
+  harness.flushTimers();
+
   assert.equal(harness.selected.textContent, '50G');
-  assert.equal(harness.status.textContent, 'Made to order');
   assert.equal(harness.deposit.disabled, false);
   assert.deepEqual(harness.values.map((node) => node.textContent), [
     'THB 79,439.25',
@@ -673,12 +753,48 @@ test('controller selects a valid variant without rebuilding DOM', () => {
   assert.equal(harness.factoryVisit.href, '/pages/contact');
 });
 
+test('non-hero media fallback preserves commerce and uses hero source alt and dimensions', () => {
+  const fallback50G = variantFixture({ model: '50G', id: 202 });
+  fallback50G.media.engineering.src = '';
+  const harness = createControllerHarness([variantFixture({ model: '30G', id: 101 }), fallback50G]);
+
+  harness.controller.selectVariant(202);
+  harness.flushTimers();
+
+  const engineering = harness.mediaGroups.find(
+    (group) => group.dataset.pimmMediaModel === '50G' && group.image.dataset.pimmMediaSlot === 'engineering',
+  );
+  assert.equal(harness.deposit.disabled, false);
+  assert.equal(engineering.image.src, fallback50G.media.hero.src);
+  assert.equal(engineering.image.srcset, fallback50G.media.hero.src);
+  assert.equal(engineering.image.alt, fallback50G.media.hero.alt);
+  assert.equal(engineering.image.width, 1800);
+  assert.equal(engineering.image.height, 2200);
+  assert.equal(engineering.hidden, false);
+});
+
+test('rapid crossfade settles only the latest model and repeated selection does not duplicate announcement', () => {
+  const variants = [variantFixture({ model: '30G', id: 101 }), variantFixture({ model: '50G', id: 202 })];
+  const harness = createControllerHarness(variants);
+
+  harness.controller.selectVariant(202);
+  harness.controller.selectVariant(101);
+  const announcement = harness.status.textContent;
+  harness.controller.selectVariant(101);
+  harness.flushTimers();
+
+  assert.equal(harness.status.textContent, announcement);
+  assert.deepEqual(harness.mediaGroups.map((group) => group.hidden), [false, false, false, false, true, true, true, true]);
+  assert.ok(harness.mediaGroups.every((group) => group.dataset.pimmMediaState === undefined));
+});
+
 test('direct model intent decodes only the selected hero and only once per model', () => {
   const variants = [variantFixture({ model: '30G', id: 101 }), variantFixture({ model: '50G', id: 202 })];
   const harness = createControllerHarness(variants);
 
   harness.controller.selectVariant(202);
   harness.controller.selectVariant(202);
+  harness.flushTimers();
 
   assert.deepEqual(harness.mediaGroups.map((group) => group.image.decodeCount), [0, 0, 0, 0, 1, 0, 0, 0]);
 });
@@ -728,7 +844,8 @@ test('malformed, unavailable and unknown selections disable deposit without mode
     variantFixture({ model: '50G', id: 202, available: false }),
   ]);
   unavailable.controller.selectVariant(202);
-  assert.equal(unavailable.status.textContent, 'Out of stock');
+  unavailable.flushTimers();
+  assert.equal(unavailable.status.textContent, 'Out of stock. Deposit price: THB 79,439.25');
   assert.equal(unavailable.deposit.disabled, true);
   assert.deepEqual(unavailable.mediaGroups.map((group) => group.hidden), [true, true, true, true, false, false, false, false]);
 });

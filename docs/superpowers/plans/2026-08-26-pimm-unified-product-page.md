@@ -15,7 +15,7 @@
 - Product option must equal `Model`; supported values are exactly `30G` and `50G`.
 - Factory visit is the first/primary action; 50% deposit is secondary.
 - Shopify variant state owns deposit price, availability and submitted variant ID.
-- Variant metafields own full machine price, lead time and versioned specifications.
+- The full-machine-price metafield remains base Admin-currency qualification evidence; storefront full-price presentment is exactly twice contextual `variant.price`. Variant metafields also own lead time and versioned specifications.
 - Missing/malformed model data disables the deposit action and preserves factory contact.
 - The page has exactly one bento section; hero, narrative, ownership and purchase sections remain open compositions.
 - Use MALIEV Surface/Canvas/Ink/Signal Blue tokens, 10px maximum tile corners, no decorative card shadows, glass, gradient text or repeated eyebrows.
@@ -139,7 +139,7 @@ Each serialized record has this exact JavaScript shape:
   id: 123,
   model: '30G',
   depositPrice: 'THB 49,500.00',
-  fullPrice: 'THB 99,000.00',
+  fullPrice: 'market-aware formatted value equal to contextual depositPrice × 2',
   available: true,
   leadTime: '30-day production lead time',
   specifications: {
@@ -199,7 +199,7 @@ Wrap the form in the existing `<product-form>` custom element, include `product-
 
 - [ ] **Step 4: Serialize exact variant JSON**
 
-Each record must contain only JSON-safe values produced by Liquid filters. Reject records unless option1 is exact, specification schema/model match, dimensions are positive and the corresponding model block exists. Include `contractValid` rather than trying to repair invalid data.
+Each record must contain only JSON-safe values produced by Liquid filters. Reject records unless option1 is exact, specification schema/model match, dimensions are positive, the corresponding model block exists and its hero is present. Missing non-hero media resolves to that same model's hero source, hero alt and hero intrinsic dimensions without invalidating commerce; a missing hero remains invalid. Include `contractValid` rather than repairing any other invalid data.
 
 - [ ] **Step 5: Implement the custom element**
 
@@ -287,7 +287,7 @@ Use one dominant `<figure>` and one `<dl>`. Format the mold envelope from exact 
 
 - [ ] **Step 5: Implement media/spec state changes**
 
-`applyMedia(model)` toggles only `hidden` and `aria-hidden` on existing model groups, updates spec text from the selected record and never starts an animation. On first direct 30G/50G intent, call `image.decode()` for the selected hero; do not preload all below-fold images.
+`applyMedia(model)` updates only safe properties on existing model groups, updates specification text and runs one opacity crossfade of at most 180ms. The outgoing model becomes `aria-hidden` and pointer-inert immediately, remains in the same grid cell only until bounded cleanup, and rapid switches cancel stale cleanup so only the latest model remains. Reduced motion uses an instant hidden-state swap. On first direct 30G/50G intent, call `image.decode()` for the selected hero; do not preload all below-fold images.
 
 - [ ] **Step 6: Run focused tests and commit**
 
@@ -446,7 +446,7 @@ The environment value is runtime evidence, not committed configuration. Expected
 
 - [ ] **Step 5: Test failure states**
 
-Use local fixture interception to test unavailable 50G, malformed specifications and missing engineering image. Expected: Book a factory visit remains available, deposit disables, the other model's facts/media never appear and the live region explains the selected model's problem.
+Use local fixture interception to test unavailable 50G, malformed specifications and missing engineering image. Unavailability and malformed specifications fail closed: Book a factory visit remains available, deposit disables, the other model's facts/media never appear and the live region explains the selected model's problem. Missing engineering media instead falls back to the same selected model hero source and hero alt while commerce remains valid; it never borrows the other model.
 
 - [ ] **Step 6: Commit the browser harness**
 

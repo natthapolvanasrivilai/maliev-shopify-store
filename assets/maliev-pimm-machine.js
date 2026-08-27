@@ -17,6 +17,12 @@
 
       this.payloadContractValid = this.hasExactPayloadContract(this.variants);
       this.decodedHeroModels = new Set();
+      this.mediaTransitionToken = 0;
+      this.mediaTransitionFrame = 0;
+      this.mediaTransitionTimer = 0;
+      this.selectedMediaModel = [...this.querySelectorAll('[data-pimm-media-model]')].find(
+        (group) => !group.hidden && group.ariaHidden !== 'true',
+      )?.dataset.pimmMediaModel || '';
       this.addEventListener('change', (event) => {
         if (event.target.matches('[data-pimm-model-radio]')) {
           this.selectVariant(Number(event.target.value));
@@ -40,10 +46,9 @@
       );
     }
 
-    hasValidRecordContract(variant) {
+    hasValidRecordContract(variant, media = this.resolveMedia(variant)) {
       const specifications = variant?.specifications;
       const mold = specifications?.mold_envelope_mm;
-      const media = variant?.media;
 
       return (
         this.payloadContractValid &&
@@ -53,6 +58,8 @@
         typeof variant.fullPrice === 'string' &&
         typeof variant.leadTime === 'string' &&
         typeof variant.statusText === 'string' &&
+        typeof variant.announcementText === 'string' &&
+        variant.announcementText.length > 0 &&
         typeof variant.available === 'boolean' &&
         specifications?.schema_version === 1 &&
         specifications.model === variant.model &&
@@ -62,16 +69,39 @@
         mold?.width > 0 &&
         mold.height > 0 &&
         mold.depth > 0 &&
-        ['hero', 'overview', 'engineering', 'tooling'].every((slot) => {
-          const item = media?.[slot];
-          return (
-            typeof item?.src === 'string' &&
-            item.src.length > 0 &&
-            typeof item.alt === 'string' &&
-            item.alt.length > 0
-          );
-        })
+        media !== null
       );
+    }
+
+    isMediaItem(item, width, height) {
+      return (
+        typeof item?.src === 'string' &&
+        item.src.length > 0 &&
+        typeof item.alt === 'string' &&
+        item.alt.length > 0 &&
+        item.width === width &&
+        item.height === height
+      );
+    }
+
+    resolveMedia(variant) {
+      const source = variant?.media;
+      const hero = source?.hero;
+      if (!this.isMediaItem(hero, 1800, 2200)) return null;
+
+      const resolved = { hero: { ...hero } };
+      for (const slot of ['overview', 'engineering', 'tooling']) {
+        const item = source?.[slot];
+        const missing = !item || !item.src || !item.alt;
+        if (missing) {
+          resolved[slot] = { ...hero };
+        } else if (this.isMediaItem(item, 2400, 1800)) {
+          resolved[slot] = { ...item };
+        } else {
+          return null;
+        }
+      }
+      return resolved;
     }
 
     selectVariant(variantId) {
@@ -81,7 +111,8 @@
         return;
       }
 
-      const contractValid = this.hasValidRecordContract(variant);
+      const media = this.resolveMedia(variant);
+      const contractValid = this.hasValidRecordContract(variant, media);
       this.querySelectorAll('[data-pimm-model-radio]').forEach((radio) => {
         radio.checked = Number(radio.value) === variant.id;
       });
@@ -95,24 +126,106 @@
       });
 
       const status = this.querySelector('[data-pimm-variant-status]');
-      if (status) status.textContent = contractValid ? variant.statusText : this.invalidMessage;
+      const announcement = contractValid ? variant.announcementText : this.invalidMessage;
+      if (status && status.textContent.trim() !== announcement) status.textContent = announcement;
 
       const deposit = this.querySelector('[data-pimm-deposit-action]');
       if (deposit) deposit.disabled = !contractValid || !variant.available;
 
-      this.applyMedia(variant, contractValid);
+      this.applyMedia(variant, contractValid, media);
       if (contractValid) this.decodeSelectedHero(variant.model);
       this.updateUrl(variant.id);
     }
 
-    applyMedia(variant, contractValid) {
+    applyMedia(variant, contractValid, media = null) {
+      if (!contractValid || !media) {
+        this.stopMediaTransition('');
+        this.selectedMediaModel = '';
+        this.updateSpecifications(variant, false);
+        return;
+      }
+
       this.querySelectorAll('[data-pimm-media-model]').forEach((group) => {
-        const hidden = !contractValid || group.dataset.pimmMediaModel !== variant.model;
-        group.hidden = hidden;
-        group.ariaHidden = String(hidden);
+        if (group.dataset.pimmMediaModel !== variant.model) return;
+        const image = group.querySelector('img');
+        const slot = group.dataset.pimmMediaSlot || image?.dataset.pimmMediaSlot;
+        const item = media[slot];
+        if (!item || !image) return;
+        image.srcset = item.src;
+        image.src = item.src;
+        image.alt = item.alt;
+        image.width = item.width;
+        image.height = item.height;
       });
 
+      this.transitionMediaTo(variant.model);
+
       this.updateSpecifications(variant, contractValid);
+    }
+
+    transitionMediaTo(model) {
+      const previousModel = this.selectedMediaModel;
+      this.stopMediaTransition(previousModel);
+
+      if (!previousModel || previousModel === model || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        this.showOnlyMedia(model);
+        this.selectedMediaModel = model;
+        return;
+      }
+
+      const token = ++this.mediaTransitionToken;
+      this.querySelectorAll('[data-pimm-media-model]').forEach((group) => {
+        const isIncoming = group.dataset.pimmMediaModel === model;
+        const isOutgoing = group.dataset.pimmMediaModel === previousModel;
+        if (isIncoming) {
+          group.hidden = false;
+          group.ariaHidden = 'false';
+          group.inert = false;
+          group.dataset.pimmMediaState = 'entering';
+        } else if (isOutgoing) {
+          group.hidden = false;
+          group.ariaHidden = 'true';
+          group.inert = true;
+          group.dataset.pimmMediaState = 'exiting';
+        } else {
+          group.hidden = true;
+          group.ariaHidden = 'true';
+          group.inert = true;
+          delete group.dataset.pimmMediaState;
+        }
+      });
+
+      this.mediaTransitionFrame = requestAnimationFrame(() => {
+        if (token !== this.mediaTransitionToken) return;
+        this.querySelectorAll('[data-pimm-media-model]').forEach((group) => {
+          if (group.dataset.pimmMediaModel === model) delete group.dataset.pimmMediaState;
+        });
+      });
+      this.mediaTransitionTimer = window.setTimeout(() => {
+        if (token !== this.mediaTransitionToken) return;
+        this.showOnlyMedia(model);
+        this.mediaTransitionTimer = 0;
+      }, 180);
+      this.selectedMediaModel = model;
+    }
+
+    stopMediaTransition(settleModel) {
+      this.mediaTransitionToken += 1;
+      if (this.mediaTransitionFrame) cancelAnimationFrame(this.mediaTransitionFrame);
+      if (this.mediaTransitionTimer) window.clearTimeout(this.mediaTransitionTimer);
+      this.mediaTransitionFrame = 0;
+      this.mediaTransitionTimer = 0;
+      this.showOnlyMedia(settleModel);
+    }
+
+    showOnlyMedia(model) {
+      this.querySelectorAll('[data-pimm-media-model]').forEach((group) => {
+        const hidden = !model || group.dataset.pimmMediaModel !== model;
+        group.hidden = hidden;
+        group.ariaHidden = String(hidden);
+        group.inert = hidden;
+        delete group.dataset.pimmMediaState;
+      });
     }
 
     updateSpecifications(variant, contractValid) {
@@ -178,7 +291,7 @@
       const status = this.querySelector('[data-pimm-variant-status]');
       if (status) status.textContent = this.invalidMessage;
 
-      this.applyMedia({ model: '', specifications: {} }, false);
+      this.applyMedia({ model: '', specifications: {} }, false, null);
     }
   }
 

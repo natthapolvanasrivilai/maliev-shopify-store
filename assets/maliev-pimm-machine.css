@@ -68,8 +68,13 @@
   transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.pimm-machine [data-pimm-media-model][hidden] {
+.pimm-machine [data-pimm-media-model][data-pimm-media-state="entering"],
+.pimm-machine [data-pimm-media-model][data-pimm-media-state="exiting"] {
   opacity: 0;
+}
+
+.pimm-machine [data-pimm-media-model][aria-hidden="true"] {
+  pointer-events: none;
 }
 
 .pimm-machine__hero,

@@ -42,10 +42,8 @@
             if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
               if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
                 if full_price != blank and lead_time > 0
-                  if selected_model_block.settings.hero_asset != blank and selected_model_block.settings.overview_asset != blank
-                    if selected_model_block.settings.engineering_asset != blank and selected_model_block.settings.tooling_asset != blank
-                      assign model_contract_valid = true
-                    endif
+                  if selected_model_block.settings.hero_asset != blank
+                    assign model_contract_valid = true
                   endif
                 endif
               endif
@@ -113,8 +111,8 @@
                 <img
                   src="{{ block.settings.hero_asset | asset_url }}"
                   alt="{{ block_hero_alt | escape }}"
-                  width="1600"
-                  height="1600"
+                  width="1800"
+                  height="2200"
                   {%- if media_is_selected %}
                     loading="eager"
                     fetchpriority="high"
@@ -145,16 +143,35 @@
                 endif
                 case block.settings.model_code
                   when '30G'
+                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
                     assign block_overview_alt = 'products.pimm_machine.alt.30g.overview' | t | strip_html
                   when '50G'
+                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
                     assign block_overview_alt = 'products.pimm_machine.alt.50g.overview' | t | strip_html
                 endcase
                 if use_thai_alt
+                  if block.settings.hero_alt_th != blank
+                    assign block_hero_alt = block.settings.hero_alt_th | strip_html
+                  endif
                   if block.settings.overview_alt_th != blank
                     assign block_overview_alt = block.settings.overview_alt_th | strip_html
                   endif
-                elsif block.settings.overview_alt_en != blank
-                  assign block_overview_alt = block.settings.overview_alt_en | strip_html
+                else
+                  if block.settings.hero_alt_en != blank
+                    assign block_hero_alt = block.settings.hero_alt_en | strip_html
+                  endif
+                  if block.settings.overview_alt_en != blank
+                    assign block_overview_alt = block.settings.overview_alt_en | strip_html
+                  endif
+                endif
+                assign block_overview_asset = block.settings.overview_asset
+                assign block_overview_width = 2400
+                assign block_overview_height = 1800
+                if block_overview_asset == blank
+                  assign block_overview_asset = block.settings.hero_asset
+                  assign block_overview_alt = block_hero_alt
+                  assign block_overview_width = 1800
+                  assign block_overview_height = 2200
                 endif
               -%}
               <picture
@@ -163,10 +180,10 @@
                 {% unless media_is_selected %}hidden{% endunless %}
               >
                 <img
-                  src="{{ block.settings.overview_asset | asset_url }}"
+                  src="{{ block_overview_asset | asset_url }}"
                   alt="{{ block_overview_alt | escape }}"
-                  width="1600"
-                  height="1600"
+                  width="{{ block_overview_width }}"
+                  height="{{ block_overview_height }}"
                   loading="lazy"
                   decoding="async"
                   data-pimm-media-slot="overview"
@@ -196,16 +213,35 @@
                 endif
                 case block.settings.model_code
                   when '30G'
+                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
                     assign block_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t | strip_html
                   when '50G'
+                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
                     assign block_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t | strip_html
                 endcase
                 if use_thai_alt
+                  if block.settings.hero_alt_th != blank
+                    assign block_hero_alt = block.settings.hero_alt_th | strip_html
+                  endif
                   if block.settings.tooling_alt_th != blank
                     assign block_tooling_alt = block.settings.tooling_alt_th | strip_html
                   endif
-                elsif block.settings.tooling_alt_en != blank
-                  assign block_tooling_alt = block.settings.tooling_alt_en | strip_html
+                else
+                  if block.settings.hero_alt_en != blank
+                    assign block_hero_alt = block.settings.hero_alt_en | strip_html
+                  endif
+                  if block.settings.tooling_alt_en != blank
+                    assign block_tooling_alt = block.settings.tooling_alt_en | strip_html
+                  endif
+                endif
+                assign block_tooling_asset = block.settings.tooling_asset
+                assign block_tooling_width = 2400
+                assign block_tooling_height = 1800
+                if block_tooling_asset == blank
+                  assign block_tooling_asset = block.settings.hero_asset
+                  assign block_tooling_alt = block_hero_alt
+                  assign block_tooling_width = 1800
+                  assign block_tooling_height = 2200
                 endif
               -%}
               <picture
@@ -214,10 +250,10 @@
                 {% unless media_is_selected %}hidden{% endunless %}
               >
                 <img
-                  src="{{ block.settings.tooling_asset | asset_url }}"
+                  src="{{ block_tooling_asset | asset_url }}"
                   alt="{{ block_tooling_alt | escape }}"
-                  width="1600"
-                  height="1600"
+                  width="{{ block_tooling_width }}"
+                  height="{{ block_tooling_height }}"
                   loading="lazy"
                   decoding="async"
                   data-pimm-media-slot="tooling"
@@ -319,12 +355,8 @@
                         if variant_specifications.max_air_pressure_mpa > 0 and variant_specifications.mold_envelope_mm.width > 0
                           if variant_specifications.mold_envelope_mm.height > 0 and variant_specifications.mold_envelope_mm.depth > 0
                             if variant_full_price != blank and variant_lead_time_days > 0
-                              if variant_model_block.settings.hero_asset != blank and variant_model_block.settings.overview_asset != blank
-                                if variant_model_block.settings.engineering_asset != blank and variant_model_block.settings.tooling_asset != blank
-                                  if variant_hero_alt != blank and variant_overview_alt != blank and variant_engineering_alt != blank and variant_tooling_alt != blank
-                                    assign variant_contract_valid = true
-                                  endif
-                                endif
+                              if variant_model_block.settings.hero_asset != blank and variant_hero_alt != blank
+                                assign variant_contract_valid = true
                               endif
                             endif
                           endif
@@ -357,10 +389,28 @@
                 endif
               endif
 
+              capture variant_announcement_text
+                echo variant_status_text
+                if variant_contract_valid
+                  echo '. '
+                  echo 'products.pimm_machine.purchase.deposit_price' | t
+                  echo ': '
+                  echo variant.price | money_with_currency
+                endif
+              endcapture
+
               assign variant_hero_url = ''
               assign variant_overview_url = ''
               assign variant_engineering_url = ''
               assign variant_tooling_url = ''
+              assign variant_hero_width = 1800
+              assign variant_hero_height = 2200
+              assign variant_overview_width = 2400
+              assign variant_overview_height = 1800
+              assign variant_engineering_width = 2400
+              assign variant_engineering_height = 1800
+              assign variant_tooling_width = 2400
+              assign variant_tooling_height = 1800
               if variant_model_block != blank
                 if variant_model_block.settings.hero_asset != blank
                   assign variant_hero_url = variant_model_block.settings.hero_asset | asset_url
@@ -374,6 +424,24 @@
                 if variant_model_block.settings.tooling_asset != blank
                   assign variant_tooling_url = variant_model_block.settings.tooling_asset | asset_url
                 endif
+              endif
+              if variant_overview_url == blank
+                assign variant_overview_url = variant_hero_url
+                assign variant_overview_alt = variant_hero_alt
+                assign variant_overview_width = variant_hero_width
+                assign variant_overview_height = variant_hero_height
+              endif
+              if variant_engineering_url == blank
+                assign variant_engineering_url = variant_hero_url
+                assign variant_engineering_alt = variant_hero_alt
+                assign variant_engineering_width = variant_hero_width
+                assign variant_engineering_height = variant_hero_height
+              endif
+              if variant_tooling_url == blank
+                assign variant_tooling_url = variant_hero_url
+                assign variant_tooling_alt = variant_hero_alt
+                assign variant_tooling_width = variant_hero_width
+                assign variant_tooling_height = variant_hero_height
               endif
             -%}
             {
@@ -407,22 +475,31 @@
               "media": {
                 "hero": {
                   "src": {{ variant_hero_url | json }},
-                  "alt": {{ variant_hero_alt | strip_html | json }}
+                  "alt": {{ variant_hero_alt | strip_html | json }},
+                  "width": {{ variant_hero_width | json }},
+                  "height": {{ variant_hero_height | json }}
                 },
                 "overview": {
                   "src": {{ variant_overview_url | json }},
-                  "alt": {{ variant_overview_alt | strip_html | json }}
+                  "alt": {{ variant_overview_alt | strip_html | json }},
+                  "width": {{ variant_overview_width | json }},
+                  "height": {{ variant_overview_height | json }}
                 },
                 "engineering": {
                   "src": {{ variant_engineering_url | json }},
-                  "alt": {{ variant_engineering_alt | strip_html | json }}
+                  "alt": {{ variant_engineering_alt | strip_html | json }},
+                  "width": {{ variant_engineering_width | json }},
+                  "height": {{ variant_engineering_height | json }}
                 },
                 "tooling": {
                   "src": {{ variant_tooling_url | json }},
-                  "alt": {{ variant_tooling_alt | strip_html | json }}
+                  "alt": {{ variant_tooling_alt | strip_html | json }},
+                  "width": {{ variant_tooling_width | json }},
+                  "height": {{ variant_tooling_height | json }}
                 }
               },
               "statusText": {{ variant_status_text | strip_html | json }},
+              "announcementText": {{ variant_announcement_text | strip_html | strip | json }},
               "contractValid": {{ variant_contract_valid | json }}
             }{% unless forloop.last %},{% endunless %}
           {%- endfor -%}

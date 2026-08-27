@@ -13,6 +13,23 @@
   if factory_visit_url == blank
     assign factory_visit_url = routes.root_url | append: 'pages/contact'
   endif
+  assign selected_status_text = 'products.pimm_machine.status.unavailable' | t
+  if model_contract_valid
+    if selected_variant.available
+      assign selected_status_text = 'products.pimm_machine.status.made_to_order' | t
+    else
+      assign selected_status_text = 'products.pimm_machine.status.out_of_stock' | t
+    endif
+  endif
+  capture selected_announcement_text
+    echo selected_status_text
+    if model_contract_valid
+      echo '. '
+      echo 'products.pimm_machine.purchase.deposit_price' | t
+      echo ': '
+      echo selected_variant.price | money_with_currency
+    endif
+  endcapture
 -%}
 
 <section class="pimm-machine__purchase" data-pimm-purchase-qualification aria-labelledby="PimmMachinePurchase-{{ section.id }}">
@@ -43,13 +60,7 @@
   </dl>
 
   <p class="pimm-machine__variant-status" role="status" aria-live="polite" aria-atomic="true" data-pimm-variant-status>
-    {%- if model_contract_valid and selected_variant.available -%}
-      {{ 'products.pimm_machine.status.made_to_order' | t }}
-    {%- elsif model_contract_valid -%}
-      {{ 'products.pimm_machine.status.out_of_stock' | t }}
-    {%- else -%}
-      {{ 'products.pimm_machine.status.unavailable' | t }}
-    {%- endif -%}
+    {{- selected_announcement_text | strip -}}
   </p>
 
   <p class="pimm-machine__deposit-explanation">{{ 'products.pimm_machine.purchase.deposit_explanation' | t }}</p>

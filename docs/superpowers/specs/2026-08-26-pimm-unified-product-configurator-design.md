@@ -39,7 +39,8 @@ The Draft product contract is:
 - Option name: `Model`.
 - Variant values: exactly `30G` and `50G`.
 - Variant price: the payable 50% production deposit for that model.
-- Full machine price: a verified variant money metafield displayed separately from the deposit.
+- Base full machine price: a verified Admin-currency variant money metafield that must equal exactly twice the Admin variant deposit and acts as qualification evidence.
+- Storefront full machine price: market-aware presentment calculated as exactly twice Shopify's contextual `variant.price`, so taxes and market adjustments remain consistent with the displayed deposit rather than formatting the base metafield directly.
 - Availability and inventory: Shopify variant state, never hardcoded theme copy.
 - Lead time: verified variant metafield.
 - Technical specification payload: exact versioned variant JSON metafield.
@@ -74,7 +75,7 @@ Use a conventional two-column product hero on desktop and a composed single-colu
 - product family name and concise workshop-fit statement;
 - the selected model's approved straight-on render;
 - accessible 30G and 50G radio controls;
-- full machine price, 50% deposit, availability and lead time;
+- market-aware full machine price, contextual 50% deposit, availability and lead time;
 - primary `Book a factory visit` action;
 - secondary deposit action.
 
@@ -127,7 +128,7 @@ Liquid serializes an exact, escaped variant-state payload for the two Model vari
 - checked radio and hidden product-form variant ID;
 - selected media and alt text;
 - specification values;
-- full price, deposit price, availability and lead time;
+- market-aware full price, contextual deposit price, availability and lead time;
 - deposit-button enabled state;
 - URL `variant` parameter;
 - polite live-region status.
@@ -215,7 +216,7 @@ Storefront media comes only from approved native final releases. Generate respon
 - Do not eagerly download both machines' full media sets.
 - Preload or decode the alternate selected-model hero only after initial critical work or direct user intent.
 - Avoid cumulative layout shift with explicit dimensions or aspect ratios.
-- Use a short 180ms crossfade for model media; reduced motion swaps instantly.
+- Use a real opacity crossfade of at most 180ms for model media. During overlap the outgoing model is immediately `aria-hidden` and pointer-inert, cleanup is bounded, and rapid switching settles only the latest selection. Reduced motion swaps instantly.
 
 ## Validation
 

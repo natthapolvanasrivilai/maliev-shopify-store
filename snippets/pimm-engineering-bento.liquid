@@ -31,16 +31,35 @@
             endif
             case block.settings.model_code
               when '30G'
+                assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
                 assign block_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t | strip_html
               when '50G'
+                assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
                 assign block_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t | strip_html
             endcase
             if use_thai_alt
+              if block.settings.hero_alt_th != blank
+                assign block_hero_alt = block.settings.hero_alt_th | strip_html
+              endif
               if block.settings.engineering_alt_th != blank
                 assign block_engineering_alt = block.settings.engineering_alt_th | strip_html
               endif
-            elsif block.settings.engineering_alt_en != blank
-              assign block_engineering_alt = block.settings.engineering_alt_en | strip_html
+            else
+              if block.settings.hero_alt_en != blank
+                assign block_hero_alt = block.settings.hero_alt_en | strip_html
+              endif
+              if block.settings.engineering_alt_en != blank
+                assign block_engineering_alt = block.settings.engineering_alt_en | strip_html
+              endif
+            endif
+            assign block_engineering_asset = block.settings.engineering_asset
+            assign block_engineering_width = 2400
+            assign block_engineering_height = 1800
+            if block_engineering_asset == blank
+              assign block_engineering_asset = block.settings.hero_asset
+              assign block_engineering_alt = block_hero_alt
+              assign block_engineering_width = 1800
+              assign block_engineering_height = 2200
             endif
           -%}
           <picture
@@ -49,10 +68,10 @@
             {% unless media_is_selected %}hidden{% endunless %}
           >
             <img
-              src="{{ block.settings.engineering_asset | asset_url }}"
+              src="{{ block_engineering_asset | asset_url }}"
               alt="{{ block_engineering_alt | escape }}"
-              width="1600"
-              height="1600"
+              width="{{ block_engineering_width }}"
+              height="{{ block_engineering_height }}"
               loading="lazy"
               decoding="async"
               data-pimm-media-slot="engineering"

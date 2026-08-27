@@ -22,6 +22,7 @@ const models = ['30G', '50G'];
 const expectedMarket = {
   en: {
     status: 'Made to order',
+    depositLabel: '50% production deposit',
     alt: {
       '30G': {
         hero: 'MALIEV 30G pneumatic injection molding machine, front view',
@@ -39,6 +40,7 @@ const expectedMarket = {
   },
   th: {
     status: 'ผลิตตามคำสั่งซื้อ',
+    depositLabel: 'เงินมัดจำเริ่มผลิต 50%',
     alt: {
       '30G': {
         hero: 'เครื่องฉีดพลาสติกระบบลม MALIEV รุ่น 30G มุมมองด้านหน้า',
@@ -67,10 +69,10 @@ const expectedMarket = {
         max_air_pressure_mpa: 0.7,
       },
       media: {
-        hero: 'pimm-machine-30g-hero-front.webp',
-        overview: 'pimm-machine-30g-overview-three-quarter.webp',
-        engineering: 'pimm-machine-30g-engineering-controls.webp',
-        tooling: 'pimm-machine-30g-tooling-front-detail.webp',
+        hero: { filename: 'pimm-machine-30g-hero-front.webp', width: 1800, height: 2200 },
+        overview: { filename: 'pimm-machine-30g-overview-three-quarter.webp', width: 2400, height: 1800 },
+        engineering: { filename: 'pimm-machine-30g-engineering-controls.webp', width: 2400, height: 1800 },
+        tooling: { filename: 'pimm-machine-30g-tooling-front-detail.webp', width: 2400, height: 1800 },
       },
     },
     '50G': {
@@ -85,10 +87,10 @@ const expectedMarket = {
         max_air_pressure_mpa: 0.7,
       },
       media: {
-        hero: 'pimm-machine-50g-hero-front.webp',
-        overview: 'pimm-machine-50g-overview-three-quarter.webp',
-        engineering: 'pimm-machine-50g-engineering-controls.webp',
-        tooling: 'pimm-machine-50g-tooling-front-detail.webp',
+        hero: { filename: 'pimm-machine-50g-hero-front.webp', width: 1800, height: 2200 },
+        overview: { filename: 'pimm-machine-50g-overview-three-quarter.webp', width: 2400, height: 1800 },
+        engineering: { filename: 'pimm-machine-50g-engineering-controls.webp', width: 2400, height: 1800 },
+        tooling: { filename: 'pimm-machine-50g-tooling-front-detail.webp', width: 2400, height: 1800 },
       },
     },
   },
@@ -430,13 +432,15 @@ function applyFailureFixture(html, fixture) {
 
   if (fixture === 'unavailable-50g') {
     target.available = false;
-    target.statusText = invalidMessage;
+    const thai = /<html[^>]+lang=["']th(?:-|["'])/i.test(html);
+    target.statusText = thai ? 'ยังไม่พร้อมรับเงินมัดจำในขณะนี้' : 'Currently unavailable for deposit';
+    target.announcementText = `${target.statusText}. ${thai ? 'เงินมัดจำเริ่มผลิต 50%' : '50% production deposit'}: ${target.depositPrice}`;
   } else if (fixture === 'malformed-specifications') {
     target.specifications.model = '30G';
     target.statusText = invalidMessage;
+    target.announcementText = invalidMessage;
   } else if (fixture === 'missing-engineering-image') {
     target.media.engineering.src = '';
-    target.statusText = invalidMessage;
   } else {
     throw new Error(`Unsupported PIMM fixture ${fixture}`);
   }
@@ -509,6 +513,7 @@ const pageProbe = `(() => {
       atomic: status.getAttribute('aria-atomic'),
       live: status.getAttribute('aria-live'),
       role: status.getAttribute('role'),
+      text: status.textContent.trim(),
     },
     noOverflow: document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth,
     purchaseFullBleed: Boolean(purchaseRect && Math.abs(purchaseRect.left) <= 1 && Math.abs(purchaseRect.right - innerWidth) <= 1),
@@ -551,6 +556,7 @@ const selectedStateProbe = (model) => `(async () => {
   }
   radio.click();
   await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+  await new Promise((resolveTransition) => setTimeout(resolveTransition, 220));
   const selectedGroups = [...document.querySelectorAll('[data-pimm-media-model=${JSON.stringify(model)}]:not([hidden])')];
   const selectedImages = selectedGroups.map((group) => group.querySelector('img')).filter(Boolean);
   for (const group of selectedGroups) {
@@ -587,8 +593,10 @@ const selectedStateProbe = (model) => `(async () => {
         alt: image?.alt,
         complete: image?.complete,
         filename: pathname.split('/').pop(),
+        height: Number(image?.getAttribute('height')),
         naturalWidth: image?.naturalWidth,
         slot,
+        width: Number(image?.getAttribute('width')),
       };
     }).sort((a, b) => ['hero', 'overview', 'engineering', 'tooling'].indexOf(a.slot) - ['hero', 'overview', 'engineering', 'tooling'].indexOf(b.slot)),
     otherVisibleMedia: document.querySelectorAll('[data-pimm-media-model]:not([data-pimm-media-model=${JSON.stringify(model)}]):not([hidden])').length,
@@ -648,6 +656,11 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
         await navigate(session, url);
         for (const [width, height] of viewports) {
           await setViewport(session, width, height);
+          await evaluate(session, `(async () => {
+            document.querySelector('[data-pimm-model-radio][data-model="30G"]')?.click();
+            await new Promise((resolveTransition) => setTimeout(resolveTransition, 220));
+            return true;
+          })()`);
           const probe = await evaluate(session, pageProbe);
           assert.equal(probe.bentoCount, 1);
           assert.equal(probe.h1Count, 1);
@@ -665,17 +678,25 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
           assert.deepEqual(probe.radioModels, models);
           assert.deepEqual(probe.radioNames, ['id', 'id']);
           assert.equal(new Set(probe.radioValues).size, 2);
-          assert.deepEqual(probe.liveRegion, { atomic: 'true', live: 'polite', role: 'status' });
+          assert.deepEqual(probe.liveRegion, {
+            atomic: 'true',
+            live: 'polite',
+            role: 'status',
+            text: `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedMarket.models['30G'].depositPrice}`,
+          });
           assert.deepEqual(probe.taxContext, { country: 'TH', currency: 'THB', taxesIncluded: 'true' });
 
           for (const model of models) {
             const state = await evaluate(session, selectedStateProbe(model));
             const expectedModel = expectedMarket.models[model];
             const expectedAlt = expectedMarket[language].alt[model];
-            const expectedMedia = Object.entries(expectedModel.media).map(([slot, filename]) => ({
+            const expectedAnnouncement = `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedModel.depositPrice}`;
+            const expectedMedia = Object.entries(expectedModel.media).map(([slot, media]) => ({
               alt: expectedAlt[slot],
-              filename,
+              filename: media.filename,
+              height: media.height,
               slot,
+              width: media.width,
             }));
             assert.equal(state.checked, true);
             assert.equal(state.selected, model);
@@ -684,7 +705,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             assert.equal(state.otherVisibleMedia, 0);
             assert.equal(state.imagesReady, true);
             assert.deepEqual(
-              state.media.map(({ alt, filename, slot }) => ({ alt, filename, slot })),
+              state.media.map(({ alt, filename, height, slot, width }) => ({ alt, filename, height, slot, width })),
               expectedMedia,
             );
             assert.deepEqual(
@@ -699,8 +720,9 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             assert.equal(state.depositDisabled, false);
             assert.equal(state.record.available, true);
             assert.equal(state.record.contractValid, true);
-            assert.equal(state.status, expectedMarket[language].status);
+            assert.equal(state.status, expectedAnnouncement);
             assert.equal(state.record.statusText, expectedMarket[language].status);
+            assert.equal(state.record.announcementText, expectedAnnouncement);
             assert.ok(state.factoryHref);
             assert.deepEqual(state.record.specifications, expectedModel.specifications);
             assert.deepEqual(state.specifications, {
@@ -717,10 +739,14 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               Object.fromEntries(Object.entries(state.record.media).map(([slot, media]) => [slot, {
                 alt: media.alt,
                 filename: new URL(media.src, state.url).pathname.split('/').pop(),
+                height: media.height,
+                width: media.width,
               }])),
-              Object.fromEntries(Object.entries(expectedModel.media).map(([slot, filename]) => [slot, {
+              Object.fromEntries(Object.entries(expectedModel.media).map(([slot, media]) => [slot, {
                 alt: expectedAlt[slot],
-                filename,
+                filename: media.filename,
+                height: media.height,
+                width: media.width,
               }])),
             );
 
@@ -749,6 +775,45 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
         }
       });
     }
+
+    await t.test('model media performs one bounded accessible crossfade and rapid switches settle latest', async () => {
+      await navigate(session, languageUrls.en);
+      await setViewport(session, 1440, 1000);
+      const transition = await evaluate(session, `(async () => {
+        const radio30 = document.querySelector('[data-pimm-model-radio][data-model="30G"]');
+        const radio50 = document.querySelector('[data-pimm-model-radio][data-model="50G"]');
+        radio30.click();
+        await new Promise((resolveTransition) => setTimeout(resolveTransition, 220));
+        radio50.focus();
+        radio50.click();
+        await new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
+        await new Promise((resolveTransition) => setTimeout(resolveTransition, 50));
+        const snapshot = (model) => [...document.querySelectorAll('[data-pimm-media-model="' + model + '"]')].map((group) => ({
+          ariaHidden: group.getAttribute('aria-hidden'),
+          hidden: group.hidden,
+          inert: group.inert,
+          opacity: getComputedStyle(group).opacity,
+          pointerEvents: getComputedStyle(group).pointerEvents,
+          state: group.dataset.pimmMediaState || '',
+        }));
+        const during = { active: document.activeElement === radio50, incoming: snapshot('50G'), outgoing: snapshot('30G') };
+        await new Promise((resolveTransition) => setTimeout(resolveTransition, 220));
+        const after = { incoming: snapshot('50G'), outgoing: snapshot('30G') };
+        radio30.click();
+        await new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
+        radio50.click();
+        await new Promise((resolveTransition) => setTimeout(resolveTransition, 220));
+        const rapid = { incoming: snapshot('50G'), outgoing: snapshot('30G') };
+        return { after, during, rapid };
+      })()`);
+      assert.equal(transition.during.active, true);
+      assert.ok(transition.during.incoming.every((group) => !group.hidden && group.ariaHidden === 'false' && !group.inert));
+      assert.ok(transition.during.outgoing.every((group) => !group.hidden && group.ariaHidden === 'true' && group.inert && Number(group.opacity) > 0 && Number(group.opacity) < 1 && group.pointerEvents === 'none' && group.state === 'exiting'));
+      for (const settled of [transition.after, transition.rapid]) {
+        assert.ok(settled.incoming.every((group) => !group.hidden && group.ariaHidden === 'false' && !group.inert && group.state === ''));
+        assert.ok(settled.outgoing.every((group) => group.hidden && group.ariaHidden === 'true' && group.inert && group.state === ''));
+      }
+    });
 
     await t.test('desktop and mobile header interactions preserve viewport containment and focus', async () => {
       await navigate(session, languageUrls.en);
@@ -856,16 +921,32 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
 
       await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
       const motion = await evaluate(session, `(() => {
+        const radio30 = document.querySelector('[data-pimm-model-radio][data-model="30G"]');
+        const radio50 = document.querySelector('[data-pimm-model-radio][data-model="50G"]');
+        radio30.click();
+        radio50.click();
         const media = document.querySelector('[data-pimm-media-model]:not([hidden])');
         const descendants = [media, ...media.querySelectorAll('*')];
-        return descendants.map((node) => {
+        return {
+          groups: [...document.querySelectorAll('[data-pimm-media-model]')].map((group) => ({
+            ariaHidden: group.getAttribute('aria-hidden'),
+            hidden: group.hidden,
+            inert: group.inert,
+            model: group.dataset.pimmMediaModel,
+            state: group.dataset.pimmMediaState || '',
+          })),
+          styles: descendants.map((node) => {
           const style = getComputedStyle(node);
           return { animation: style.animationName, duration: style.transitionDuration, transform: style.transform };
-        });
+          }),
+        };
       })()`);
-      assert.deepEqual(motion.filter((entry) => entry.animation !== 'none'), []);
-      assert.deepEqual(motion.filter((entry) => !entry.duration.split(',').every((duration) => Number.parseFloat(duration) === 0)), []);
-      assert.deepEqual(motion.filter((entry) => entry.transform !== 'none'), []);
+      assert.deepEqual(motion.groups.filter((group) => !group.hidden).map((group) => group.model), ['50G', '50G', '50G', '50G']);
+      assert.ok(motion.groups.filter((group) => group.model === '50G').every((group) => group.ariaHidden === 'false' && !group.inert && group.state === ''));
+      assert.ok(motion.groups.filter((group) => group.model === '30G').every((group) => group.hidden && group.ariaHidden === 'true' && group.inert && group.state === ''));
+      assert.deepEqual(motion.styles.filter((entry) => entry.animation !== 'none'), []);
+      assert.deepEqual(motion.styles.filter((entry) => !entry.duration.split(',').every((duration) => Number.parseFloat(duration) === 0)), []);
+      assert.deepEqual(motion.styles.filter((entry) => entry.transform !== 'none'), []);
       await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
     });
 
@@ -877,16 +958,35 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
           const state = await evaluate(session, selectedStateProbe('50G'));
           assert.equal(state.checked, true);
           assert.equal(state.selected, '50G');
-          assert.equal(state.depositDisabled, true);
           assert.ok(state.factoryHref);
           assert.equal(state.otherVisibleMedia, 0);
-          assert.equal(state.status, state.invalidMessage);
           if (fixture === 'unavailable-50g') {
+            assert.equal(state.depositDisabled, true);
             assert.equal(state.visibleMedia, 4);
             assert.equal(state.specifications.shot_capacity_g, '50');
-          } else {
+            assert.equal(
+              state.status,
+              `${language === 'th' ? 'ยังไม่พร้อมรับเงินมัดจำในขณะนี้' : 'Currently unavailable for deposit'}. ${expectedMarket[language].depositLabel}: ${expectedMarket.models['50G'].depositPrice}`,
+            );
+          } else if (fixture === 'malformed-specifications') {
+            assert.equal(state.depositDisabled, true);
             assert.equal(state.visibleMedia, 0);
             assert.equal(state.specifications.shot_capacity_g, state.invalidMessage);
+            assert.equal(state.status, state.invalidMessage);
+          } else {
+            const hero = expectedMarket.models['50G'].media.hero;
+            const engineering = state.media.find((media) => media.slot === 'engineering');
+            assert.equal(state.depositDisabled, false);
+            assert.equal(state.visibleMedia, 4);
+            assert.equal(state.specifications.shot_capacity_g, '50');
+            assert.equal(
+              state.status,
+              `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedMarket.models['50G'].depositPrice}`,
+            );
+            assert.deepEqual(
+              { alt: engineering.alt, filename: engineering.filename, height: engineering.height, width: engineering.width },
+              { alt: expectedMarket[language].alt['50G'].hero, filename: hero.filename, height: hero.height, width: hero.width },
+            );
           }
           await suppressCookieConsentForEvidence(session);
           await captureElementScreenshot(
