@@ -228,6 +228,87 @@
         }
       }
     },
+    "pimm_machine": {
+      "hero": {
+        "fit_statement": "Workshop-scale injection molding, built and supported in Thailand. Choose 30G or 50G capacity without changing the ownership path."
+      },
+      "model_selector": {
+        "legend": "Choose machine capacity",
+        "selected_model": "Selected model",
+        "models": {
+          "30g": "30G — compact capacity",
+          "50g": "50G — extended capacity"
+        }
+      },
+      "fit": {
+        "heading": "Real injection molding for a practical workshop",
+        "body": "Both models combine a compact footprint with direct pneumatic operation, independent temperature control and a mold area designed for workshop fixtures. Choose capacity around the parts you intend to make, then confirm the process with our team."
+      },
+      "engineering": {
+        "heading": "Engineering at a glance",
+        "body": "Compare the selected machine's verified shot capacity, melt temperature, mold envelope and required air pressure before planning tooling or utilities."
+      },
+      "specs": {
+        "capacity": {
+          "label": "Shot capacity",
+          "unit": "g"
+        },
+        "temperature": {
+          "label": "Maximum melt temperature",
+          "unit": "°C"
+        },
+        "mold_envelope": {
+          "label": "Mold envelope (W × H × D)",
+          "unit": "mm"
+        },
+        "pressure": {
+          "label": "Maximum air pressure",
+          "unit": "MPa"
+        }
+      },
+      "tooling": {
+        "heading": "Plan the mold with the machine",
+        "body": "The open tooling area and threaded fixture grid support custom molds and holding fixtures. Confirm mold dimensions, injection entry and required support before production starts."
+      },
+      "purchase": {
+        "heading": "See the machine before you commit",
+        "body": "Book a factory visit in Thailand to review your part, material, mold plan and utilities with the MALIEV team. A qualified buyer can then place the listed 50% deposit to start a made-to-order build.",
+        "full_price": "Full machine price",
+        "deposit_price": "50% production deposit",
+        "lead_time_label": "Production lead time",
+        "lead_time": "Approximately {{ days }} days",
+        "deposit_explanation": "The deposit starts production for the selected model after qualification. The remaining balance and collection or delivery arrangements are confirmed directly with MALIEV.",
+        "book_visit": "Book a factory visit",
+        "start_deposit": "Place 50% deposit"
+      },
+      "status": {
+        "made_to_order": "Made to order",
+        "out_of_stock": "Currently unavailable for deposit",
+        "unavailable": "Machine configuration unavailable"
+      },
+      "ownership": {
+        "heading": "Support continues after delivery",
+        "body": "MALIEV provides operating guidance, documentation, replacement-part support and direct help from the team that builds the machine in Thailand.",
+        "navigation": "Machine ownership resources",
+        "documents": "Read machine documentation",
+        "support": "Contact machine support"
+      },
+      "app_integrations": "Additional purchase services",
+      "alt": {
+        "30g": {
+          "hero": "MALIEV 30G pneumatic injection molding machine, straight-on front view",
+          "overview": "MALIEV 30G pneumatic injection molding machine, three-quarter overview",
+          "engineering": "MALIEV 30G pressure controls and pneumatic engineering detail",
+          "tooling": "MALIEV 30G mold tooling area and threaded fixture base"
+        },
+        "50g": {
+          "hero": "MALIEV 50G pneumatic injection molding machine, straight-on front view",
+          "overview": "MALIEV 50G pneumatic injection molding machine, three-quarter overview",
+          "engineering": "MALIEV 50G pressure controls and pneumatic engineering detail",
+          "tooling": "MALIEV 50G mold tooling area and threaded fixture base"
+        }
+      }
+    },
     "product": {
       "add_to_cart": "添加到购物车",
       "description": "描述",

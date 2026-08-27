@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -7,7 +7,7 @@ const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.ur
 
 const stripShopifyComment = (source) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '');
 
-const [section, selector, bento, purchase, ownership, templateSource, js] = await Promise.all([
+const [section, selector, bento, purchase, ownership, templateSource, js, css, enLocaleSource, thLocaleSource] = await Promise.all([
   readThemeFile('sections/maliev-pimm-machine-product.liquid'),
   readThemeFile('snippets/pimm-model-selector.liquid'),
   readThemeFile('snippets/pimm-engineering-bento.liquid'),
@@ -15,13 +15,38 @@ const [section, selector, bento, purchase, ownership, templateSource, js] = awai
   readThemeFile('snippets/pimm-ownership.liquid'),
   readThemeFile('templates/product.pimm-configurator.json'),
   readThemeFile('assets/maliev-pimm-machine.js').catch(() => ''),
+  readThemeFile('assets/maliev-pimm-machine.css').catch(() => ''),
+  readThemeFile('locales/en.default.json'),
+  readThemeFile('locales/th.json'),
 ]);
 
 const template = JSON.parse(stripShopifyComment(templateSource));
+const enLocale = JSON.parse(stripShopifyComment(enLocaleSource));
+const thLocale = JSON.parse(stripShopifyComment(thLocaleSource));
+const storefrontLocaleNames = (await readdir(new URL('../../locales/', import.meta.url)))
+  .filter((name) => name.endsWith('.json') && !name.endsWith('.schema.json'))
+  .sort();
+const storefrontLocales = await Promise.all(
+  storefrontLocaleNames.map(async (name) => ({
+    name,
+    value: JSON.parse(stripShopifyComment(await readThemeFile(`locales/${name}`))),
+  })),
+);
 const schemaSource = section.match(/{% schema %}([\s\S]*?){% endschema %}/)?.[1];
 const schema = JSON.parse(schemaSource);
 const renderedContract = [section, selector, bento, purchase, ownership].join('\n');
 const variantPayloadSource = section.match(/<script[^>]*data-pimm-variant-data[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '';
+
+const flattenKeys = (value, prefix = '') =>
+  Object.entries(value).flatMap(([key, nested]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    return nested && typeof nested === 'object' && !Array.isArray(nested) ? flattenKeys(nested, path) : [path];
+  });
+
+const getPath = (value, path) => path.split('.').reduce((current, key) => current?.[key], value);
+
+const placeholders = (value) =>
+  [...String(value).matchAll(/{{\s*([\w.]+)\s*}}/g)].map((match) => match[1]).sort();
 
 const variantFixture = ({ model, id, available = true, contractValid = true }) => ({
   id,
@@ -191,6 +216,129 @@ test('open editorial sections surround one contained engineering bento', () => {
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
 });
 
+test('restrained workbench stylesheet composes one open responsive product page', () => {
+  assert.match(section, /maliev-pimm-machine\.css[^]*stylesheet_tag/);
+  assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
+  assert.match(css, /\.pimm-machine__hero\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/s);
+  assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
+  assert.match(css, /\.pimm-machine__engineering-media\s*\{[^}]*grid-row:\s*span\s+2/s);
+  assert.doesNotMatch(css, /\.pimm-machine\s*\{[^}]*display:\s*grid/s);
+  assert.doesNotMatch(css, /box-shadow\s*:/);
+  assert.doesNotMatch(css, /background-clip:\s*text|backdrop-filter|repeating-linear-gradient|linear-gradient/);
+  assert.doesNotMatch(css, /border-radius:\s*(?:[2-9]\d|1[5-9])px/);
+  assert.doesNotMatch(css, /#(?:f[ae][0-9a-f]{4}|f[0-9a-f]e[0-9a-f]{3})\b/i);
+});
+
+test('responsive controls preserve focus touch size motion and 320px containment', () => {
+  assert.match(css, /min-height:\s*(?:44|48)px/);
+  assert.match(css, /border-radius:\s*4px/);
+  assert.match(css, /:focus-visible[^}]*outline:\s*3px\s+solid\s+#FFD21C[^}]*border-color:\s*#111315/s);
+  assert.match(css, /opacity\s+180ms\s+cubic-bezier\(0\.22,\s*1,\s*0\.36,\s*1\)/);
+  assert.doesNotMatch(css, /(?:transition|animation)[^;]*(?:18[1-9]|1[9-9]\d|[2-9]\d{2,})ms/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[^{]*\{[^}]*transition-duration:\s*0ms[^}]*transform:\s*none/s);
+  assert.match(css, /@media\s*\(max-width:\s*989px\)[^{]*\{[^}]*padding-inline:\s*32px/s);
+  assert.match(css, /@media\s*\(max-width:\s*749px\)[^{]*\{[^}]*padding-inline:\s*20px/s);
+  assert.match(css, /@media\s*\(max-width:\s*359px\)[^{]*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(css, /grid-template-areas:\s*"media"\s*"copy"/);
+  assert.match(css, /overflow-x:\s*clip/);
+  assert.match(css, /max-width:\s*100%/);
+  assert.match(css, /min-width:\s*0/);
+});
+
+test('unified machine copy has complete English and Thai pimm_machine parity', () => {
+  const en = enLocale.products?.pimm_machine;
+  const th = thLocale.products?.pimm_machine;
+  assert.ok(en && th);
+  assert.deepEqual(flattenKeys(en), flattenKeys(th));
+
+  const requiredKeys = [
+    'hero.fit_statement',
+    'model_selector.legend',
+    'model_selector.selected_model',
+    'model_selector.models.30g',
+    'model_selector.models.50g',
+    'fit.heading',
+    'fit.body',
+    'engineering.heading',
+    'engineering.body',
+    'specs.capacity.label',
+    'specs.capacity.unit',
+    'specs.temperature.label',
+    'specs.temperature.unit',
+    'specs.mold_envelope.label',
+    'specs.mold_envelope.unit',
+    'specs.pressure.label',
+    'specs.pressure.unit',
+    'tooling.heading',
+    'tooling.body',
+    'purchase.heading',
+    'purchase.body',
+    'purchase.full_price',
+    'purchase.deposit_price',
+    'purchase.lead_time_label',
+    'purchase.lead_time',
+    'purchase.deposit_explanation',
+    'purchase.book_visit',
+    'purchase.start_deposit',
+    'status.made_to_order',
+    'status.out_of_stock',
+    'status.unavailable',
+    'ownership.heading',
+    'ownership.body',
+    'ownership.navigation',
+    'ownership.documents',
+    'ownership.support',
+    'app_integrations',
+    'alt.30g.hero',
+    'alt.30g.overview',
+    'alt.30g.engineering',
+    'alt.30g.tooling',
+    'alt.50g.hero',
+    'alt.50g.overview',
+    'alt.50g.engineering',
+    'alt.50g.tooling',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.equal(typeof getPath(en, key), 'string', `missing English ${key}`);
+    assert.equal(typeof getPath(th, key), 'string', `missing Thai ${key}`);
+    assert.ok(getPath(en, key).trim(), `empty English ${key}`);
+    assert.ok(getPath(th, key).trim(), `empty Thai ${key}`);
+  }
+  for (const key of ['hero.fit_statement', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero']) {
+    assert.match(getPath(th, key), /[\u0E00-\u0E7F]/, `${key} must contain native Thai copy`);
+  }
+
+  const translationReferences = [...renderedContract.matchAll(/'([^']+)'\s*\|\s*t/g)].map((match) => match[1]);
+  assert.ok(translationReferences.length > 0);
+  assert.ok(translationReferences.every((key) => key.startsWith('products.pimm_machine.')));
+  assert.doesNotMatch(renderedContract, /products\.pimm30_story|maliev_home_i18n|templates\.contact|sections\.footer|products\.product/);
+});
+
+test('every installed storefront locale preserves the unified machine key and placeholder contract', () => {
+  const defaultCopy = enLocale.products.pimm_machine;
+  const defaultKeys = flattenKeys(defaultCopy);
+
+  assert.equal(storefrontLocales.length, 31);
+  for (const { name, value } of storefrontLocales) {
+    const copy = value.products?.pimm_machine;
+    assert.ok(copy, `${name} must define products.pimm_machine`);
+    assert.deepEqual(flattenKeys(copy), defaultKeys, `${name} must preserve the default leaf-key order and set`);
+
+    for (const key of defaultKeys) {
+      assert.deepEqual(
+        placeholders(getPath(copy, key)),
+        placeholders(getPath(defaultCopy, key)),
+        `${name} must preserve interpolation placeholders for ${key}`,
+      );
+    }
+
+    if (name !== 'en.default.json' && name !== 'th.json') {
+      assert.deepEqual(copy, defaultCopy, `${name} must use the approved English fallback copy`);
+    }
+  }
+});
+
 test('one asymmetric engineering bento exposes stable model media and semantic specifications', () => {
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
   assert.match(bento, /class="pimm-machine__engineering-bento"/);
@@ -224,10 +372,10 @@ test('engineering facts keep numeric values separate from visible accessible uni
   assert.match(bento, /data-pimm-spec="max_melt_temperature_c"[^>]*aria-label=/);
   assert.match(bento, /data-pimm-spec="mold_envelope"[^>]*aria-label=/);
   assert.match(bento, /data-pimm-spec="max_air_pressure_mpa"[^>]*aria-label=/);
-  assert.match(bento, /aria-hidden="true"[^>]*>\s*g\s*</);
-  assert.match(bento, /aria-hidden="true"[^>]*>\s*°C\s*</);
-  assert.match(bento, /aria-hidden="true"[^>]*>\s*mm\s*</);
-  assert.match(bento, /aria-hidden="true"[^>]*>\s*MPa\s*</);
+  assert.match(bento, /data-pimm-spec-unit="shot_capacity_g"[^>]*>[^<]*products\.pimm_machine\.specs\.capacity\.unit/);
+  assert.match(bento, /data-pimm-spec-unit="max_melt_temperature_c"[^>]*>[^<]*products\.pimm_machine\.specs\.temperature\.unit/);
+  assert.match(bento, /data-pimm-spec-unit="mold_envelope"[^>]*>[^<]*products\.pimm_machine\.specs\.mold_envelope\.unit/);
+  assert.match(bento, /data-pimm-spec-unit="max_air_pressure_mpa"[^>]*>[^<]*products\.pimm_machine\.specs\.pressure\.unit/);
   assert.doesNotMatch(variantPayloadSource, /shot_capacity_g[^\n]*["']g["']/);
   for (const field of ['shot_capacity_g', 'max_melt_temperature_c', 'mold_envelope', 'max_air_pressure_mpa']) {
     assert.match(bento, new RegExp(`data-pimm-spec-unit="${field}"`));
@@ -260,7 +408,7 @@ test('model selection and deposit submission fail closed on malformed product da
   assert.match(section, /specifications\.mold_envelope_mm\.depth > 0/);
   assert.match(section, /metafields\.custom\.full_machine_price\.value/);
   assert.match(section, /metafields\.custom\.lead_time_days\.value/);
-  assert.match(purchase, /products\.product\.unavailable/);
+  assert.match(purchase, /products\.pimm_machine\.status\.unavailable/);
   assert.match(purchase, /unless model_contract_valid[^]*disabled/);
 });
 

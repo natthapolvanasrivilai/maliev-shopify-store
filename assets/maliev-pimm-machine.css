@@ -1,0 +1,497 @@
+.section-pimm-machine-product {
+  background: #FFFFFF;
+  color: #111315;
+}
+
+.pimm-machine {
+  box-sizing: border-box;
+  color: #111315;
+  font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
+  margin-inline: auto;
+  max-width: 1440px;
+  overflow-x: clip;
+  padding-inline: 48px;
+  width: 100%;
+}
+
+.pimm-machine *,
+.pimm-machine *::before,
+.pimm-machine *::after {
+  box-sizing: border-box;
+}
+
+.pimm-machine :is(h1, h2, p, figure, fieldset, dl, dd) {
+  margin: 0;
+}
+
+.pimm-machine :is(h1, h2) {
+  color: #111315;
+  font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.pimm-machine h1 {
+  font-size: clamp(3.6rem, 5.8vw, 7.2rem);
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+.pimm-machine h2 {
+  font-size: clamp(2.8rem, 4vw, 5.2rem);
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+}
+
+.pimm-machine p {
+  color: #353A40;
+  font-size: 1.6rem;
+  line-height: 1.55;
+  max-width: 72ch;
+  text-wrap: pretty;
+}
+
+.pimm-machine :is(img, picture) {
+  display: block;
+  max-width: 100%;
+}
+
+.pimm-machine img {
+  height: auto;
+  object-fit: contain;
+  width: 100%;
+}
+
+.pimm-machine [data-pimm-media-model] {
+  opacity: 1;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pimm-machine [data-pimm-media-model][hidden] {
+  opacity: 0;
+}
+
+.pimm-machine__hero,
+.pimm-machine__fit,
+.pimm-machine__tooling {
+  display: grid;
+  gap: clamp(32px, 5vw, 72px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.pimm-machine__hero {
+  align-items: center;
+  display: grid;
+  grid-template-areas: "copy media";
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: min(820px, calc(100svh - 68px));
+  padding-block: clamp(48px, 7vw, 104px);
+}
+
+.pimm-machine__hero-copy {
+  display: grid;
+  gap: 32px;
+  grid-area: copy;
+  min-width: 0;
+}
+
+.pimm-machine__hero-fit {
+  font-size: clamp(1.7rem, 2vw, 2.2rem);
+  max-width: 54ch;
+}
+
+.pimm-machine__hero-media {
+  align-items: center;
+  align-self: stretch;
+  background: #F3F5F6;
+  border-radius: 10px;
+  display: grid;
+  grid-area: media;
+  min-height: 560px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pimm-machine__hero-media > picture {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.pimm-machine__model-selector {
+  border: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.pimm-machine__model-selector legend {
+  color: #353A40;
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 1.3;
+  margin-bottom: 12px;
+}
+
+.pimm-machine__selected-model {
+  color: #111315;
+  display: block;
+  font-family: var(--maliev-font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+}
+
+.pimm-machine__model-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pimm-machine__model-option {
+  align-items: center;
+  background: #FFFFFF;
+  border: 1px solid #D9DDE1;
+  border-radius: 4px;
+  color: #111315;
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 220px;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  min-width: 0;
+  padding: 12px 16px;
+}
+
+.pimm-machine__model-option:has(input:checked) {
+  background: #006FD6;
+  border-color: #006FD6;
+  color: #FFFFFF;
+}
+
+.pimm-machine__model-option input {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.pimm-machine :is(a, button, input):focus-visible,
+.pimm-machine__model-option:has(input:focus-visible) {
+  outline: 3px solid #FFD21C;
+  outline-offset: 3px;
+  border-color: #111315;
+}
+
+.pimm-machine__fit,
+.pimm-machine__tooling,
+.pimm-machine__engineering,
+.pimm-machine__ownership,
+.pimm-machine__purchase {
+  border-top: 1px solid #D9DDE1;
+  padding-block: clamp(56px, 7vw, 104px);
+}
+
+.pimm-machine__fit,
+.pimm-machine__tooling {
+  align-items: center;
+}
+
+.pimm-machine__prose {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.pimm-machine__figure,
+.pimm-machine__engineering-media {
+  background: #F3F5F6;
+  border-radius: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pimm-machine__figure > picture,
+.pimm-machine__engineering-media > picture {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.pimm-machine__figure {
+  display: grid;
+}
+
+.pimm-machine__engineering-intro {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 32px;
+  max-width: 720px;
+}
+
+.pimm-machine__engineering-bento {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(180px, 0.55fr) minmax(180px, 0.55fr);
+  grid-template-rows: repeat(2, minmax(180px, auto));
+  min-width: 0;
+}
+
+.pimm-machine__engineering-media {
+  display: grid;
+  grid-column: 1;
+  grid-row: span 2;
+}
+
+.pimm-machine__specifications {
+  display: grid;
+  gap: 1px;
+  grid-column: 2 / 4;
+  grid-row: 1 / 3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.pimm-machine__engineering-fact {
+  align-content: space-between;
+  border-top: 1px solid #D9DDE1;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px;
+}
+
+.pimm-machine__engineering-fact dt {
+  color: #626A73;
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.pimm-machine__engineering-fact dd {
+  color: #111315;
+  font-family: var(--maliev-font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: clamp(1.8rem, 2.4vw, 2.8rem);
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.pimm-machine__ownership {
+  align-items: end;
+  display: flex;
+  gap: 32px;
+  justify-content: space-between;
+}
+
+.pimm-machine__ownership-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.pimm-machine__ownership-links a {
+  color: #006FD6;
+  min-height: 44px;
+  padding-block: 10px;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.pimm-machine__purchase {
+  background: #F3F5F6;
+  display: grid;
+  gap: 32px clamp(32px, 5vw, 72px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-inline: -48px;
+  padding-inline: 48px;
+}
+
+.pimm-machine__purchase-copy {
+  display: grid;
+  gap: 20px;
+}
+
+.pimm-machine__purchase-summary {
+  border-top: 1px solid #D9DDE1;
+}
+
+.pimm-machine__purchase-summary > div {
+  align-items: baseline;
+  border-bottom: 1px solid #D9DDE1;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding-block: 16px;
+}
+
+.pimm-machine__purchase-summary dt {
+  color: #353A40;
+  font-size: 1.4rem;
+}
+
+.pimm-machine__purchase-summary dd {
+  color: #111315;
+  font-family: var(--maliev-font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 1.4rem;
+  font-weight: 600;
+  text-align: end;
+}
+
+.pimm-machine__deposit-explanation,
+.pimm-machine__variant-status,
+.pimm-machine__actions {
+  grid-column: 2;
+}
+
+.pimm-machine__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pimm-machine__actions .button {
+  align-items: center;
+  border: 1px solid #111315;
+  border-radius: 4px;
+  display: inline-flex;
+  font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
+  font-size: 1.4rem;
+  font-weight: 500;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 22px;
+  text-decoration: none;
+}
+
+.pimm-machine__actions .button--primary {
+  background: #006FD6;
+  border-color: #006FD6;
+  color: #FFFFFF;
+}
+
+.pimm-machine__actions .button--primary:hover {
+  background: #005BB5;
+  border-color: #005BB5;
+}
+
+.pimm-machine__actions .button--secondary {
+  background: #FFFFFF;
+  color: #111315;
+}
+
+.pimm-machine__actions .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.pimm-machine__app-integrations {
+  margin-inline: auto;
+  max-width: 1440px;
+  padding: 32px 48px;
+}
+
+@media (max-width: 989px) {
+  .pimm-machine {
+    padding-inline: 32px;
+  }
+
+  .pimm-machine__hero {
+    grid-template-areas: "media" "copy";
+    grid-template-columns: minmax(0, 1fr);
+    min-height: auto;
+  }
+
+  .pimm-machine__hero-media {
+    min-height: 0;
+  }
+
+  .pimm-machine__fit,
+  .pimm-machine__tooling,
+  .pimm-machine__purchase {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pimm-machine__engineering-bento {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .pimm-machine__engineering-media,
+  .pimm-machine__specifications {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .pimm-machine__purchase {
+    margin-inline: -32px;
+    padding-inline: 32px;
+  }
+
+  .pimm-machine__deposit-explanation,
+  .pimm-machine__variant-status,
+  .pimm-machine__actions {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 749px) {
+  .pimm-machine {
+    padding-inline: 20px;
+  }
+
+  .pimm-machine__hero,
+  .pimm-machine__fit,
+  .pimm-machine__tooling {
+    gap: 32px;
+  }
+
+  .pimm-machine__fit .pimm-machine__figure {
+    order: -1;
+  }
+
+  .pimm-machine__model-options,
+  .pimm-machine__actions,
+  .pimm-machine__ownership {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pimm-machine__model-option {
+    flex-basis: auto;
+  }
+
+  .pimm-machine__specifications {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pimm-machine__purchase {
+    margin-inline: -20px;
+    padding-inline: 20px;
+  }
+
+  .pimm-machine__actions .button {
+    width: 100%;
+  }
+
+  .pimm-machine__app-integrations {
+    padding-inline: 20px;
+  }
+}
+
+@media (max-width: 359px) {
+  .pimm-machine__specifications {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pimm-machine *,
+  .pimm-machine *::before,
+  .pimm-machine *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+    transform: none !important;
+  }
+}

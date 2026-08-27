@@ -17,44 +17,46 @@
 
 <section class="pimm-machine__purchase" data-pimm-purchase-qualification aria-labelledby="PimmMachinePurchase-{{ section.id }}">
   <div class="pimm-machine__purchase-copy">
-    <h2 id="PimmMachinePurchase-{{ section.id }}">{{ 'templates.contact.form.demo_title' | t }}</h2>
-    <p>{{ 'templates.contact.form.demo_intro' | t }}</p>
+    <h2 id="PimmMachinePurchase-{{ section.id }}">{{ 'products.pimm_machine.purchase.heading' | t }}</h2>
+    <p>{{ 'products.pimm_machine.purchase.body' | t }}</p>
   </div>
 
   <dl class="pimm-machine__purchase-summary" data-pimm-purchase-summary>
     <div>
-      <dt>{{ 'products.product.price.regular_price' | t }}</dt>
+      <dt>{{ 'products.pimm_machine.purchase.full_price' | t }}</dt>
       <dd data-pimm-model-value="fullPrice">
-        {%- if model_contract_valid -%}{{ full_price.amount | times: 100 | money_with_currency }}{%- else -%}{{ 'products.product.unavailable' | t }}{%- endif -%}
+        {%- if model_contract_valid -%}{{ full_price.amount | times: 100 | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
       </dd>
     </div>
     <div>
-      <dt>{{ 'products.product.price.sale_price' | t }}</dt>
+      <dt>{{ 'products.pimm_machine.purchase.deposit_price' | t }}</dt>
       <dd data-pimm-model-value="depositPrice">
-        {%- if model_contract_valid -%}{{ selected_variant.price | money_with_currency }}{%- else -%}{{ 'products.product.unavailable' | t }}{%- endif -%}
+        {%- if model_contract_valid -%}{{ selected_variant.price | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
       </dd>
     </div>
     <div>
-      <dt>{{ 'products.pimm30_story.next_model.made_to_order' | t }}</dt>
+      <dt>{{ 'products.pimm_machine.purchase.lead_time_label' | t }}</dt>
       <dd data-pimm-model-value="leadTime">
-        {%- if model_contract_valid -%}{{ 'products.pimm30_story.next_model.lead_time' | t: days: lead_time }}{%- else -%}{{ 'products.product.unavailable' | t }}{%- endif -%}
+        {%- if model_contract_valid -%}{{ 'products.pimm_machine.purchase.lead_time' | t: days: lead_time }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
       </dd>
     </div>
   </dl>
 
   <p class="pimm-machine__variant-status" role="status" aria-live="polite" aria-atomic="true" data-pimm-variant-status>
     {%- if model_contract_valid and selected_variant.available -%}
-      {{ 'products.pimm30_story.next_model.made_to_order' | t }}
+      {{ 'products.pimm_machine.status.made_to_order' | t }}
     {%- elsif model_contract_valid -%}
-      {{ 'products.product.inventory_out_of_stock' | t }}
+      {{ 'products.pimm_machine.status.out_of_stock' | t }}
     {%- else -%}
-      {{ 'products.product.unavailable' | t }}
+      {{ 'products.pimm_machine.status.unavailable' | t }}
     {%- endif -%}
   </p>
 
+  <p class="pimm-machine__deposit-explanation">{{ 'products.pimm_machine.purchase.deposit_explanation' | t }}</p>
+
   <div class="pimm-machine__actions">
     <a class="button button--primary" href="{{ factory_visit_url }}" data-pimm-book-visit>
-      {{ 'products.pimm30_story.book_visit' | t }}
+      {{ 'products.pimm_machine.purchase.book_visit' | t }}
     </a>
     <button
       class="button button--secondary"
@@ -63,7 +65,7 @@
       data-pimm-deposit-action
       {% unless model_contract_valid and selected_variant.available %}disabled{% endunless %}
     >
-      <span>{{ 'products.product.add_to_cart' | t }}</span>
+      <span>{{ 'products.pimm_machine.purchase.start_deposit' | t }}</span>
       {%- render 'loading-spinner' -%}
     </button>
   </div>

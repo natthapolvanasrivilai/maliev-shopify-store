@@ -6,17 +6,17 @@
 
 <section class="pimm-machine__ownership" data-pimm-ownership aria-labelledby="PimmMachineOwnership-{{ section.id }}">
   <div class="pimm-machine__prose">
-    <h2 id="PimmMachineOwnership-{{ section.id }}">{{ 'sections.footer.support_heading' | t }}</h2>
-    <p>{{ 'maliev_home_i18n.stats.services_text' | t }}</p>
+    <h2 id="PimmMachineOwnership-{{ section.id }}">{{ 'products.pimm_machine.ownership.heading' | t }}</h2>
+    <p>{{ 'products.pimm_machine.ownership.body' | t }}</p>
   </div>
 
   {%- if section.settings.document_url != blank or section.settings.support_url != blank -%}
-    <nav class="pimm-machine__ownership-links" aria-label="{{ 'sections.footer.support_heading' | t }}">
+    <nav class="pimm-machine__ownership-links" aria-label="{{ 'products.pimm_machine.ownership.navigation' | t }}">
       {%- if section.settings.document_url != blank -%}
-        <a href="{{ section.settings.document_url }}">{{ 'sections.footer.workshop_guides' | t }}</a>
+        <a href="{{ section.settings.document_url }}">{{ 'products.pimm_machine.ownership.documents' | t }}</a>
       {%- endif -%}
       {%- if section.settings.support_url != blank -%}
-        <a href="{{ section.settings.support_url }}">{{ 'sections.footer.contact' | t }}</a>
+        <a href="{{ section.settings.support_url }}">{{ 'products.pimm_machine.ownership.support' | t }}</a>
       {%- endif -%}
     </nav>
   {%- endif -%}
