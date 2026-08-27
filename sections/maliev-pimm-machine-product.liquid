@@ -4,6 +4,10 @@
   assign selected_model_block = nil
   assign model_block_match_count = 0
   assign product_model_contract_valid = false
+  assign use_thai_alt = false
+  if request.locale.iso_code == 'th' or request.locale.iso_code contains 'th-'
+    assign use_thai_alt = true
+  endif
 
   if product.options.size == 1 and product.options.first == 'Model'
     if product.variants.size == 2
@@ -87,10 +91,17 @@
                 endif
                 case block.settings.model_code
                   when '30G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t
+                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
                   when '50G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t
+                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
                 endcase
+                if use_thai_alt
+                  if block.settings.hero_alt_th != blank
+                    assign block_hero_alt = block.settings.hero_alt_th | strip_html
+                  endif
+                elsif block.settings.hero_alt_en != blank
+                  assign block_hero_alt = block.settings.hero_alt_en | strip_html
+                endif
               -%}
               <picture
                 data-pimm-media-model="{{ block.settings.model_code }}"
@@ -133,10 +144,17 @@
                 endif
                 case block.settings.model_code
                   when '30G'
-                    assign block_overview_alt = 'products.pimm_machine.alt.30g.overview' | t
+                    assign block_overview_alt = 'products.pimm_machine.alt.30g.overview' | t | strip_html
                   when '50G'
-                    assign block_overview_alt = 'products.pimm_machine.alt.50g.overview' | t
+                    assign block_overview_alt = 'products.pimm_machine.alt.50g.overview' | t | strip_html
                 endcase
+                if use_thai_alt
+                  if block.settings.overview_alt_th != blank
+                    assign block_overview_alt = block.settings.overview_alt_th | strip_html
+                  endif
+                elsif block.settings.overview_alt_en != blank
+                  assign block_overview_alt = block.settings.overview_alt_en | strip_html
+                endif
               -%}
               <picture
                 data-pimm-media-model="{{ block.settings.model_code }}"
@@ -177,10 +195,17 @@
                 endif
                 case block.settings.model_code
                   when '30G'
-                    assign block_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t
+                    assign block_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t | strip_html
                   when '50G'
-                    assign block_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t
+                    assign block_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t | strip_html
                 endcase
+                if use_thai_alt
+                  if block.settings.tooling_alt_th != blank
+                    assign block_tooling_alt = block.settings.tooling_alt_th | strip_html
+                  endif
+                elsif block.settings.tooling_alt_en != blank
+                  assign block_tooling_alt = block.settings.tooling_alt_en | strip_html
+                endif
               -%}
               <picture
                 data-pimm-media-model="{{ block.settings.model_code }}"
@@ -242,16 +267,44 @@
               assign variant_contract_valid = false
               case variant_model
                 when '30G'
-                  assign variant_hero_alt = 'products.pimm_machine.alt.30g.hero' | t
-                  assign variant_overview_alt = 'products.pimm_machine.alt.30g.overview' | t
-                  assign variant_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t
-                  assign variant_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t
+                  assign variant_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
+                  assign variant_overview_alt = 'products.pimm_machine.alt.30g.overview' | t | strip_html
+                  assign variant_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t | strip_html
+                  assign variant_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t | strip_html
                 when '50G'
-                  assign variant_hero_alt = 'products.pimm_machine.alt.50g.hero' | t
-                  assign variant_overview_alt = 'products.pimm_machine.alt.50g.overview' | t
-                  assign variant_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t
-                  assign variant_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t
+                  assign variant_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
+                  assign variant_overview_alt = 'products.pimm_machine.alt.50g.overview' | t | strip_html
+                  assign variant_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t | strip_html
+                  assign variant_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t | strip_html
               endcase
+              if use_thai_alt
+                if variant_model_block.settings.hero_alt_th != blank
+                  assign variant_hero_alt = variant_model_block.settings.hero_alt_th | strip_html
+                endif
+              elsif variant_model_block.settings.hero_alt_en != blank
+                assign variant_hero_alt = variant_model_block.settings.hero_alt_en | strip_html
+              endif
+              if use_thai_alt
+                if variant_model_block.settings.overview_alt_th != blank
+                  assign variant_overview_alt = variant_model_block.settings.overview_alt_th | strip_html
+                endif
+              elsif variant_model_block.settings.overview_alt_en != blank
+                assign variant_overview_alt = variant_model_block.settings.overview_alt_en | strip_html
+              endif
+              if use_thai_alt
+                if variant_model_block.settings.engineering_alt_th != blank
+                  assign variant_engineering_alt = variant_model_block.settings.engineering_alt_th | strip_html
+                endif
+              elsif variant_model_block.settings.engineering_alt_en != blank
+                assign variant_engineering_alt = variant_model_block.settings.engineering_alt_en | strip_html
+              endif
+              if use_thai_alt
+                if variant_model_block.settings.tooling_alt_th != blank
+                  assign variant_tooling_alt = variant_model_block.settings.tooling_alt_th | strip_html
+                endif
+              elsif variant_model_block.settings.tooling_alt_en != blank
+                assign variant_tooling_alt = variant_model_block.settings.tooling_alt_en | strip_html
+              endif
 
               if product_model_contract_valid
                 if variant_model == '30G' or variant_model == '50G'

@@ -34,6 +34,7 @@ const storefrontLocales = await Promise.all(
 );
 const schemaSource = section.match(/{% schema %}([\s\S]*?){% endschema %}/)?.[1];
 const schema = JSON.parse(schemaSource);
+const sectionRuntime = section.split('{% schema %}')[0];
 const renderedContract = [section, selector, bento, purchase, ownership].join('\n');
 const variantPayloadSource = section.match(/<script[^>]*data-pimm-variant-data[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '';
 
@@ -474,6 +475,47 @@ test('section schema exposes only approved links and a two-model contract', () =
     'tooling_alt_en',
     'tooling_alt_th',
   ]);
+});
+
+test('merchant model alt settings resolve initial and switched media with locale fallbacks', () => {
+  const runtimeAltSources = `${sectionRuntime}\n${bento}`;
+  const slots = ['hero', 'overview', 'engineering', 'tooling'];
+
+  for (const slot of slots) {
+    for (const locale of ['en', 'th']) {
+      const setting = `${slot}_alt_${locale}`;
+      assert.ok(
+        (runtimeAltSources.match(new RegExp(`settings\\.${setting}\\b`, 'g')) ?? []).length >= 2,
+        `${setting} must feed both initial markup and the variant switching payload`,
+      );
+    }
+
+    const initialSource = slot === 'engineering' ? bento : sectionRuntime;
+    const initialVariable = `block_${slot}_alt`;
+    assert.match(initialSource, new RegExp(`assign ${initialVariable} = 'products\\.pimm_machine\\.alt\\.30g\\.${slot}' \\| t`));
+    assert.match(initialSource, new RegExp(`assign ${initialVariable} = 'products\\.pimm_machine\\.alt\\.50g\\.${slot}' \\| t`));
+    assert.match(
+      initialSource,
+      new RegExp(
+        `if use_thai_alt[\\s\\S]*?if block\\.settings\\.${slot}_alt_th != blank[\\s\\S]*?assign ${initialVariable} = block\\.settings\\.${slot}_alt_th[\\s\\S]*?elsif block\\.settings\\.${slot}_alt_en != blank[\\s\\S]*?assign ${initialVariable} = block\\.settings\\.${slot}_alt_en`,
+      ),
+    );
+
+    const payloadVariable = `variant_${slot}_alt`;
+    assert.match(variantPayloadSource, new RegExp(`assign ${payloadVariable} = 'products\\.pimm_machine\\.alt\\.30g\\.${slot}' \\| t`));
+    assert.match(variantPayloadSource, new RegExp(`assign ${payloadVariable} = 'products\\.pimm_machine\\.alt\\.50g\\.${slot}' \\| t`));
+    assert.match(
+      variantPayloadSource,
+      new RegExp(
+        `if use_thai_alt[\\s\\S]*?if variant_model_block\\.settings\\.${slot}_alt_th != blank[\\s\\S]*?assign ${payloadVariable} = variant_model_block\\.settings\\.${slot}_alt_th[\\s\\S]*?elsif variant_model_block\\.settings\\.${slot}_alt_en != blank[\\s\\S]*?assign ${payloadVariable} = variant_model_block\\.settings\\.${slot}_alt_en`,
+      ),
+    );
+  }
+
+  assert.match(sectionRuntime, /request\.locale\.iso_code == 'th'/);
+  assert.match(sectionRuntime, /request\.locale\.iso_code contains 'th-'/);
+  assert.match(bento, /request\.locale\.iso_code == 'th'/);
+  assert.match(bento, /request\.locale\.iso_code contains 'th-'/);
 });
 
 test('template defaults contain exactly the 30G and 50G asset sets', () => {

@@ -7,6 +7,13 @@
   @param {section} section - The owning machine-product section.
 {% enddoc %}
 
+{%- liquid
+  assign use_thai_alt = false
+  if request.locale.iso_code == 'th' or request.locale.iso_code contains 'th-'
+    assign use_thai_alt = true
+  endif
+-%}
+
 <section class="pimm-machine__engineering" data-pimm-engineering-bento aria-labelledby="PimmMachineEngineering-{{ section.id }}">
   <header class="pimm-machine__engineering-intro">
     <h2 id="PimmMachineEngineering-{{ section.id }}">{{ 'products.pimm_machine.engineering.heading' | t }}</h2>
@@ -24,10 +31,17 @@
             endif
             case block.settings.model_code
               when '30G'
-                assign block_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t
+                assign block_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t | strip_html
               when '50G'
-                assign block_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t
+                assign block_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t | strip_html
             endcase
+            if use_thai_alt
+              if block.settings.engineering_alt_th != blank
+                assign block_engineering_alt = block.settings.engineering_alt_th | strip_html
+              endif
+            elsif block.settings.engineering_alt_en != blank
+              assign block_engineering_alt = block.settings.engineering_alt_en | strip_html
+            endif
           -%}
           <picture
             data-pimm-media-model="{{ block.settings.model_code }}"
