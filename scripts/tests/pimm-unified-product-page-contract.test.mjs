@@ -116,6 +116,12 @@ const createControllerHarness = (variants) => {
     'mold_envelope',
     'max_air_pressure_mpa',
   ].map((field) => ({ dataset: { pimmSpec: field }, textContent: '', ariaLabel: '' }));
+  const specificationUnits = [
+    'shot_capacity_g',
+    'max_melt_temperature_c',
+    'mold_envelope',
+    'max_air_pressure_mpa',
+  ].map((field) => ({ dataset: { pimmSpecUnit: field }, hidden: false, ariaHidden: 'true' }));
 
   const controller = new Controller();
   controller.querySelector = (selector) => ({
@@ -130,11 +136,24 @@ const createControllerHarness = (variants) => {
     '[data-pimm-model-radio]': radios,
     '[data-pimm-media-model]': mediaGroups,
     '[data-pimm-spec]': specificationNodes,
+    '[data-pimm-spec-unit]': specificationUnits,
   })[selector] ?? [];
   controller.addEventListener = () => {};
   controller.connectedCallback();
 
-  return { controller, values, selected, status, deposit, factoryVisit, radios, mediaGroups, specificationNodes, browser };
+  return {
+    controller,
+    values,
+    selected,
+    status,
+    deposit,
+    factoryVisit,
+    radios,
+    mediaGroups,
+    specificationNodes,
+    specificationUnits,
+    browser,
+  };
 };
 
 test('unified template owns one semantic machine presentation', () => {
@@ -205,11 +224,16 @@ test('engineering facts keep numeric values separate from visible accessible uni
   assert.match(bento, /data-pimm-spec="max_melt_temperature_c"[^>]*aria-label=/);
   assert.match(bento, /data-pimm-spec="mold_envelope"[^>]*aria-label=/);
   assert.match(bento, /data-pimm-spec="max_air_pressure_mpa"[^>]*aria-label=/);
-  assert.match(bento, /aria-hidden="true">\s*g\s*</);
-  assert.match(bento, /aria-hidden="true">\s*°C\s*</);
-  assert.match(bento, /aria-hidden="true">\s*mm\s*</);
-  assert.match(bento, /aria-hidden="true">\s*MPa\s*</);
+  assert.match(bento, /aria-hidden="true"[^>]*>\s*g\s*</);
+  assert.match(bento, /aria-hidden="true"[^>]*>\s*°C\s*</);
+  assert.match(bento, /aria-hidden="true"[^>]*>\s*mm\s*</);
+  assert.match(bento, /aria-hidden="true"[^>]*>\s*MPa\s*</);
   assert.doesNotMatch(variantPayloadSource, /shot_capacity_g[^\n]*["']g["']/);
+  for (const field of ['shot_capacity_g', 'max_melt_temperature_c', 'mold_envelope', 'max_air_pressure_mpa']) {
+    assert.match(bento, new RegExp(`data-pimm-spec-unit="${field}"`));
+  }
+  assert.equal(bento.match(/data-pimm-spec-unit=/g)?.length, 4);
+  assert.equal(bento.match(/unless model_contract_valid[^%]*%}hidden/g)?.length, 4);
 });
 
 test('factory visit remains primary and precedes the secondary deposit action', () => {
@@ -453,6 +477,26 @@ test('direct model intent decodes only the selected hero and only once per model
   harness.controller.selectVariant(202);
 
   assert.deepEqual(harness.mediaGroups.map((group) => group.image.decodeCount), [0, 0, 0, 0, 1, 0, 0, 0]);
+});
+
+test('invalid specification state hides every unit and a later valid selection restores them', () => {
+  const invalid50G = variantFixture({ model: '50G', id: 202, contractValid: false });
+  const harness = createControllerHarness([variantFixture({ model: '30G', id: 101 }), invalid50G]);
+
+  harness.controller.selectVariant(202);
+  assert.ok(harness.specificationUnits.every((unit) => unit.hidden));
+  assert.ok(harness.specificationUnits.every((unit) => unit.ariaHidden === 'true'));
+  assert.ok(harness.specificationNodes.every((node) => node.ariaLabel === 'Unavailable'));
+
+  harness.controller.selectVariant(101);
+  assert.ok(harness.specificationUnits.every((unit) => !unit.hidden));
+  assert.ok(harness.specificationUnits.every((unit) => unit.ariaHidden === 'true'));
+  assert.deepEqual(harness.specificationNodes.map((node) => node.ariaLabel), [
+    '30 g',
+    '300 °C',
+    '240 × 240 × 150 mm',
+    '0.7 MPa',
+  ]);
 });
 
 test('malformed, unavailable and unknown selections disable deposit without model fallback', () => {

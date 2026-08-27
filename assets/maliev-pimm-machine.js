@@ -141,6 +141,11 @@
         node.textContent = value?.[0] ?? this.invalidMessage;
         node.ariaLabel = value?.[1] ?? this.invalidMessage;
       });
+
+      this.querySelectorAll('[data-pimm-spec-unit]').forEach((unit) => {
+        unit.hidden = !contractValid;
+        unit.ariaHidden = 'true';
+      });
     }
 
     decodeSelectedHero(model) {

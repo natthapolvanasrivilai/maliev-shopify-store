@@ -55,7 +55,7 @@
             data-pimm-spec="shot_capacity_g"
             aria-label="{% if model_contract_valid %}{{ specifications.shot_capacity_g }} g{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
           >{% if model_contract_valid %}{{ specifications.shot_capacity_g }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
-          <span aria-hidden="true"> g</span>
+          <span data-pimm-spec-unit="shot_capacity_g" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> g</span>
         </dd>
       </div>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--temperature">
@@ -65,7 +65,7 @@
             data-pimm-spec="max_melt_temperature_c"
             aria-label="{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }} °C{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
           >{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
-          <span aria-hidden="true"> °C</span>
+          <span data-pimm-spec-unit="max_melt_temperature_c" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> °C</span>
         </dd>
       </div>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--mold">
@@ -75,7 +75,7 @@
             data-pimm-spec="mold_envelope"
             aria-label="{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }} mm{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
           >{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
-          <span aria-hidden="true"> mm</span>
+          <span data-pimm-spec-unit="mold_envelope" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> mm</span>
         </dd>
       </div>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--pressure">
@@ -85,7 +85,7 @@
             data-pimm-spec="max_air_pressure_mpa"
             aria-label="{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }} MPa{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
           >{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
-          <span aria-hidden="true"> MPa</span>
+          <span data-pimm-spec-unit="max_air_pressure_mpa" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> MPa</span>
         </dd>
       </div>
     </dl>
