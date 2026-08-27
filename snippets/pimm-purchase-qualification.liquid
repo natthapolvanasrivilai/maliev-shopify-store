@@ -21,24 +21,36 @@
     <p>{{ 'templates.contact.form.demo_intro' | t }}</p>
   </div>
 
-  {%- if model_contract_valid -%}
-    <dl class="pimm-machine__purchase-summary" data-pimm-purchase-summary>
-      <div>
-        <dt>{{ 'products.product.price.regular_price' | t }}</dt>
-        <dd>{{ full_price.amount | times: 100 | money_with_currency }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'products.product.price.sale_price' | t }}</dt>
-        <dd>{{ selected_variant.price | money_with_currency }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'products.pimm30_story.next_model.made_to_order' | t }}</dt>
-        <dd>{{ 'products.pimm30_story.next_model.lead_time' | t: days: lead_time }}</dd>
-      </div>
-    </dl>
-  {%- else -%}
-    <p class="pimm-machine__contract-message" role="status">{{ 'products.product.unavailable' | t }}</p>
-  {%- endif -%}
+  <dl class="pimm-machine__purchase-summary" data-pimm-purchase-summary>
+    <div>
+      <dt>{{ 'products.product.price.regular_price' | t }}</dt>
+      <dd data-pimm-model-value="fullPrice">
+        {%- if model_contract_valid -%}{{ full_price.amount | times: 100 | money_with_currency }}{%- else -%}{{ 'products.product.unavailable' | t }}{%- endif -%}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'products.product.price.sale_price' | t }}</dt>
+      <dd data-pimm-model-value="depositPrice">
+        {%- if model_contract_valid -%}{{ selected_variant.price | money_with_currency }}{%- else -%}{{ 'products.product.unavailable' | t }}{%- endif -%}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'products.pimm30_story.next_model.made_to_order' | t }}</dt>
+      <dd data-pimm-model-value="leadTime">
+        {%- if model_contract_valid -%}{{ 'products.pimm30_story.next_model.lead_time' | t: days: lead_time }}{%- else -%}{{ 'products.product.unavailable' | t }}{%- endif -%}
+      </dd>
+    </div>
+  </dl>
+
+  <p class="pimm-machine__variant-status" role="status" aria-live="polite" aria-atomic="true" data-pimm-variant-status>
+    {%- if model_contract_valid and selected_variant.available -%}
+      {{ 'products.pimm30_story.next_model.made_to_order' | t }}
+    {%- elsif model_contract_valid -%}
+      {{ 'products.product.inventory_out_of_stock' | t }}
+    {%- else -%}
+      {{ 'products.product.unavailable' | t }}
+    {%- endif -%}
+  </p>
 
   <div class="pimm-machine__actions">
     <a class="button button--primary" href="{{ factory_visit_url }}" data-pimm-book-visit>
@@ -51,7 +63,8 @@
       data-pimm-deposit-action
       {% unless model_contract_valid and selected_variant.available %}disabled{% endunless %}
     >
-      {{ 'products.product.add_to_cart' | t }}
+      <span>{{ 'products.product.add_to_cart' | t }}</span>
+      {%- render 'loading-spinner' -%}
     </button>
   </div>
 </section>

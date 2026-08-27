@@ -37,7 +37,11 @@
             if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
               if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
                 if full_price != blank and lead_time > 0
-                  assign model_contract_valid = true
+                  if selected_model_block.settings.hero_asset != blank and selected_model_block.settings.overview_asset != blank
+                    if selected_model_block.settings.engineering_asset != blank and selected_model_block.settings.tooling_asset != blank
+                      assign model_contract_valid = true
+                    endif
+                  endif
                 endif
               endif
             endif
@@ -63,6 +67,9 @@
 
   assign product_form_id = 'PimmMachineProductForm-' | append: section.id
 -%}
+
+<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'maliev-pimm-machine.js' | asset_url }}" defer="defer"></script>
 
 <product-form data-section-id="{{ section.id }}">
   <div class="product-form__error-message-wrapper" role="alert" hidden>
@@ -91,6 +98,7 @@
               height="1600"
               loading="eager"
               fetchpriority="high"
+              data-pimm-media-slot="hero"
             >
           </figure>
         {%- endif -%}
@@ -109,6 +117,7 @@
               width="1600"
               height="1600"
               loading="lazy"
+              data-pimm-media-slot="overview"
             >
           </figure>
         {%- endif -%}
@@ -130,6 +139,7 @@
               width="1600"
               height="1600"
               loading="lazy"
+              data-pimm-media-slot="tooling"
             >
           </figure>
         {%- endif -%}
@@ -147,6 +157,116 @@
         model_contract_valid: model_contract_valid,
         section: section
       %}
+
+      <script
+        type="application/json"
+        data-pimm-variant-data
+        data-pimm-invalid-message="{{ 'products.product.unavailable' | t | escape }}"
+      >
+        [
+          {%- for variant in product.variants -%}
+            {%- liquid
+              assign variant_model = variant.option1 | strip
+              assign variant_model_block = nil
+              assign variant_model_block_count = 0
+              for block in section.blocks
+                if block.type == 'model' and block.settings.model_code == variant_model
+                  assign variant_model_block_count = variant_model_block_count | plus: 1
+                  if variant_model_block == nil
+                    assign variant_model_block = block
+                  endif
+                endif
+              endfor
+
+              assign variant_specifications = variant.metafields.custom.pimm_specifications.value
+              assign variant_full_price = variant.metafields.custom.full_machine_price.value
+              assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
+              assign variant_contract_valid = false
+
+              if product_model_contract_valid
+                if variant_model == '30G' or variant_model == '50G'
+                  if variant_model_block != blank and variant_model_block_count == 1 and variant_specifications != blank
+                    if variant_specifications.schema_version == 1 and variant_specifications.model == variant_model
+                      if variant_specifications.shot_capacity_g > 0 and variant_specifications.max_melt_temperature_c > 0
+                        if variant_specifications.max_air_pressure_mpa > 0 and variant_specifications.mold_envelope_mm.width > 0
+                          if variant_specifications.mold_envelope_mm.height > 0 and variant_specifications.mold_envelope_mm.depth > 0
+                            if variant_full_price != blank and variant_lead_time_days > 0
+                              if variant_model_block.settings.hero_asset != blank and variant_model_block.settings.overview_asset != blank
+                                if variant_model_block.settings.engineering_asset != blank and variant_model_block.settings.tooling_asset != blank
+                                  assign variant_contract_valid = true
+                                endif
+                              endif
+                            endif
+                          endif
+                        endif
+                      endif
+                    endif
+                  endif
+                endif
+              endif
+
+              assign variant_full_price_text = 'products.product.unavailable' | t
+              if variant_full_price != blank
+                assign variant_full_price_cents = variant_full_price.amount | times: 100
+                assign variant_full_price_text = variant_full_price_cents | money_with_currency
+              endif
+
+              capture variant_lead_time_text
+                if variant_lead_time_days > 0
+                  echo 'products.pimm30_story.next_model.lead_time' | t: days: variant_lead_time_days
+                else
+                  echo 'products.product.unavailable' | t
+                endif
+              endcapture
+
+              assign variant_status_text = 'products.product.unavailable' | t
+              if variant_contract_valid
+                if variant.available
+                  assign variant_status_text = 'products.pimm30_story.next_model.made_to_order' | t
+                else
+                  assign variant_status_text = 'products.product.inventory_out_of_stock' | t
+                endif
+              endif
+
+              assign variant_hero_url = ''
+              assign variant_overview_url = ''
+              assign variant_engineering_url = ''
+              assign variant_tooling_url = ''
+              if variant_model_block != blank
+                if variant_model_block.settings.hero_asset != blank
+                  assign variant_hero_url = variant_model_block.settings.hero_asset | asset_url
+                endif
+                if variant_model_block.settings.overview_asset != blank
+                  assign variant_overview_url = variant_model_block.settings.overview_asset | asset_url
+                endif
+                if variant_model_block.settings.engineering_asset != blank
+                  assign variant_engineering_url = variant_model_block.settings.engineering_asset | asset_url
+                endif
+                if variant_model_block.settings.tooling_asset != blank
+                  assign variant_tooling_url = variant_model_block.settings.tooling_asset | asset_url
+                endif
+              endif
+            -%}
+            {
+              "id": {{ variant.id | json }},
+              "model": {{ variant.option1 | strip_html | json }},
+              "depositPrice": {{ variant.price | money_with_currency | strip_html | json }},
+              "fullPrice": {{ variant_full_price_text | strip_html | json }},
+              "available": {{ variant.available | json }},
+              "leadTime": {{ variant_lead_time_text | strip_html | strip | json }},
+              "specifications": {{ variant.metafields.custom.pimm_specifications.value | json }},
+              "media": {
+                "hero": {{ variant_hero_url | json }},
+                "overview": {{ variant_overview_url | json }},
+                "engineering": {{ variant_engineering_url | json }},
+                "tooling": {{ variant_tooling_url | json }}
+              },
+              "statusText": {{ variant_status_text | strip_html | json }},
+              "contractValid": {{ variant_contract_valid | json }}
+            }{% unless forloop.last %},{% endunless %}
+          {%- endfor -%}
+        ]
+      </script>
     </pimm-machine-product>
   {%- endform -%}
 </product-form>

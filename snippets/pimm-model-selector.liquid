@@ -8,6 +8,7 @@
 
 <fieldset class="pimm-machine__model-selector" data-pimm-model-selector>
   <legend>{{ 'maliev_home_i18n.featured.compare_lineup' | t }}</legend>
+  <output class="pimm-machine__selected-model" data-pimm-selected-model>{{ selected_variant.option1 | escape }}</output>
   <div class="pimm-machine__model-options">
     {%- for variant in product.variants -%}
       {%- if variant.option1 == '30G' or variant.option1 == '50G' -%}
@@ -17,8 +18,8 @@
             type="radio"
             name="id"
             value="{{ variant.id }}"
-            data-pimm-model-option
-            data-model-code="{{ variant.option1 | escape }}"
+            data-pimm-model-radio
+            data-model="{{ variant.option1 | escape }}"
             {% if variant.id == selected_variant.id %}checked{% endif %}
           >
           <span>{{ variant.option1 | escape }}</span>
