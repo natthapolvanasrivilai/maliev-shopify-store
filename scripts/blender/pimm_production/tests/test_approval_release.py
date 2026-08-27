@@ -1152,6 +1152,57 @@ def _declare_fake_zip_compression(path: Path) -> None:
 
 
 class ApprovalReleaseTests(unittest.TestCase):
+    def test_native_dependency_state_ignores_only_factory_startup_addon_metadata(self) -> None:
+        """Catches addon caches masking any real dependency or provenance drift."""
+
+        expected = _approved_component_authored_state()
+        expected.update({
+            "scene_identity": {"name": "Scene", "type": "Scene", "library": None},
+            "collection_tree": {"identity": "root", "children": []},
+            "view_layers": [{"name": "ViewLayer", "properties": {}}],
+        })
+        for obj in expected["objects"]:
+            obj.setdefault("properties", {})
+            obj.setdefault("transform", {"location": [0.0, 0.0, 0.0]})
+        expected["materials"][0]["node_tree"] = {"nodes": [{"value": 0.5}]}
+        live = copy.deepcopy(expected)
+        for obj in expected["objects"]:
+            obj["properties"]["poliigon"] = ""
+            obj["properties"]["poliigon_lod"] = ""
+        for material in expected["materials"]:
+            material["properties"]["poliigon"] = ""
+
+        self.assertEqual(
+            final_module._dependency_state_sha256(expected),
+            final_module._dependency_state_sha256(live),
+        )
+
+        mutations = []
+        object_transform = copy.deepcopy(live)
+        object_transform["objects"][0]["transform"]["location"][0] = 1.0
+        mutations.append(object_transform)
+        object_property = copy.deepcopy(live)
+        object_property["objects"][0]["properties"]["unexpected"] = True
+        mutations.append(object_property)
+        material_node = copy.deepcopy(live)
+        material_node["materials"][0]["node_tree"]["nodes"][0]["value"] = 0.75
+        mutations.append(material_node)
+        material_property = copy.deepcopy(live)
+        material_property["materials"][0]["properties"]["unexpected"] = True
+        mutations.append(material_property)
+        image = copy.deepcopy(live)
+        image["images"].append({"name": "unexpected", "sha256": "A" * 64})
+        mutations.append(image)
+        library = copy.deepcopy(live)
+        library["library_authorities"].append({"canonical_path": "M:/unexpected.blend"})
+        mutations.append(library)
+        for mutated in mutations:
+            with self.subTest(mutated=mutations.index(mutated)):
+                self.assertNotEqual(
+                    final_module._dependency_state_sha256(expected),
+                    final_module._dependency_state_sha256(mutated),
+                )
+
     def test_native_animation_state_ignores_only_factory_startup_addon_metadata(self) -> None:
         """Catches harmless Poliigon normalization hiding any real object-state drift."""
 

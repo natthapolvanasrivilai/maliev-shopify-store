@@ -569,6 +569,41 @@ def _animation_state_sha256(
     })
 
 
+def _dependency_state_sha256(authored: Mapping[str, object]) -> str:
+    """Hash dependency state without exact factory-startup Poliigon caches."""
+
+    normalized: dict[str, object] = {
+        field: authored.get(field)
+        for field in (
+            "scene_identity",
+            "library_authorities",
+            "images",
+            "collection_tree",
+            "view_layers",
+        )
+    }
+    for field, ignored_keys in (
+        ("objects", {"poliigon", "poliigon_lod"}),
+        ("materials", {"poliigon"}),
+    ):
+        raw_records = authored.get(field)
+        if not isinstance(raw_records, list):
+            raise ValueError(f"native dependency {field} must be a list")
+        records: list[dict[str, object]] = []
+        for index, raw_record in enumerate(raw_records):
+            record = dict(_mapping(raw_record, f"native dependency {field} {index}"))
+            properties = record.get("properties")
+            if isinstance(properties, Mapping):
+                record["properties"] = {
+                    key: value
+                    for key, value in properties.items()
+                    if key not in ignored_keys
+                }
+            records.append(record)
+        normalized[field] = records
+    return canonical_json_sha256(normalized)
+
+
 def _owned_identity(path: Path) -> dict[str, object]:
     status = os.stat(path, follow_symlinks=False)
     return {
@@ -757,7 +792,7 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
             live_hashes = _live_state_hashes(authored, animation_contract)
             expected_settings = _mapping(final.get("render_settings"), "final render settings")
             for field, actual in live_hashes.items():
-                if field == "animation_sha256":
+                if field in {"animation_sha256", "dependency_sha256"}:
                     continue
                 if expected_settings.get(field) != actual:
                     raise ValueError(f"native current {field.replace('_sha256', '')} state drift")
@@ -769,6 +804,10 @@ def run_authorized_final(approval_path: Path, final_contract_path: Path) -> Path
                 approved_before, animation_contract
             ) != _animation_state_sha256(authored, animation_contract):
                 raise ValueError("native current animation state drift")
+            if _dependency_state_sha256(approved_before) != _dependency_state_sha256(
+                authored
+            ):
+                raise ValueError("native current dependency state drift")
             _validate_rgba(png, dimensions)
             from PIL import Image
             with Image.open(png) as image:
