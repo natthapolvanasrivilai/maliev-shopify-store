@@ -632,6 +632,19 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
   assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|document\.write/);
 });
 
+test('market-aware full prices double contextual variant cents while retaining metafield validation', () => {
+  assert.match(section, /assign selected_full_price_cents = selected_variant\.price \| times: 2/);
+  assert.match(section, /assign variant_full_price_cents = variant\.price \| times: 2/);
+  assert.match(section, /metafields\.custom\.full_machine_price\.value/);
+  assert.match(section, /if full_price != blank and lead_time > 0/);
+  assert.match(section, /if variant_full_price != blank and variant_lead_time_days > 0/);
+  assert.match(section, /data-pimm-taxes-included="\{\{ cart\.taxes_included \}\}"/);
+  assert.match(section, /data-pimm-country="\{\{ localization\.country\.iso_code/);
+  assert.match(section, /data-pimm-currency="\{\{ cart\.currency\.iso_code/);
+  assert.match(purchase, /full_price_cents \| money_with_currency/);
+  assert.doesNotMatch(renderedContract, /full_price\.amount|variant_full_price\.amount/);
+});
+
 test('controller selects a valid variant without rebuilding DOM', () => {
   const variants = [variantFixture({ model: '30G', id: 101 }), variantFixture({ model: '50G', id: 202 })];
   const harness = createControllerHarness(variants);

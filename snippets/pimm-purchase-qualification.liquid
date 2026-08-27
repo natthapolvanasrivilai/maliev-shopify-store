@@ -2,7 +2,7 @@
   Renders qualification copy, the primary factory-visit link and secondary deposit submit.
 
   @param {object} selected_variant - The selected Shopify variant.
-  @param {object} full_price - The selected variant's full-price money value.
+  @param {number} full_price_cents - Twice the selected contextual variant price in integer cents.
   @param {string} lead_time - The selected variant's production lead time.
   @param {boolean} model_contract_valid - Whether deposit submission is safe.
   @param {section} section - The owning machine-product section.
@@ -25,7 +25,7 @@
     <div>
       <dt>{{ 'products.pimm_machine.purchase.full_price' | t }}</dt>
       <dd data-pimm-model-value="fullPrice">
-        {%- if model_contract_valid -%}{{ full_price.amount | times: 100 | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
+        {%- if model_contract_valid -%}{{ full_price_cents | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
       </dd>
     </div>
     <div>

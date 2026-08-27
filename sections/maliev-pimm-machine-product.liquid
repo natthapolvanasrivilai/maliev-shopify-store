@@ -30,6 +30,7 @@
 
   assign specifications = selected_variant.metafields.custom.pimm_specifications.value
   assign full_price = selected_variant.metafields.custom.full_machine_price.value
+  assign selected_full_price_cents = selected_variant.price | times: 2
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
   assign model_contract_valid = false
 
@@ -235,7 +236,7 @@
       {% render 'pimm-ownership', section: section %}
       {% render 'pimm-purchase-qualification',
         selected_variant: selected_variant,
-        full_price: full_price,
+        full_price_cents: selected_full_price_cents,
         lead_time: lead_time,
         model_contract_valid: model_contract_valid,
         section: section
@@ -245,6 +246,9 @@
         type="application/json"
         data-pimm-variant-data
         data-pimm-invalid-message="{{ 'products.pimm_machine.status.unavailable' | t | escape }}"
+        data-pimm-taxes-included="{{ cart.taxes_included }}"
+        data-pimm-country="{{ localization.country.iso_code | escape }}"
+        data-pimm-currency="{{ cart.currency.iso_code | escape }}"
       >
         [
           {%- for variant in product.variants -%}
@@ -263,6 +267,7 @@
 
               assign variant_specifications = variant.metafields.custom.pimm_specifications.value
               assign variant_full_price = variant.metafields.custom.full_machine_price.value
+              assign variant_full_price_cents = variant.price | times: 2
               assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
               assign variant_contract_valid = false
               case variant_model
@@ -331,8 +336,7 @@
               endif
 
               assign variant_full_price_text = 'products.pimm_machine.status.unavailable' | t
-              if variant_full_price != blank
-                assign variant_full_price_cents = variant_full_price.amount | times: 100
+              if variant_contract_valid
                 assign variant_full_price_text = variant_full_price_cents | money_with_currency
               endif
 
