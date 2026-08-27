@@ -4,6 +4,8 @@
 
 **Goal:** Create and verify one unpublished Shopify Draft product whose only option is `Model` with exact `30G` and `50G` deposit variants.
 
+The local Draft contract validates Admin-currency qualification evidence: variants remain in exact source order `30G`, then `50G`, and each `full_price_minor` metafield amount equals exactly twice its Admin `deposit_price_minor`. Storefront presentment is a separate theme responsibility and derives the displayed market-aware full price from contextual `variant.price * 2`; it does not format this base metafield directly.
+
 **Architecture:** First capture both existing products read-only and validate a local desired-state contract. Then duplicate the 30G product through the authenticated Shopify Admin, keep it Draft and unpublished, replace its variant structure, and populate versioned variant metafields from verified source data. Every external write is followed by explicit readback; missing source facts block the write rather than being guessed.
 
 **Tech Stack:** Shopify Admin in the user's authenticated Chrome profile, Node.js 20 built-in test runner, JSON desired-state validation, Shopify product/variant/metafield contracts.

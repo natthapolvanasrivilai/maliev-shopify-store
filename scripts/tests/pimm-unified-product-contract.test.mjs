@@ -71,7 +71,7 @@ test('rejects publication and option drift', () => {
 test('rejects duplicate, missing and extra variants', () => {
   const duplicate = structuredClone(valid);
   duplicate.variants[1].model = '30G';
-  assert.ok(validateDesiredProduct(duplicate).includes('variant models must equal exactly 30G,50G'));
+  assert.ok(validateDesiredProduct(duplicate).includes('variant models must equal ordered 30G,50G'));
 
   const missing = structuredClone(valid);
   missing.variants.pop();
@@ -80,6 +80,12 @@ test('rejects duplicate, missing and extra variants', () => {
   const extra = structuredClone(valid);
   extra.variants.push({ ...structuredClone(valid.variants[1]), model: '75G' });
   assert.ok(validateDesiredProduct(extra).includes('exactly two variants are required'));
+});
+
+test('rejects reversed variant order instead of normalizing it', () => {
+  const reversed = structuredClone(valid);
+  reversed.variants.reverse();
+  assert.ok(validateDesiredProduct(reversed).includes('variant models must equal ordered 30G,50G'));
 });
 
 test('rejects invalid money and a non-half deposit', () => {

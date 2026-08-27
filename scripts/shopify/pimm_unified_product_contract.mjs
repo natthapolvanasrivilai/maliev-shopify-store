@@ -35,8 +35,8 @@ export function validateDesiredProduct(payload) {
 
   const variants = Array.isArray(payload?.variants) ? payload.variants : [];
   if (variants.length !== 2) errors.push('exactly two variants are required');
-  if (JSON.stringify([...variants.map((variant) => variant?.model)].sort()) !== JSON.stringify(REQUIRED_MODELS)) {
-    errors.push('variant models must equal exactly 30G,50G');
+  if (JSON.stringify(variants.map((variant) => variant?.model)) !== JSON.stringify(REQUIRED_MODELS)) {
+    errors.push('variant models must equal ordered 30G,50G');
   }
 
   for (const model of REQUIRED_MODELS) {
