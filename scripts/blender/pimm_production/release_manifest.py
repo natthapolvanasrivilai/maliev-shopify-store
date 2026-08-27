@@ -24,6 +24,7 @@ from .approval_manifest import (
     _decode_component_mask,
     _mapping,
     _owned_identity,
+    _published_identity_matches,
     _rgba_pixel_evidence,
     _stable_file,
     _unlink_owned,
@@ -71,6 +72,27 @@ _MIME_BY_EXTENSION = {
     "exr": "image/x-exr", "png": "image/png", "webp": "image/webp",
 }
 _FORBIDDEN_OUTPUT_COMPONENTS = {"proof", "proofs", "archive", "archives", "mutable"}
+
+
+def _release_publication_matches(
+    destination: Path,
+    expected_payload: Mapping[str, object],
+    published_payload: Mapping[str, object],
+    created: Mapping[str, object],
+    published_record: Mapping[str, object],
+) -> bool:
+    """Validate marker content and durable identity while SMB timestamps settle."""
+
+    encoded = (
+        json.dumps(expected_payload, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    return (
+        published_payload == expected_payload
+        and published_record.get("path") == str(destination)
+        and published_record.get("sha256")
+        == hashlib.sha256(encoded).hexdigest().upper()
+        and _published_identity_matches(created, published_record)
+    )
 
 
 def _validate_independent_dependency_state(
@@ -1110,7 +1132,9 @@ def _build_release_manifest_locked(
         for handle in marker_owned_handles:
             os.close(handle)
     published, record = stable_json(destination, release_root, "asset", "release manifest")
-    if published != payload or any(record[key] != value for key, value in created.items()):
+    if not _release_publication_matches(
+        destination, payload, published, created, record
+    ):
         raise ValueError("release manifest publication identity or payload drift")
     _validate_release_tree_authority(destination)
     return destination

@@ -1434,6 +1434,72 @@ class ApprovalReleaseTests(unittest.TestCase):
                     approval_module._published_identity_matches(created, changed)
                 )
 
+    def test_release_publication_tolerates_only_smb_timestamp_settling(self) -> None:
+        """Keeps the release marker's final readback exact except for SMB times."""
+
+        destination = Path(r"M:\asset\release-2026-08-27-r16\release-manifest.json")
+        payload = {
+            "schema": "pimm-final-release-manifest/v1",
+            "tree_authority": {
+                "schema": "pimm-release-tree-authority/v1",
+                "entries": [],
+                "sha256": _canonical_fixture_sha([]),
+            },
+        }
+        encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        created = {
+            "device": 7,
+            "inode": 11,
+            "links": 1,
+            "bytes": len(encoded),
+            "mtime_ns": 100,
+            "ctime_ns": 200,
+        }
+        published = {
+            **created,
+            "mtime_ns": 101,
+            "ctime_ns": 201,
+            "change_time_ns": 300,
+            "authority": "asset",
+            "path": str(destination),
+            "sha256": hashlib.sha256(encoded).hexdigest().upper(),
+        }
+        self.assertTrue(
+            release_module._release_publication_matches(
+                destination, payload, payload, created, published
+            )
+        )
+
+        for field in ("path", "device", "inode", "links", "bytes", "sha256"):
+            with self.subTest(field=field):
+                changed = copy.deepcopy(published)
+                changed[field] = (
+                    str(destination.parent / "other.json")
+                    if field == "path"
+                    else "F" * 64 if field == "sha256"
+                    else int(changed[field]) + 1
+                )
+                self.assertFalse(
+                    release_module._release_publication_matches(
+                        destination, payload, payload, created, changed
+                    )
+                )
+
+        changed_payload = copy.deepcopy(payload)
+        changed_payload["schema"] = "counterfeit"
+        self.assertFalse(
+            release_module._release_publication_matches(
+                destination, payload, changed_payload, created, published
+            )
+        )
+        changed_tree = copy.deepcopy(payload)
+        changed_tree["tree_authority"]["sha256"] = "F" * 64
+        self.assertFalse(
+            release_module._release_publication_matches(
+                destination, payload, changed_tree, created, published
+            )
+        )
+
     def setUp(self) -> None:
         self._machine_contract_patch = patch.object(
             approval_module,
