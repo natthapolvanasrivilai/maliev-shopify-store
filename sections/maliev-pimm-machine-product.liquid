@@ -28,6 +28,21 @@
   assign full_price = selected_variant.metafields.custom.full_machine_price.value
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
   assign model_contract_valid = false
+  assign use_thai_alt = false
+  if request.locale.iso_code contains 'th'
+    assign use_thai_alt = true
+  endif
+
+  assign hero_alt = selected_model_block.settings.hero_alt_en
+  assign overview_alt = selected_model_block.settings.overview_alt_en
+  assign engineering_alt = selected_model_block.settings.engineering_alt_en
+  assign tooling_alt = selected_model_block.settings.tooling_alt_en
+  if use_thai_alt
+    assign hero_alt = selected_model_block.settings.hero_alt_th
+    assign overview_alt = selected_model_block.settings.overview_alt_th
+    assign engineering_alt = selected_model_block.settings.engineering_alt_th
+    assign tooling_alt = selected_model_block.settings.tooling_alt_th
+  endif
 
   if product_model_contract_valid
     if selected_model_code == '30G' or selected_model_code == '50G'
@@ -39,7 +54,9 @@
                 if full_price != blank and lead_time > 0
                   if selected_model_block.settings.hero_asset != blank and selected_model_block.settings.overview_asset != blank
                     if selected_model_block.settings.engineering_asset != blank and selected_model_block.settings.tooling_asset != blank
-                      assign model_contract_valid = true
+                      if hero_alt != blank and overview_alt != blank and engineering_alt != blank and tooling_alt != blank
+                        assign model_contract_valid = true
+                      endif
                     endif
                   endif
                 endif
@@ -49,20 +66,6 @@
         endif
       endif
     endif
-  endif
-
-  assign use_thai_alt = false
-  if request.locale.iso_code contains 'th'
-    assign use_thai_alt = true
-  endif
-
-  assign hero_alt = selected_model_block.settings.hero_alt_en
-  assign overview_alt = selected_model_block.settings.overview_alt_en
-  assign tooling_alt = selected_model_block.settings.tooling_alt_en
-  if use_thai_alt
-    assign hero_alt = selected_model_block.settings.hero_alt_th
-    assign overview_alt = selected_model_block.settings.overview_alt_th
-    assign tooling_alt = selected_model_block.settings.tooling_alt_th
   endif
 
   assign product_form_id = 'PimmMachineProductForm-' | append: section.id
@@ -182,6 +185,16 @@
               assign variant_full_price = variant.metafields.custom.full_machine_price.value
               assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
               assign variant_contract_valid = false
+              assign variant_hero_alt = variant_model_block.settings.hero_alt_en
+              assign variant_overview_alt = variant_model_block.settings.overview_alt_en
+              assign variant_engineering_alt = variant_model_block.settings.engineering_alt_en
+              assign variant_tooling_alt = variant_model_block.settings.tooling_alt_en
+              if use_thai_alt
+                assign variant_hero_alt = variant_model_block.settings.hero_alt_th
+                assign variant_overview_alt = variant_model_block.settings.overview_alt_th
+                assign variant_engineering_alt = variant_model_block.settings.engineering_alt_th
+                assign variant_tooling_alt = variant_model_block.settings.tooling_alt_th
+              endif
 
               if product_model_contract_valid
                 if variant_model == '30G' or variant_model == '50G'
@@ -193,7 +206,9 @@
                             if variant_full_price != blank and variant_lead_time_days > 0
                               if variant_model_block.settings.hero_asset != blank and variant_model_block.settings.overview_asset != blank
                                 if variant_model_block.settings.engineering_asset != blank and variant_model_block.settings.tooling_asset != blank
-                                  assign variant_contract_valid = true
+                                  if variant_hero_alt != blank and variant_overview_alt != blank and variant_engineering_alt != blank and variant_tooling_alt != blank
+                                    assign variant_contract_valid = true
+                                  endif
                                 endif
                               endif
                             endif
@@ -254,12 +269,44 @@
               "fullPrice": {{ variant_full_price_text | strip_html | json }},
               "available": {{ variant.available | json }},
               "leadTime": {{ variant_lead_time_text | strip_html | strip | json }},
-              "specifications": {{ variant.metafields.custom.pimm_specifications.value | json }},
+              "specifications": {
+                {%- if variant_contract_valid -%}
+                  "schema_version": {{ variant_specifications.schema_version | plus: 0 | json }},
+                  "model": {{ variant_model | strip_html | json }},
+                  "shot_capacity_g": {{ variant_specifications.shot_capacity_g | plus: 0 | json }},
+                  "max_melt_temperature_c": {{ variant_specifications.max_melt_temperature_c | plus: 0 | json }},
+                  "mold_envelope_mm": {
+                    "width": {{ variant_specifications.mold_envelope_mm.width | plus: 0 | json }},
+                    "height": {{ variant_specifications.mold_envelope_mm.height | plus: 0 | json }},
+                    "depth": {{ variant_specifications.mold_envelope_mm.depth | plus: 0 | json }}
+                  },
+                  "max_air_pressure_mpa": {{ variant_specifications.max_air_pressure_mpa | plus: 0 | json }}
+                {%- else -%}
+                  "schema_version": null,
+                  "model": null,
+                  "shot_capacity_g": null,
+                  "max_melt_temperature_c": null,
+                  "mold_envelope_mm": { "width": null, "height": null, "depth": null },
+                  "max_air_pressure_mpa": null
+                {%- endif -%}
+              },
               "media": {
-                "hero": {{ variant_hero_url | json }},
-                "overview": {{ variant_overview_url | json }},
-                "engineering": {{ variant_engineering_url | json }},
-                "tooling": {{ variant_tooling_url | json }}
+                "hero": {
+                  "src": {{ variant_hero_url | json }},
+                  "alt": {{ variant_hero_alt | strip_html | json }}
+                },
+                "overview": {
+                  "src": {{ variant_overview_url | json }},
+                  "alt": {{ variant_overview_alt | strip_html | json }}
+                },
+                "engineering": {
+                  "src": {{ variant_engineering_url | json }},
+                  "alt": {{ variant_engineering_alt | strip_html | json }}
+                },
+                "tooling": {
+                  "src": {{ variant_tooling_url | json }},
+                  "alt": {{ variant_tooling_alt | strip_html | json }}
+                }
               },
               "statusText": {{ variant_status_text | strip_html | json }},
               "contractValid": {{ variant_contract_valid | json }}

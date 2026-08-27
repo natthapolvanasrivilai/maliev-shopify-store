@@ -61,9 +61,15 @@
         mold?.width > 0 &&
         mold.height > 0 &&
         mold.depth > 0 &&
-        ['hero', 'overview', 'engineering', 'tooling'].every(
-          (slot) => typeof media?.[slot] === 'string' && media[slot].length > 0,
-        )
+        ['hero', 'overview', 'engineering', 'tooling'].every((slot) => {
+          const item = media?.[slot];
+          return (
+            typeof item?.src === 'string' &&
+            item.src.length > 0 &&
+            typeof item.alt === 'string' &&
+            item.alt.length > 0
+          );
+        })
       );
     }
 
@@ -110,9 +116,12 @@
       }
 
       slots.forEach((image) => {
-        const source = variant.media?.[image.dataset.pimmMediaSlot];
-        image.hidden = !contractValid || typeof source !== 'string' || source.length === 0;
-        if (!image.hidden) image.src = source;
+        const media = variant.media?.[image.dataset.pimmMediaSlot];
+        image.hidden = !contractValid || typeof media?.src !== 'string' || typeof media.alt !== 'string';
+        if (!image.hidden) {
+          image.src = media.src;
+          image.alt = media.alt;
+        }
       });
     }
 

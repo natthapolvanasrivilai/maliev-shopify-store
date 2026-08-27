@@ -39,10 +39,10 @@ const variantFixture = ({ model, id, available = true, contractValid = true }) =
     max_air_pressure_mpa: 0.7,
   },
   media: {
-    hero: `https://cdn.example.test/${model}/hero.webp`,
-    overview: `https://cdn.example.test/${model}/overview.webp`,
-    engineering: `https://cdn.example.test/${model}/engineering.webp`,
-    tooling: `https://cdn.example.test/${model}/tooling.webp`,
+    hero: { src: `https://cdn.example.test/${model}/hero.webp`, alt: `${model} machine front view` },
+    overview: { src: `https://cdn.example.test/${model}/overview.webp`, alt: `${model} machine overview` },
+    engineering: { src: `https://cdn.example.test/${model}/engineering.webp`, alt: `${model} engineering detail` },
+    tooling: { src: `https://cdn.example.test/${model}/tooling.webp`, alt: `${model} tooling detail` },
   },
   statusText: available && contractValid ? 'Made to order' : available ? 'Unavailable' : 'Out of stock',
   contractValid,
@@ -91,6 +91,7 @@ const createControllerHarness = (variants) => {
   const mediaSlots = ['hero', 'overview', 'engineering', 'tooling'].map((slot) => ({
     dataset: { pimmMediaSlot: slot },
     src: '',
+    alt: '',
     hidden: false,
   }));
 
@@ -286,7 +287,7 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
   assert.match(selector, /type="radio"[^>]*name="id"[^>]*value="\{\{ variant\.id \}\}"[^>]*data-pimm-model-radio/s);
   assert.match(section, /variant\.option1 \| strip_html \| json/);
   assert.match(section, /variant\.price \| money_with_currency \| strip_html \| json/);
-  assert.match(section, /variant\.metafields\.custom\.pimm_specifications\.value \| json/);
+  assert.doesNotMatch(section, /variant\.metafields\.custom\.pimm_specifications\.value \| json/);
   assert.match(section, /"contractValid": \{\{ variant_contract_valid \| json \}\}/);
   for (const key of [
     'id',
@@ -304,10 +305,51 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
   }
   for (const slot of ['hero', 'overview', 'engineering', 'tooling']) {
     assert.match(variantPayloadSource, new RegExp(`"${slot}"\\s*:`));
+    assert.match(
+      variantPayloadSource,
+      new RegExp(`"${slot}"\\s*:\\s*\\{[\\s\\S]*?"src"\\s*:[\\s\\S]*?"alt"\\s*:`, 'm'),
+    );
   }
   assert.match(variantPayloadSource, /variant_model_block_count == 1/);
   assert.match(variantPayloadSource, /variant_specifications\.schema_version == 1/);
   assert.match(variantPayloadSource, /variant_specifications\.model == variant_model/);
+  const specificationProjection = variantPayloadSource.match(/"specifications"\s*:\s*\{([\s\S]*?)\n\s*\},\n\s*"media"/)?.[1] ?? '';
+  for (const field of [
+    'schema_version',
+    'model',
+    'shot_capacity_g',
+    'max_melt_temperature_c',
+    'mold_envelope_mm',
+    'width',
+    'height',
+    'depth',
+    'max_air_pressure_mpa',
+  ]) {
+    assert.match(specificationProjection, new RegExp(`"${field}"\\s*:`));
+  }
+  const merchantControlledFixture = {
+    unexpected_key: '</script><script>window.payloadEscaped = false</script>',
+  };
+  const emittedSpecificationKeys = [...specificationProjection.matchAll(/"([a-z_]+)"\s*:/g)].map((match) => match[1]);
+  assert.deepEqual([...new Set(emittedSpecificationKeys)], [
+    'schema_version',
+    'model',
+    'shot_capacity_g',
+    'max_melt_temperature_c',
+    'mold_envelope_mm',
+    'width',
+    'height',
+    'depth',
+    'max_air_pressure_mpa',
+  ]);
+  assert.equal(emittedSpecificationKeys.includes('unexpected_key'), false);
+  assert.doesNotMatch(specificationProjection, new RegExp(merchantControlledFixture.unexpected_key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.doesNotMatch(specificationProjection, /variant_specifications\s*\|\s*json/);
+  assert.match(variantPayloadSource, /variant_hero_alt \| strip_html \| json/);
+  assert.match(variantPayloadSource, /variant_overview_alt \| strip_html \| json/);
+  assert.match(variantPayloadSource, /variant_engineering_alt \| strip_html \| json/);
+  assert.match(variantPayloadSource, /variant_tooling_alt \| strip_html \| json/);
+  assert.match(js, /image\.alt = media\.alt/);
   assert.match(purchase, /role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
   assert.match(purchase, /render 'loading-spinner'/);
   assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|document\.write/);
@@ -330,7 +372,8 @@ test('controller selects a valid variant without rebuilding DOM', () => {
   assert.deepEqual(harness.radios.map((radio) => radio.checked), [false, true]);
   assert.match(harness.browser.window.location.href, /variant=202$/);
   assert.deepEqual(harness.mediaGroups.map((group) => group.hidden), [true, false]);
-  assert.deepEqual(harness.mediaSlots.map((slot) => slot.src), Object.values(variants[1].media));
+  assert.deepEqual(harness.mediaSlots.map((slot) => slot.src), Object.values(variants[1].media).map((media) => media.src));
+  assert.deepEqual(harness.mediaSlots.map((slot) => slot.alt), Object.values(variants[1].media).map((media) => media.alt));
   assert.equal(harness.factoryVisit.href, '/pages/contact');
 });
 
