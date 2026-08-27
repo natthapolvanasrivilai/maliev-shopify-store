@@ -19,6 +19,80 @@ const viewports = [
   [320, 800],
 ];
 const models = ['30G', '50G'];
+const expectedMarket = {
+  en: {
+    status: 'Made to order',
+    alt: {
+      '30G': {
+        hero: 'MALIEV 30G pneumatic injection molding machine, front view',
+        overview: 'MALIEV 30G pneumatic injection molding machine, three-quarter view',
+        engineering: 'MALIEV 30G controls and pneumatic engineering detail',
+        tooling: 'MALIEV 30G mold tooling area, front detail',
+      },
+      '50G': {
+        hero: 'MALIEV 50G pneumatic injection molding machine, front view',
+        overview: 'MALIEV 50G pneumatic injection molding machine, three-quarter view',
+        engineering: 'MALIEV 50G controls and pneumatic engineering detail',
+        tooling: 'MALIEV 50G mold tooling area, front detail',
+      },
+    },
+  },
+  th: {
+    status: 'ผลิตตามคำสั่งซื้อ',
+    alt: {
+      '30G': {
+        hero: 'เครื่องฉีดพลาสติกระบบลม MALIEV รุ่น 30G มุมมองด้านหน้า',
+        overview: 'เครื่องฉีดพลาสติกระบบลม MALIEV รุ่น 30G มุมมองสามส่วนสี่',
+        engineering: 'รายละเอียดชุดควบคุมและระบบนิวเมติกของ MALIEV รุ่น 30G',
+        tooling: 'รายละเอียดพื้นที่ติดตั้งแม่พิมพ์ด้านหน้าของ MALIEV รุ่น 30G',
+      },
+      '50G': {
+        hero: 'เครื่องฉีดพลาสติกระบบลม MALIEV รุ่น 50G มุมมองด้านหน้า',
+        overview: 'เครื่องฉีดพลาสติกระบบลม MALIEV รุ่น 50G มุมมองสามส่วนสี่',
+        engineering: 'รายละเอียดชุดควบคุมและระบบนิวเมติกของ MALIEV รุ่น 50G',
+        tooling: 'รายละเอียดพื้นที่ติดตั้งแม่พิมพ์ด้านหน้าของ MALIEV รุ่น 50G',
+      },
+    },
+  },
+  models: {
+    '30G': {
+      depositPrice: '฿52,965.00 THB',
+      fullPrice: '฿105,930.00 THB',
+      specifications: {
+        schema_version: 1,
+        model: '30G',
+        shot_capacity_g: 30,
+        max_melt_temperature_c: 300,
+        mold_envelope_mm: { width: 240, height: 240, depth: 150 },
+        max_air_pressure_mpa: 0.7,
+      },
+      media: {
+        hero: 'pimm-machine-30g-hero-front.webp',
+        overview: 'pimm-machine-30g-overview-three-quarter.webp',
+        engineering: 'pimm-machine-30g-engineering-controls.webp',
+        tooling: 'pimm-machine-30g-tooling-front-detail.webp',
+      },
+    },
+    '50G': {
+      depositPrice: '฿85,000.00 THB',
+      fullPrice: '฿170,000.00 THB',
+      specifications: {
+        schema_version: 1,
+        model: '50G',
+        shot_capacity_g: 50,
+        max_melt_temperature_c: 350,
+        mold_envelope_mm: { width: 240, height: 240, depth: 100 },
+        max_air_pressure_mpa: 0.7,
+      },
+      media: {
+        hero: 'pimm-machine-50g-hero-front.webp',
+        overview: 'pimm-machine-50g-overview-three-quarter.webp',
+        engineering: 'pimm-machine-50g-engineering-controls.webp',
+        tooling: 'pimm-machine-50g-tooling-front-detail.webp',
+      },
+    },
+  },
+};
 const failureFixtures = ['unavailable-50g', 'malformed-specifications', 'missing-engineering-image'];
 const chromeCandidates = [
   process.env.PIMM_UNIFIED_CHROME_PATH,
@@ -284,6 +358,58 @@ async function captureScreenshot(session, path) {
   await writeFile(path, Buffer.from(capture.data, 'base64'));
 }
 
+async function suppressCookieConsentForEvidence(session) {
+  return evaluate(session, `(() => {
+    const selectors = [
+      '#shopify-pc__banner',
+      '#shopify-privacy-banner',
+      '.shopify-pc__banner__dialog',
+      '[data-shopify-privacy-banner]',
+      'shopify-privacy-banner',
+    ];
+    const hidden = new Set();
+    const hide = (node) => {
+      if (!(node instanceof HTMLElement) || hidden.has(node)) return;
+      node.style.setProperty('display', 'none', 'important');
+      node.setAttribute('aria-hidden', 'true');
+      node.setAttribute('data-pimm-evidence-suppressed', 'true');
+      hidden.add(node);
+    };
+    for (const selector of selectors) document.querySelectorAll(selector).forEach(hide);
+    for (const host of document.querySelectorAll('*')) {
+      if (!host.shadowRoot) continue;
+      for (const selector of selectors) host.shadowRoot.querySelectorAll(selector).forEach(hide);
+      if (/privacy|cookie/i.test(host.localName) && /consent|cookie|privacy/i.test(host.shadowRoot.textContent || '')) hide(host);
+    }
+    return hidden.size;
+  })()`);
+}
+
+async function captureElementScreenshot(session, path, selector) {
+  const clip = await evaluate(session, `(async () => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!element) return null;
+    element.scrollIntoView({ block: 'center', inline: 'nearest' });
+    await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.max(0, rect.left + scrollX),
+      y: Math.max(0, rect.top + scrollY),
+      width: Math.min(document.documentElement.scrollWidth, rect.width),
+      height: rect.height,
+      scale: 1,
+    };
+  })()`);
+  assert.ok(clip && clip.width > 0 && clip.height > 0, `Screenshot target ${selector} must have geometry`);
+  const capture = await session.send('Page.captureScreenshot', {
+    captureBeyondViewport: true,
+    clip,
+    format: 'png',
+    fromSurface: true,
+  });
+  await writeFile(path, Buffer.from(capture.data, 'base64'));
+}
+
 const decodeEntities = (value) => value
   .replaceAll('&quot;', '"')
   .replaceAll('&#39;', "'")
@@ -374,6 +500,7 @@ const pageProbe = `(() => {
   const status = document.querySelector('[data-pimm-variant-status]');
   const purchase = document.querySelector('[data-pimm-purchase-qualification]');
   const purchaseRect = purchase?.getBoundingClientRect();
+  const payload = document.querySelector('[data-pimm-variant-data]');
   return {
     bentoCount: document.querySelectorAll('[data-pimm-engineering-bento]').length,
     factoryBeforeDeposit: Boolean(factory && deposit && (factory.compareDocumentPosition(deposit) & Node.DOCUMENT_POSITION_FOLLOWING)),
@@ -386,6 +513,11 @@ const pageProbe = `(() => {
     noOverflow: document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth,
     purchaseFullBleed: Boolean(purchaseRect && Math.abs(purchaseRect.left) <= 1 && Math.abs(purchaseRect.right - innerWidth) <= 1),
     purchaseRect: purchaseRect && { left: purchaseRect.left, right: purchaseRect.right, width: purchaseRect.width },
+    taxContext: {
+      country: payload?.dataset.pimmCountry,
+      currency: payload?.dataset.pimmCurrency,
+      taxesIncluded: payload?.dataset.pimmTaxesIncluded,
+    },
     overflowEvidence: {
       body: document.body.scrollWidth,
       html: document.documentElement.scrollWidth,
@@ -419,6 +551,21 @@ const selectedStateProbe = (model) => `(async () => {
   }
   radio.click();
   await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+  const selectedGroups = [...document.querySelectorAll('[data-pimm-media-model=${JSON.stringify(model)}]:not([hidden])')];
+  const selectedImages = selectedGroups.map((group) => group.querySelector('img')).filter(Boolean);
+  for (const group of selectedGroups) {
+    group.scrollIntoView({ block: 'center', inline: 'nearest' });
+    await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+  }
+  const imagesReady = await new Promise((resolveReady) => {
+    const started = performance.now();
+    const check = () => {
+      if (selectedImages.every((image) => image.complete && image.naturalWidth > 0)) return resolveReady(true);
+      if (performance.now() - started >= 5000) return resolveReady(false);
+      setTimeout(check, 100);
+    };
+    check();
+  });
   const payload = JSON.parse(document.querySelector('[data-pimm-variant-data]').textContent);
   const record = payload.find((variant) => variant.model === ${JSON.stringify(model)});
   const values = Object.fromEntries([...document.querySelectorAll('[data-pimm-model-value]')].map((node) => [node.dataset.pimmModelValue, node.textContent.trim()]));
@@ -431,6 +578,19 @@ const selectedStateProbe = (model) => `(async () => {
     depositDisabled: deposit.disabled,
     factoryHref: factory.href,
     invalidMessage: document.querySelector('[data-pimm-variant-data]').dataset.pimmInvalidMessage,
+    imagesReady,
+    media: selectedGroups.map((group) => {
+      const image = group.querySelector('img');
+      const slot = group.dataset.pimmMediaSlot || image?.dataset.pimmMediaSlot;
+      const pathname = image?.currentSrc ? new URL(image.currentSrc, location.href).pathname : '';
+      return {
+        alt: image?.alt,
+        complete: image?.complete,
+        filename: pathname.split('/').pop(),
+        naturalWidth: image?.naturalWidth,
+        slot,
+      };
+    }).sort((a, b) => ['hero', 'overview', 'engineering', 'tooling'].indexOf(a.slot) - ['hero', 'overview', 'engineering', 'tooling'].indexOf(b.slot)),
     otherVisibleMedia: document.querySelectorAll('[data-pimm-media-model]:not([data-pimm-media-model=${JSON.stringify(model)}]):not([hidden])').length,
     record,
     selected: document.querySelector('[data-pimm-selected-model]').textContent.trim(),
@@ -454,6 +614,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
   const { session } = browser;
   const consoleErrors = [];
   const exceptions = [];
+  const marketEvidence = [];
 
   session.on('Runtime.consoleAPICalled', (entry) => {
     if (entry.type === 'error') consoleErrors.push({
@@ -505,26 +666,86 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
           assert.deepEqual(probe.radioNames, ['id', 'id']);
           assert.equal(new Set(probe.radioValues).size, 2);
           assert.deepEqual(probe.liveRegion, { atomic: 'true', live: 'polite', role: 'status' });
+          assert.deepEqual(probe.taxContext, { country: 'TH', currency: 'THB', taxesIncluded: 'true' });
 
           for (const model of models) {
             const state = await evaluate(session, selectedStateProbe(model));
+            const expectedModel = expectedMarket.models[model];
+            const expectedAlt = expectedMarket[language].alt[model];
+            const expectedMedia = Object.entries(expectedModel.media).map(([slot, filename]) => ({
+              alt: expectedAlt[slot],
+              filename,
+              slot,
+            }));
             assert.equal(state.checked, true);
             assert.equal(state.selected, model);
             assert.match(state.url, new RegExp(`[?&]variant=${state.record.id}(?:&|$)`));
             assert.equal(state.visibleMedia, 4);
             assert.equal(state.otherVisibleMedia, 0);
-            assert.equal(state.values.depositPrice, state.record.depositPrice);
-            assert.equal(state.values.fullPrice, state.record.fullPrice);
+            assert.equal(state.imagesReady, true);
+            assert.deepEqual(
+              state.media.map(({ alt, filename, slot }) => ({ alt, filename, slot })),
+              expectedMedia,
+            );
+            assert.deepEqual(
+              state.media.map(({ complete, naturalWidth }) => ({ complete, loaded: naturalWidth > 0 })),
+              Array.from({ length: 4 }, () => ({ complete: true, loaded: true })),
+            );
+            assert.equal(state.values.depositPrice, expectedModel.depositPrice);
+            assert.equal(state.values.fullPrice, expectedModel.fullPrice);
+            assert.equal(state.record.depositPrice, expectedModel.depositPrice);
+            assert.equal(state.record.fullPrice, expectedModel.fullPrice);
             assert.equal(state.values.leadTime, state.record.leadTime);
-            assert.equal(state.depositDisabled, !state.record.available || !state.record.contractValid);
-            assert.equal(state.status, state.record.statusText);
+            assert.equal(state.depositDisabled, false);
+            assert.equal(state.record.available, true);
+            assert.equal(state.record.contractValid, true);
+            assert.equal(state.status, expectedMarket[language].status);
+            assert.equal(state.record.statusText, expectedMarket[language].status);
             assert.ok(state.factoryHref);
-            assert.equal(state.specifications.shot_capacity_g, String(state.record.specifications.shot_capacity_g));
-            assert.equal(state.specifications.max_melt_temperature_c, String(state.record.specifications.max_melt_temperature_c));
-            assert.equal(state.specifications.max_air_pressure_mpa, String(state.record.specifications.max_air_pressure_mpa));
-          }
+            assert.deepEqual(state.record.specifications, expectedModel.specifications);
+            assert.deepEqual(state.specifications, {
+              shot_capacity_g: String(expectedModel.specifications.shot_capacity_g),
+              max_melt_temperature_c: String(expectedModel.specifications.max_melt_temperature_c),
+              mold_envelope: [
+                expectedModel.specifications.mold_envelope_mm.width,
+                expectedModel.specifications.mold_envelope_mm.height,
+                expectedModel.specifications.mold_envelope_mm.depth,
+              ].join(' × '),
+              max_air_pressure_mpa: String(expectedModel.specifications.max_air_pressure_mpa),
+            });
+            assert.deepEqual(
+              Object.fromEntries(Object.entries(state.record.media).map(([slot, media]) => [slot, {
+                alt: media.alt,
+                filename: new URL(media.src, state.url).pathname.split('/').pop(),
+              }])),
+              Object.fromEntries(Object.entries(expectedModel.media).map(([slot, filename]) => [slot, {
+                alt: expectedAlt[slot],
+                filename,
+              }])),
+            );
 
-          await captureScreenshot(session, join(evidenceDir, `pimm-unified-${language}-${width}x${height}.png`));
+            marketEvidence.push({
+              language,
+              model,
+              viewport: `${width}x${height}`,
+              taxContext: probe.taxContext,
+              depositPrice: state.values.depositPrice,
+              fullPrice: state.values.fullPrice,
+              status: state.status,
+              specifications: state.specifications,
+              media: state.media,
+            });
+            await evaluate(session, 'scrollTo(0, 0); true');
+            await suppressCookieConsentForEvidence(session);
+            await captureScreenshot(session, join(evidenceDir, `pimm-unified-${language}-${width}x${height}-hero-${model.toLowerCase()}.png`));
+            if (width === 390) {
+              await captureElementScreenshot(
+                session,
+                join(evidenceDir, `pimm-unified-${language}-purchase-${model.toLowerCase()}.png`),
+                '[data-pimm-purchase-qualification]',
+              );
+            }
+          }
         }
       });
     }
@@ -667,7 +888,12 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             assert.equal(state.visibleMedia, 0);
             assert.equal(state.specifications.shot_capacity_g, state.invalidMessage);
           }
-          await captureScreenshot(session, join(evidenceDir, `pimm-unified-${language}-${fixture}.png`));
+          await suppressCookieConsentForEvidence(session);
+          await captureElementScreenshot(
+            session,
+            join(evidenceDir, `pimm-unified-${language}-failure-${fixture}.png`),
+            '[data-pimm-purchase-qualification]',
+          );
         });
       }
     }
@@ -679,6 +905,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
     assert.deepEqual(pageExceptions, [], 'Unified PIMM-owned scripts must not throw uncaught exceptions');
     const externalErrors = [...consoleErrors, ...exceptions].filter((entry) => !pageOwned(entry));
     await writeFile(join(evidenceDir, 'external-browser-errors.json'), `${JSON.stringify(externalErrors, null, 2)}\n`);
+    await writeFile(join(evidenceDir, 'market-context.json'), `${JSON.stringify(marketEvidence, null, 2)}\n`);
     console.log(`PIMM_UNIFIED_EXTERNAL_BROWSER_ERRORS=${JSON.stringify(externalErrors)}`);
     console.log(`PIMM_UNIFIED_BROWSER_EVIDENCE=${evidenceDir}`);
     console.log(`PIMM_UNIFIED_LANGUAGE_URLS=${JSON.stringify(languageUrls)}`);
