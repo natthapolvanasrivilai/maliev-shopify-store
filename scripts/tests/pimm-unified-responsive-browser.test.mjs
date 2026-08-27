@@ -1,0 +1,688 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import test from 'node:test';
+
+const previewUrl = process.env.PIMM_UNIFIED_PREVIEW_URL?.trim();
+const evidenceDir = resolve(
+  process.env.PIMM_UNIFIED_EVIDENCE_DIR?.trim()
+    || '.codex-tmp/pimm-unified-product/browser-evidence',
+);
+const viewports = [
+  [1440, 1000],
+  [1024, 768],
+  [768, 1024],
+  [390, 844],
+  [320, 800],
+];
+const models = ['30G', '50G'];
+const failureFixtures = ['unavailable-50g', 'malformed-specifications', 'missing-engineering-image'];
+const chromeCandidates = [
+  process.env.PIMM_UNIFIED_CHROME_PATH,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+].filter(Boolean);
+
+const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+
+async function eventually(action, { timeout = 30_000, interval = 100 } = {}) {
+  const started = Date.now();
+  let lastError;
+  while (Date.now() - started < timeout) {
+    try {
+      const value = await action();
+      if (value) return value;
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(interval);
+  }
+  throw lastError ?? new Error(`Condition was not met within ${timeout}ms`);
+}
+
+class CdpSession {
+  #id = 0;
+  #listeners = new Map();
+  #pending = new Map();
+
+  static async connect(url) {
+    const socket = new WebSocket(url);
+    await new Promise((resolveOpen, reject) => {
+      socket.addEventListener('open', resolveOpen, { once: true });
+      socket.addEventListener('error', () => reject(new Error(`Chrome rejected the DevTools connection for ${url}`)), { once: true });
+    });
+    return new CdpSession(socket);
+  }
+
+  constructor(socket) {
+    this.socket = socket;
+    socket.addEventListener('message', (event) => {
+      const message = JSON.parse(String(event.data));
+      if (message.id) {
+        const pending = this.#pending.get(message.id);
+        if (!pending) return;
+        this.#pending.delete(message.id);
+        if (message.error) pending.reject(new Error(`${message.error.message} (${message.error.code})`));
+        else pending.resolve(message.result);
+        return;
+      }
+      for (const listener of this.#listeners.get(message.method) ?? []) listener(message.params);
+    });
+    socket.addEventListener('close', () => {
+      for (const pending of this.#pending.values()) pending.reject(new Error('Chrome DevTools connection closed'));
+      this.#pending.clear();
+    });
+  }
+
+  on(method, listener) {
+    const listeners = this.#listeners.get(method) ?? [];
+    listeners.push(listener);
+    this.#listeners.set(method, listeners);
+    return () => {
+      const current = this.#listeners.get(method) ?? [];
+      this.#listeners.set(method, current.filter((candidate) => candidate !== listener));
+    };
+  }
+
+  send(method, params = {}) {
+    const id = ++this.#id;
+    return new Promise((resolveSend, reject) => {
+      this.#pending.set(id, { resolve: resolveSend, reject });
+      this.socket.send(JSON.stringify({ id, method, params }));
+    });
+  }
+
+  async close() {
+    if (this.socket.readyState >= WebSocket.CLOSING) return;
+    this.socket.close();
+    await Promise.race([
+      new Promise((resolveClose) => this.socket.addEventListener('close', resolveClose, { once: true })),
+      delay(1_000),
+    ]);
+  }
+}
+
+async function stopBrowser(browser) {
+  if (browser.exitCode !== null || browser.signalCode !== null) return;
+  browser.kill();
+  const exited = await Promise.race([
+    new Promise((resolveExit) => browser.once('exit', () => resolveExit(true))),
+    delay(5_000).then(() => false),
+  ]);
+  if (!exited) browser.kill('SIGKILL');
+}
+
+async function removeTemporaryProfile(path) {
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    try {
+      await rm(path, { force: true, recursive: true });
+      return;
+    } catch (error) {
+      if (!['EBUSY', 'ENOTEMPTY', 'EPERM'].includes(error?.code) || attempt === 10) throw error;
+      await delay(Math.min(50 * (2 ** (attempt - 1)), 1_000));
+    }
+  }
+}
+
+async function launchBrowser() {
+  const executable = chromeCandidates.find((candidate) => existsSync(candidate));
+  assert.ok(executable, 'Chrome or Edge is required; set PIMM_UNIFIED_CHROME_PATH when installed elsewhere');
+
+  const userDataDir = await mkdtemp(join(tmpdir(), 'pimm-unified-browser-'));
+  const browser = spawn(executable, [
+    '--headless=new',
+    '--remote-debugging-port=0',
+    `--user-data-dir=${userDataDir}`,
+    '--disable-background-networking',
+    '--disable-component-update',
+    '--disable-default-apps',
+    '--disable-extensions',
+    '--disable-features=Translate,MediaRouter',
+    '--disable-sync',
+    '--hide-scrollbars',
+    '--mute-audio',
+    '--no-default-browser-check',
+    '--no-first-run',
+    'about:blank',
+  ], { stdio: 'ignore', windowsHide: true });
+
+  try {
+    const port = await eventually(async () => {
+      const [value] = (await readFile(join(userDataDir, 'DevToolsActivePort'), 'utf8')).trim().split(/\r?\n/);
+      return Number(value) || undefined;
+    });
+    const target = await eventually(async () => {
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+      const candidates = await response.json();
+      return candidates.find((candidate) => candidate.type === 'page' && candidate.webSocketDebuggerUrl);
+    });
+    const session = await CdpSession.connect(target.webSocketDebuggerUrl);
+    return {
+      session,
+      async close() {
+        await Promise.race([session.send('Browser.close').catch(() => undefined), delay(2_000)]);
+        await session.close().catch(() => undefined);
+        await stopBrowser(browser);
+        await removeTemporaryProfile(userDataDir);
+      },
+    };
+  } catch (error) {
+    await stopBrowser(browser);
+    await removeTemporaryProfile(userDataDir);
+    throw error;
+  }
+}
+
+async function evaluate(session, expression) {
+  const response = await session.send('Runtime.evaluate', {
+    awaitPromise: true,
+    expression,
+    returnByValue: true,
+    userGesture: true,
+  });
+  if (response.exceptionDetails) {
+    throw new Error(response.exceptionDetails.exception?.description ?? response.exceptionDetails.text);
+  }
+  return response.result.value;
+}
+
+async function setViewport(session, width, height) {
+  await session.send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height,
+    mobile: false,
+    screenHeight: height,
+    screenWidth: width,
+    width,
+  });
+  await delay(100);
+}
+
+async function dispatchTab(session) {
+  await session.send('Input.dispatchKeyEvent', {
+    code: 'Tab',
+    key: 'Tab',
+    nativeVirtualKeyCode: 9,
+    type: 'rawKeyDown',
+    windowsVirtualKeyCode: 9,
+  });
+  await session.send('Input.dispatchKeyEvent', {
+    code: 'Tab',
+    key: 'Tab',
+    nativeVirtualKeyCode: 9,
+    type: 'keyUp',
+    windowsVirtualKeyCode: 9,
+  });
+  await delay(50);
+}
+
+async function dispatchEscape(session) {
+  await session.send('Input.dispatchKeyEvent', {
+    code: 'Escape',
+    key: 'Escape',
+    nativeVirtualKeyCode: 27,
+    type: 'rawKeyDown',
+    windowsVirtualKeyCode: 27,
+  });
+  await session.send('Input.dispatchKeyEvent', {
+    code: 'Escape',
+    key: 'Escape',
+    nativeVirtualKeyCode: 27,
+    type: 'keyUp',
+    windowsVirtualKeyCode: 27,
+  });
+  await delay(50);
+}
+
+async function waitForPage(session) {
+  await eventually(() => evaluate(session, `document.readyState === 'complete'`));
+  const diagnosis = await evaluate(session, `(() => ({
+    hasMachine: Boolean(document.querySelector('[data-pimm-machine-product]')),
+    href: location.href,
+    status: document.body?.innerText?.slice(0, 240) || '',
+    title: document.title,
+  }))()`);
+  assert.equal(
+    diagnosis.hasMachine,
+    true,
+    `Unified PIMM root missing after navigation to ${diagnosis.href}; title=${JSON.stringify(diagnosis.title)} body=${JSON.stringify(diagnosis.status)}`,
+  );
+  await eventually(() => evaluate(session, `(() => {
+    const image = document.querySelector('[data-pimm-media-model]:not([hidden])[data-pimm-media-slot="hero"] img');
+    return image?.complete && image.naturalWidth > 0;
+  })()`));
+}
+
+async function navigate(session, url) {
+  const result = await session.send('Page.navigate', { url });
+  if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
+  await waitForPage(session);
+}
+
+function withAlternateView(value) {
+  const url = new URL(value);
+  url.searchParams.set('view', 'pimm-configurator');
+  return url.href;
+}
+
+function thaiUrlFrom(value) {
+  const url = new URL(value);
+  if (!url.pathname.startsWith('/th/')) url.pathname = `/th${url.pathname.startsWith('/') ? '' : '/'}${url.pathname}`;
+  return url.href;
+}
+
+async function captureScreenshot(session, path) {
+  const capture = await session.send('Page.captureScreenshot', {
+    captureBeyondViewport: false,
+    format: 'png',
+    fromSurface: true,
+  });
+  await writeFile(path, Buffer.from(capture.data, 'base64'));
+}
+
+const decodeEntities = (value) => value
+  .replaceAll('&quot;', '"')
+  .replaceAll('&#39;', "'")
+  .replaceAll('&amp;', '&')
+  .replaceAll('&lt;', '<')
+  .replaceAll('&gt;', '>');
+
+function applyFailureFixture(html, fixture) {
+  const payloadPattern = /(<script[^>]*data-pimm-variant-data[^>]*>)([\s\S]*?)(<\/script>)/;
+  const match = html.match(payloadPattern);
+  assert.ok(match, `Fixture ${fixture} could not find the variant payload`);
+  const variants = JSON.parse(match[2]);
+  const target = variants.find((variant) => variant.model === '50G');
+  assert.ok(target, `Fixture ${fixture} requires a 50G record`);
+  const invalidMessage = decodeEntities(
+    html.match(/data-pimm-invalid-message="([^"]*)"/)?.[1] || 'Unavailable',
+  );
+
+  if (fixture === 'unavailable-50g') {
+    target.available = false;
+    target.statusText = invalidMessage;
+  } else if (fixture === 'malformed-specifications') {
+    target.specifications.model = '30G';
+    target.statusText = invalidMessage;
+  } else if (fixture === 'missing-engineering-image') {
+    target.media.engineering.src = '';
+    target.statusText = invalidMessage;
+  } else {
+    throw new Error(`Unsupported PIMM fixture ${fixture}`);
+  }
+
+  return html.replace(payloadPattern, `$1${JSON.stringify(variants)}$3`);
+}
+
+async function navigateWithFixture(session, url, fixture) {
+  let transformed = false;
+  let fixtureError;
+  const off = session.on('Fetch.requestPaused', (params) => {
+    void (async () => {
+      try {
+        const isHtmlResponse = params.resourceType === 'Document'
+          && params.responseStatusCode === 200
+          && !transformed;
+        if (!isHtmlResponse) {
+          await session.send('Fetch.continueResponse', { requestId: params.requestId });
+          return;
+        }
+        const body = await session.send('Fetch.getResponseBody', { requestId: params.requestId });
+        const source = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8').toString('utf8');
+        if (!source.includes('data-pimm-variant-data')) {
+          await session.send('Fetch.continueResponse', { requestId: params.requestId });
+          return;
+        }
+        const updated = applyFailureFixture(source, fixture);
+        const headers = (params.responseHeaders ?? [])
+          .filter(({ name }) => !/^(?:content-encoding|content-length)$/i.test(name));
+        headers.push({ name: 'content-length', value: String(Buffer.byteLength(updated)) });
+        transformed = true;
+        await session.send('Fetch.fulfillRequest', {
+          body: Buffer.from(updated).toString('base64'),
+          requestId: params.requestId,
+          responseCode: 200,
+          responseHeaders: headers,
+        });
+      } catch (error) {
+        fixtureError ??= error;
+        await session.send('Fetch.failRequest', { requestId: params.requestId, errorReason: 'Failed' }).catch(() => undefined);
+      }
+    })();
+  });
+
+  await session.send('Fetch.enable', { patterns: [{ requestStage: 'Response', resourceType: 'Document', urlPattern: '*' }] });
+  try {
+    await navigate(session, url);
+    if (fixtureError) throw fixtureError;
+    assert.equal(transformed, true, `Fixture ${fixture} did not intercept the unified product document`);
+  } finally {
+    off();
+    await session.send('Fetch.disable').catch(() => undefined);
+  }
+}
+
+const pageProbe = `(() => {
+  const machine = document.querySelector('[data-pimm-machine-product]');
+  const factory = document.querySelector('[data-pimm-book-visit]');
+  const deposit = document.querySelector('[data-pimm-deposit-action]');
+  const radios = [...document.querySelectorAll('[data-pimm-model-radio]')];
+  const status = document.querySelector('[data-pimm-variant-status]');
+  const purchase = document.querySelector('[data-pimm-purchase-qualification]');
+  const purchaseRect = purchase?.getBoundingClientRect();
+  return {
+    bentoCount: document.querySelectorAll('[data-pimm-engineering-bento]').length,
+    factoryBeforeDeposit: Boolean(factory && deposit && (factory.compareDocumentPosition(deposit) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    h1Count: machine?.querySelectorAll('h1').length ?? 0,
+    liveRegion: status && {
+      atomic: status.getAttribute('aria-atomic'),
+      live: status.getAttribute('aria-live'),
+      role: status.getAttribute('role'),
+    },
+    noOverflow: document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth,
+    purchaseFullBleed: Boolean(purchaseRect && Math.abs(purchaseRect.left) <= 1 && Math.abs(purchaseRect.right - innerWidth) <= 1),
+    purchaseRect: purchaseRect && { left: purchaseRect.left, right: purchaseRect.right, width: purchaseRect.width },
+    overflowEvidence: {
+      body: document.body.scrollWidth,
+      html: document.documentElement.scrollWidth,
+      innerWidth,
+      offenders: [...document.body.querySelectorAll('*')].flatMap((element) => {
+        const rect = element.getBoundingClientRect();
+        if (rect.left >= -1 && rect.right <= innerWidth + 1) return [];
+        const style = getComputedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0) return [];
+        return [{
+          className: String(element.className).slice(0, 100),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          tag: element.tagName,
+          width: Math.round(rect.width),
+        }];
+      }).slice(0, 12),
+    },
+    radioModels: radios.map((radio) => radio.dataset.model),
+    radioNames: radios.map((radio) => radio.name),
+    radioValues: radios.map((radio) => radio.value),
+  };
+})()`;
+
+const selectedStateProbe = (model) => `(async () => {
+  const radio = document.querySelector('[data-pimm-model-radio][data-model=${JSON.stringify(model)}]');
+  if (radio.checked) {
+    const other = [...document.querySelectorAll('[data-pimm-model-radio]')].find((candidate) => candidate !== radio);
+    other?.click();
+    await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+  }
+  radio.click();
+  await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+  const payload = JSON.parse(document.querySelector('[data-pimm-variant-data]').textContent);
+  const record = payload.find((variant) => variant.model === ${JSON.stringify(model)});
+  const values = Object.fromEntries([...document.querySelectorAll('[data-pimm-model-value]')].map((node) => [node.dataset.pimmModelValue, node.textContent.trim()]));
+  const specifications = Object.fromEntries([...document.querySelectorAll('[data-pimm-spec]')].map((node) => [node.dataset.pimmSpec, node.textContent.trim()]));
+  const deposit = document.querySelector('[data-pimm-deposit-action]');
+  const status = document.querySelector('[data-pimm-variant-status]');
+  const factory = document.querySelector('[data-pimm-book-visit]');
+  return {
+    checked: radio.checked,
+    depositDisabled: deposit.disabled,
+    factoryHref: factory.href,
+    invalidMessage: document.querySelector('[data-pimm-variant-data]').dataset.pimmInvalidMessage,
+    otherVisibleMedia: document.querySelectorAll('[data-pimm-media-model]:not([data-pimm-media-model=${JSON.stringify(model)}]):not([hidden])').length,
+    record,
+    selected: document.querySelector('[data-pimm-selected-model]').textContent.trim(),
+    specifications,
+    status: status.textContent.trim(),
+    url: location.href,
+    values,
+    visibleMedia: document.querySelectorAll('[data-pimm-media-model=${JSON.stringify(model)}]:not([hidden])').length,
+  };
+})()`;
+
+test('missing preview URL is an intentional browser-matrix skip', { skip: Boolean(previewUrl) }, () => {
+  assert.equal(previewUrl, undefined);
+});
+
+test('unified PIMM Draft preview passes responsive browser acceptance', {
+  skip: previewUrl ? false : 'PIMM_UNIFIED_PREVIEW_URL is not set',
+  timeout: 300_000,
+}, async (t) => {
+  const browser = await launchBrowser();
+  const { session } = browser;
+  const consoleErrors = [];
+  const exceptions = [];
+
+  session.on('Runtime.consoleAPICalled', (entry) => {
+    if (entry.type === 'error') consoleErrors.push({
+      message: entry.args.map((argument) => argument.value ?? argument.description).join(' '),
+      url: entry.stackTrace?.callFrames?.[0]?.url ?? '',
+    });
+  });
+  session.on('Runtime.exceptionThrown', (entry) => exceptions.push({
+    message: entry.exceptionDetails.exception?.description ?? entry.exceptionDetails.text,
+    url: entry.exceptionDetails.url ?? entry.exceptionDetails.stackTrace?.callFrames?.[0]?.url ?? '',
+  }));
+
+  try {
+    await Promise.all([
+      session.send('Page.enable'),
+      session.send('Runtime.enable'),
+      session.send('Network.enable'),
+    ]);
+    await mkdir(evidenceDir, { recursive: true });
+
+    const englishPreview = withAlternateView(previewUrl);
+    await navigate(session, englishPreview);
+    const finalEnglishPreview = await evaluate(session, 'location.href');
+    const languageUrls = {
+      en: finalEnglishPreview,
+      th: thaiUrlFrom(finalEnglishPreview),
+    };
+
+    for (const [language, url] of Object.entries(languageUrls)) {
+      await t.test(`${language} responsive and model matrix`, async () => {
+        await navigate(session, url);
+        for (const [width, height] of viewports) {
+          await setViewport(session, width, height);
+          const probe = await evaluate(session, pageProbe);
+          assert.equal(probe.bentoCount, 1);
+          assert.equal(probe.h1Count, 1);
+          assert.equal(
+            probe.noOverflow,
+            true,
+            `${language} ${width}x${height} must not overflow: ${JSON.stringify(probe.overflowEvidence)}`,
+          );
+          assert.equal(probe.factoryBeforeDeposit, true);
+          assert.equal(
+            probe.purchaseFullBleed,
+            true,
+            `${language} ${width}x${height} purchase must remain full bleed: ${JSON.stringify(probe.purchaseRect)}`,
+          );
+          assert.deepEqual(probe.radioModels, models);
+          assert.deepEqual(probe.radioNames, ['id', 'id']);
+          assert.equal(new Set(probe.radioValues).size, 2);
+          assert.deepEqual(probe.liveRegion, { atomic: 'true', live: 'polite', role: 'status' });
+
+          for (const model of models) {
+            const state = await evaluate(session, selectedStateProbe(model));
+            assert.equal(state.checked, true);
+            assert.equal(state.selected, model);
+            assert.match(state.url, new RegExp(`[?&]variant=${state.record.id}(?:&|$)`));
+            assert.equal(state.visibleMedia, 4);
+            assert.equal(state.otherVisibleMedia, 0);
+            assert.equal(state.values.depositPrice, state.record.depositPrice);
+            assert.equal(state.values.fullPrice, state.record.fullPrice);
+            assert.equal(state.values.leadTime, state.record.leadTime);
+            assert.equal(state.depositDisabled, !state.record.available || !state.record.contractValid);
+            assert.equal(state.status, state.record.statusText);
+            assert.ok(state.factoryHref);
+            assert.equal(state.specifications.shot_capacity_g, String(state.record.specifications.shot_capacity_g));
+            assert.equal(state.specifications.max_melt_temperature_c, String(state.record.specifications.max_melt_temperature_c));
+            assert.equal(state.specifications.max_air_pressure_mpa, String(state.record.specifications.max_air_pressure_mpa));
+          }
+
+          await captureScreenshot(session, join(evidenceDir, `pimm-unified-${language}-${width}x${height}.png`));
+        }
+      });
+    }
+
+    await t.test('desktop and mobile header interactions preserve viewport containment and focus', async () => {
+      await navigate(session, languageUrls.en);
+      await setViewport(session, 1440, 1000);
+      const desktopOpen = await evaluate(session, `(() => {
+        const group = document.querySelector('[data-mc-mega-menu]');
+        const summary = group?.querySelector(':scope > summary');
+        summary?.click();
+        const panel = group?.querySelector('.mc-nav__panel');
+        const rect = panel?.getBoundingClientRect();
+        return {
+          bodyWidth: document.body.scrollWidth,
+          expanded: summary?.getAttribute('aria-expanded'),
+          htmlWidth: document.documentElement.scrollWidth,
+          innerWidth,
+          open: group?.open,
+          panel: rect && { left: rect.left, right: rect.right, width: rect.width },
+        };
+      })()`);
+      assert.equal(desktopOpen.open, true);
+      assert.equal(desktopOpen.expanded, 'true');
+      assert.deepEqual(desktopOpen.panel, { left: 0, right: 1440, width: 1440 });
+      assert.equal(desktopOpen.bodyWidth, desktopOpen.innerWidth);
+      assert.equal(desktopOpen.htmlWidth, desktopOpen.innerWidth);
+      await dispatchEscape(session);
+      const desktopClosed = await evaluate(session, `(() => {
+        const group = document.querySelector('[data-mc-mega-menu]');
+        const summary = group?.querySelector(':scope > summary');
+        return { active: document.activeElement === summary, expanded: summary?.getAttribute('aria-expanded'), open: group?.open };
+      })()`);
+      assert.deepEqual(desktopClosed, { active: true, expanded: 'false', open: false });
+
+      await setViewport(session, 390, 844);
+      const mobileOpen = await evaluate(session, `(async () => {
+        const menu = document.querySelector('.mc-mobile-menu');
+        const summary = menu?.querySelector(':scope > summary');
+        summary?.click();
+        await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+        const panel = menu?.querySelector('.mc-mobile-menu__panel');
+        const rect = panel?.getBoundingClientRect();
+        return {
+          bodyClass: document.body.classList.contains('mc-mobile-menu-open'),
+          bodyWidth: document.body.scrollWidth,
+          expanded: summary?.getAttribute('aria-expanded'),
+          htmlWidth: document.documentElement.scrollWidth,
+          inert: document.querySelector('#MainContent')?.hasAttribute('inert'),
+          innerWidth,
+          open: menu?.open,
+          panel: rect && { left: rect.left, right: rect.right, width: rect.width },
+        };
+      })()`);
+      assert.equal(mobileOpen.open, true);
+      assert.equal(mobileOpen.expanded, 'true');
+      assert.equal(mobileOpen.bodyClass, true);
+      assert.equal(mobileOpen.inert, true);
+      assert.deepEqual(mobileOpen.panel, { left: 0, right: 390, width: 390 });
+      assert.equal(mobileOpen.bodyWidth, mobileOpen.innerWidth);
+      assert.equal(mobileOpen.htmlWidth, mobileOpen.innerWidth);
+      await dispatchEscape(session);
+      const mobileClosed = await evaluate(session, `(() => {
+        const menu = document.querySelector('.mc-mobile-menu');
+        const summary = menu?.querySelector(':scope > summary');
+        return {
+          active: document.activeElement === summary,
+          bodyClass: document.body.classList.contains('mc-mobile-menu-open'),
+          expanded: summary?.getAttribute('aria-expanded'),
+          inert: document.querySelector('#MainContent')?.hasAttribute('inert'),
+          open: menu?.open,
+        };
+      })()`);
+      assert.deepEqual(mobileClosed, { active: true, bodyClass: false, expanded: 'false', inert: false, open: false });
+    });
+
+    await t.test('keyboard focus and reduced motion remain explicit', async () => {
+      await navigate(session, languageUrls.en);
+      await setViewport(session, 390, 844);
+      const focusSetup = await evaluate(session, `(() => {
+        const radio = document.querySelector('[data-pimm-model-radio][data-model="30G"]');
+        const sequential = [...document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')].filter((element) => {
+          const style = getComputedStyle(element);
+          return !element.disabled && !element.hidden && element.tabIndex >= 0 && style.display !== 'none' && style.visibility !== 'hidden';
+        });
+        const prior = sequential[sequential.indexOf(radio) - 1];
+        prior?.focus();
+        return { priorFocused: document.activeElement === prior, targetFound: Boolean(radio) };
+      })()`);
+      assert.equal(focusSetup.targetFound, true);
+      assert.equal(focusSetup.priorFocused, true);
+      await dispatchTab(session);
+      const focus = await evaluate(session, `(() => {
+        const radio = document.querySelector('[data-pimm-model-radio][data-model="30G"]');
+        const label = radio.closest('label');
+        const style = getComputedStyle(label);
+        return {
+          active: document.activeElement === radio,
+          color: style.outlineColor,
+          focusVisible: radio.matches(':focus-visible'),
+          width: parseFloat(style.outlineWidth),
+        };
+      })()`);
+      assert.equal(focus.active, true);
+      assert.equal(focus.focusVisible, true);
+      assert.equal(focus.color, 'rgb(255, 210, 28)');
+      assert.ok(focus.width >= 3);
+
+      await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+      const motion = await evaluate(session, `(() => {
+        const media = document.querySelector('[data-pimm-media-model]:not([hidden])');
+        const descendants = [media, ...media.querySelectorAll('*')];
+        return descendants.map((node) => {
+          const style = getComputedStyle(node);
+          return { animation: style.animationName, duration: style.transitionDuration, transform: style.transform };
+        });
+      })()`);
+      assert.deepEqual(motion.filter((entry) => entry.animation !== 'none'), []);
+      assert.deepEqual(motion.filter((entry) => !entry.duration.split(',').every((duration) => Number.parseFloat(duration) === 0)), []);
+      assert.deepEqual(motion.filter((entry) => entry.transform !== 'none'), []);
+      await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    });
+
+    for (const [language, url] of Object.entries(languageUrls)) {
+      for (const fixture of failureFixtures) {
+        await t.test(`${language} ${fixture} fails closed without model leakage`, async () => {
+          await navigateWithFixture(session, url, fixture);
+          await setViewport(session, 390, 844);
+          const state = await evaluate(session, selectedStateProbe('50G'));
+          assert.equal(state.checked, true);
+          assert.equal(state.selected, '50G');
+          assert.equal(state.depositDisabled, true);
+          assert.ok(state.factoryHref);
+          assert.equal(state.otherVisibleMedia, 0);
+          assert.equal(state.status, state.invalidMessage);
+          if (fixture === 'unavailable-50g') {
+            assert.equal(state.visibleMedia, 4);
+            assert.equal(state.specifications.shot_capacity_g, '50');
+          } else {
+            assert.equal(state.visibleMedia, 0);
+            assert.equal(state.specifications.shot_capacity_g, state.invalidMessage);
+          }
+          await captureScreenshot(session, join(evidenceDir, `pimm-unified-${language}-${fixture}.png`));
+        });
+      }
+    }
+
+    const pageOwned = (entry) => /maliev-pimm-machine(?:\.js|\.css)?|pimm-machine-product/i.test(`${entry.url} ${entry.message}`);
+    const pageConsoleErrors = consoleErrors.filter(pageOwned);
+    const pageExceptions = exceptions.filter(pageOwned);
+    assert.deepEqual(pageConsoleErrors, [], 'Unified PIMM-owned scripts must not emit console.error');
+    assert.deepEqual(pageExceptions, [], 'Unified PIMM-owned scripts must not throw uncaught exceptions');
+    const externalErrors = [...consoleErrors, ...exceptions].filter((entry) => !pageOwned(entry));
+    await writeFile(join(evidenceDir, 'external-browser-errors.json'), `${JSON.stringify(externalErrors, null, 2)}\n`);
+    console.log(`PIMM_UNIFIED_EXTERNAL_BROWSER_ERRORS=${JSON.stringify(externalErrors)}`);
+    console.log(`PIMM_UNIFIED_BROWSER_EVIDENCE=${evidenceDir}`);
+    console.log(`PIMM_UNIFIED_LANGUAGE_URLS=${JSON.stringify(languageUrls)}`);
+  } finally {
+    await browser.close();
+  }
+});
