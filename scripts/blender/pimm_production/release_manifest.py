@@ -40,6 +40,7 @@ from .blender_final_render import (
     _authorize_final_render,
     _blender_component_mask_script,
     _component_mask_specs,
+    _dependency_state_sha256,
     authorize_final_render,
 )
 from .proof_contract import validate_authored_settings
@@ -72,6 +73,17 @@ _MIME_BY_EXTENSION = {
 _FORBIDDEN_OUTPUT_COMPONENTS = {"proof", "proofs", "archive", "archives", "mutable"}
 
 
+def _validate_independent_dependency_state(
+    approved_authored: Mapping[str, object], live_authored: Mapping[str, object]
+) -> None:
+    """Reject independent dependency drift beyond exact governed addon caches."""
+
+    if _dependency_state_sha256(approved_authored) != _dependency_state_sha256(
+        live_authored
+    ):
+        raise ValueError("release independent linked dependency state drift")
+
+
 def _regenerate_component_evidence(
     scene_path: Path,
     blender_binary: Path,
@@ -81,7 +93,7 @@ def _regenerate_component_evidence(
     samples: int,
     *,
     repository_root: Path,
-    expected_dependency_sha256: str,
+    approved_authored_settings: Mapping[str, object],
 ) -> tuple[bytes, bytes, dict[str, bytes]]:
     """Independently regenerate final media and masks from the approved Blender scene."""
 
@@ -146,10 +158,7 @@ def _regenerate_component_evidence(
             raise ValueError(
                 "release independent authored-state audit is invalid"
             ) from error
-        if live_authored.get("dependency_sha256") != expected_dependency_sha256:
-            raise ValueError(
-                "release independent linked dependency state drift"
-            )
+        _validate_independent_dependency_state(approved_authored_settings, live_authored)
         return (
             combined_path.read_bytes(),
             combined_exr_path.read_bytes(),
@@ -704,11 +713,8 @@ def _validate_manifest(
             approved_components,
             int(authorized_final["samples"]),
             repository_root=repository_root,
-            expected_dependency_sha256=str(
-                _mapping(
-                    authorized_final.get("render_settings"),
-                    "authorized final render settings",
-                ).get("dependency_sha256")
+            approved_authored_settings=_mapping(
+                authored_settings.get("before"), "approved authored settings before"
             ),
         )
     if build_authorized_component_contract(

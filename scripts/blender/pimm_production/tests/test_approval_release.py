@@ -1203,6 +1203,57 @@ class ApprovalReleaseTests(unittest.TestCase):
                     final_module._dependency_state_sha256(mutated),
                 )
 
+    def test_independent_release_dependency_check_reuses_only_governed_normalization(self) -> None:
+        """Keeps release regeneration aligned with the narrow native dependency gate."""
+
+        approved = _approved_component_authored_state()
+        approved.update({
+            "scene_identity": {"name": "Scene", "type": "Scene", "library": None},
+            "collection_tree": {"identity": "root", "children": []},
+            "view_layers": [{"name": "ViewLayer", "properties": {}}],
+        })
+        for obj in approved["objects"]:
+            obj.setdefault("properties", {})
+            obj.setdefault("transform", {"location": [0.0, 0.0, 0.0]})
+            obj["properties"]["poliigon"] = ""
+            obj["properties"]["poliigon_lod"] = ""
+        approved["materials"][0]["node_tree"] = {"nodes": [{"value": 0.5}]}
+        for material in approved["materials"]:
+            material["properties"]["poliigon"] = ""
+
+        normalized = copy.deepcopy(approved)
+        for obj in normalized["objects"]:
+            obj["properties"].pop("poliigon")
+            obj["properties"].pop("poliigon_lod")
+        for material in normalized["materials"]:
+            material["properties"].pop("poliigon")
+        release_module._validate_independent_dependency_state(approved, normalized)
+
+        mutations = []
+        object_transform = copy.deepcopy(normalized)
+        object_transform["objects"][0]["transform"]["location"][0] = 1.0
+        mutations.append(object_transform)
+        object_property = copy.deepcopy(normalized)
+        object_property["objects"][0]["properties"]["unexpected"] = True
+        mutations.append(object_property)
+        material_node = copy.deepcopy(normalized)
+        material_node["materials"][0]["node_tree"]["nodes"][0]["value"] = 0.75
+        mutations.append(material_node)
+        material_property = copy.deepcopy(normalized)
+        material_property["materials"][0]["properties"]["unexpected"] = True
+        mutations.append(material_property)
+        image = copy.deepcopy(normalized)
+        image["images"].append({"name": "unexpected", "sha256": "A" * 64})
+        mutations.append(image)
+        library = copy.deepcopy(normalized)
+        library["library_authorities"].append({"canonical_path": "M:/unexpected.blend"})
+        mutations.append(library)
+        for index, mutated in enumerate(mutations):
+            with self.subTest(mutation=index), self.assertRaisesRegex(
+                ValueError, "release independent linked dependency state drift"
+            ):
+                release_module._validate_independent_dependency_state(approved, mutated)
+
     def test_native_animation_state_ignores_only_factory_startup_addon_metadata(self) -> None:
         """Catches harmless Poliigon normalization hiding any real object-state drift."""
 
@@ -1401,7 +1452,7 @@ class ApprovalReleaseTests(unittest.TestCase):
             samples: int,
             *,
             repository_root: Path,
-            expected_dependency_sha256: str,
+            approved_authored_settings: dict[str, object],
         ) -> tuple[bytes, bytes, dict[str, bytes]]:
             if blender_binary.resolve() == BLENDER.resolve():
                 return native_regenerator(
@@ -1412,7 +1463,7 @@ class ApprovalReleaseTests(unittest.TestCase):
                     component_contract,
                     samples,
                     repository_root=repository_root,
-                    expected_dependency_sha256=expected_dependency_sha256,
+                    approved_authored_settings=approved_authored_settings,
                 )
             png, masks = _structured_component_pixels()
             return (
