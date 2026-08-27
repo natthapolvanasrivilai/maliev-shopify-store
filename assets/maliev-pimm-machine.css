@@ -6,6 +6,7 @@
 .pimm-machine {
   box-sizing: border-box;
   color: #111315;
+  display: block;
   font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
   margin-inline: auto;
   max-width: 1440px;

@@ -231,6 +231,7 @@ test('restrained workbench stylesheet composes one open responsive product page'
 });
 
 test('responsive controls preserve focus touch size motion and 320px containment', () => {
+  assert.match(css, /\.pimm-machine\s*\{[^}]*display:\s*block/s);
   assert.match(css, /min-height:\s*(?:44|48)px/);
   assert.match(css, /border-radius:\s*4px/);
   assert.match(css, /:focus-visible[^}]*outline:\s*3px\s+solid\s+#FFD21C[^}]*border-color:\s*#111315/s);
