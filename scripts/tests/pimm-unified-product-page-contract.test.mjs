@@ -83,6 +83,33 @@ test('model selection and deposit submission fail closed on malformed product da
   assert.match(purchase, /unless model_contract_valid[^]*disabled/);
 });
 
+test('product model structure must be exactly Model with ordered 30G and 50G variants', () => {
+  assert.match(section, /assign product_model_contract_valid = false/);
+  assert.match(section, /product\.options\.size == 1/);
+  assert.match(section, /product\.options\.first == 'Model'/);
+  assert.match(section, /product\.variants\.size == 2/);
+  assert.match(section, /assign first_model_variant = product\.variants\.first/);
+  assert.match(section, /assign second_model_variant = product\.variants\.last/);
+  assert.match(section, /first_model_variant\.option1 == '30G'/);
+  assert.match(section, /second_model_variant\.option1 == '50G'/);
+
+  const optionCountGate = section.indexOf('product.options.size == 1');
+  const optionNameGate = section.indexOf("product.options.first == 'Model'");
+  const variantCountGate = section.indexOf('product.variants.size == 2');
+  const firstModelGate = section.indexOf("first_model_variant.option1 == '30G'");
+  const secondModelGate = section.indexOf("second_model_variant.option1 == '50G'");
+  const productGate = section.indexOf('if product_model_contract_valid');
+  const selectedVariantGate = section.indexOf("if selected_model_code == '30G' or selected_model_code == '50G'");
+  const enableContract = section.indexOf('assign model_contract_valid = true');
+
+  assert.ok(optionNameGate > optionCountGate);
+  assert.ok(variantCountGate > optionNameGate);
+  assert.ok(firstModelGate > variantCountGate && secondModelGate > firstModelGate);
+  assert.ok(productGate > secondModelGate && selectedVariantGate > productGate);
+  assert.ok(enableContract > selectedVariantGate);
+  assert.equal(section.match(/assign model_contract_valid = true/g)?.length, 1);
+});
+
 test('app blocks stay in one bounded area after purchase qualification', () => {
   const purchaseRender = section.indexOf("render 'pimm-purchase-qualification'");
   const appArea = section.indexOf('data-pimm-app-integrations');

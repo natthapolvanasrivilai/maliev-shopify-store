@@ -3,6 +3,17 @@
   assign selected_model_code = selected_variant.option1 | strip
   assign selected_model_block = nil
   assign model_block_match_count = 0
+  assign product_model_contract_valid = false
+
+  if product.options.size == 1 and product.options.first == 'Model'
+    if product.variants.size == 2
+      assign first_model_variant = product.variants.first
+      assign second_model_variant = product.variants.last
+      if first_model_variant.option1 == '30G' and second_model_variant.option1 == '50G'
+        assign product_model_contract_valid = true
+      endif
+    endif
+  endif
 
   for block in section.blocks
     if block.type == 'model' and block.settings.model_code == selected_model_code
@@ -18,14 +29,16 @@
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
   assign model_contract_valid = false
 
-  if selected_model_code == '30G' or selected_model_code == '50G'
-    if selected_model_block != blank and model_block_match_count == 1 and specifications != blank
-      if specifications.schema_version == 1 and specifications.model == selected_model_code
-        if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
-          if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
-            if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
-              if full_price != blank and lead_time > 0
-                assign model_contract_valid = true
+  if product_model_contract_valid
+    if selected_model_code == '30G' or selected_model_code == '50G'
+      if selected_model_block != blank and model_block_match_count == 1 and specifications != blank
+        if specifications.schema_version == 1 and specifications.model == selected_model_code
+          if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
+            if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
+              if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
+                if full_price != blank and lead_time > 0
+                  assign model_contract_valid = true
+                endif
               endif
             endif
           endif
