@@ -92,19 +92,43 @@
           {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
         </div>
 
-        {%- if model_contract_valid -%}
-          <figure class="pimm-machine__hero-media" data-pimm-hero-media {{ selected_model_block.shopify_attributes }}>
-            <img
-              src="{{ selected_model_block.settings.hero_asset | asset_url }}"
-              alt="{{ hero_alt | escape }}"
-              width="1600"
-              height="1600"
-              loading="eager"
-              fetchpriority="high"
-              data-pimm-media-slot="hero"
-            >
-          </figure>
-        {%- endif -%}
+        <figure class="pimm-machine__hero-media" data-pimm-hero-media>
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'model' -%}
+              {%- liquid
+                assign media_is_selected = false
+                if model_contract_valid and block.settings.model_code == selected_model_code
+                  assign media_is_selected = true
+                endif
+                assign block_hero_alt = block.settings.hero_alt_en
+                if use_thai_alt
+                  assign block_hero_alt = block.settings.hero_alt_th
+                endif
+              -%}
+              <picture
+                data-pimm-media-model="{{ block.settings.model_code }}"
+                data-pimm-media-slot="hero"
+                aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
+                {% unless media_is_selected %}hidden{% endunless %}
+              >
+                <img
+                  src="{{ block.settings.hero_asset | asset_url }}"
+                  alt="{{ block_hero_alt | escape }}"
+                  width="1600"
+                  height="1600"
+                  {%- if media_is_selected %}
+                    loading="eager"
+                    fetchpriority="high"
+                  {%- else %}
+                    loading="lazy"
+                    decoding="async"
+                  {%- endif %}
+                  data-pimm-media-image
+                >
+              </picture>
+            {%- endif -%}
+          {%- endfor -%}
+        </figure>
       </section>
 
       <section class="pimm-machine__fit" aria-labelledby="PimmMachineFit-{{ section.id }}" data-pimm-fit>
@@ -112,40 +136,80 @@
           <h2 id="PimmMachineFit-{{ section.id }}">{{ 'maliev_home_i18n.featured.title' | t }}</h2>
           <p>{{ 'maliev_home_i18n.featured.text' | t }}</p>
         </div>
-        {%- if model_contract_valid -%}
-          <figure class="pimm-machine__figure">
-            <img
-              src="{{ selected_model_block.settings.overview_asset | asset_url }}"
-              alt="{{ overview_alt | escape }}"
-              width="1600"
-              height="1600"
-              loading="lazy"
-              data-pimm-media-slot="overview"
-            >
-          </figure>
-        {%- endif -%}
+        <figure class="pimm-machine__figure">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'model' -%}
+              {%- liquid
+                assign media_is_selected = false
+                if model_contract_valid and block.settings.model_code == selected_model_code
+                  assign media_is_selected = true
+                endif
+                assign block_overview_alt = block.settings.overview_alt_en
+                if use_thai_alt
+                  assign block_overview_alt = block.settings.overview_alt_th
+                endif
+              -%}
+              <picture
+                data-pimm-media-model="{{ block.settings.model_code }}"
+                aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
+                {% unless media_is_selected %}hidden{% endunless %}
+              >
+                <img
+                  src="{{ block.settings.overview_asset | asset_url }}"
+                  alt="{{ block_overview_alt | escape }}"
+                  width="1600"
+                  height="1600"
+                  loading="lazy"
+                  decoding="async"
+                  data-pimm-media-slot="overview"
+                  data-pimm-media-image
+                >
+              </picture>
+            {%- endif -%}
+          {%- endfor -%}
+        </figure>
       </section>
 
       {% render 'pimm-engineering-bento',
-        selected_model_block: selected_model_block,
+        selected_model_code: selected_model_code,
         specifications: specifications,
         model_contract_valid: model_contract_valid,
         section: section
       %}
 
       <section class="pimm-machine__tooling" aria-labelledby="PimmMachineTooling-{{ section.id }}" data-pimm-tooling>
-        {%- if model_contract_valid -%}
-          <figure class="pimm-machine__figure">
-            <img
-              src="{{ selected_model_block.settings.tooling_asset | asset_url }}"
-              alt="{{ tooling_alt | escape }}"
-              width="1600"
-              height="1600"
-              loading="lazy"
-              data-pimm-media-slot="tooling"
-            >
-          </figure>
-        {%- endif -%}
+        <figure class="pimm-machine__figure">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'model' -%}
+              {%- liquid
+                assign media_is_selected = false
+                if model_contract_valid and block.settings.model_code == selected_model_code
+                  assign media_is_selected = true
+                endif
+                assign block_tooling_alt = block.settings.tooling_alt_en
+                if use_thai_alt
+                  assign block_tooling_alt = block.settings.tooling_alt_th
+                endif
+              -%}
+              <picture
+                data-pimm-media-model="{{ block.settings.model_code }}"
+                aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
+                {% unless media_is_selected %}hidden{% endunless %}
+              >
+                <img
+                  src="{{ block.settings.tooling_asset | asset_url }}"
+                  alt="{{ block_tooling_alt | escape }}"
+                  width="1600"
+                  height="1600"
+                  loading="lazy"
+                  decoding="async"
+                  data-pimm-media-slot="tooling"
+                  data-pimm-media-image
+                >
+              </picture>
+            {%- endif -%}
+          {%- endfor -%}
+        </figure>
         <div class="pimm-machine__prose">
           <h2 id="PimmMachineTooling-{{ section.id }}">{{ 'products.pimm30_story.chapters.fixture.heading' | t }}</h2>
           <p>{{ 'products.pimm30_story.chapters.fixture.body' | t }}</p>

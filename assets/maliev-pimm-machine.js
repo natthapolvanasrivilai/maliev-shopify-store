@@ -16,6 +16,7 @@
       }
 
       this.payloadContractValid = this.hasExactPayloadContract(this.variants);
+      this.decodedHeroModels = new Set();
       this.addEventListener('change', (event) => {
         if (event.target.matches('[data-pimm-model-radio]')) {
           this.selectVariant(Number(event.target.value));
@@ -100,29 +101,63 @@
       if (deposit) deposit.disabled = !contractValid || !variant.available;
 
       this.applyMedia(variant, contractValid);
+      if (contractValid) this.decodeSelectedHero(variant.model);
       this.updateUrl(variant.id);
     }
 
     applyMedia(variant, contractValid) {
       this.querySelectorAll('[data-pimm-media-model]').forEach((group) => {
-        group.hidden = !contractValid || group.dataset.pimmMediaModel !== variant.model;
+        const hidden = !contractValid || group.dataset.pimmMediaModel !== variant.model;
+        group.hidden = hidden;
+        group.ariaHidden = String(hidden);
       });
 
-      const slots = [...this.querySelectorAll('[data-pimm-media-slot]')];
-      const engineeringImage = this.querySelector('[data-pimm-engineering-bento] .pimm-machine__engineering-media img');
-      if (engineeringImage && !slots.includes(engineeringImage)) {
-        engineeringImage.dataset.pimmMediaSlot = 'engineering';
-        slots.push(engineeringImage);
-      }
+      this.updateSpecifications(variant, contractValid);
+    }
 
-      slots.forEach((image) => {
-        const media = variant.media?.[image.dataset.pimmMediaSlot];
-        image.hidden = !contractValid || typeof media?.src !== 'string' || typeof media.alt !== 'string';
-        if (!image.hidden) {
-          image.src = media.src;
-          image.alt = media.alt;
-        }
+    updateSpecifications(variant, contractValid) {
+      const specifications = variant?.specifications;
+      const mold = specifications?.mold_envelope_mm;
+      const values = contractValid
+        ? {
+            shot_capacity_g: [String(specifications.shot_capacity_g), `${specifications.shot_capacity_g} g`],
+            max_melt_temperature_c: [
+              String(specifications.max_melt_temperature_c),
+              `${specifications.max_melt_temperature_c} °C`,
+            ],
+            mold_envelope: [
+              `${mold.width} × ${mold.height} × ${mold.depth}`,
+              `${mold.width} × ${mold.height} × ${mold.depth} mm`,
+            ],
+            max_air_pressure_mpa: [
+              String(specifications.max_air_pressure_mpa),
+              `${specifications.max_air_pressure_mpa} MPa`,
+            ],
+          }
+        : {};
+
+      this.querySelectorAll('[data-pimm-spec]').forEach((node) => {
+        const value = values[node.dataset.pimmSpec];
+        node.textContent = value?.[0] ?? this.invalidMessage;
+        node.ariaLabel = value?.[1] ?? this.invalidMessage;
       });
+    }
+
+    decodeSelectedHero(model) {
+      if (this.decodedHeroModels.has(model)) return;
+
+      const hero = [...this.querySelectorAll('[data-pimm-media-model]')].find(
+        (group) =>
+          group.dataset.pimmMediaModel === model &&
+          group.dataset.pimmMediaSlot === 'hero' &&
+          !group.hidden,
+      );
+      const image = hero?.querySelector('img');
+      if (typeof image?.decode !== 'function') return;
+
+      this.decodedHeroModels.add(model);
+      const decoding = image.decode();
+      if (typeof decoding?.catch === 'function') decoding.catch(() => {});
     }
 
     updateUrl(variantId) {
@@ -138,7 +173,7 @@
       const status = this.querySelector('[data-pimm-variant-status]');
       if (status) status.textContent = this.invalidMessage;
 
-      this.applyMedia({ model: '', media: {} }, false);
+      this.applyMedia({ model: '', specifications: {} }, false);
     }
   }
 

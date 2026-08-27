@@ -1,18 +1,11 @@
 {% doc %}
   Renders the single contained engineering bento and its validated specifications.
 
-  @param {block} selected_model_block - The matching model media block.
+  @param {string} selected_model_code - The selected 30G or 50G model code.
   @param {object} specifications - The validated versioned specifications object.
   @param {boolean} model_contract_valid - Whether commerce and presentation data agree.
   @param {section} section - The owning machine-product section.
 {% enddoc %}
-
-{%- liquid
-  assign engineering_alt = selected_model_block.settings.engineering_alt_en
-  if request.locale.iso_code contains 'th'
-    assign engineering_alt = selected_model_block.settings.engineering_alt_th
-  endif
--%}
 
 <section class="pimm-machine__engineering" data-pimm-engineering-bento aria-labelledby="PimmMachineEngineering-{{ section.id }}">
   <header class="pimm-machine__engineering-intro">
@@ -20,36 +13,81 @@
     <p>{{ 'products.pimm30_story.chapters.regulator.body' | t }}</p>
   </header>
 
-  {%- if model_contract_valid -%}
+  <div class="pimm-machine__engineering-bento">
     <figure class="pimm-machine__engineering-media">
-      <img
-        src="{{ selected_model_block.settings.engineering_asset | asset_url }}"
-        alt="{{ engineering_alt | escape }}"
-        width="1600"
-        height="1600"
-        loading="lazy"
-      >
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'model' -%}
+          {%- liquid
+            assign media_is_selected = false
+            if model_contract_valid and block.settings.model_code == selected_model_code
+              assign media_is_selected = true
+            endif
+            assign block_engineering_alt = block.settings.engineering_alt_en
+            if request.locale.iso_code contains 'th'
+              assign block_engineering_alt = block.settings.engineering_alt_th
+            endif
+          -%}
+          <picture
+            data-pimm-media-model="{{ block.settings.model_code }}"
+            aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
+            {% unless media_is_selected %}hidden{% endunless %}
+          >
+            <img
+              src="{{ block.settings.engineering_asset | asset_url }}"
+              alt="{{ block_engineering_alt | escape }}"
+              width="1600"
+              height="1600"
+              loading="lazy"
+              decoding="async"
+              data-pimm-media-slot="engineering"
+              data-pimm-media-image
+            >
+          </picture>
+        {%- endif -%}
+      {%- endfor -%}
     </figure>
 
     <dl class="pimm-machine__specifications" data-pimm-specifications>
-      <div>
+      <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--capacity">
         <dt>{{ 'products.pimm30_story.specs.capacity_label' | t }}</dt>
-        <dd>{{ specifications.shot_capacity_g }} g</dd>
+        <dd>
+          <span
+            data-pimm-spec="shot_capacity_g"
+            aria-label="{% if model_contract_valid %}{{ specifications.shot_capacity_g }} g{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
+          >{% if model_contract_valid %}{{ specifications.shot_capacity_g }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
+          <span aria-hidden="true"> g</span>
+        </dd>
       </div>
-      <div>
+      <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--temperature">
         <dt>{{ 'products.pimm30_story.specs.temperature_label' | t }}</dt>
-        <dd>{{ specifications.max_melt_temperature_c }} °C</dd>
+        <dd>
+          <span
+            data-pimm-spec="max_melt_temperature_c"
+            aria-label="{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }} °C{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
+          >{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
+          <span aria-hidden="true"> °C</span>
+        </dd>
       </div>
-      <div>
-        <dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt>
-        <dd>{{ specifications.max_air_pressure_mpa }} MPa</dd>
-      </div>
-      <div>
+      <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--mold">
         <dt>{{ 'products.pimm30_story.chapters.fixture.eyebrow' | t }}</dt>
-        <dd>{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }} mm</dd>
+        <dd>
+          <span
+            data-pimm-spec="mold_envelope"
+            aria-label="{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }} mm{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
+          >{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
+          <span aria-hidden="true"> mm</span>
+        </dd>
+      </div>
+      <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--pressure">
+        <dt>{{ 'products.pimm30_story.specs.pressure_label' | t }}</dt>
+        <dd>
+          <span
+            data-pimm-spec="max_air_pressure_mpa"
+            aria-label="{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }} MPa{% else %}{{ 'products.product.unavailable' | t | escape }}{% endif %}"
+          >{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }}{% else %}{{ 'products.product.unavailable' | t }}{% endif %}</span>
+          <span aria-hidden="true"> MPa</span>
+        </dd>
       </div>
     </dl>
-  {%- else -%}
-    <p role="status">{{ 'products.product.unavailable' | t }}</p>
-  {%- endif -%}
+  </div>
 </section>

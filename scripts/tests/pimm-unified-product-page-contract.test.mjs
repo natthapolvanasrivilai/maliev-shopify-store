@@ -87,13 +87,35 @@ const createControllerHarness = (variants) => {
   const deposit = { disabled: false };
   const factoryVisit = { href: '/pages/contact' };
   const radios = variants.map((variant, index) => ({ value: String(variant.id), checked: index === 0 }));
-  const mediaGroups = variants.map((variant) => ({ dataset: { pimmMediaModel: variant.model }, hidden: false }));
-  const mediaSlots = ['hero', 'overview', 'engineering', 'tooling'].map((slot) => ({
-    dataset: { pimmMediaSlot: slot },
-    src: '',
-    alt: '',
-    hidden: false,
-  }));
+  const mediaGroups = variants.flatMap((variant) =>
+    ['hero', 'overview', 'engineering', 'tooling'].map((slot) => {
+      const image = {
+        src: variant.media[slot].src,
+        alt: variant.media[slot].alt,
+        decodeCount: 0,
+        decode() {
+          this.decodeCount += 1;
+          return Promise.resolve();
+        },
+      };
+
+      return {
+        dataset: { pimmMediaModel: variant.model, pimmMediaSlot: slot },
+        hidden: false,
+        ariaHidden: 'false',
+        image,
+        querySelector(selector) {
+          return selector === 'img' ? image : null;
+        },
+      };
+    }),
+  );
+  const specificationNodes = [
+    'shot_capacity_g',
+    'max_melt_temperature_c',
+    'mold_envelope',
+    'max_air_pressure_mpa',
+  ].map((field) => ({ dataset: { pimmSpec: field }, textContent: '', ariaLabel: '' }));
 
   const controller = new Controller();
   controller.querySelector = (selector) => ({
@@ -107,12 +129,12 @@ const createControllerHarness = (variants) => {
     '[data-pimm-model-value]': values,
     '[data-pimm-model-radio]': radios,
     '[data-pimm-media-model]': mediaGroups,
-    '[data-pimm-media-slot]': mediaSlots,
+    '[data-pimm-spec]': specificationNodes,
   })[selector] ?? [];
   controller.addEventListener = () => {};
   controller.connectedCallback();
 
-  return { controller, values, selected, status, deposit, factoryVisit, radios, mediaGroups, mediaSlots, browser };
+  return { controller, values, selected, status, deposit, factoryVisit, radios, mediaGroups, specificationNodes, browser };
 };
 
 test('unified template owns one semantic machine presentation', () => {
@@ -148,6 +170,46 @@ test('open editorial sections surround one contained engineering bento', () => {
 
   assert.match(ownership, /<section[^>]*data-pimm-ownership/);
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
+});
+
+test('one asymmetric engineering bento exposes stable model media and semantic specifications', () => {
+  assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
+  assert.match(bento, /class="pimm-machine__engineering-bento"/);
+  assert.match(bento, /<figure[^>]*class="[^"]*pimm-machine__engineering-media/);
+  assert.match(bento, /<dl[^>]*data-pimm-specifications/);
+
+  for (const slot of ['hero', 'overview', 'engineering', 'tooling']) {
+    assert.match(renderedContract, new RegExp(`data-pimm-media-slot="${slot}"`));
+  }
+  for (const field of ['shot_capacity_g', 'max_melt_temperature_c', 'mold_envelope', 'max_air_pressure_mpa']) {
+    assert.match(bento, new RegExp(`data-pimm-spec="${field}"`));
+  }
+
+  assert.match(section, /for block in section\.blocks/);
+  assert.match(renderedContract, /data-pimm-media-model="\{\{ block\.settings\.model_code \}\}"/);
+  assert.match(renderedContract, /aria-hidden="\{%-? if media_is_selected/);
+  assert.match(renderedContract, /unless media_is_selected[^]*hidden/);
+  assert.doesNotMatch(renderedContract, /<img(?![^>]*width="1600"[^>]*height="1600")[^>]*data-pimm-media-slot/s);
+});
+
+test('only the selected hero is eager while below-fold model media stays lazy and async', () => {
+  assert.match(section, /if media_is_selected[\s\S]*loading="eager"[\s\S]*fetchpriority="high"/);
+  for (const slot of ['overview', 'engineering', 'tooling']) {
+    assert.match(renderedContract, new RegExp(`loading="lazy"[\\s\\S]*decoding="async"[\\s\\S]*data-pimm-media-slot="${slot}"`));
+  }
+  assert.doesNotMatch(renderedContract, /rel="preload"|new Image\s*\(/);
+});
+
+test('engineering facts keep numeric values separate from visible accessible units', () => {
+  assert.match(bento, /data-pimm-spec="shot_capacity_g"[^>]*aria-label=/);
+  assert.match(bento, /data-pimm-spec="max_melt_temperature_c"[^>]*aria-label=/);
+  assert.match(bento, /data-pimm-spec="mold_envelope"[^>]*aria-label=/);
+  assert.match(bento, /data-pimm-spec="max_air_pressure_mpa"[^>]*aria-label=/);
+  assert.match(bento, /aria-hidden="true">\s*g\s*</);
+  assert.match(bento, /aria-hidden="true">\s*°C\s*</);
+  assert.match(bento, /aria-hidden="true">\s*mm\s*</);
+  assert.match(bento, /aria-hidden="true">\s*MPa\s*</);
+  assert.doesNotMatch(variantPayloadSource, /shot_capacity_g[^\n]*["']g["']/);
 });
 
 test('factory visit remains primary and precedes the secondary deposit action', () => {
@@ -349,7 +411,7 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
   assert.match(variantPayloadSource, /variant_overview_alt \| strip_html \| json/);
   assert.match(variantPayloadSource, /variant_engineering_alt \| strip_html \| json/);
   assert.match(variantPayloadSource, /variant_tooling_alt \| strip_html \| json/);
-  assert.match(js, /image\.alt = media\.alt/);
+  assert.doesNotMatch(js, /\b[a-zA-Z_$][\w$]*\.(?:src|alt)\s*=(?!=)/);
   assert.match(purchase, /role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
   assert.match(purchase, /render 'loading-spinner'/);
   assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|document\.write/);
@@ -371,10 +433,26 @@ test('controller selects a valid variant without rebuilding DOM', () => {
   ]);
   assert.deepEqual(harness.radios.map((radio) => radio.checked), [false, true]);
   assert.match(harness.browser.window.location.href, /variant=202$/);
-  assert.deepEqual(harness.mediaGroups.map((group) => group.hidden), [true, false]);
-  assert.deepEqual(harness.mediaSlots.map((slot) => slot.src), Object.values(variants[1].media).map((media) => media.src));
-  assert.deepEqual(harness.mediaSlots.map((slot) => slot.alt), Object.values(variants[1].media).map((media) => media.alt));
+  assert.deepEqual(harness.mediaGroups.map((group) => group.hidden), [true, true, true, true, false, false, false, false]);
+  assert.deepEqual(harness.mediaGroups.map((group) => group.ariaHidden), ['true', 'true', 'true', 'true', 'false', 'false', 'false', 'false']);
+  assert.deepEqual(harness.specificationNodes.map((node) => node.textContent), ['50', '350', '240 × 240 × 100', '0.7']);
+  assert.deepEqual(harness.specificationNodes.map((node) => node.ariaLabel), ['50 g', '350 °C', '240 × 240 × 100 mm', '0.7 MPa']);
+  assert.deepEqual(harness.mediaGroups.map((group) => group.image.decodeCount), [0, 0, 0, 0, 1, 0, 0, 0]);
+  assert.deepEqual(
+    harness.mediaGroups.map((group) => [group.image.src, group.image.alt]),
+    variants.flatMap((variant) => Object.values(variant.media).map((media) => [media.src, media.alt])),
+  );
   assert.equal(harness.factoryVisit.href, '/pages/contact');
+});
+
+test('direct model intent decodes only the selected hero and only once per model', () => {
+  const variants = [variantFixture({ model: '30G', id: 101 }), variantFixture({ model: '50G', id: 202 })];
+  const harness = createControllerHarness(variants);
+
+  harness.controller.selectVariant(202);
+  harness.controller.selectVariant(202);
+
+  assert.deepEqual(harness.mediaGroups.map((group) => group.image.decodeCount), [0, 0, 0, 0, 1, 0, 0, 0]);
 });
 
 test('malformed, unavailable and unknown selections disable deposit without model fallback', () => {
@@ -386,8 +464,8 @@ test('malformed, unavailable and unknown selections disable deposit without mode
   assert.equal(harness.status.textContent, 'Unavailable');
   assert.equal(harness.deposit.disabled, true);
   assert.deepEqual(harness.radios.map((radio) => radio.checked), [false, true]);
-  assert.deepEqual(harness.mediaGroups.map((group) => group.hidden), [true, true]);
-  assert.ok(harness.mediaSlots.every((slot) => slot.hidden));
+  assert.ok(harness.mediaGroups.every((group) => group.hidden && group.ariaHidden === 'true'));
+  assert.ok(harness.specificationNodes.every((node) => node.textContent === 'Unavailable'));
   assert.equal(harness.factoryVisit.href, '/pages/contact');
 
   const selectedBeforeUnknown = harness.selected.textContent;
@@ -404,7 +482,7 @@ test('malformed, unavailable and unknown selections disable deposit without mode
   unavailable.controller.selectVariant(202);
   assert.equal(unavailable.status.textContent, 'Out of stock');
   assert.equal(unavailable.deposit.disabled, true);
-  assert.deepEqual(unavailable.mediaGroups.map((group) => group.hidden), [true, false]);
+  assert.deepEqual(unavailable.mediaGroups.map((group) => group.hidden), [true, true, true, true, false, false, false, false]);
 });
 
 test('invalid payload structure hides all model media at connection time', () => {
@@ -416,5 +494,5 @@ test('invalid payload structure hides all model media at connection time', () =>
   assert.equal(reversed.deposit.disabled, true);
   assert.equal(reversed.status.textContent, 'Unavailable');
   assert.ok(reversed.mediaGroups.every((group) => group.hidden));
-  assert.ok(reversed.mediaSlots.every((slot) => slot.hidden));
+  assert.ok(reversed.mediaGroups.every((group) => group.ariaHidden === 'true'));
 });
