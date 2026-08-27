@@ -1,0 +1,117 @@
+{
+  "schema": "maliev.pimm-unified-render-assets/v1",
+  "assets": [
+    {
+      "name": "pimm-machine-30g-hero-front.webp",
+      "sha256": "0FA84639E73E244AA7ED0D7F8B655D1464F954851555B778E3BCA712327F297C",
+      "dimensions": [1800, 2200],
+      "machine": "30G",
+      "shot": "hero-front",
+      "proof_id": "proof-20260825T030400Z-8500030",
+      "release_id": "release-2026-08-25-r01",
+      "shot_id": "pimm-30g--hero--front",
+      "native_source": {
+        "path": "renders/final/release-2026-08-25-r01/pimm-30g--hero--front/pimm-30g--hero--front--transparent.webp",
+        "sha256": "93C84AC89703560714B2FAAB1B7F6EF77B9453DB83B8A32E560E93CD6431BDFF"
+      }
+    },
+    {
+      "name": "pimm-machine-30g-overview-three-quarter.webp",
+      "sha256": "266E8ACD1C509CD036C6E846ED7A69FBB22A01B753AF54E1A7BD3CF933079AE2",
+      "dimensions": [2400, 1800],
+      "machine": "30G",
+      "shot": "overview-three-quarter",
+      "proof_id": "proof-20260826T230700Z-3464e7e",
+      "release_id": "release-2026-08-27-r15",
+      "shot_id": "pimm-30g--overview--three-quarter",
+      "native_source": {
+        "path": "renders/final/release-2026-08-27-r15/pimm-30g--overview--three-quarter/pimm-30g--overview--three-quarter--transparent.webp",
+        "sha256": "D31B1202D91C1D0B8C19E641BB8BAD21D3BF15513040EBBAD0C70A3093133EA3"
+      }
+    },
+    {
+      "name": "pimm-machine-30g-engineering-controls.webp",
+      "sha256": "74A47A59028A83BDE2F4FF8541CD9F2BF4D7F0BFEC592C1A4E16B7C54E907633",
+      "dimensions": [2400, 1800],
+      "machine": "30G",
+      "shot": "engineering-controls",
+      "proof_id": "proof-20260826T230701Z-33d25d3",
+      "release_id": "release-2026-08-27-r16",
+      "shot_id": "pimm-30g--engineering--controls",
+      "native_source": {
+        "path": "renders/final/release-2026-08-27-r16/pimm-30g--engineering--controls/pimm-30g--engineering--controls--transparent.webp",
+        "sha256": "BAF4052C78E8B4A54EC9A634ADD3909B19B16EC9FAD6F962C022110D21A55B06"
+      }
+    },
+    {
+      "name": "pimm-machine-30g-tooling-front-detail.webp",
+      "sha256": "46EB32B932BF0C1C5B12FD6DCBCF0C260FA17C1E07ABC64BC96EF22533AA78B0",
+      "dimensions": [2400, 1800],
+      "machine": "30G",
+      "shot": "tooling-front-detail",
+      "proof_id": "proof-20260827T024726Z-35c918c",
+      "release_id": "release-2026-08-27-r17",
+      "shot_id": "pimm-30g--tooling--front-detail",
+      "native_source": {
+        "path": "renders/final/release-2026-08-27-r17/pimm-30g--tooling--front-detail/pimm-30g--tooling--front-detail--transparent.webp",
+        "sha256": "77B18759BF7F219E92D468579215A0D79586BC0580869B7FF182633D36E17300"
+      }
+    },
+    {
+      "name": "pimm-machine-50g-hero-front.webp",
+      "sha256": "61EF7DEF184058F4A59CA9DCABCC04C8789E18B0F7C55558A9F22DE56E492ADF",
+      "dimensions": [1800, 2200],
+      "machine": "50G",
+      "shot": "hero-front",
+      "proof_id": "proof-20260825T030401Z-8500050",
+      "release_id": "release-2026-08-25-r02",
+      "shot_id": "pimm-50g--hero--front",
+      "native_source": {
+        "path": "renders/final/release-2026-08-25-r02/pimm-50g--hero--front/pimm-50g--hero--front--transparent.webp",
+        "sha256": "5B65F1E52A37F2288A3E8914158AC2F97A2D27F80B48C5ED61B408FDEAF3CFB0"
+      }
+    },
+    {
+      "name": "pimm-machine-50g-overview-three-quarter.webp",
+      "sha256": "D79BE1CDEC7601D4620B65E5DA78CE745C990469A57F9B61AA49B0052E700D8C",
+      "dimensions": [2400, 1800],
+      "machine": "50G",
+      "shot": "overview-three-quarter",
+      "proof_id": "proof-20260826T230703Z-b2b9edf",
+      "release_id": "release-2026-08-27-r18",
+      "shot_id": "pimm-50g--overview--three-quarter",
+      "native_source": {
+        "path": "renders/final/release-2026-08-27-r18/pimm-50g--overview--three-quarter/pimm-50g--overview--three-quarter--transparent.webp",
+        "sha256": "852A9D7048F4477D2F9783E2297E5CF5A48C82594AC6F94698D88A8D564CED90"
+      }
+    },
+    {
+      "name": "pimm-machine-50g-engineering-controls.webp",
+      "sha256": "4E9FB6CA7262C555C3AD9E745C76848B6B59803E650F7127D71431762D943651",
+      "dimensions": [2400, 1800],
+      "machine": "50G",
+      "shot": "engineering-controls",
+      "proof_id": "proof-20260826T230704Z-52a6358",
+      "release_id": "release-2026-08-27-r19",
+      "shot_id": "pimm-50g--engineering--controls",
+      "native_source": {
+        "path": "renders/final/release-2026-08-27-r19/pimm-50g--engineering--controls/pimm-50g--engineering--controls--transparent.webp",
+        "sha256": "6156EFE6A367DE0D2B74EFE938DC2B1E50A2F85E53B5238D205EE520FA8BCAEA"
+      }
+    },
+    {
+      "name": "pimm-machine-50g-tooling-front-detail.webp",
+      "sha256": "3B08417EA78E68C720873BF7E7F45634D85C77BED068E88EFC455309CF6DB589",
+      "dimensions": [2400, 1800],
+      "machine": "50G",
+      "shot": "tooling-front-detail",
+      "proof_id": "proof-20260827T024727Z-1db04e0",
+      "release_id": "release-2026-08-27-r20",
+      "shot_id": "pimm-50g--tooling--front-detail",
+      "native_source": {
+        "path": "renders/final/release-2026-08-27-r20/pimm-50g--tooling--front-detail/pimm-50g--tooling--front-detail--transparent.webp",
+        "sha256": "319A6901CCAB6DD8C85140844B7D50DD3DFC8970536F366C346F66A52D85B58D"
+      }
+    }
+  ]
+}

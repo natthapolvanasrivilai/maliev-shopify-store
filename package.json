@@ -5,7 +5,9 @@
   "description": "Version-controlled Shopify Online Store 2.0 theme for MALIEV.",
   "scripts": {
     "dev": "shopify theme dev --store 10b918-e4.myshopify.com",
-    "verify": "shopify theme check --path . --fail-level error --no-color",
+    "verify": "npm run verify:theme && npm run verify:render-assets",
+    "verify:theme": "shopify theme check --path . --fail-level error --no-color",
+    "verify:render-assets": "node --test scripts/tests/pimm-unified-render-assets.test.mjs",
     "sync:live": "shopify theme pull --store 10b918-e4.myshopify.com --theme 190305730839 --nodelete"
   },
   "devDependencies": {
