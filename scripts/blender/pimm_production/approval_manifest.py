@@ -83,6 +83,38 @@ _REPARSE_ATTRIBUTE = 0x400
 _CANONICAL_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 _MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _APPROVED_SHARED_MATERIAL_IDS = frozenset(MATERIAL_SPECS) - {"UNASSIGNED"}
+_GOVERNED_AUXILIARY_MATERIALS = {
+    "MACHINE_ARTWORK_AIRTAC_DECAL": {
+        "material_name": "MAT_AirTAC_Decal",
+        "owner_names": {
+            "30G": "PIMM30_MASTER_AirTAC_Decal",
+            "50G": "PIMM50_MASTER_AirTAC_Decal",
+        },
+        "authority": "master",
+    },
+    "MACHINE_ARTWORK_PRESSURE_GAUGE_FACE": {
+        "material_name": "MAT_Pressure_Gauge_Decal",
+        "owner_names": {
+            "30G": "PIMM30_MASTER_Pressure_Gauge_Face",
+            "50G": "PIMM50_MASTER_Pressure_Gauge_Face",
+        },
+        "authority": "master",
+    },
+    "SCENE_SHADOW_CATCHER": {
+        "material_name": "PIMM_SCENE_SHADOW_CATCHER_MATERIAL",
+        "owner_names": {
+            "30G": "PIMM_SCENE_SHADOW_CATCHER",
+            "50G": "PIMM_SCENE_SHADOW_CATCHER",
+        },
+        "authority": "scene",
+    },
+}
+_GOVERNED_HDRI_PATH = PurePosixPath("assets/hdri/studio_kontrast_04_4k.exr")
+_GOVERNED_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
+_GOVERNED_HDRI_EXTERNAL_FIELDS = {
+    "path", "resolved_path", "sha256", "bytes", "mtime_ns", "ctime_ns",
+    "device", "inode", "links",
+}
 _SEGMENT_LABELS = ("a", "b", "c", "d", "e", "f", "g")
 _WINDOWS_HANDLE_DELETE = os.name == "nt"
 _DIGIT_SEGMENTS = {
@@ -1021,6 +1053,77 @@ def _material_ids_from_object(
     return sorted(set(identifiers)), sorted(set(identities))
 
 
+def _validate_governed_auxiliary_materials(
+    machine: str,
+    authored_settings: Mapping[str, object],
+    material_registry: Mapping[str, Mapping[str, object]],
+) -> frozenset[str]:
+    """Validate exact ownership and coarse provenance for non-product scene materials."""
+
+    materials_by_id = {
+        _exact_material_id(identity, "approved auxiliary material identity"): identity
+        for identity in material_registry.values()
+        if _exact_material_id(identity, "approved auxiliary material identity")
+        in _GOVERNED_AUXILIARY_MATERIALS
+    }
+    raw_objects = authored_settings.get("objects")
+    if not isinstance(raw_objects, list):
+        raise ValueError("approved authored settings objects must be a list")
+    for material_id, material in materials_by_id.items():
+        spec = _GOVERNED_AUXILIARY_MATERIALS[material_id]
+        expected_name = spec["material_name"]
+        authority = spec["authority"]
+        if material.get("name") != expected_name:
+            raise ValueError(f"governed auxiliary material name drift: {material_id}")
+        material_library = material.get("library")
+        if (authority == "scene") is not (material_library is None):
+            raise ValueError(f"governed auxiliary material provenance drift: {material_id}")
+
+        owners: list[Mapping[str, object]] = []
+        for raw_object in raw_objects:
+            obj = _mapping(raw_object, "approved auxiliary owner object")
+            slots = obj.get("material_slots")
+            if not isinstance(slots, list):
+                raise ValueError("approved component object material_slots must be a list")
+            for raw_slot in slots:
+                slot = _mapping(raw_slot, "approved auxiliary owner material slot")
+                raw_identity = slot.get("material")
+                if raw_identity is None:
+                    continue
+                identity = _mapping(raw_identity, "approved auxiliary owner material identity")
+                if identity.get("pimm_material_id") != material_id:
+                    continue
+                if identity != material:
+                    raise ValueError(
+                        f"governed auxiliary owner material identity drift: {material_id}"
+                    )
+                owners.append(obj)
+        if len(owners) != 1:
+            raise ValueError(
+                f"governed auxiliary material requires exactly one owner: {material_id}"
+            )
+        owner = owners[0]
+        owner_identity = _mapping(owner.get("identity"), "approved auxiliary owner identity")
+        owner_names = _mapping(spec["owner_names"], "approved auxiliary owner names")
+        if (
+            owner_identity.get("name") != owner_names.get(machine)
+            or owner_identity.get("type") != "Object"
+            or owner.get("object_type") != "MESH"
+            or owner.get("hide_render") is not False
+        ):
+            raise ValueError(f"governed auxiliary material owner drift: {material_id}")
+        owner_library = owner_identity.get("library")
+        data = _mapping(owner.get("data"), "approved auxiliary owner data")
+        data_identity = _mapping(data.get("identity"), "approved auxiliary owner data identity")
+        if (
+            owner_library != material_library
+            or data_identity.get("library") != material_library
+            or (authority == "scene") is not (owner_library is None)
+        ):
+            raise ValueError(f"governed auxiliary owner provenance drift: {material_id}")
+    return frozenset(materials_by_id)
+
+
 def build_component_contract(
     machine_contract: Mapping[str, object], authored_settings: Mapping[str, object]
 ) -> dict[str, object]:
@@ -1053,6 +1156,9 @@ def build_component_contract(
     if not isinstance(raw_objects, list):
         raise ValueError("approved authored settings objects must be a list")
     material_registry, _ = _material_registry(authored_settings)
+    auxiliary_material_ids = _validate_governed_auxiliary_materials(
+        str(machine), authored_settings, material_registry
+    )
     for identity in material_registry.values():
         material_id = _exact_material_id(identity, "approved material identity")
         if material_id in _APPROVED_SHARED_MATERIAL_IDS:
@@ -1061,6 +1167,8 @@ def build_component_contract(
                     "approved shared pimm_material_id does not match its canonical material "
                     f"datablock name: {identity.get('name')!r} != 'PIMM_{material_id}'"
                 )
+            continue
+        if material_id in auxiliary_material_ids:
             continue
         if material_id not in machine_local:
             raise ValueError(
@@ -1168,6 +1276,72 @@ def _identity_mapping(value: Mapping[str, object]) -> Mapping[str, object] | Non
     return value
 
 
+def _validate_governed_hdri_dependency(
+    authored_settings: Mapping[str, object],
+    roots: Mapping[str, Path],
+    evidence: Mapping[str, Mapping[str, object]],
+) -> str | None:
+    """Return the identity hash of the sole exact proof-bound external studio HDRI."""
+
+    raw_images = authored_settings.get("images")
+    if not isinstance(raw_images, list):
+        raise ValueError("approved authored settings images must be a list")
+    external_images = [
+        _mapping(image, "approved external image")
+        for image in raw_images
+        if isinstance(image, Mapping) and image.get("external_files")
+    ]
+    hdri_value = evidence.get("hdri")
+    if not external_images:
+        if hdri_value is not None:
+            raise ValueError("proof-bound HDRI evidence has no external image dependency")
+        return None
+    if len(external_images) != 1 or hdri_value is None:
+        raise ValueError("exactly one proof-bound governed HDRI external image is required")
+
+    hdri_record = _mapping(hdri_value, "hdri evidence")
+    if set(hdri_record) != _FILE_RECORD_FIELDS or hdri_record.get("authority") != "asset":
+        raise ValueError("hdri evidence is not an exact approval-bound file record")
+    expected_path = roots["asset"] / Path(*_GOVERNED_HDRI_PATH.parts)
+    evidence_path = _match_drive_authority_path(
+        hdri_record.get("path"), (expected_path,), "governed HDRI evidence path"
+    )
+    refreshed = stable_file_record(
+        evidence_path, roots["asset"], "asset", "governed HDRI", hdri_record
+    )
+    if refreshed["sha256"] != _GOVERNED_HDRI_SHA256:
+        raise ValueError("governed HDRI SHA-256 drift")
+
+    image = external_images[0]
+    if (
+        image.get("name") != _GOVERNED_HDRI_PATH.name
+        or image.get("type") != "Image"
+        or image.get("library") is not None
+        or image.get("source") != "FILE"
+        or image.get("file_format") != "OPEN_EXR"
+    ):
+        raise ValueError("governed HDRI dependency role or provenance drift")
+    _match_drive_authority_path(
+        image.get("filepath"), (evidence_path,), "governed HDRI image filepath"
+    )
+    external_files = image.get("external_files")
+    if not isinstance(external_files, list) or len(external_files) != 1:
+        raise ValueError("governed HDRI requires one exact external file record")
+    external = _mapping(external_files[0], "governed HDRI external file")
+    if set(external) != _GOVERNED_HDRI_EXTERNAL_FIELDS:
+        raise ValueError("governed HDRI external file fields are invalid")
+    for field in ("path", "resolved_path"):
+        _match_drive_authority_path(
+            external.get(field), (evidence_path,), f"governed HDRI external {field}"
+        )
+    for field in (
+        "sha256", "bytes", "mtime_ns", "ctime_ns", "device", "inode", "links"
+    ):
+        if external.get(field) != refreshed.get(field):
+            raise ValueError(f"governed HDRI external {field} drift")
+    return canonical_json_sha256(image)
+
+
 def _validate_component_library_paths(
     authored_settings: Mapping[str, object],
     roots: Mapping[str, Path],
@@ -1176,6 +1350,9 @@ def _validate_component_library_paths(
 ) -> None:
     """Resolve every captured Blender library to an existing approval authority."""
 
+    governed_hdri_identity = _validate_governed_hdri_dependency(
+        authored_settings, roots, evidence
+    )
     allowed: dict[str, tuple[str, Path, Mapping[str, object]]] = {}
     authorities_by_name: dict[str, tuple[Path, Mapping[str, object]]] = {}
     for name in ("master", "material_library"):
@@ -1304,6 +1481,11 @@ def _validate_component_library_paths(
                     material_id = _exact_material_id(identity, label)
                 library_value = identity.get("library")
                 if material_id is not None and library_value is None:
+                    auxiliary = _GOVERNED_AUXILIARY_MATERIALS.get(material_id)
+                    if auxiliary is not None and auxiliary["authority"] == "scene":
+                        for key, nested in value.items():
+                            visit(nested, f"{label}.{key}")
+                        return
                     expected_name = (
                         "material_library"
                         if material_id in _APPROVED_SHARED_MATERIAL_IDS
@@ -1325,10 +1507,15 @@ def _validate_component_library_paths(
                         )
                     name, _, record = authority
                     if material_id is not None:
+                        auxiliary = _GOVERNED_AUXILIARY_MATERIALS.get(material_id)
                         expected_name = (
-                            "material_library"
-                            if material_id in _APPROVED_SHARED_MATERIAL_IDS
-                            else "master"
+                            str(auxiliary["authority"])
+                            if auxiliary is not None
+                            else (
+                                "material_library"
+                                if material_id in _APPROVED_SHARED_MATERIAL_IDS
+                                else "master"
+                            )
                         )
                         if name != expected_name:
                             raise ValueError(
@@ -1336,9 +1523,12 @@ def _validate_component_library_paths(
                                 f"{expected_name.replace('_', '-')} authority"
                             )
                     observed_authorities.add(name)
-                if identity.get("type") == "Image" and value.get("external_files"):
+                if identity.get("type") == "Image" and value.get("external_files") and (
+                    governed_hdri_identity is None
+                    or canonical_json_sha256(value) != governed_hdri_identity
+                ):
                     raise ValueError(
-                        f"{label} external image bytes are not pinned master/material-library authority"
+                        f"{label} external image bytes are not the exact proof-bound governed HDRI"
                     )
             for key, nested in value.items():
                 visit(nested, f"{label}.{key}")
@@ -1396,7 +1586,12 @@ def _approved_library_authorities(
         {
             name: _mapping(evidence.get(name), f"{name} evidence")
             for name in ("master", "material_library", "scene")
-        },
+        }
+        | (
+            {"hdri": _mapping(evidence.get("hdri"), "hdri evidence")}
+            if evidence.get("hdri") is not None
+            else {}
+        ),
         frozenset(controller.get("approved_machine_local_material_ids", [])),
     )
     return [
@@ -1426,7 +1621,12 @@ def build_authorized_component_contract(
         {
             name: _mapping(evidence.get(name), f"{name} evidence")
             for name in ("master", "material_library", "scene")
-        },
+        }
+        | (
+            {"hdri": _mapping(evidence.get("hdri"), "hdri evidence")}
+            if evidence.get("hdri") is not None
+            else {}
+        ),
         frozenset(controller.get("approved_machine_local_material_ids", [])),
     )
     return contract
@@ -1910,6 +2110,20 @@ def extract_current_approval_evidence(proof_manifest_path: Path) -> dict[str, ob
         ):
             raise ValueError(f"proof {name} current evidence drift")
         evidence[name] = record
+    if scene.static_render_setup is not None:
+        world = _mapping(
+            scene.static_render_setup.get("world"), "static scene world contract"
+        )
+        if (
+            world.get("hdri_path") != str(_GOVERNED_HDRI_PATH)
+            or world.get("hdri_sha256") != _GOVERNED_HDRI_SHA256
+        ):
+            raise ValueError("static scene governed HDRI specification drift")
+        hdri_path = asset_root / Path(*_GOVERNED_HDRI_PATH.parts)
+        hdri_record = stable_file_record(hdri_path, asset_root, "asset", "hdri")
+        if hdri_record["sha256"] != _GOVERNED_HDRI_SHA256:
+            raise ValueError("static scene governed HDRI current SHA-256 drift")
+        evidence["hdri"] = hdri_record
     static_paths = {
         "proof_contract": proof_snapshot,
         "scene_contract": asset_root / Path(*PurePosixPath(contract.scene_contract_path).parts),
@@ -1994,7 +2208,8 @@ def validate_evidence_records(
     evidence = _mapping(evidence_value, "final evidence")
     required = set(_BASE_EVIDENCE_AUTHORITIES)
     pixel_keys = {str(key) for key in evidence if str(key).startswith("proof_pixel_")}
-    if set(evidence) != required | pixel_keys or not pixel_keys:
+    optional = {"hdri"} if "hdri" in evidence else set()
+    if set(evidence) != required | pixel_keys | optional or not pixel_keys:
         raise ValueError("final evidence must contain every protected artifact and proof pixel")
     current: dict[str, dict[str, object]] = {}
     physical: set[str] = set()
@@ -2008,7 +2223,9 @@ def validate_evidence_records(
         if authority not in roots:
             raise ValueError(f"{name} evidence authority is invalid")
         expected_authority = (
-            "asset" if name.startswith("proof_pixel_") else _BASE_EVIDENCE_AUTHORITIES.get(name)
+            "asset"
+            if name.startswith("proof_pixel_") or name == "hdri"
+            else _BASE_EVIDENCE_AUTHORITIES.get(name)
         )
         if authority != expected_authority:
             raise ValueError(f"{name} evidence authority drift")

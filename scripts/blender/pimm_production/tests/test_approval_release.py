@@ -359,6 +359,96 @@ def _set_component_library_authorities(
         )
 
 
+def _add_governed_auxiliary_materials(
+    authored: dict[str, object], master: Path
+) -> None:
+    """Add the two master artworks and scene catcher captured by static scenes."""
+
+    master_text = str(master.resolve())
+    specs = (
+        (
+            "MACHINE_ARTWORK_AIRTAC_DECAL",
+            "MAT_AirTAC_Decal",
+            "PIMM30_MASTER_AirTAC_Decal",
+            master_text,
+        ),
+        (
+            "MACHINE_ARTWORK_PRESSURE_GAUGE_FACE",
+            "MAT_Pressure_Gauge_Decal",
+            "PIMM30_MASTER_Pressure_Gauge_Face",
+            master_text,
+        ),
+        (
+            "SCENE_SHADOW_CATCHER",
+            "PIMM_SCENE_SHADOW_CATCHER_MATERIAL",
+            "PIMM_SCENE_SHADOW_CATCHER",
+            None,
+        ),
+    )
+    for material_id, material_name, object_name, library in specs:
+        material = {
+            "name": material_name,
+            "type": "Material",
+            "library": library,
+            "pimm_material_id": material_id,
+        }
+        authored["materials"].append(
+            {"identity": material, "properties": {}, "node_tree": None}
+        )
+        authored["objects"].append(
+            {
+                "identity": {
+                    "name": object_name,
+                    "type": "Object",
+                    "library": library,
+                },
+                "object_type": "MESH",
+                "data": {
+                    "identity": {
+                        "name": f"{object_name}_MESH",
+                        "type": "Mesh",
+                        "library": library,
+                    }
+                },
+                "hide_render": False,
+                "material_slots": [{"material": material}],
+                "modifiers": [],
+            }
+        )
+
+
+def _add_governed_hdri_dependency(
+    authored: dict[str, object], root: Path, evidence: dict[str, dict[str, object]]
+) -> None:
+    """Add the exact proof-bound external studio HDRI captured by static scenes."""
+
+    hdri = root / "assets" / "hdri" / "studio_kontrast_04_4k.exr"
+    hdri.parent.mkdir(parents=True)
+    hdri.write_bytes(b"governed studio HDRI fixture")
+    record = approval_module.stable_file_record(hdri, root, "asset", "hdri")
+    evidence["hdri"] = record
+    authored["images"].append(
+        {
+            "name": "studio_kontrast_04_4k.exr",
+            "type": "Image",
+            "library": None,
+            "source": "FILE",
+            "filepath": str(hdri.resolve()),
+            "file_format": "OPEN_EXR",
+            "external_files": [
+                {
+                    key: record[key]
+                    for key in (
+                        "path", "sha256", "bytes", "mtime_ns", "ctime_ns",
+                        "device", "inode", "links",
+                    )
+                }
+                | {"resolved_path": record["path"]}
+            ],
+        }
+    )
+
+
 def _component_authority_fixture(
     root: Path,
 ) -> tuple[
@@ -1062,6 +1152,111 @@ def _declare_fake_zip_compression(path: Path) -> None:
 
 
 class ApprovalReleaseTests(unittest.TestCase):
+    def test_static_scene_hdri_external_dependency_requires_exact_evidence(self) -> None:
+        """Catches any external image except the one proof-bound governed studio HDRI."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            authored, _, roots, evidence, _, _ = _component_authority_fixture(root)
+            _add_governed_hdri_dependency(authored, root, evidence)
+            machine = _approved_component_machine_contract()
+
+            with patch.object(
+                approval_module, "_GOVERNED_HDRI_SHA256", evidence["hdri"]["sha256"]
+            ):
+                approval_module.build_authorized_component_contract(
+                    machine, authored, roots, evidence
+                )
+
+            cases: dict[str, Callable[[dict[str, object], dict[str, object]], None]] = {
+                "missing evidence": lambda candidate, records: records.pop("hdri"),
+                "wrong path": lambda candidate, records: candidate["images"][-1].__setitem__(
+                    "filepath", str(root / "assets" / "hdri" / "wrong.exr")
+                ),
+                "wrong filename": lambda candidate, records: candidate["images"][-1].__setitem__(
+                    "name", "wrong.exr"
+                ),
+                "wrong bytes hash": lambda candidate, records: candidate["images"][-1][
+                    "external_files"
+                ][0].__setitem__("sha256", "A" * 64),
+                "wrong dependency role": lambda candidate, records: candidate["images"][-1].__setitem__(
+                    "type", "Material"
+                ),
+                "wrong library": lambda candidate, records: candidate["images"][-1].__setitem__(
+                    "library", records["master"]["path"]
+                ),
+                "wrong source": lambda candidate, records: candidate["images"][-1].__setitem__(
+                    "source", "GENERATED"
+                ),
+                "unrelated external image": lambda candidate, records: candidate["images"].append(
+                    copy.deepcopy(candidate["images"][-1])
+                ),
+            }
+            for label, mutate in cases.items():
+                with self.subTest(mutation=label):
+                    candidate = copy.deepcopy(authored)
+                    records = copy.deepcopy(evidence)
+                    mutate(candidate, records)
+                    with patch.object(
+                        approval_module,
+                        "_GOVERNED_HDRI_SHA256",
+                        evidence["hdri"]["sha256"],
+                    ), self.assertRaisesRegex(ValueError, "HDRI|external image|hdri"):
+                        approval_module.build_authorized_component_contract(
+                            machine, candidate, roots, records
+                        )
+
+    def test_static_scene_auxiliary_materials_require_exact_roles_and_owners(self) -> None:
+        """Catches final authorization rejecting or weakening the three governed auxiliaries."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            authored, _, roots, evidence, master, _ = _component_authority_fixture(root)
+            _add_governed_auxiliary_materials(authored, master)
+            machine = _approved_component_machine_contract()
+
+            approval_module.build_authorized_component_contract(
+                machine, authored, roots, evidence
+            )
+
+            for index in (-3, -2, -1):
+                material_id = authored["materials"][index]["identity"]["pimm_material_id"]
+                expected_library = authored["materials"][index]["identity"]["library"]
+                mutations: dict[str, Callable[[dict[str, object]], None]] = {
+                    "wrong stable ID": lambda candidate, i=index: candidate["materials"][i][
+                        "identity"
+                    ].__setitem__("pimm_material_id", f"{material_id}_WRONG"),
+                    "wrong material name": lambda candidate, i=index: candidate["materials"][i][
+                        "identity"
+                    ].__setitem__("name", "WRONG_AUXILIARY_MATERIAL"),
+                    "wrong provenance": lambda candidate, i=index, expected=expected_library: candidate[
+                        "materials"
+                    ][i]["identity"].__setitem__(
+                        "library", None if expected is not None else str(master.resolve())
+                    ),
+                    "wrong owner": lambda candidate, i=index: candidate["objects"][i][
+                        "identity"
+                    ].__setitem__("name", "WRONG_AUXILIARY_OWNER"),
+                }
+                for label, mutate in mutations.items():
+                    with self.subTest(material_id=material_id, mutation=label):
+                        candidate = copy.deepcopy(authored)
+                        mutate(candidate)
+                        with self.assertRaisesRegex(ValueError, "auxiliary|pimm_material_id"):
+                            approval_module.build_authorized_component_contract(
+                                machine, candidate, roots, evidence
+                            )
+
+            unknown = copy.deepcopy(authored)
+            unknown_material = copy.deepcopy(unknown["materials"][-1])
+            unknown_material["identity"]["pimm_material_id"] = "UNKNOWN_AUXILIARY"
+            unknown_material["identity"]["name"] = "UNKNOWN_AUXILIARY"
+            unknown["materials"].append(unknown_material)
+            with self.assertRaisesRegex(ValueError, "pimm_material_id"):
+                approval_module.build_authorized_component_contract(
+                    machine, unknown, roots, evidence
+                )
+
     def test_mapped_drive_authority_accepts_only_its_exact_resolved_unc_target(self) -> None:
         """Keeps mapped SMB proofs usable without permitting arbitrary UNC authority."""
 
