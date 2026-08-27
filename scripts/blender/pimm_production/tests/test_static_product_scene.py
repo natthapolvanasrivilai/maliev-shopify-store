@@ -217,8 +217,8 @@ class StaticProductSceneTests(unittest.TestCase):
                 self.assertGreaterEqual(min(y for _x, y in frame), 0.05)
                 self.assertLessEqual(max(y for _x, y in frame), 0.95)
 
-    def test_overview_camera_distance_has_exact_reviewed_margin_without_detail_drift(self):
-        """Locks the controller-approved 1.25 overview-only distance correction."""
+    def test_camera_distances_keep_exact_reviewed_margin_policy(self):
+        """Catches a wrong purpose-bound margin or distance drift in any shot class."""
 
         bounds_min = (-200.0, -180.0, 0.0)
         bounds_max = (220.0, 160.0, 900.0)
@@ -240,8 +240,10 @@ class StaticProductSceneTests(unittest.TestCase):
 
         self.assertAlmostEqual(math.dist(overview.location, overview.target), 4240.318045705377)
         self.assertAlmostEqual(math.dist(engineering.location, engineering.target), 5175.169999999998)
-        self.assertAlmostEqual(math.dist(tooling.location, tooling.target), 5175.169999999998)
+        self.assertAlmostEqual(math.dist(tooling.location, tooling.target), 6468.962499999998)
         self.assertEqual(overview.target, (10.0, -10.0, 450.0))
+        self.assertEqual(engineering.target, (10.0, -10.0, 450.0))
+        self.assertEqual(tooling.target, (10.0, -10.0, 450.0))
 
     def test_governed_clip_range_contains_current_farthest_stable_geometry(self):
         """Catches the camera far plane clipping the observed 3622-unit product depth."""

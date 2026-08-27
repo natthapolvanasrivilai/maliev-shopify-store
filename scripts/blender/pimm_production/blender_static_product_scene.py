@@ -73,7 +73,11 @@ OUTPUT_WIDTH = 2400
 OUTPUT_HEIGHT = 1800
 STATIC_CAMERA_CLIP_START = 1.0
 STATIC_CAMERA_CLIP_END = 10000.0
-OVERVIEW_CAMERA_DISTANCE_MULTIPLIER = 1.25
+CAMERA_DISTANCE_MULTIPLIER_BY_PURPOSE = {
+    "overview": 1.25,
+    "engineering": 1.0,
+    "tooling": 1.25,
+}
 _ALLOWED_FOCAL_LENGTHS = {85.0, 135.0}
 _REQUIRED_LIGHT_NAMES = (
     "KEY_SOFTBOX",
@@ -445,8 +449,7 @@ def camera_pose(
             - along,
         )
     distance *= 1.001
-    if config.purpose == "overview":
-        distance *= OVERVIEW_CAMERA_DISTANCE_MULTIPLIER
+    distance *= CAMERA_DISTANCE_MULTIPLIER_BY_PURPOSE[config.purpose]
     return orbit_camera_pose(bounds_min, bounds_max, distance, azimuth, 0.0)
 
 
