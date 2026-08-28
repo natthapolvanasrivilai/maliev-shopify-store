@@ -32,8 +32,8 @@
   text-wrap: balance;
 }
 
-.pimm-machine h1 {
-  font-size: clamp(3.4rem, 4.7vw, 6rem);
+body main .section-pimm-machine-product .pimm-machine h1 {
+  font-size: clamp(3.6rem, 3vw, 4.8rem) !important;
   letter-spacing: -0.035em;
   line-height: 0.98;
 }
@@ -160,8 +160,8 @@
   min-width: 0;
 }
 
-.pimm-machine__hero-evidence > h2 {
-  font-size: 1.4rem;
+body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
+  font-size: 1.8rem !important;
   letter-spacing: 0;
   line-height: 1.3;
 }
@@ -651,6 +651,11 @@
   .pimm-machine__qualification-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .pimm-machine__purchase {
+    margin-inline: -32px;
+    padding-inline: 32px;
+  }
 }
 
 @media (max-width: 989px) {
@@ -815,10 +820,54 @@
 }
 
 @media (max-width: 359px) {
+  body main .section-pimm-machine-product .pimm-machine h1 {
+    font-size: 2.4rem !important;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .pimm-machine__hero-console {
+    padding: 16px;
+  }
+
+  .pimm-machine__model-option {
+    align-items: flex-start;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .pimm-machine__model-option > span {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .pimm-machine__hero-facts,
   .pimm-machine__qualification-facts,
   .pimm-machine__engineering-bento {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pimm-machine__hero-facts dd,
+  .pimm-machine__qualification-facts dd {
+    font-size: 1.3rem;
+  }
+
+  .pimm-machine__purchase-summary > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pimm-machine__purchase-summary dd {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: start;
+    white-space: normal;
+  }
+
+  .pimm-machine__purchase-summary .money {
+    white-space: normal !important;
   }
 }
 

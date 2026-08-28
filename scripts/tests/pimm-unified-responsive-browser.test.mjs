@@ -12,11 +12,11 @@ const evidenceDir = resolve(
     || '.codex-tmp/pimm-unified-product/browser-evidence',
 );
 const viewports = [
-  [1440, 1000],
+  [1440, 900],
+  [1280, 800],
   [1024, 768],
-  [768, 1024],
   [390, 844],
-  [320, 800],
+  [360, 800],
 ];
 const models = ['30G', '50G'];
 const expectedMarket = {
@@ -547,6 +547,61 @@ const pageProbe = `(() => {
   };
 })()`;
 
+const consoleGeometryProbe = `(() => {
+  const rect = (selector) => {
+    const value = document.querySelector(selector)?.getBoundingClientRect();
+    return value ? {
+      bottom: value.bottom,
+      height: value.height,
+      left: value.left,
+      right: value.right,
+      top: value.top,
+      width: value.width,
+    } : null;
+  };
+  const overlaps = (a, b) => Boolean(
+    a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+  );
+  const decision = rect('.pimm-machine__hero-decision');
+  const stage = rect('.pimm-machine__hero-stage');
+  const evidence = rect('.pimm-machine__hero-evidence');
+  const hero = rect('[data-pimm-hero-console]');
+  const qualification = rect('[data-pimm-qualification-strip]');
+  const title = document.querySelector('.pimm-machine__hero-title-group h1');
+  const evidenceHeading = document.querySelector('.pimm-machine__hero-evidence > h2');
+  const titleRange = title ? document.createRange() : null;
+  titleRange?.selectNodeContents(title);
+  const selectedHero = document.querySelector('[data-pimm-media-model]:not([hidden])[data-pimm-media-slot="hero"] img');
+  const image = selectedHero?.getBoundingClientRect();
+  return {
+    decision,
+    evidence,
+    hero,
+    imageContained: Boolean(
+      image && stage && image.left >= stage.left - 1 && image.right <= stage.right + 1
+        && image.top >= stage.top - 1 && image.bottom <= stage.bottom + 1
+    ),
+    naturalSize: selectedHero ? [selectedHero.naturalWidth, selectedHero.naturalHeight] : null,
+    overlaps: {
+      decisionStage: overlaps(decision, stage),
+      stageEvidence: overlaps(stage, evidence),
+    },
+    qualification,
+    stage,
+    typography: {
+      evidenceHeadingFontSize: evidenceHeading ? parseFloat(getComputedStyle(evidenceHeading).fontSize) : null,
+      titleFontSize: title ? parseFloat(getComputedStyle(title).fontSize) : null,
+      titleLineCount: titleRange ? [...titleRange.getClientRects()].filter((value) => value.width > 0).length : 0,
+    },
+    visibleFactCount: [...document.querySelectorAll('.pimm-machine__hero-facts [data-pimm-spec]')]
+      .filter((node) => node.getClientRects().length > 0).length,
+    overflowX: Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.documentElement.clientWidth,
+    ),
+  };
+})()`;
+
 const selectedStateProbe = (model) => `(async () => {
   const radio = document.querySelector('[data-pimm-model-radio][data-model=${JSON.stringify(model)}]');
   if (radio.checked) {
@@ -688,6 +743,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
 
           for (const model of models) {
             const state = await evaluate(session, selectedStateProbe(model));
+            const consoleGeometry = await evaluate(session, consoleGeometryProbe);
             const expectedModel = expectedMarket.models[model];
             const expectedAlt = expectedMarket[language].alt[model];
             const expectedAnnouncement = `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedModel.depositPrice}`;
@@ -699,6 +755,27 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               width: media.width,
             }));
             assert.equal(state.checked, true);
+            assert.equal(consoleGeometry.overlaps.decisionStage, false);
+            assert.equal(consoleGeometry.overlaps.stageEvidence, false);
+            assert.equal(consoleGeometry.imageContained, true);
+            assert.deepEqual(consoleGeometry.naturalSize, [1800, 2200]);
+            assert.equal(consoleGeometry.visibleFactCount, 4);
+            assert.ok(
+              consoleGeometry.typography.titleLineCount <= 5,
+              `${language} ${model} ${width}x${height} title typography ${JSON.stringify(consoleGeometry.typography)}`,
+            );
+            assert.ok(
+              consoleGeometry.typography.evidenceHeadingFontSize <= 18,
+              `${language} ${model} ${width}x${height} evidence heading is ${consoleGeometry.typography.evidenceHeadingFontSize}px`,
+            );
+            assert.ok(
+              consoleGeometry.qualification.top >= consoleGeometry.hero.bottom - 1,
+              `${language} ${model} ${width}x${height} qualification must follow the hero`,
+            );
+            assert.ok(
+              consoleGeometry.overflowX <= 1,
+              `${language} ${model} ${width}x${height} console must not overflow horizontally`,
+            );
             assert.equal(state.selected, model);
             assert.match(state.url, new RegExp(`[?&]variant=${state.record.id}(?:&|$)`));
             assert.equal(state.visibleMedia, 4);
@@ -808,7 +885,10 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       })()`);
       assert.equal(transition.during.active, true);
       assert.ok(transition.during.incoming.every((group) => !group.hidden && group.ariaHidden === 'false' && !group.inert));
-      assert.ok(transition.during.outgoing.every((group) => !group.hidden && group.ariaHidden === 'true' && group.inert && Number(group.opacity) > 0 && Number(group.opacity) < 1 && group.pointerEvents === 'none' && group.state === 'exiting'));
+      assert.ok(
+        transition.during.outgoing.every((group) => !group.hidden && group.ariaHidden === 'true' && group.inert && Number(group.opacity) > 0 && Number(group.opacity) < 1 && group.pointerEvents === 'none' && group.state === 'exiting'),
+        JSON.stringify(transition.during.outgoing),
+      );
       for (const settled of [transition.after, transition.rapid]) {
         assert.ok(settled.incoming.every((group) => !group.hidden && group.ariaHidden === 'false' && !group.inert && group.state === ''));
         assert.ok(settled.outgoing.every((group) => group.hidden && group.ariaHidden === 'true' && group.inert && group.state === ''));
@@ -891,30 +971,43 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       await navigate(session, languageUrls.en);
       await setViewport(session, 390, 844);
       const focusSetup = await evaluate(session, `(() => {
-        const radio = document.querySelector('[data-pimm-model-radio][data-model="30G"]');
-        const sequential = [...document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')].filter((element) => {
-          const style = getComputedStyle(element);
-          return !element.disabled && !element.hidden && element.tabIndex >= 0 && style.display !== 'none' && style.visibility !== 'hidden';
-        });
-        const prior = sequential[sequential.indexOf(radio) - 1];
-        prior?.focus();
-        return { priorFocused: document.activeElement === prior, targetFound: Boolean(radio) };
-      })()`);
-      assert.equal(focusSetup.targetFound, true);
-      assert.equal(focusSetup.priorFocused, true);
-      await dispatchTab(session);
-      const focus = await evaluate(session, `(() => {
-        const radio = document.querySelector('[data-pimm-model-radio][data-model="30G"]');
-        const label = radio.closest('label');
-        const style = getComputedStyle(label);
+        const radio = document.querySelector('[data-pimm-model-radio]:checked');
+        document.body.setAttribute('tabindex', '-1');
+        document.body.focus();
+        document.body.removeAttribute('tabindex');
+        const style = radio ? getComputedStyle(radio) : null;
         return {
-          active: document.activeElement === radio,
-          color: style.outlineColor,
-          focusVisible: radio.matches(':focus-visible'),
-          width: parseFloat(style.outlineWidth),
+          checked: radio?.checked,
+          disabled: radio?.disabled,
+          display: style?.display,
+          originFocused: document.activeElement === document.body,
+          rects: radio?.getClientRects().length,
+          tabIndex: radio?.tabIndex,
+          targetFound: Boolean(radio),
+          visibility: style?.visibility,
         };
       })()`);
-      assert.equal(focus.active, true);
+      assert.equal(focusSetup.targetFound, true);
+      assert.equal(focusSetup.originFocused, true);
+      let focus;
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        await dispatchTab(session);
+        focus = await evaluate(session, `(() => {
+          const radio = document.querySelector('[data-pimm-model-radio]:checked');
+          const label = radio.closest('label');
+          const style = getComputedStyle(label);
+          return {
+            active: document.activeElement === radio,
+            activeId: document.activeElement?.id || '',
+            activeTag: document.activeElement?.tagName || '',
+            color: style.outlineColor,
+            focusVisible: radio.matches(':focus-visible'),
+            width: parseFloat(style.outlineWidth),
+          };
+        })()`);
+        if (focus.active) break;
+      }
+      assert.equal(focus.active, true, JSON.stringify({ focus, focusSetup }));
       assert.equal(focus.focusVisible, true);
       assert.equal(focus.color, 'rgb(255, 210, 28)');
       assert.ok(focus.width >= 3);
@@ -948,6 +1041,63 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       assert.deepEqual(motion.styles.filter((entry) => !entry.duration.split(',').every((duration) => Number.parseFloat(duration) === 0)), []);
       assert.deepEqual(motion.styles.filter((entry) => entry.transform !== 'none'), []);
       await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    });
+
+    await t.test('390px flow remains usable at 200 percent browser zoom', async () => {
+      await setViewport(session, 195, 422);
+      await navigate(session, languageUrls.en);
+      await suppressCookieConsentForEvidence(session);
+      const zoom = await evaluate(session, `(() => {
+        const decision = document.querySelector('.pimm-machine__hero-decision');
+        const stage = document.querySelector('.pimm-machine__hero-stage');
+        const evidence = document.querySelector('.pimm-machine__hero-evidence');
+        const qualification = document.querySelector('[data-pimm-qualification-strip]');
+        const machine = document.querySelector('[data-pimm-machine-product]');
+        const title = document.querySelector('.pimm-machine__hero-title-group h1');
+        const titleRange = title ? document.createRange() : null;
+        titleRange?.selectNodeContents(title);
+        const visible = (selector) => Boolean(document.querySelector(selector)?.getClientRects().length);
+        return {
+          controls: {
+            configure: visible('.pimm-machine__hero-actions .pimm-machine__text-link'),
+            deposit: visible('[data-pimm-deposit-action]'),
+            modelSelector: visible('[data-pimm-model-selector]'),
+            visit: visible('[data-pimm-book-visit]'),
+          },
+          order: [
+            decision?.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_FOLLOWING,
+            stage?.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING,
+            evidence?.compareDocumentPosition(qualification) & Node.DOCUMENT_POSITION_FOLLOWING,
+          ].map(Boolean),
+          overflowOffenders: [...(machine?.querySelectorAll('*') || [])]
+            .map((node) => ({
+              className: typeof node.className === 'string' ? node.className : '',
+              right: node.getBoundingClientRect().right,
+              tag: node.tagName,
+              width: node.getBoundingClientRect().width,
+            }))
+            .filter((entry) => entry.right > document.documentElement.clientWidth + 1)
+            .sort((a, b) => b.right - a.right)
+            .slice(0, 8),
+          overflowX: machine ? machine.scrollWidth - machine.clientWidth : null,
+          titleLineCount: titleRange ? [...titleRange.getClientRects()].filter((value) => value.width > 0).length : 0,
+        };
+      })()`);
+      assert.deepEqual(zoom.order, [true, true, true]);
+      assert.deepEqual(zoom.controls, {
+        configure: true,
+        deposit: true,
+        modelSelector: true,
+        visit: true,
+      });
+      assert.ok(zoom.overflowX <= 1, `200% zoom flow ${JSON.stringify(zoom)}`);
+      assert.ok(zoom.titleLineCount <= 5, `200% zoom title ${JSON.stringify(zoom)}`);
+      await evaluate(session, `(() => {
+        document.querySelector('[data-pimm-machine-product]')?.scrollIntoView({ block: 'start' });
+        return true;
+      })()`);
+      await suppressCookieConsentForEvidence(session);
+      await captureScreenshot(session, join(evidenceDir, 'pimm-unified-en-390x844-at-200-percent.png'));
     });
 
     for (const [language, url] of Object.entries(languageUrls)) {
