@@ -91,6 +91,13 @@ const expectedLineage = new Map([
   }],
 ]);
 
+const expectedRolePolicy = new Map([
+  ['hero-front', { dimensions: [1800, 2200], alpha: true, orientation: 'portrait' }],
+  ['overview-three-quarter', { dimensions: [2400, 1800], alpha: true, orientation: 'landscape' }],
+  ['engineering-controls', { dimensions: [2400, 1800], alpha: true, orientation: 'landscape' }],
+  ['tooling-front-detail', { dimensions: [2400, 1800], alpha: true, orientation: 'landscape' }],
+]);
+
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const sortedKeys = (value) => Object.keys(value).sort();
@@ -186,6 +193,25 @@ const fixtureManifest = () => ({
 test('committed lineage binds the exact eight portable WebP assets', () => {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   validateLineage(manifest, { checkFiles: true });
+});
+
+test('released roles remain eligible for their responsive presentation slots', () => {
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  for (const entry of manifest.assets) {
+    const policy = expectedRolePolicy.get(entry.shot);
+    assert.ok(policy, `missing role policy for ${entry.shot}`);
+    assert.deepEqual(entry.dimensions, policy.dimensions, `${entry.name} no longer fits ${entry.shot}`);
+    assert.equal(
+      entry.dimensions[0] > entry.dimensions[1],
+      policy.orientation === 'landscape',
+      `${entry.name} orientation drifted`,
+    );
+    assert.equal(
+      webpMetadata(readFileSync(join(root, 'assets', entry.name))).alpha,
+      policy.alpha,
+      `${entry.name} alpha policy drifted`,
+    );
+  }
 });
 
 test('lineage validation rejects identity and authority mutations', () => {
