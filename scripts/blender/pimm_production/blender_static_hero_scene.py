@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -40,6 +41,8 @@ DEFAULT_LOOK = "AgX - Medium High Contrast"
 DEFAULT_FOCAL_LENGTH_MM = 85.0
 DEFAULT_SENSOR_WIDTH_MM = 36.0
 DEFAULT_APERTURE_FSTOP = 11.0
+DEFAULT_CLIP_START = 1.0
+DEFAULT_CLIP_END = 10_000.0
 DEFAULT_LIGHT_TEMPERATURE_KELVIN = 5500.0
 # Cycles evaluates inverse-square falloff from the raw linked CAD coordinates,
 # while this project's unit scale declares those coordinates as millimeters.
@@ -426,7 +429,45 @@ def contract_payload(config: MachineConfig) -> dict[str, object]:
         },
         "purpose": "hero",
         "scene_id": config.scene_id,
+        "scene_path": config.output_path.relative_to(ASSET_ROOT).as_posix(),
         "schema_version": 1,
+        "static_render_setup": {
+            "camera": {
+                "aperture_fstop": DEFAULT_APERTURE_FSTOP,
+                "clip_end": DEFAULT_CLIP_END,
+                "clip_start": DEFAULT_CLIP_START,
+                "focal_length_mm": DEFAULT_FOCAL_LENGTH_MM,
+                "sensor_width_mm": DEFAULT_SENSOR_WIDTH_MM,
+                "view": "front",
+            },
+            "color_management": {
+                "exposure": DEFAULT_EXPOSURE,
+                "gamma": 1.0,
+                "look": DEFAULT_LOOK,
+                "view_transform": "AgX",
+            },
+            "lighting": {
+                "lower_bounce_name": "BASE_BOUNCE",
+                "required_light_names": [
+                    "KEY_SOFTBOX",
+                    "FILL_SOFTBOX",
+                    "BASE_BOUNCE",
+                    "STRIP_LEFT",
+                    "STRIP_RIGHT",
+                ],
+                "temperature_kelvin": DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            },
+            "physical_shadow": {
+                "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                "gate": "required",
+            },
+            "world": {
+                "hdri_path": DEFAULT_HDRI_RELATIVE_PATH.as_posix(),
+                "hdri_sha256": DEFAULT_HDRI_SHA256,
+                "rotation_degrees": DEFAULT_HDRI_ROTATION_DEGREES,
+                "strength": DEFAULT_WORLD_STRENGTH,
+            },
+        },
     }
 
 
@@ -471,6 +512,8 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     camera.data.lens = DEFAULT_FOCAL_LENGTH_MM
     camera.data.sensor_fit = "HORIZONTAL"
     camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
+    camera.data.clip_start = DEFAULT_CLIP_START
+    camera.data.clip_end = DEFAULT_CLIP_END
     camera.data.shift_x = 0.0
     camera.data.shift_y = 0.0
     camera.data.dof.use_dof = True
@@ -521,10 +564,61 @@ def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
     }
 
 
+def upgrade_existing_contract(bpy: Any, config: MachineConfig) -> dict[str, object]:
+    """Upgrade one existing hero scene and its contract without changing its look."""
+
+    source = Path(str(bpy.data.filepath)).resolve()
+    destination = config.output_path.resolve()
+    if source != destination:
+        raise ValueError(f"open scene does not match governed {config.machine} hero: {source}")
+    if not config.contract_path.is_file():
+        raise FileNotFoundError(f"existing hero contract is missing: {config.contract_path}")
+    payload = contract_payload(config)
+    contract = SceneContract.from_mapping(payload)
+    errors = validate_scene_contract(contract)
+    if errors:
+        raise ValueError("invalid upgraded front scene contract: " + "; ".join(errors))
+    camera = bpy.context.scene.camera
+    if camera is None or camera.name != contract.camera_name:
+        raise ValueError("existing hero scene is missing contracted CAM_HERO")
+    camera.data.lens = DEFAULT_FOCAL_LENGTH_MM
+    camera.data.sensor_fit = "HORIZONTAL"
+    camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
+    camera.data.clip_start = DEFAULT_CLIP_START
+    camera.data.clip_end = DEFAULT_CLIP_END
+    camera.data.dof.aperture_fstop = DEFAULT_APERTURE_FSTOP
+
+    old_contract_bytes = config.contract_path.read_bytes()
+    try:
+        atomic_write_json(config.contract_path, payload)
+        contract_bytes = config.contract_path.read_bytes()
+        scene = bpy.context.scene
+        scene["pimm_scene_contract_payload"] = canonical_scene_contract_json(contract)
+        scene["pimm_scene_contract_snapshot_sha256"] = hashlib.sha256(
+            contract_bytes
+        ).hexdigest().upper()
+        bpy.ops.wm.save_as_mainfile(filepath=str(destination), check_existing=False)
+    except Exception:
+        rollback = config.contract_path.with_suffix(config.contract_path.suffix + ".rollback")
+        rollback.write_bytes(old_contract_bytes)
+        os.replace(rollback, config.contract_path)
+        raise
+    return {
+        "status": "scene_contract_upgraded",
+        "machine": config.machine,
+        "scene_id": config.scene_id,
+        "scene_path": str(destination),
+        "scene_sha256": sha256_file(destination),
+        "contract_path": str(config.contract_path),
+        "contract_sha256": sha256_file(config.contract_path),
+    }
+
+
 def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--machine", choices=sorted(MACHINE_CONFIGS), required=True)
     parser.add_argument("--prepare-contract", action="store_true")
+    parser.add_argument("--upgrade-existing-contract", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -537,12 +631,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         else sys.argv[1:]
     )
     config = MACHINE_CONFIGS[arguments.machine]
+    if arguments.prepare_contract and arguments.upgrade_existing_contract:
+        raise ValueError("choose only one hero contract operation")
     if arguments.prepare_contract:
         result = prepare_contract(config)
     else:
         import bpy
 
-        result = author_front_scene(bpy, config)
+        result = (
+            upgrade_existing_contract(bpy, config)
+            if arguments.upgrade_existing_contract
+            else author_front_scene(bpy, config)
+        )
     print(RESULT_MARKER + json.dumps(result, sort_keys=True), flush=True)
     return 0
 

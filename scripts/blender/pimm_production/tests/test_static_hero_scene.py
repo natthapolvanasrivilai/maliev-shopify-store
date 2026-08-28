@@ -62,6 +62,8 @@ class StaticHeroSceneTests(unittest.TestCase):
         self.assertEqual(getattr(module, "DEFAULT_FOCAL_LENGTH_MM", None), 85.0)
         self.assertEqual(getattr(module, "DEFAULT_SENSOR_WIDTH_MM", None), 36.0)
         self.assertEqual(getattr(module, "DEFAULT_APERTURE_FSTOP", None), 11.0)
+        self.assertEqual(getattr(module, "DEFAULT_CLIP_START", None), 1.0)
+        self.assertEqual(getattr(module, "DEFAULT_CLIP_END", None), 10_000.0)
         self.assertAlmostEqual(
             module.scaled_camera_distance(1540.0, 56.0, 85.0),
             2337.5,
@@ -71,6 +73,35 @@ class StaticHeroSceneTests(unittest.TestCase):
             module.scaled_camera_distance(1715.0, 56.0, 85.0),
             2603.125,
             places=6,
+        )
+
+    def test_front_contract_declares_the_governed_static_render_setup(self):
+        module = self._module()
+
+        payload = module.contract_payload(module.MACHINE_CONFIGS["50G"])
+
+        self.assertEqual(payload["scene_path"], "scenes/stills/pimm-50g--hero--front.blend")
+        setup = payload["static_render_setup"]
+        self.assertEqual(
+            setup["camera"],
+            {
+                "aperture_fstop": 11.0,
+                "clip_end": 10_000.0,
+                "clip_start": 1.0,
+                "focal_length_mm": 85.0,
+                "sensor_width_mm": 36.0,
+                "view": "front",
+            },
+        )
+        self.assertEqual(setup["physical_shadow"]["gate"], "required")
+        self.assertEqual(
+            setup["world"],
+            {
+                "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                "rotation_degrees": 0.0,
+                "strength": 0.5,
+            },
         )
 
     def test_product_lighting_uses_rectangular_softboxes_with_controlled_ratios(self):

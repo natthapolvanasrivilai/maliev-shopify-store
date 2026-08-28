@@ -59,9 +59,11 @@ _STATIC_LIGHT_NAMES = ["KEY_SOFTBOX", "FILL_SOFTBOX", "BASE_BOUNCE", "STRIP_LEFT
 _STATIC_HDRI_PATH = "assets/hdri/studio_kontrast_04_4k.exr"
 _STATIC_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
 _STATIC_SHOT_CAMERAS = {
+    "pimm-30g--hero--front": ("front", 85.0, 11.0),
     "pimm-30g--overview--three-quarter": ("three-quarter", 85.0, 11.0),
     "pimm-30g--engineering--controls": ("controls", 135.0, 8.0),
     "pimm-30g--tooling--front-detail": ("front-detail", 135.0, 11.0),
+    "pimm-50g--hero--front": ("front", 85.0, 11.0),
     "pimm-50g--overview--three-quarter": ("three-quarter", 85.0, 11.0),
     "pimm-50g--engineering--controls": ("controls", 135.0, 8.0),
     "pimm-50g--tooling--front-detail": ("front-detail", 135.0, 11.0),
