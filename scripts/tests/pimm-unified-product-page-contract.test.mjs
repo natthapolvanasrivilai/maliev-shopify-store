@@ -251,7 +251,14 @@ test('restrained workbench stylesheet composes one open responsive product page'
   assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
   assert.match(css, /\.pimm-machine__hero\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
-  assert.match(css, /\.pimm-machine__engineering-media\s*\{[^}]*grid-row:\s*span\s+2/s);
+  assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(css, /\.pimm-machine__engineering-media\s*\{[^}]*grid-column:\s*1\s*\/\s*8[^}]*grid-row:\s*1\s*\/\s*5/s);
+  assert.match(css, /\.pimm-machine__specifications\s*\{[^}]*display:\s*contents/s);
+  assert.match(css, /\.pimm-machine__engineering-fact--capacity\s*\{[^}]*grid-column:\s*8\s*\/\s*11[^}]*grid-row:\s*1\s*\/\s*3/s);
+  assert.match(css, /\.pimm-machine__engineering-fact--temperature\s*\{[^}]*grid-column:\s*11\s*\/\s*13[^}]*grid-row:\s*1\s*\/\s*3/s);
+  assert.match(css, /\.pimm-machine__engineering-fact--mold\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*3/s);
+  assert.match(css, /\.pimm-machine__engineering-fact--pressure\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*4/s);
+  assert.match(css, /\.pimm-machine__hero-media\s*\{[^}]*background:\s*transparent/s);
   assert.doesNotMatch(css, /\.pimm-machine\s*\{[^}]*display:\s*grid/s);
   assert.doesNotMatch(css, /box-shadow\s*:/);
   assert.doesNotMatch(css, /background-clip:\s*text|backdrop-filter|repeating-linear-gradient|linear-gradient/);
@@ -424,6 +431,7 @@ test('model media crossfade retains stable nodes and cleans rapid transitions', 
   assert.match(css, /data-pimm-media-state="entering"[^}]*opacity:\s*0/s);
   assert.match(css, /data-pimm-media-state="exiting"[^}]*opacity:\s*0/s);
   assert.match(css, /aria-hidden="true"[^}]*pointer-events:\s*none/s);
+  assert.match(css, /data-pimm-media-model\]\[hidden\][^{]*\{[^}]*display:\s*none[^}]*opacity:\s*0/s);
   assert.match(js, /window\.setTimeout\([^]*180\)/);
   assert.match(js, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   assert.match(js, /mediaTransitionToken/);

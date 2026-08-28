@@ -75,7 +75,7 @@
     >
       <section class="pimm-machine__hero" aria-labelledby="PimmMachineTitle-{{ section.id }}">
         <div class="pimm-machine__hero-copy">
-          <h1 id="PimmMachineTitle-{{ section.id }}">{{ product.title | escape }}</h1>
+          <h1 id="PimmMachineTitle-{{ section.id }}">{{ product.title | remove: ' (Development)' | escape }}</h1>
           <p class="pimm-machine__hero-fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
           {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
         </div>
