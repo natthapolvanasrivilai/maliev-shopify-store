@@ -109,6 +109,74 @@ class StaticProductSceneTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "stable target"):
             module.bounds_for_objects([])
 
+    def test_foot_contact_plane_uses_majority_pad_height_not_low_outlier(self):
+        """Catches one malformed foot lowering the studio ground below three valid feet."""
+
+        module = self._module()
+        payload = {
+            "kind": "PIMM_FOOT_GEOMETRY_PATCH",
+            "machine": "50G",
+            "schema_version": 1,
+            "solids": [
+                {
+                    "original_name": "nylon feet",
+                    "stable_id": stable_id,
+                    "geometry": {"bounds": [-1, -1, bottom, 1, 1, bottom + 3]},
+                }
+                for stable_id, bottom in (
+                    ("pad-a", -0.162624216),
+                    ("pad-b", -0.162624216),
+                    ("pad-c", -0.162624216),
+                    ("pad-d", -4.825847972),
+                )
+            ],
+        }
+
+        contact = module.resolve_foot_contact_plane(payload, "50G")
+
+        self.assertAlmostEqual(contact.z, -0.162624216)
+        self.assertEqual(contact.stable_ids, ("pad-a", "pad-b", "pad-c", "pad-d"))
+        self.assertEqual(contact.outlier_stable_ids, ("pad-d",))
+
+    def test_foot_contact_plane_rejects_incomplete_or_wrong_machine_patch(self):
+        """Catches grounding from an incomplete or cross-machine foot manifest."""
+
+        module = self._module()
+        payload = {
+            "kind": "PIMM_FOOT_GEOMETRY_PATCH",
+            "machine": "30G",
+            "schema_version": 1,
+            "solids": [
+                {
+                    "original_name": "nylon feet",
+                    "stable_id": f"pad-{index}",
+                    "geometry": {"bounds": [-1, -1, 0, 1, 1, 3]},
+                }
+                for index in range(3)
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "machine mismatch"):
+            module.resolve_foot_contact_plane(payload, "50G")
+        with self.assertRaisesRegex(ValueError, "exactly four nylon foot pads"):
+            module.resolve_foot_contact_plane(payload, "30G")
+
+    def test_contact_environment_replaces_only_shadow_catcher_height(self):
+        """Catches a grounding fix drifting the approved studio floor dimensions."""
+
+        module = self._module()
+        original = module.studio_environment_specs(
+            (-200.0, -130.0, -4.825847972),
+            (200.0, 130.0, 900.0),
+        )
+        corrected = module.contact_environment_specs(original, -0.162624216)
+
+        self.assertEqual(len(corrected), 1)
+        self.assertAlmostEqual(corrected[0].z, -0.162624216)
+        self.assertEqual(corrected[0].width, original[0].width)
+        self.assertEqual(corrected[0].depth, original[0].depth)
+        self.assertEqual(corrected[0].base_color, original[0].base_color)
+
     def _target_manifest(self):
         shots = {}
         for machine in ("30g", "50g"):

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import stat
+from statistics import median
 import sys
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 import uuid
 
 try:
@@ -111,6 +112,93 @@ class TargetResolution:
     bounds_max: tuple[float, float, float]
     groups: dict[str, tuple[str, ...]]
     stable_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class FootContactPlane:
+    """Physical studio-floor evidence derived from the four nylon foot pads."""
+
+    z: float
+    pad_bottoms: tuple[float, ...]
+    stable_ids: tuple[str, ...]
+    outlier_stable_ids: tuple[str, ...]
+
+
+def resolve_foot_contact_plane(
+    patch_payload: Mapping[str, object], expected_machine: str
+) -> FootContactPlane:
+    """Resolve a robust floor height without trusting one malformed foot occurrence."""
+
+    if patch_payload.get("kind") != "PIMM_FOOT_GEOMETRY_PATCH":
+        raise ValueError("foot patch kind must be PIMM_FOOT_GEOMETRY_PATCH")
+    if patch_payload.get("machine") != expected_machine:
+        raise ValueError(
+            f"foot patch machine mismatch: expected {expected_machine}, "
+            f"got {patch_payload.get('machine')}"
+        )
+    solids = patch_payload.get("solids")
+    if not isinstance(solids, list):
+        raise ValueError("foot patch solids must be a list")
+    pads = [
+        solid
+        for solid in solids
+        if isinstance(solid, Mapping) and solid.get("original_name") == "nylon feet"
+    ]
+    if len(pads) != 4:
+        raise ValueError("foot patch must contain exactly four nylon foot pads")
+
+    stable_ids: list[str] = []
+    bottoms: list[float] = []
+    for pad in pads:
+        stable_id = pad.get("stable_id")
+        if not isinstance(stable_id, str) or not stable_id.strip():
+            raise ValueError("every nylon foot pad must have a nonempty stable_id")
+        geometry = pad.get("geometry")
+        bounds = geometry.get("bounds") if isinstance(geometry, Mapping) else None
+        if not isinstance(bounds, list) or len(bounds) != 6:
+            raise ValueError(f"nylon foot pad {stable_id} must have six finite bounds")
+        try:
+            numeric_bounds = tuple(float(value) for value in bounds)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"nylon foot pad {stable_id} must have six finite bounds"
+            ) from error
+        if not all(math.isfinite(value) for value in numeric_bounds):
+            raise ValueError(f"nylon foot pad {stable_id} must have six finite bounds")
+        stable_ids.append(stable_id)
+        bottoms.append(numeric_bounds[2])
+    if len(set(stable_ids)) != 4:
+        raise ValueError("nylon foot pad stable_ids must be unique")
+
+    contact_z = float(median(bottoms))
+    tolerance = 1e-6
+    outliers = tuple(
+        stable_id
+        for stable_id, bottom in zip(stable_ids, bottoms, strict=True)
+        if abs(bottom - contact_z) > tolerance
+    )
+    return FootContactPlane(
+        z=contact_z,
+        pad_bottoms=tuple(bottoms),
+        stable_ids=tuple(stable_ids),
+        outlier_stable_ids=outliers,
+    )
+
+
+def contact_environment_specs(
+    specs: Sequence[Any], contact_z: float
+) -> tuple[Any, ...]:
+    """Move only the studio shadow catcher to the validated contact height."""
+
+    corrected = tuple(
+        replace(spec, z=float(contact_z))
+        if getattr(spec, "role", None) == "shadow-catcher"
+        else spec
+        for spec in specs
+    )
+    if sum(getattr(spec, "role", None) == "shadow-catcher" for spec in corrected) != 1:
+        raise ValueError("studio environment must contain exactly one shadow-catcher")
+    return corrected
 
 
 @dataclass(frozen=True)
@@ -478,6 +566,47 @@ def _material_library_path() -> Path:
     return ASSET_ROOT / "masters" / "PIMM-MATERIAL-LIBRARY.blend"
 
 
+def _foot_patch_path(config: ShotConfig) -> Path:
+    return (
+        ASSET_ROOT
+        / "manifests"
+        / "patches"
+        / f"PIMM-{config.machine}-foot-refresh.json"
+    )
+
+
+def load_foot_contact_plane(config: ShotConfig) -> FootContactPlane:
+    """Load the canonical, machine-specific foot evidence for studio grounding."""
+
+    path = require_within(
+        _foot_patch_path(config), ASSET_ROOT / "manifests" / "patches"
+    )
+    if not path.is_file():
+        raise FileNotFoundError(f"canonical foot patch is missing: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"canonical foot patch is invalid JSON: {path}") from error
+    if not isinstance(payload, Mapping):
+        raise ValueError("canonical foot patch root must be an object")
+    return resolve_foot_contact_plane(payload, config.machine)
+
+
+def _foot_contact_evidence(
+    config: ShotConfig, contact: FootContactPlane
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "machine": config.machine,
+        "selection_basis": "median_nylon_foot_pad_bottom",
+        "patch_path": _foot_patch_path(config).relative_to(ASSET_ROOT).as_posix(),
+        "contact_z": contact.z,
+        "pad_bottoms": list(contact.pad_bottoms),
+        "stable_ids": list(contact.stable_ids),
+        "outlier_stable_ids": list(contact.outlier_stable_ids),
+    }
+
+
 def _static_render_setup(config: ShotConfig) -> dict[str, object]:
     """Return the governed camera, color, world, and lighting contract."""
 
@@ -775,8 +904,15 @@ def _configure_authored_scene(
     camera.data.dof.focus_distance = math.dist(pose.location, pose.target)
     camera.data.dof.aperture_fstop = config.aperture_fstop
 
+    foot_contact = load_foot_contact_plane(config)
     _install_lights(bpy, studio_light_specs(product_bounds_min, product_bounds_max))
-    _install_environment(bpy, studio_environment_specs(product_bounds_min, product_bounds_max))
+    _install_environment(
+        bpy,
+        contact_environment_specs(
+            studio_environment_specs(product_bounds_min, product_bounds_max),
+            foot_contact.z,
+        ),
+    )
     _install_world_environment(bpy, scene, world_environment)
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.length_unit = "MILLIMETERS"
@@ -805,7 +941,104 @@ def _configure_authored_scene(
         separators=(",", ":"),
         sort_keys=True,
     )
+    scene["pimm_foot_contact_evidence"] = json.dumps(
+        _foot_contact_evidence(config, foot_contact),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     return camera, pose
+
+
+def _contact_plane_state(bpy: Any, config: ShotConfig) -> tuple[Any, FootContactPlane, float]:
+    """Return the one local planar catcher and its governed physical contact evidence."""
+
+    source = Path(str(bpy.data.filepath)).resolve()
+    expected = _scene_path(config).resolve()
+    if source != expected:
+        raise ValueError(f"open scene must equal governed static scene: {expected}")
+    _validate_open_template_authority(bpy, config)
+    candidates = [
+        obj
+        for obj in bpy.context.scene.objects
+        if getattr(obj, "type", None) == "MESH"
+        and obj.get("pimm_scene_environment_role") == "shadow-catcher"
+    ]
+    if len(candidates) != 1:
+        raise ValueError("scene must contain exactly one shadow-catcher mesh")
+    catcher = candidates[0]
+    if getattr(catcher, "library", None) is not None or getattr(
+        catcher.data, "library", None
+    ) is not None:
+        raise ValueError("shadow-catcher must be scene-local")
+    location = tuple(float(value) for value in catcher.location)
+    rotation = tuple(float(value) for value in catcher.rotation_euler)
+    scale = tuple(float(value) for value in catcher.scale)
+    if any(abs(value) > 1e-9 for value in location + rotation) or any(
+        abs(value - 1.0) > 1e-9 for value in scale
+    ):
+        raise ValueError("shadow-catcher must retain identity object transforms")
+    vertices = list(catcher.data.vertices)
+    if len(vertices) != 4:
+        raise ValueError("shadow-catcher must retain its four-vertex studio plane")
+    z_values = tuple(float(vertex.co.z) for vertex in vertices)
+    current_z = float(median(z_values))
+    if any(abs(value - current_z) > 1e-6 for value in z_values):
+        raise ValueError("shadow-catcher vertices must remain coplanar")
+    return catcher, load_foot_contact_plane(config), current_z
+
+
+def validate_contact_plane(bpy: Any, config: ShotConfig) -> dict[str, object]:
+    """Fresh-process validation for one corrected static scene."""
+
+    _catcher, contact, current_z = _contact_plane_state(bpy, config)
+    if abs(current_z - contact.z) > 1e-6:
+        raise ValueError(
+            f"shadow-catcher contact height mismatch: expected {contact.z}, got {current_z}"
+        )
+    expected_evidence = json.dumps(
+        _foot_contact_evidence(config, contact),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    if bpy.context.scene.get("pimm_foot_contact_evidence") != expected_evidence:
+        raise ValueError("scene foot-contact evidence is missing or altered")
+    return {
+        "status": "contact_plane_valid",
+        "scene_id": config.scene_id,
+        "path": str(_scene_path(config).resolve()),
+        "contact_evidence": _foot_contact_evidence(config, contact),
+    }
+
+
+def correct_contact_plane(bpy: Any, config: ShotConfig) -> dict[str, object]:
+    """Correct only the scene-owned catcher, preserving all governed product meshes."""
+
+    catcher, contact, prior_z = _contact_plane_state(bpy, config)
+    master_before = sha256_file(_master_path(config))
+    material_before = sha256_file(_material_library_path())
+    for vertex in catcher.data.vertices:
+        vertex.co.z = contact.z
+    bpy.context.scene["pimm_foot_contact_evidence"] = json.dumps(
+        _foot_contact_evidence(config, contact),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    source = _scene_path(config).resolve()
+    bpy.ops.wm.save_as_mainfile(filepath=str(source), check_existing=False)
+    if sha256_file(_master_path(config)) != master_before:
+        raise RuntimeError("authoritative master changed during contact-plane correction")
+    if sha256_file(_material_library_path()) != material_before:
+        raise RuntimeError("material library changed during contact-plane correction")
+    return {
+        "status": "contact_plane_corrected",
+        "scene_id": config.scene_id,
+        "path": str(source),
+        "prior_z": prior_z,
+        "contact_evidence": _foot_contact_evidence(config, contact),
+    }
 
 
 def _validate_authored_scene_state(
@@ -976,6 +1209,8 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     modes.add_argument("--prepare-contract", action="store_true")
     modes.add_argument("--inspect-targets", action="store_true")
     modes.add_argument("--author-scene", action="store_true")
+    modes.add_argument("--correct-contact-plane", action="store_true")
+    modes.add_argument("--validate-contact-plane", action="store_true")
     parser.add_argument("--target-manifest", type=Path)
     arguments = parser.parse_args(argv)
     if arguments.author_scene and arguments.target_manifest is None:
@@ -1010,6 +1245,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if arguments.inspect_targets:
             result = inspect_target_candidates(bpy, config.machine)
+        elif arguments.correct_contact_plane:
+            result = correct_contact_plane(bpy, config)
+        elif arguments.validate_contact_plane:
+            result = validate_contact_plane(bpy, config)
         else:
             target_manifest = load_target_manifest(arguments.target_manifest)
             result = author_scene(bpy, config, target_manifest)
