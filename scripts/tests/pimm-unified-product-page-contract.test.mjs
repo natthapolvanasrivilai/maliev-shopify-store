@@ -7,8 +7,10 @@ const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.ur
 
 const stripShopifyComment = (source) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '');
 
-const [section, selector, bento, purchase, ownership, templateSource, js, css, enLocaleSource, thLocaleSource] = await Promise.all([
+const [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership, templateSource, js, css, enLocaleSource, thLocaleSource] = await Promise.all([
   readThemeFile('sections/maliev-pimm-machine-product.liquid'),
+  readThemeFile('snippets/pimm-hero-console.liquid'),
+  readThemeFile('snippets/pimm-qualification-strip.liquid'),
   readThemeFile('snippets/pimm-model-selector.liquid'),
   readThemeFile('snippets/pimm-engineering-bento.liquid'),
   readThemeFile('snippets/pimm-purchase-qualification.liquid'),
@@ -35,7 +37,7 @@ const storefrontLocales = await Promise.all(
 const schemaSource = section.match(/{% schema %}([\s\S]*?){% endschema %}/)?.[1];
 const schema = JSON.parse(schemaSource);
 const sectionRuntime = section.split('{% schema %}')[0];
-const renderedContract = [section, selector, bento, purchase, ownership].join('\n');
+const renderedContract = [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership].join('\n');
 const variantPayloadSource = section.match(/<script[^>]*data-pimm-variant-data[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '';
 
 const flattenKeys = (value, prefix = '') =>
@@ -216,6 +218,11 @@ test('unified template owns one semantic machine presentation', () => {
   assert.deepEqual(template.order, ['main']);
   assert.equal(renderedContract.match(/<h1\b/g)?.length, 1);
   assert.match(section, /data-pimm-machine-product/);
+  assert.match(heroConsole, /<section[^>]*class="pimm-machine__hero-console"/);
+  assert.match(heroConsole, /<h1[^>]*id="PimmMachineTitle-/);
+  assert.match(heroConsole, /<figure[^>]*data-pimm-hero-media/);
+  assert.match(heroConsole, /data-pimm-hero-evidence/);
+  assert.match(qualificationStrip, /<section[^>]*data-pimm-qualification-strip/);
   assert.match(selector, /<fieldset[^>]*data-pimm-model-selector/);
   assert.match(selector, /<legend\b/);
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
@@ -225,10 +232,10 @@ test('unified template owns one semantic machine presentation', () => {
   assert.match(section, /product-form__error-message-wrapper/);
 });
 
-test('open editorial sections surround one contained engineering bento', () => {
+test('engineering console and qualification strip lead one contained bento', () => {
   const orderedLandmarks = [
-    'pimm-machine__hero',
-    'pimm-machine__fit',
+    "render 'pimm-hero-console'",
+    "render 'pimm-qualification-strip'",
     "render 'pimm-engineering-bento'",
     'pimm-machine__tooling',
     "render 'pimm-ownership'",
@@ -242,14 +249,19 @@ test('open editorial sections surround one contained engineering bento', () => {
     cursor = next;
   }
 
+  assert.doesNotMatch(section, /class="pimm-machine__fit"/);
   assert.match(ownership, /<section[^>]*data-pimm-ownership/);
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
 });
 
-test('restrained workbench stylesheet composes one open responsive product page', () => {
+test('engineering console uses the approved twelve-column product stage', () => {
   assert.match(section, /maliev-pimm-machine\.css[^]*stylesheet_tag/);
   assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
-  assert.match(css, /\.pimm-machine__hero\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/s);
+  assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(css, /\.pimm-machine__hero-decision\s*\{[^}]*grid-column:\s*1\s*\/\s*4/s);
+  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*grid-column:\s*4\s*\/\s*9/s);
+  assert.match(css, /\.pimm-machine__hero-evidence\s*\{[^}]*grid-column:\s*9\s*\/\s*-1/s);
+  assert.match(css, /\.pimm-machine__qualification-strip\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
   assert.match(css, /\.pimm-machine__engineering-media\s*\{[^}]*grid-column:\s*1\s*\/\s*8[^}]*grid-row:\s*1\s*\/\s*5/s);
@@ -258,10 +270,12 @@ test('restrained workbench stylesheet composes one open responsive product page'
   assert.match(css, /\.pimm-machine__engineering-fact--temperature\s*\{[^}]*grid-column:\s*11\s*\/\s*13[^}]*grid-row:\s*1\s*\/\s*3/s);
   assert.match(css, /\.pimm-machine__engineering-fact--mold\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*3/s);
   assert.match(css, /\.pimm-machine__engineering-fact--pressure\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*4/s);
-  assert.match(css, /\.pimm-machine__hero-media\s*\{[^}]*background:\s*transparent/s);
+  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*background:\s*transparent/s);
+  assert.match(css, /\.pimm-machine__hero-stage img\s*\{[^}]*object-fit:\s*contain/s);
+  assert.match(css, /\.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*6rem\)/s);
   assert.doesNotMatch(css, /\.pimm-machine\s*\{[^}]*display:\s*grid/s);
   assert.doesNotMatch(css, /box-shadow\s*:/);
-  assert.doesNotMatch(css, /background-clip:\s*text|backdrop-filter|repeating-linear-gradient|linear-gradient/);
+  assert.doesNotMatch(css, /background-clip:\s*text|backdrop-filter|repeating-linear-gradient|linear-gradient|radial-gradient/);
   assert.doesNotMatch(css, /border-radius:\s*(?:[2-9]\d|1[5-9])px/);
   assert.doesNotMatch(css, /#(?:f[ae][0-9a-f]{4}|f[0-9a-f]e[0-9a-f]{3})\b/i);
 });
@@ -274,10 +288,14 @@ test('responsive controls preserve focus touch size motion and 320px containment
   assert.match(css, /opacity\s+180ms\s+cubic-bezier\(0\.22,\s*1,\s*0\.36,\s*1\)/);
   assert.doesNotMatch(css, /(?:transition|animation)[^;]*(?:18[1-9]|1[9-9]\d|[2-9]\d{2,})ms/);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[^{]*\{[^}]*transition-duration:\s*0ms[^}]*transform:\s*none/s);
-  assert.match(css, /@media\s*\(max-width:\s*989px\)[^{]*\{[^}]*padding-inline:\s*32px/s);
+  assert.match(css, /@media\s*\(max-width:\s*1199px\)/);
   assert.match(css, /@media\s*\(max-width:\s*749px\)[^{]*\{[^}]*padding-inline:\s*20px/s);
   assert.match(css, /@media\s*\(max-width:\s*359px\)[^{]*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
-  assert.match(css, /grid-template-areas:\s*"media"\s*"copy"/);
+  assert.match(css, /\.pimm-machine__hero-title-group\s*\{[^}]*order:\s*1/s);
+  assert.match(css, /\.pimm-machine__model-selector\s*\{[^}]*order:\s*2/s);
+  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*order:\s*3/s);
+  assert.match(css, /\.pimm-machine__hero-actions\s*\{[^}]*order:\s*4/s);
+  assert.match(css, /\.pimm-machine__hero-evidence\s*\{[^}]*order:\s*5/s);
   assert.match(css, /overflow-x:\s*clip/);
   assert.match(css, /max-width:\s*100%/);
   assert.match(css, /min-width:\s*0/);
@@ -291,6 +309,12 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
 
   const requiredKeys = [
     'hero.fit_statement',
+    'hero.promise',
+    'hero.evidence_heading',
+    'hero.engineering_detail',
+    'actions.configure',
+    'qualification.heading',
+    'qualification.availability',
     'model_selector.legend',
     'model_selector.selected_model',
     'model_selector.models.30g',
@@ -343,7 +367,7 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
     assert.ok(getPath(en, key).trim(), `empty English ${key}`);
     assert.ok(getPath(th, key).trim(), `empty Thai ${key}`);
   }
-  for (const key of ['hero.fit_statement', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero']) {
+  for (const key of ['hero.fit_statement', 'hero.promise', 'hero.evidence_heading', 'hero.engineering_detail', 'actions.configure', 'qualification.heading', 'qualification.availability', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero']) {
     assert.match(getPath(th, key), /[\u0E00-\u0E7F]/, `${key} must contain native Thai copy`);
   }
 
@@ -394,13 +418,23 @@ test('one asymmetric engineering bento exposes stable model media and semantic s
   assert.match(renderedContract, /data-pimm-media-model="\{\{ block\.settings\.model_code \}\}"/);
   assert.match(renderedContract, /aria-hidden="\{%-? if media_is_selected/);
   assert.match(renderedContract, /unless media_is_selected[^]*hidden/);
-  assert.match(section, /width="1800"[\s\S]*height="2200"[\s\S]*data-pimm-media-image/);
-  for (const slot of ['overview', 'tooling']) {
-    assert.match(section, new RegExp(`assign block_${slot}_width = 2400[\\s\\S]*assign block_${slot}_height = 1800`));
-    assert.match(section, new RegExp(`width="\\{\\{ block_${slot}_width \\}\\}"[\\s\\S]*height="\\{\\{ block_${slot}_height \\}\\}"[\\s\\S]*data-pimm-media-slot="${slot}"`));
-  }
-  assert.match(bento, /assign block_engineering_width = 2400[\s\S]*assign block_engineering_height = 1800/);
-  assert.match(bento, /width="\{\{ block_engineering_width \}\}"[\s\S]*height="\{\{ block_engineering_height \}\}"[\s\S]*data-pimm-media-slot="engineering"/);
+  assert.match(heroConsole, /width="1800"[\s\S]*height="2200"[\s\S]*data-pimm-media-image/);
+  assert.match(bento, /assign block_overview_width = 2400[\s\S]*assign block_overview_height = 1800/);
+  assert.match(bento, /data-pimm-media-slot="overview"[\s\S]*width="\{\{ block_overview_width \}\}"[\s\S]*height="\{\{ block_overview_height \}\}"/);
+  assert.match(heroConsole, /assign block_engineering_width = 2400[\s\S]*assign block_engineering_height = 1800/);
+  assert.match(heroConsole, /data-pimm-media-slot="engineering"[\s\S]*width="\{\{ block_engineering_width \}\}"[\s\S]*height="\{\{ block_engineering_height \}\}"/);
+  assert.match(section, /assign block_tooling_width = 2400[\s\S]*assign block_tooling_height = 1800/);
+  assert.match(section, /width="\{\{ block_tooling_width \}\}"[\s\S]*height="\{\{ block_tooling_height \}\}"[\s\S]*data-pimm-media-slot="tooling"/);
+});
+
+test('released media has one narrative owner for each selected-model slot', () => {
+  assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
+  assert.match(heroConsole, /data-pimm-media-slot="hero"/);
+  assert.match(heroConsole, /data-pimm-media-slot="engineering"/);
+  assert.match(bento, /data-pimm-media-slot="overview"/);
+  assert.match(section, /class="pimm-machine__tooling[\s\S]*data-pimm-media-slot="tooling"/);
+  assert.equal(renderedContract.match(/data-pimm-media-slot="overview"/g)?.length, 1);
+  assert.equal(renderedContract.match(/data-pimm-media-slot="engineering"/g)?.length, 1);
 });
 
 test('missing non-hero media resolves to the selected model hero without invalidating commerce', () => {
@@ -438,9 +472,12 @@ test('model media crossfade retains stable nodes and cleans rapid transitions', 
 });
 
 test('only the selected hero is eager while below-fold model media stays lazy and async', () => {
-  assert.match(section, /if media_is_selected[\s\S]*loading="eager"[\s\S]*fetchpriority="high"/);
-  for (const slot of ['overview', 'engineering', 'tooling']) {
-    assert.match(renderedContract, new RegExp(`loading="lazy"[\\s\\S]*decoding="async"[\\s\\S]*data-pimm-media-slot="${slot}"`));
+  assert.match(heroConsole, /if media_is_selected[\s\S]*loading="eager"[\s\S]*fetchpriority="high"/);
+  const detailSources = { overview: bento, engineering: heroConsole, tooling: section };
+  for (const [slot, source] of Object.entries(detailSources)) {
+    assert.match(source, new RegExp(`data-pimm-media-slot="${slot}"`));
+    assert.match(source, /loading="lazy"/);
+    assert.match(source, /decoding="async"/);
   }
   assert.doesNotMatch(renderedContract, /rel="preload"|new Image\s*\(/);
 });
@@ -555,7 +592,7 @@ test('section schema exposes only approved links and a two-model contract', () =
 });
 
 test('merchant model alt settings resolve initial and switched media with locale fallbacks', () => {
-  const runtimeAltSources = `${sectionRuntime}\n${bento}`;
+  const runtimeAltSources = `${sectionRuntime}\n${heroConsole}\n${bento}`;
   const slots = ['hero', 'overview', 'engineering', 'tooling'];
 
   for (const slot of slots) {
@@ -567,7 +604,12 @@ test('merchant model alt settings resolve initial and switched media with locale
       );
     }
 
-    const initialSource = slot === 'engineering' ? bento : sectionRuntime;
+    const initialSource = {
+      hero: heroConsole,
+      overview: bento,
+      engineering: heroConsole,
+      tooling: sectionRuntime,
+    }[slot];
     const initialVariable = `block_${slot}_alt`;
     assert.match(initialSource, new RegExp(`assign ${initialVariable} = 'products\\.pimm_machine\\.alt\\.30g\\.${slot}' \\| t`));
     assert.match(initialSource, new RegExp(`assign ${initialVariable} = 'products\\.pimm_machine\\.alt\\.50g\\.${slot}' \\| t`));

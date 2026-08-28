@@ -232,7 +232,17 @@
     },
     "pimm_machine": {
       "hero": {
-        "fit_statement": "Workshop-scale injection molding, built and supported in Thailand. Choose 30G or 50G capacity without changing the ownership path."
+        "fit_statement": "Workshop-scale injection molding, built and supported in Thailand. Choose 30G or 50G capacity without changing the ownership path.",
+        "promise": "Real injection molding capability, sized for your workshop.",
+        "evidence_heading": "Selected machine",
+        "engineering_detail": "Inspect pneumatic controls"
+      },
+      "actions": {
+        "configure": "Configure this machine"
+      },
+      "qualification": {
+        "heading": "Commercial summary",
+        "availability": "Availability"
       },
       "model_selector": {
         "legend": "Choose machine capacity",

@@ -1,0 +1,52 @@
+{% doc %}
+  Renders the selected model's compact commercial summary.
+
+  @param {object} selected_variant - The selected Shopify variant.
+  @param {number} full_price_cents - Twice the selected contextual variant price in integer cents.
+  @param {string} lead_time - The selected variant's production lead time.
+  @param {boolean} model_contract_valid - Whether commerce and presentation data agree.
+  @param {string} factory_visit_url - The factory-visit destination.
+  @param {section} section - The owning machine-product section.
+{% enddoc %}
+
+{%- liquid
+  assign selected_status_text = 'products.pimm_machine.status.unavailable' | t
+  if model_contract_valid
+    if selected_variant.available
+      assign selected_status_text = 'products.pimm_machine.status.made_to_order' | t
+    else
+      assign selected_status_text = 'products.pimm_machine.status.out_of_stock' | t
+    endif
+  endif
+-%}
+
+<section class="pimm-machine__qualification-strip" data-pimm-qualification-strip aria-labelledby="PimmMachineCommercial-{{ section.id }}">
+  <h2 id="PimmMachineCommercial-{{ section.id }}" class="visually-hidden">{{ 'products.pimm_machine.qualification.heading' | t }}</h2>
+  <dl class="pimm-machine__qualification-facts">
+    <div>
+      <dt>{{ 'products.pimm_machine.qualification.availability' | t }}</dt>
+      <dd data-pimm-model-value="statusText">{{ selected_status_text }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'products.pimm_machine.purchase.full_price' | t }}</dt>
+      <dd data-pimm-model-value="fullPrice">
+        {%- if model_contract_valid -%}{{ full_price_cents | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'products.pimm_machine.purchase.deposit_price' | t }}</dt>
+      <dd data-pimm-model-value="depositPrice">
+        {%- if model_contract_valid -%}{{ selected_variant.price | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'products.pimm_machine.purchase.lead_time_label' | t }}</dt>
+      <dd data-pimm-model-value="leadTime">
+        {%- if model_contract_valid -%}{{ 'products.pimm_machine.purchase.lead_time' | t: days: lead_time }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
+      </dd>
+    </div>
+  </dl>
+  <a class="button button--secondary" href="{{ factory_visit_url }}">
+    {{ 'products.pimm_machine.purchase.book_visit' | t }}
+  </a>
+</section>

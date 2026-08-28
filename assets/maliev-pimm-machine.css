@@ -33,7 +33,7 @@
 }
 
 .pimm-machine h1 {
-  font-size: clamp(3.6rem, 5.8vw, 7.2rem);
+  font-size: clamp(3.4rem, 4.7vw, 6rem);
   letter-spacing: -0.035em;
   line-height: 0.98;
 }
@@ -82,8 +82,6 @@
   opacity: 0;
 }
 
-.pimm-machine__hero,
-.pimm-machine__fit,
 .pimm-machine__tooling {
   display: grid;
   gap: clamp(32px, 5vw, 72px);
@@ -91,46 +89,187 @@
   min-width: 0;
 }
 
-.pimm-machine__hero {
+.pimm-machine__hero-console {
   align-items: center;
+  background: #F3F5F6;
+  border: 1px solid #E2E5E8;
+  border-radius: 14px;
   display: grid;
-  grid-template-areas: "copy media";
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: min(820px, calc(100svh - 68px));
-  padding-block: clamp(48px, 7vw, 104px);
+  gap: clamp(20px, 2.8vw, 40px);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  margin-top: 24px;
+  min-height: min(760px, calc(100svh - 96px));
+  min-width: 0;
+  overflow: clip;
+  padding: clamp(24px, 3.4vw, 48px);
 }
 
-.pimm-machine__hero-copy {
+.pimm-machine__hero-decision {
   display: grid;
-  gap: 32px;
-  grid-area: copy;
+  gap: 28px;
+  grid-column: 1 / 4;
   min-width: 0;
 }
 
-.pimm-machine__hero-fit {
-  font-size: clamp(1.7rem, 2vw, 2.2rem);
-  max-width: 54ch;
+.pimm-machine__hero-title-group {
+  display: grid;
+  gap: 18px;
 }
 
-.pimm-machine__hero-media {
+.pimm-machine__hero-promise {
+  color: #111315;
+  font-size: clamp(1.8rem, 1.7vw, 2.2rem);
+  font-weight: 500;
+  line-height: 1.35;
+  max-width: 34ch;
+}
+
+.pimm-machine__hero-fit {
+  font-size: 1.5rem;
+  max-width: 38ch;
+}
+
+.pimm-machine__hero-stage {
   align-items: center;
   align-self: stretch;
   background: transparent;
   display: grid;
-  grid-area: media;
-  min-height: 560px;
+  grid-column: 4 / 9;
+  min-height: 600px;
   min-width: 0;
 }
 
-.pimm-machine__hero-media > picture {
+.pimm-machine__hero-stage > picture {
+  grid-column: 1;
+  grid-row: 1;
+  height: 100%;
+}
+
+.pimm-machine__hero-stage img {
+  height: 100%;
+  margin-inline: auto;
+  max-height: min(72vh, 700px);
+  object-fit: contain;
+  width: 100%;
+}
+
+.pimm-machine__hero-evidence {
+  display: grid;
+  gap: 16px;
+  grid-column: 9 / -1;
+  min-width: 0;
+}
+
+.pimm-machine__hero-evidence > h2 {
+  font-size: 1.4rem;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.pimm-machine__hero-facts {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pimm-machine__hero-facts > div {
+  align-content: space-between;
+  background: #FFFFFF;
+  border-radius: 10px;
+  display: grid;
+  gap: 18px;
+  min-height: 120px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.pimm-machine__hero-facts dt,
+.pimm-machine__qualification-facts dt {
+  color: #535A62;
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.pimm-machine__hero-facts dd,
+.pimm-machine__qualification-facts dd {
+  color: #111315;
+  font-family: var(--maliev-font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.pimm-machine__hero-detail {
+  background: #111315;
+  border-radius: 10px;
+  color: #FFFFFF;
+  display: grid;
+  gap: 12px;
+  min-height: 44px;
+  overflow: hidden;
+  padding: 16px;
+  text-decoration: none;
+}
+
+.pimm-machine__hero-detail > span {
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+
+.pimm-machine__hero-detail figure {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  overflow: hidden;
+}
+
+.pimm-machine__hero-detail picture {
   grid-column: 1;
   grid-row: 1;
 }
 
-.pimm-machine__hero-media img {
-  margin-inline: auto;
-  max-height: 700px;
-  width: auto;
+.pimm-machine__hero-detail img {
+  height: 100%;
+  object-fit: contain;
+}
+
+.pimm-machine__hero-actions {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pimm-machine__hero-actions .button,
+.pimm-machine__qualification-strip > .button {
+  align-items: center;
+  border: 1px solid #006FD6;
+  border-radius: 4px;
+  display: inline-flex;
+  font-size: 1.4rem;
+  font-weight: 500;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 20px;
+  text-decoration: none;
+}
+
+.pimm-machine__hero-actions .button--primary {
+  background: #006FD6;
+  color: #FFFFFF;
+}
+
+.pimm-machine__hero-actions .button--primary:hover {
+  background: #005BB5;
+  border-color: #005BB5;
+}
+
+.pimm-machine__text-link {
+  color: #005BB5;
+  min-height: 44px;
+  padding-block: 10px;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 
 .pimm-machine__model-selector {
@@ -200,7 +339,6 @@
   border-color: #111315;
 }
 
-.pimm-machine__fit,
 .pimm-machine__tooling,
 .pimm-machine__engineering,
 .pimm-machine__ownership,
@@ -209,9 +347,40 @@
   padding-block: clamp(56px, 7vw, 104px);
 }
 
-.pimm-machine__fit,
 .pimm-machine__tooling {
   align-items: center;
+}
+
+.pimm-machine__qualification-strip {
+  align-items: center;
+  border-bottom: 1px solid #D9DDE1;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-block: 24px;
+}
+
+.pimm-machine__qualification-facts {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.pimm-machine__qualification-facts > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pimm-machine__qualification-strip > .button {
+  background: #FFFFFF;
+  color: #005BB5;
+  white-space: nowrap;
+}
+
+.pimm-machine__qualification-strip > .button:hover {
+  background: #E8F3FC;
 }
 
 .pimm-machine__prose {
@@ -439,24 +608,59 @@
   padding: 32px 48px;
 }
 
-@media (max-width: 989px) {
+@media (max-width: 1199px) {
   .pimm-machine {
     padding-inline: 32px;
   }
 
-  .pimm-machine__hero {
-    grid-template-areas: "media" "copy";
-    grid-template-columns: minmax(0, 1fr);
+  .pimm-machine__hero-console {
+    grid-template-columns: minmax(240px, 4fr) minmax(360px, 6fr);
     min-height: auto;
   }
 
-  .pimm-machine__hero-media {
-    min-height: 0;
+  .pimm-machine__hero-decision {
+    grid-column: 1 / 2;
+    grid-row: 1;
   }
 
-  .pimm-machine__fit,
+  .pimm-machine__hero-stage {
+    grid-column: 2 / -1;
+    grid-row: 1;
+    min-height: 560px;
+  }
+
+  .pimm-machine__hero-evidence {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+  }
+
+  .pimm-machine__hero-evidence > h2 {
+    grid-column: 1 / -1;
+  }
+
+  .pimm-machine__hero-facts {
+    grid-column: 1;
+  }
+
+  .pimm-machine__hero-detail {
+    grid-column: 2;
+  }
+
+  .pimm-machine__qualification-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 989px) {
   .pimm-machine__tooling,
   .pimm-machine__purchase {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pimm-machine__qualification-strip {
+    align-items: stretch;
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -501,14 +705,76 @@
     padding-inline: 20px;
   }
 
-  .pimm-machine__hero,
-  .pimm-machine__fit,
-  .pimm-machine__tooling {
+  .pimm-machine__hero-console {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
     gap: 32px;
+    margin-inline: -8px;
+    margin-top: 12px;
+    overflow: visible;
+    padding: 24px;
   }
 
-  .pimm-machine__fit .pimm-machine__figure {
+  .pimm-machine__hero-decision {
+    display: contents;
+  }
+
+  .pimm-machine__hero-title-group {
+    order: 1;
+  }
+
+  .pimm-machine__model-selector {
+    order: 2;
+  }
+
+  .pimm-machine__hero-stage {
+    aspect-ratio: 9 / 11;
+    min-height: 0;
+    order: 3;
+  }
+
+  .pimm-machine__hero-stage img {
+    max-height: none;
+  }
+
+  .pimm-machine__hero-actions {
+    order: 4;
+  }
+
+  .pimm-machine__hero-actions .button,
+  .pimm-machine__hero-actions .pimm-machine__text-link {
+    width: 100%;
+  }
+
+  .pimm-machine__hero-evidence {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    order: 5;
+  }
+
+  .pimm-machine__hero-evidence > h2,
+  .pimm-machine__hero-facts,
+  .pimm-machine__hero-detail {
+    grid-column: 1;
+  }
+
+  .pimm-machine__qualification-strip {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pimm-machine__qualification-strip > .button {
     order: -1;
+    width: 100%;
+  }
+
+  .pimm-machine__qualification-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pimm-machine__tooling {
+    gap: 32px;
   }
 
   .pimm-machine__model-options,
@@ -549,6 +815,8 @@
 }
 
 @media (max-width: 359px) {
+  .pimm-machine__hero-facts,
+  .pimm-machine__qualification-facts,
   .pimm-machine__engineering-bento {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -55,6 +55,10 @@
   endif
 
   assign product_form_id = 'PimmMachineProductForm-' | append: section.id
+  assign factory_visit_url = section.settings.factory_visit_url
+  if factory_visit_url == blank
+    assign factory_visit_url = routes.root_url | append: 'pages/contact'
+  endif
 -%}
 
 {{ 'maliev-pimm-machine.css' | asset_url | stylesheet_tag }}
@@ -73,127 +77,24 @@
       data-section-id="{{ section.id }}"
       data-model-contract-valid="{{ model_contract_valid }}"
     >
-      <section class="pimm-machine__hero" aria-labelledby="PimmMachineTitle-{{ section.id }}">
-        <div class="pimm-machine__hero-copy">
-          <h1 id="PimmMachineTitle-{{ section.id }}">{{ product.title | remove: ' (Development)' | escape }}</h1>
-          <p class="pimm-machine__hero-fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
-          {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
-        </div>
+      {% render 'pimm-hero-console',
+        product: product,
+        section: section,
+        selected_model_code: selected_model_code,
+        selected_variant: selected_variant,
+        specifications: specifications,
+        model_contract_valid: model_contract_valid,
+        factory_visit_url: factory_visit_url
+      %}
 
-        <figure class="pimm-machine__hero-media" data-pimm-hero-media>
-          {%- for block in section.blocks -%}
-            {%- if block.type == 'model' -%}
-              {%- liquid
-                assign media_is_selected = false
-                if model_contract_valid and block.settings.model_code == selected_model_code
-                  assign media_is_selected = true
-                endif
-                case block.settings.model_code
-                  when '30G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
-                  when '50G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
-                endcase
-                if use_thai_alt
-                  if block.settings.hero_alt_th != blank
-                    assign block_hero_alt = block.settings.hero_alt_th | strip_html
-                  endif
-                elsif block.settings.hero_alt_en != blank
-                  assign block_hero_alt = block.settings.hero_alt_en | strip_html
-                endif
-              -%}
-              <picture
-                data-pimm-media-model="{{ block.settings.model_code }}"
-                data-pimm-media-slot="hero"
-                aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
-                {% unless media_is_selected %}hidden{% endunless %}
-              >
-                <img
-                  src="{{ block.settings.hero_asset | asset_url }}"
-                  alt="{{ block_hero_alt | escape }}"
-                  width="1800"
-                  height="2200"
-                  {%- if media_is_selected %}
-                    loading="eager"
-                    fetchpriority="high"
-                  {%- else %}
-                    loading="lazy"
-                    decoding="async"
-                  {%- endif %}
-                  data-pimm-media-image
-                >
-              </picture>
-            {%- endif -%}
-          {%- endfor -%}
-        </figure>
-      </section>
-
-      <section class="pimm-machine__fit" aria-labelledby="PimmMachineFit-{{ section.id }}" data-pimm-fit>
-        <div class="pimm-machine__prose">
-          <h2 id="PimmMachineFit-{{ section.id }}">{{ 'products.pimm_machine.fit.heading' | t }}</h2>
-          <p>{{ 'products.pimm_machine.fit.body' | t }}</p>
-        </div>
-        <figure class="pimm-machine__figure">
-          {%- for block in section.blocks -%}
-            {%- if block.type == 'model' -%}
-              {%- liquid
-                assign media_is_selected = false
-                if model_contract_valid and block.settings.model_code == selected_model_code
-                  assign media_is_selected = true
-                endif
-                case block.settings.model_code
-                  when '30G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
-                    assign block_overview_alt = 'products.pimm_machine.alt.30g.overview' | t | strip_html
-                  when '50G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
-                    assign block_overview_alt = 'products.pimm_machine.alt.50g.overview' | t | strip_html
-                endcase
-                if use_thai_alt
-                  if block.settings.hero_alt_th != blank
-                    assign block_hero_alt = block.settings.hero_alt_th | strip_html
-                  endif
-                  if block.settings.overview_alt_th != blank
-                    assign block_overview_alt = block.settings.overview_alt_th | strip_html
-                  endif
-                else
-                  if block.settings.hero_alt_en != blank
-                    assign block_hero_alt = block.settings.hero_alt_en | strip_html
-                  endif
-                  if block.settings.overview_alt_en != blank
-                    assign block_overview_alt = block.settings.overview_alt_en | strip_html
-                  endif
-                endif
-                assign block_overview_asset = block.settings.overview_asset
-                assign block_overview_width = 2400
-                assign block_overview_height = 1800
-                if block_overview_asset == blank
-                  assign block_overview_asset = block.settings.hero_asset
-                  assign block_overview_alt = block_hero_alt
-                  assign block_overview_width = 1800
-                  assign block_overview_height = 2200
-                endif
-              -%}
-              <picture
-                data-pimm-media-model="{{ block.settings.model_code }}"
-                aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
-                {% unless media_is_selected %}hidden{% endunless %}
-              >
-                <img
-                  src="{{ block_overview_asset | asset_url }}"
-                  alt="{{ block_overview_alt | escape }}"
-                  width="{{ block_overview_width }}"
-                  height="{{ block_overview_height }}"
-                  loading="lazy"
-                  decoding="async"
-                  data-pimm-media-slot="overview"
-                  data-pimm-media-image
-                >
-              </picture>
-            {%- endif -%}
-          {%- endfor -%}
-        </figure>
-      </section>
+      {% render 'pimm-qualification-strip',
+        section: section,
+        selected_variant: selected_variant,
+        full_price_cents: selected_full_price_cents,
+        lead_time: lead_time,
+        model_contract_valid: model_contract_valid,
+        factory_visit_url: factory_visit_url
+      %}
 
       {% render 'pimm-engineering-bento',
         selected_model_code: selected_model_code,
