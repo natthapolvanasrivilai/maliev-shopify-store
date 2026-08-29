@@ -87,6 +87,8 @@ _REQUIRED_LIGHT_NAMES = (
     "STRIP_LEFT",
     "STRIP_RIGHT",
 )
+FOOT_CONTACT_REPORT_SCHEMA = "maliev.pimm-foot-contact-report/v1"
+FOOT_CONTACT_TOLERANCE = 1e-6
 
 
 @dataclass(frozen=True)
@@ -171,11 +173,10 @@ def resolve_foot_contact_plane(
         raise ValueError("nylon foot pad stable_ids must be unique")
 
     contact_z = float(median(bottoms))
-    tolerance = 1e-6
     outliers = tuple(
         stable_id
         for stable_id, bottom in zip(stable_ids, bottoms, strict=True)
-        if abs(bottom - contact_z) > tolerance
+        if abs(bottom - contact_z) > FOOT_CONTACT_TOLERANCE
     )
     return FootContactPlane(
         z=contact_z,
@@ -592,19 +593,52 @@ def load_foot_contact_plane(config: ShotConfig) -> FootContactPlane:
     return resolve_foot_contact_plane(payload, config.machine)
 
 
-def _foot_contact_evidence(
-    config: ShotConfig, contact: FootContactPlane
+def foot_contact_evidence(
+    machine: str, contact: FootContactPlane
 ) -> dict[str, object]:
+    """Return the canonical four-foot payload shared by scenes and proof reports."""
+
     return {
         "schema_version": 1,
-        "machine": config.machine,
+        "machine": machine,
         "selection_basis": "median_nylon_foot_pad_bottom",
-        "patch_path": _foot_patch_path(config).relative_to(ASSET_ROOT).as_posix(),
+        "patch_path": f"manifests/patches/PIMM-{machine}-foot-refresh.json",
         "contact_z": contact.z,
         "pad_bottoms": list(contact.pad_bottoms),
         "stable_ids": list(contact.stable_ids),
         "outlier_stable_ids": list(contact.outlier_stable_ids),
     }
+
+
+def build_foot_contact_report(
+    *,
+    machine: str,
+    contact: FootContactPlane,
+    scene_id: str,
+    scene_contract_sha256: str,
+    master_sha256: str,
+    patch_sha256: str,
+) -> dict[str, object]:
+    """Build the exact Task 4 report consumed by the proof-publication gate."""
+
+    return {
+        "schema": FOOT_CONTACT_REPORT_SCHEMA,
+        "scene_id": scene_id,
+        "scene_contract_sha256": scene_contract_sha256.upper(),
+        "master_sha256": master_sha256.upper(),
+        "patch_sha256": patch_sha256.upper(),
+        "contact_evidence": foot_contact_evidence(machine, contact),
+        "tolerance": FOOT_CONTACT_TOLERANCE,
+        "passed": True,
+    }
+
+
+def _foot_contact_evidence(
+    config: ShotConfig, contact: FootContactPlane
+) -> dict[str, object]:
+    """Compatibility wrapper for existing static-scene authoring callers."""
+
+    return foot_contact_evidence(config.machine, contact)
 
 
 def _static_render_setup(config: ShotConfig) -> dict[str, object]:

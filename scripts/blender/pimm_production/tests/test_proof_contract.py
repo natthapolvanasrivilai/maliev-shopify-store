@@ -16,6 +16,7 @@ from PIL import Image
 import scripts.blender.pimm_production.blender_proof_render as render_module
 import scripts.blender.pimm_production.proof_contract as proof_module
 from scripts.blender.pimm_production.contact_sheet import build_contact_sheet
+from scripts.blender.pimm_production.image_safety import analyze_alpha_safety
 from scripts.blender.pimm_production.io_contract import sha256_file
 from scripts.blender.pimm_production.proof_contract import (
     ProofContract,
@@ -198,6 +199,92 @@ def _write_scene_contract(root: Path, contract: SceneContract, relative: str) ->
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(contract.to_mapping(), sort_keys=True), encoding="utf-8")
     return path
+
+
+def _campaign_scene_contract() -> SceneContract:
+    """Return one exact campaign hero scene with proof-scale-safe dimensions."""
+
+    return dataclasses.replace(
+        scene_contract_fixture(),
+        scene_id="pimm-30g--hero--desktop",
+        output_contract={"width": 2560, "height": 1440, "alpha": True},
+    )
+
+
+def _governed_foot_patch() -> dict[str, object]:
+    """Return a hand-authored four-pad patch with one known low outlier."""
+
+    return {
+        "kind": "PIMM_FOOT_GEOMETRY_PATCH",
+        "machine": "30G",
+        "schema_version": 1,
+        "solids": [
+            {
+                "original_name": "nylon feet",
+                "stable_id": stable_id,
+                "geometry": {"bounds": [-1, -1, bottom, 1, 1, bottom + 3]},
+            }
+            for stable_id, bottom in (
+                ("pad-a", -0.162624216),
+                ("pad-b", -0.162624216),
+                ("pad-c", -0.162624216),
+                ("pad-d", -4.825847972),
+            )
+        ],
+    }
+
+
+def _write_campaign_contact_report(root: Path, scene: SceneContract, scene_path: Path) -> Path:
+    """Write a complete Task 4-style report from the governed foot-patch fixture."""
+
+    patch_path = root / "manifests/patches/PIMM-30G-foot-refresh.json"
+    patch_path.parent.mkdir(parents=True, exist_ok=True)
+    patch_path.write_text(json.dumps(_governed_foot_patch(), sort_keys=True), encoding="utf-8")
+    report = {
+        "schema": "maliev.pimm-foot-contact-report/v1",
+        "scene_id": scene.scene_id,
+        "scene_contract_sha256": sha256_file(scene_path),
+        "master_sha256": scene.master_sha256.upper(),
+        "patch_sha256": sha256_file(patch_path),
+        "contact_evidence": {
+            "schema_version": 1,
+            "machine": "30G",
+            "selection_basis": "median_nylon_foot_pad_bottom",
+            "patch_path": "manifests/patches/PIMM-30G-foot-refresh.json",
+            "contact_z": -0.162624216,
+            "pad_bottoms": [-0.162624216, -0.162624216, -0.162624216, -4.825847972],
+            "stable_ids": ["pad-a", "pad-b", "pad-c", "pad-d"],
+            "outlier_stable_ids": ["pad-d"],
+        },
+        "tolerance": 0.000001,
+        "passed": True,
+    }
+    report_path = root / "manifests/contact/pimm-30g-foot-contact.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report, sort_keys=True), encoding="utf-8")
+    return report_path
+
+
+def _write_alpha_passes(output_root: Path, shot_id: str) -> tuple[Path, Path, dict[str, object]]:
+    """Write hand-measured safe product/shadow RGBA passes for writer-bound QA."""
+
+    product = Image.new("RGBA", (320, 180), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", (320, 180), (0, 0, 0, 0))
+    for y in range(30, 140):
+        for x in range(40, 280):
+            product.putpixel((x, y), (90, 110, 130, 128))
+    for y in range(140, 156):
+        for x in range(50, 270):
+            shadow.putpixel((x, y), (0, 0, 0, 64))
+    product_path = output_root / f".{shot_id}--alpha-product.tmp.png"
+    shadow_path = output_root / f".{shot_id}--alpha-shadow.tmp.png"
+    product.save(product_path)
+    shadow.save(shadow_path)
+    return (
+        product_path,
+        shadow_path,
+        analyze_alpha_safety(product, shadow, 0.08, 0.12).to_mapping(),
+    )
 
 
 def _run_fixture_proofs(
@@ -1703,41 +1790,22 @@ class ProofContractTests(unittest.TestCase):
         self.assertIn("base/feet detail requires bound contact evidence", errors)
 
     def test_campaign_proof_requires_hashed_measured_alpha_and_current_contact_reports(self):
-        """Catches campaign proof policy being accepted without authenticated measured evidence."""
+        """Catches arbitrary IDs, plane, outliers, or hashes posing as scene contact authority."""
 
-        scene = dataclasses.replace(
-            scene_contract_fixture(),
-            scene_id="pimm-30g--hero--desktop",
-            output_contract={"width": 2560, "height": 1440, "alpha": True},
-        )
-        result = {
-            "canvas_size": [100, 100],
-            "product_bounds": [10, 10, 89, 89],
-            "shadow_bounds": [15, 15, 84, 84],
-            "product_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0},
-            "shadow_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0},
-            "product_alpha_extrema": [0, 255],
-            "shadow_alpha_extrema": [0, 128],
-            "catcher_visible": False,
-            "reasons": [],
-            "passed": True,
-        }
+        scene = _campaign_scene_contract()
         with TemporaryDirectory() as root_text:
             root = Path(root_text)
+            scene_path = _write_scene_contract(
+                root, scene, "scenes/contracts/pimm-30g--hero--desktop.json"
+            )
             alpha_path = root / "manifests/proof-evidence/proof-20260815T153000Z-a1b2c3d/alpha-safety.json"
             alpha_path.parent.mkdir(parents=True)
+            _product, _shadow, result = _write_alpha_passes(
+                root, scene.scene_id
+            )
             alpha_path.write_text(json.dumps(result, sort_keys=True), encoding="utf-8")
-            contact_payload = {
-                "schema": "maliev.pimm-four-foot-contact/v1",
-                "machine": "30G",
-                "master_sha256": scene.master_sha256,
-                "foot_count": 4,
-                "stable_ids": ["pad-a", "pad-b", "pad-c", "pad-d"],
-                "contact_plane_z": -0.162624216,
-            }
-            contact_path = root / "manifests/contact/pimm-30g-foot-contact.json"
-            contact_path.parent.mkdir(parents=True)
-            contact_path.write_text(json.dumps(contact_payload, sort_keys=True), encoding="utf-8")
+            contact_path = _write_campaign_contact_report(root, scene, scene_path)
+            original_contact_report = contact_path.read_text(encoding="utf-8")
             contract = dataclasses.replace(
                 composition_contract(),
                 scene_contract_path="scenes/contracts/pimm-30g--hero--desktop.json",
@@ -1757,9 +1825,46 @@ class ProofContractTests(unittest.TestCase):
                     }],
                 },
             )
-            _write_scene_contract(root, scene, contract.scene_contract_path)
             with patch.object(proof_module, "ASSET_ROOT", root):
                 self.assertEqual(validate_proof_contract(contract, scene), [])
+                contact_path.write_text(original_contact_report + "\n", encoding="utf-8")
+                self.assertIn(
+                    "reports[0] SHA-256 drifted",
+                    "\n".join(validate_proof_contract(contract, scene)),
+                )
+                contact_path.write_text(original_contact_report, encoding="utf-8")
+                for field, value in (
+                    ("stable_ids", ["fake-a", "fake-b", "fake-c", "fake-d"]),
+                    ("contact_z", 9.0),
+                    ("outlier_stable_ids", []),
+                ):
+                    with self.subTest(field=field):
+                        contact_path.write_text(original_contact_report, encoding="utf-8")
+                        payload = json.loads(contact_path.read_text(encoding="utf-8"))
+                        payload["contact_evidence"][field] = value
+                        contact_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+                        changed = dataclasses.replace(
+                            contract,
+                            contact_evidence={
+                                "status": "bound",
+                                "reports": [{
+                                    "machine": "30G",
+                                    "report_path": "manifests/contact/pimm-30g-foot-contact.json",
+                                    "report_sha256": sha256_file(contact_path),
+                                }],
+                            },
+                        )
+                        self.assertIn(
+                            "governed foot patch",
+                            "\n".join(validate_proof_contract(changed, scene)),
+                        )
+                contact_path.write_text(original_contact_report, encoding="utf-8")
+                patch_path = root / "manifests/patches/PIMM-30G-foot-refresh.json"
+                patch_path.write_text("{}", encoding="utf-8")
+                self.assertIn(
+                    "foot patch SHA-256 drifted",
+                    "\n".join(validate_proof_contract(contract, scene)),
+                )
                 alpha_path.write_text("{}", encoding="utf-8")
                 errors = "\n".join(validate_proof_contract(contract, scene))
 
@@ -1768,6 +1873,126 @@ class ProofContractTests(unittest.TestCase):
 
         self.assertIn("alpha_safety evidence", errors)
         self.assertIn("campaign-owned proof validation failed closed", campaign_errors)
+
+    def test_campaign_proof_writer_recomputes_alpha_from_generation_passes(self):
+        """Catches a manifest accepting stale or failed JSON after its actual alpha passes changed."""
+
+        scene = _campaign_scene_contract()
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path="scenes/contracts/pimm-30g--hero--desktop.json",
+                resolution_percentage=12.5,
+            )
+            scene_path = _write_scene_contract(root, scene, contract.scene_contract_path)
+            output_root = root / contract.output_root
+            output_root.mkdir(parents=True)
+            product_path, shadow_path, result = _write_alpha_passes(output_root, scene.scene_id)
+            alpha_path = root / "manifests/proof-evidence/proof-20260815T153000Z-a1b2c3d/alpha-safety.json"
+            alpha_path.parent.mkdir(parents=True)
+            alpha_path.write_text(json.dumps(result, sort_keys=True), encoding="utf-8")
+            contact_path = _write_campaign_contact_report(root, scene, scene_path)
+            contract = dataclasses.replace(
+                contract,
+                alpha_safety={
+                    "product_margin": 0.08,
+                    "shadow_margin": 0.12,
+                    "evidence_path": alpha_path.relative_to(root).as_posix(),
+                    "evidence_sha256": sha256_file(alpha_path),
+                    "result": result,
+                },
+                contact_evidence={
+                    "status": "bound",
+                    "reports": [{
+                        "machine": "30G",
+                        "report_path": contact_path.relative_to(root).as_posix(),
+                        "report_sha256": sha256_file(contact_path),
+                    }],
+                },
+            )
+            outputs = []
+            for background, color in {
+                "rgba": (90, 110, 130, 128),
+                "white": (255, 255, 255, 255),
+                "checker": (192, 192, 192, 255),
+                "dark": (24, 24, 24, 255),
+            }.items():
+                path = output_root / f"{scene.scene_id}--{background}.png"
+                Image.new("RGBA", (320, 180), color).save(path)
+                outputs.append(path)
+            _write_manifest_evidence(
+                root, output_root, contract, scene,
+                _valid_render_metadata(contract, actual_dimensions=[320, 180]),
+            )
+            with patch.object(proof_module, "ASSET_ROOT", root):
+                tampered = json.loads(json.dumps(result))
+                tampered["product_bounds"] = [41, 30, 279, 139]
+                alpha_path.write_text(json.dumps(tampered, sort_keys=True), encoding="utf-8")
+                tampered_contract = dataclasses.replace(
+                    contract,
+                    alpha_safety={
+                        **contract.alpha_safety,
+                        "evidence_sha256": sha256_file(alpha_path),
+                        "result": tampered,
+                    },
+                )
+                with self.assertRaisesRegex(ValueError, "computed alpha safety"):
+                    write_proof_manifest(tampered_contract, outputs)
+                alpha_path.write_text(json.dumps(result, sort_keys=True), encoding="utf-8")
+                original_product = product_path.read_bytes()
+                original_shadow = shadow_path.read_bytes()
+                for path, pixel in (
+                    (product_path, (40, 30)),
+                    (shadow_path, (50, 140)),
+                ):
+                    with self.subTest(path=path.name):
+                        with Image.open(path) as pass_image:
+                            changed = pass_image.convert("RGBA")
+                        changed.putpixel(pixel, (90, 110, 130, 255))
+                        changed.save(path)
+                        with self.assertRaisesRegex(ValueError, "computed alpha safety"):
+                            write_proof_manifest(contract, outputs)
+                        path.write_bytes(
+                            original_product if path == product_path else original_shadow
+                        )
+
+            failed = json.loads(json.dumps(result))
+            failed["reasons"] = ["product alpha touches left frame edge"]
+            failed["passed"] = False
+            alpha_path.write_text(json.dumps(failed, sort_keys=True), encoding="utf-8")
+            failed_contract = dataclasses.replace(
+                contract,
+                alpha_safety={
+                    **contract.alpha_safety,
+                    "evidence_sha256": sha256_file(alpha_path),
+                    "result": failed,
+                },
+            )
+            with patch.object(proof_module, "ASSET_ROOT", root):
+                self.assertIn(
+                    "did not pass",
+                    "\n".join(validate_proof_contract(failed_contract, scene)),
+                )
+
+    def test_campaign_policy_semantic_drift_fails_closed_before_proof_validation(self):
+        """Catches a valid-JSON campaign rewriting an approved hero purpose or zero-margin policy."""
+
+        scene = _campaign_scene_contract()
+        source = json.loads(proof_module._CAMPAIGN_PATH.read_text(encoding="utf-8"))
+        for field, value in (("purpose", "detail"), ("product_safe_margin", 0.0)):
+            with self.subTest(field=field), TemporaryDirectory() as root_text:
+                root = Path(root_text)
+                _write_scene_contract(root, scene, composition_contract().scene_contract_path)
+                campaign = json.loads(json.dumps(source))
+                hero = next(item for item in campaign["shots"] if item["shot_id"] == scene.scene_id)
+                hero[field] = value
+                path = root / "campaign.json"
+                path.write_text(json.dumps(campaign), encoding="utf-8")
+                with patch.object(proof_module, "ASSET_ROOT", root), patch.object(proof_module, "_CAMPAIGN_PATH", path):
+                    errors = "\n".join(validate_proof_contract(composition_contract(), scene))
+                self.assertIn("campaign-owned proof validation failed closed", errors)
+                self.assertIn("must match its exact approved campaign policy", errors)
 
     def test_contract_rejects_cost_path_generation_and_hash_mutations(self):
         scene = scene_contract_fixture()

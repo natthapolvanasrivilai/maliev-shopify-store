@@ -1909,6 +1909,14 @@ def finalize_proof(
     else:
         product_alpha = source.getchannel("A")
         shadow_alpha = Image.new("L", source.size, 0)
+    alpha_passes = {
+        "product": output_root / f".{shot_id}--alpha-product.tmp.png",
+        "shadow": output_root / f".{shot_id}--alpha-shadow.tmp.png",
+    }
+    for kind, alpha in (("product", product_alpha), ("shadow", shadow_alpha)):
+        alpha_rgba = source.copy()
+        alpha_rgba.putalpha(alpha)
+        _save_png_once(alpha_rgba, alpha_passes[kind], mode="RGBA")
     if scene_contract.purpose == "overview":
         meaningful_combined = source.getchannel("A").point(
             lambda value: 255 if value >= MEANINGFUL_SUBJECT_ALPHA_THRESHOLD else 0
@@ -1961,9 +1969,14 @@ def finalize_proof(
             validated_shadow, asset_root, output_root, shot_id
         )
 
-    manifest_path = write_proof_manifest(
-        contract, outputs, destination=output_root / ".manifest.pending.json"
-    )
+    try:
+        manifest_path = write_proof_manifest(
+            contract, outputs, destination=output_root / ".manifest.pending.json"
+        )
+    finally:
+        for path in alpha_passes.values():
+            if path.is_file() and not path.is_symlink():
+                path.unlink()
     contact_path = build_contact_sheet(
         manifest_path,
         output_root / ".contact-sheet.pending.png",
