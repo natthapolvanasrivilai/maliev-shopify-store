@@ -64,6 +64,24 @@ class ExternalAssetManifestTests(unittest.TestCase):
         self.assertIn("assets[0] source_url must not require account access", joined)
         self.assertIn("assets[0] intended_shot_ids contains uncontracted shot", joined)
 
+    def test_rejects_account_gating_in_hostname_and_query(self) -> None:
+        """Catches account gates hidden outside a literal URL path segment."""
+
+        for source_url in (
+            "https://login.example.com/download",
+            "https://assets.example.com/download?auth=required",
+        ):
+            with self.subTest(source_url=source_url):
+                manifest = _manifest()
+                asset = manifest["assets"][0]
+                assert isinstance(asset, dict)
+                asset["source_url"] = source_url
+
+                self.assertIn(
+                    "assets[0] source_url must not require account access",
+                    validate_external_assets(manifest, CAMPAIGN_SHOTS),
+                )
+
     def test_rejects_wrong_license_master_mutation_and_unsafe_local_path(self) -> None:
         """Catches records that could alter the masters or hide asset bytes outside the asset root."""
 

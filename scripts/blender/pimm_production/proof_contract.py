@@ -19,6 +19,7 @@ from .io_contract import atomic_write_json, sha256_file
 from .paths import ASSET_ROOT, require_within
 from .scene_contract import SceneContract
 from .campaign_contract import load_campaign, shot_policy
+from .image_safety import validate_alpha_safety_evidence
 
 
 MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD = 32
@@ -132,9 +133,10 @@ _CAMERA_SETTINGS_FIELDS = {
 }
 _COMPOSITOR_SETTINGS_FIELDS = {"enabled", "node_tree"}
 _MASK_METRIC_FIELDS = {"bounds", "nonzero_fraction", "unique_values", "unique_value_count"}
-_ALPHA_SAFETY_FIELDS = {"required", "product_margin", "shadow_margin"}
+_ALPHA_SAFETY_FIELDS = {"product_margin", "shadow_margin", "evidence_path", "evidence_sha256", "result"}
 _CONTACT_EVIDENCE_FIELDS = {"status", "reports"}
-_CONTACT_REPORT_FIELDS = {"machine", "report_path", "report_sha256", "foot_count"}
+_CONTACT_REPORT_FIELDS = {"machine", "report_path", "report_sha256"}
+_CONTACT_REPORT_PAYLOAD_FIELDS = {"schema", "machine", "master_sha256", "foot_count", "stable_ids", "contact_plane_z"}
 _CAMPAIGN_PATH = Path(__file__).resolve().parent / "contracts" / "campaigns" / "pimm-responsive-product-photography-v1.json"
 _IDENTITY_FIELDS = {"name", "type", "library"}
 _EMBEDDED_IDENTITY_FIELDS = _IDENTITY_FIELDS | {"content_sha256"}
@@ -606,9 +608,7 @@ def effective_dimensions(
 def _validate_alpha_safety(value: object) -> list[str]:
     errors: list[str] = []
     if not isinstance(value, Mapping) or set(value) != _ALPHA_SAFETY_FIELDS:
-        return ["proof contract alpha_safety must contain exactly required/product_margin/shadow_margin"]
-    if value.get("required") is not True:
-        errors.append("proof contract alpha_safety required must be true")
+        return ["proof contract alpha_safety must contain exactly margins/evidence path/hash/result"]
     for field in ("product_margin", "shadow_margin"):
         margin = value.get(field)
         if (
@@ -618,6 +618,12 @@ def _validate_alpha_safety(value: object) -> list[str]:
             or not 0 <= float(margin) < 0.5
         ):
             errors.append(f"proof contract alpha_safety {field} must be between 0 and 0.5")
+    if not _canonical_relative(value.get("evidence_path"), "manifests", ".json"):
+        errors.append("proof contract alpha_safety evidence_path must be a managed manifests/*.json path")
+    digest = value.get("evidence_sha256")
+    if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+        errors.append("proof contract alpha_safety evidence_sha256 must be 64 hexadecimal characters")
+    errors.extend(validate_alpha_safety_evidence(value.get("result")))
     return errors
 
 
@@ -651,23 +657,92 @@ def _validate_contact_evidence(value: object) -> tuple[list[str], tuple[str, ...
         digest = report.get("report_sha256")
         if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
             errors.append(f"{prefix} report_sha256 must be 64 hexadecimal characters")
-        if report.get("foot_count") != 4:
-            errors.append(f"{prefix} foot_count must equal 4")
     if len(machines) != len(set(machines)):
         errors.append("proof contract contact_evidence reports must contain one report per machine")
     return errors, tuple(machines)
 
 
-def _campaign_policy_for_scene(scene_id: object):
+def _campaign_policy_for_scene(scene: SceneContract):
+    scene_id = scene.scene_id
     if not isinstance(scene_id, str):
-        return None
+        return None, None
     try:
-        return shot_policy(load_campaign(_CAMPAIGN_PATH), scene_id)
-    except (OSError, ValueError):
-        return None
+        campaign = load_campaign(_CAMPAIGN_PATH)
+        return shot_policy(campaign, scene_id), None
+    except (OSError, ValueError) as error:
+        dimensions = scene.output_contract
+        campaign_dimensions = {(2560, 1440), (2048, 1536), (1440, 2560), (1800, 2250), (1440, 1800)}
+        candidate_dimensions = (dimensions.get("width"), dimensions.get("height")) if isinstance(dimensions, Mapping) else ()
+        candidate_suffixes = ("--desktop", "--tablet", "--mobile", "--macro", "--wide", "--portrait", "--three-quarter")
+        if scene_id.startswith("pimm-") and scene_id.endswith(candidate_suffixes) and candidate_dimensions in campaign_dimensions:
+            return None, f"campaign-owned proof validation failed closed: {error}"
+        return None, None
 
 
-def validate_proof_contract(contract: ProofContract, scene: SceneContract) -> list[str]:
+def _validate_current_alpha_evidence(value: Mapping[str, object]) -> list[str]:
+    errors: list[str] = []
+    path = ASSET_ROOT / Path(*PurePosixPath(str(value.get("evidence_path", ""))).parts)
+    try:
+        raw = path.read_bytes()
+    except OSError as error:
+        return [f"proof contract alpha_safety evidence cannot be read: {error}"]
+    digest = hashlib.sha256(raw).hexdigest().upper()
+    if digest != str(value.get("evidence_sha256", "")).upper():
+        errors.append("proof contract alpha_safety evidence SHA-256 drifted")
+        return errors
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError as error:
+        return [f"proof contract alpha_safety evidence is invalid JSON: {error}"]
+    if loaded != value.get("result"):
+        errors.append("proof contract alpha_safety evidence does not equal the serialized measured result")
+    return errors
+
+
+def _validate_current_contact_reports(
+    value: Mapping[str, object], scene: SceneContract
+) -> list[str]:
+    errors: list[str] = []
+    reports = value.get("reports")
+    if not isinstance(reports, (list, tuple)):
+        return errors
+    for index, report in enumerate(reports):
+        if not isinstance(report, Mapping):
+            continue
+        prefix = f"proof contract contact_evidence reports[{index}]"
+        path = ASSET_ROOT / Path(*PurePosixPath(str(report.get("report_path", ""))).parts)
+        try:
+            raw = path.read_bytes()
+        except OSError as error:
+            errors.append(f"{prefix} cannot be read: {error}")
+            continue
+        if hashlib.sha256(raw).hexdigest().upper() != str(report.get("report_sha256", "")).upper():
+            errors.append(f"{prefix} SHA-256 drifted")
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as error:
+            errors.append(f"{prefix} is invalid JSON: {error}")
+            continue
+        if not isinstance(payload, Mapping) or set(payload) != _CONTACT_REPORT_PAYLOAD_FIELDS:
+            errors.append(f"{prefix} content must be an exact four-foot contact report")
+            continue
+        if payload.get("schema") != "maliev.pimm-four-foot-contact/v1":
+            errors.append(f"{prefix} schema is unsupported")
+        if payload.get("machine") != report.get("machine"):
+            errors.append(f"{prefix} machine does not match report content")
+        if payload.get("master_sha256", "").upper() != scene.master_sha256.upper():
+            errors.append(f"{prefix} master SHA-256 drifted from scene contract")
+        if payload.get("foot_count") != 4 or not isinstance(payload.get("stable_ids"), list) or len(payload["stable_ids"]) != 4 or len(set(payload["stable_ids"])) != 4:
+            errors.append(f"{prefix} must prove exactly four distinct feet")
+        if not isinstance(payload.get("contact_plane_z"), (int, float)) or isinstance(payload.get("contact_plane_z"), bool):
+            errors.append(f"{prefix} contact_plane_z must be numeric")
+    return errors
+
+
+def validate_proof_contract(
+    contract: ProofContract, scene: SceneContract, *, allow_existing_output: bool = False
+) -> list[str]:
     """Return all fail-closed proof schema, cost, path, and scene errors."""
 
     errors: list[str] = []
@@ -736,8 +811,14 @@ def validate_proof_contract(contract: ProofContract, scene: SceneContract) -> li
     errors.extend(_validate_alpha_safety(contract.alpha_safety))
     contact_errors, contact_machines = _validate_contact_evidence(contract.contact_evidence)
     errors.extend(contact_errors)
-    campaign_shot = _campaign_policy_for_scene(scene.scene_id)
+    campaign_shot, campaign_error = _campaign_policy_for_scene(scene)
+    if campaign_error:
+        errors.append(campaign_error)
     if campaign_shot is not None:
+        if isinstance(contract.alpha_safety, Mapping):
+            errors.extend(_validate_current_alpha_evidence(contract.alpha_safety))
+        if isinstance(contract.contact_evidence, Mapping):
+            errors.extend(_validate_current_contact_reports(contract.contact_evidence, scene))
         alpha = contract.alpha_safety
         if (
             isinstance(alpha, Mapping)
@@ -767,7 +848,7 @@ def validate_proof_contract(contract: ProofContract, scene: SceneContract) -> li
         errors.append("proof output_root must equal renders/proofs/<generation-id>")
     else:
         output_path = (ASSET_ROOT / Path(*PurePosixPath(contract.output_root).parts)).resolve()
-        if output_path.exists():
+        if output_path.exists() and not allow_existing_output:
             errors.append("proof generation ID is already in use; output directory must not preexist")
 
     if _canonical_relative(contract.scene_contract_path, "scenes", ".json"):
@@ -2764,6 +2845,11 @@ def write_proof_manifest(
     if not scene_contract_path.is_file():
         raise ValueError(f"pinned scene contract is missing: {scene_contract_path}")
     scene = SceneContract.from_json(scene_contract_path)
+    contract_errors = validate_proof_contract(
+        contract, scene, allow_existing_output=True
+    )
+    if contract_errors:
+        raise ValueError("proof contract validation failed: " + "; ".join(contract_errors))
     metadata_path = output_root / "render-metadata.json"
     if not metadata_path.is_file():
         raise ValueError("complete render metadata is required")

@@ -8,6 +8,11 @@ from typing import Mapping
 
 
 _EDGES = ("left", "top", "right", "bottom")
+_EVIDENCE_FIELDS = {
+    "canvas_size", "product_bounds", "shadow_bounds", "product_edge_fractions",
+    "shadow_edge_fractions", "product_alpha_extrema", "shadow_alpha_extrema",
+    "catcher_visible", "reasons", "passed",
+}
 
 
 @dataclass(frozen=True)
@@ -162,3 +167,53 @@ def analyze_alpha_safety(
         catcher_visible=catcher_visible,
         reasons=tuple(reasons),
     )
+
+
+def validate_alpha_safety_evidence(value: object) -> list[str]:
+    """Validate serialized measured evidence without accepting self-declared pass state."""
+
+    errors: list[str] = []
+    if not isinstance(value, Mapping) or set(value) != _EVIDENCE_FIELDS:
+        return ["alpha safety evidence must contain exactly the measured result fields"]
+    canvas = value.get("canvas_size")
+    if not isinstance(canvas, (list, tuple)) or len(canvas) != 2 or not all(
+        isinstance(item, int) and not isinstance(item, bool) and item > 0 for item in canvas
+    ):
+        return ["alpha safety canvas_size must contain two positive integers"]
+    width, height = canvas
+    for label in ("product", "shadow"):
+        bounds = value.get(f"{label}_bounds")
+        if bounds is not None:
+            if not isinstance(bounds, (list, tuple)) or len(bounds) != 4 or not all(
+                isinstance(item, int) and not isinstance(item, bool) for item in bounds
+            ):
+                errors.append(f"alpha safety {label}_bounds must be null or four integers")
+            elif not (0 <= bounds[0] <= bounds[2] < width and 0 <= bounds[1] <= bounds[3] < height):
+                errors.append(f"alpha safety {label}_bounds must be inside canvas_size")
+        fractions = value.get(f"{label}_edge_fractions")
+        if not isinstance(fractions, Mapping) or set(fractions) != set(_EDGES):
+            errors.append(f"alpha safety {label}_edge_fractions must contain every edge")
+        elif not all(
+            isinstance(item, (int, float)) and not isinstance(item, bool) and math.isfinite(float(item)) and 0 <= float(item) <= 1
+            for item in fractions.values()
+        ):
+            errors.append(f"alpha safety {label}_edge_fractions must be fractions")
+        elif bounds is not None:
+            edge_bounds = {"left": bounds[0] == 0, "top": bounds[1] == 0, "right": bounds[2] == width - 1, "bottom": bounds[3] == height - 1}
+            for edge, touches in edge_bounds.items():
+                if touches and fractions[edge] == 0:
+                    errors.append(f"alpha safety {label}_bounds contradicts {label} edge fractions")
+    for label in ("product", "shadow"):
+        extrema = value.get(f"{label}_alpha_extrema")
+        if not isinstance(extrema, (list, tuple)) or len(extrema) != 2 or not all(
+            isinstance(item, int) and not isinstance(item, bool) and 0 <= item <= 255 for item in extrema
+        ) or extrema[0] > extrema[1]:
+            errors.append(f"alpha safety {label}_alpha_extrema must be ordered bytes")
+    reasons = value.get("reasons")
+    if not isinstance(reasons, (list, tuple)) or not all(isinstance(item, str) and item for item in reasons):
+        errors.append("alpha safety reasons must be a list of nonempty strings")
+    elif value.get("passed") is not (not reasons):
+        errors.append("alpha safety passed must equal the absence of reasons")
+    if not isinstance(value.get("catcher_visible"), bool):
+        errors.append("alpha safety catcher_visible must be boolean")
+    return errors

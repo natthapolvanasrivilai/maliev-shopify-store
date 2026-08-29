@@ -145,19 +145,17 @@ def composition_contract() -> ProofContract:
             "backgrounds": ["white", "checker", "dark"],
             "object_masks": False,
             "alpha_safety": {
-                "required": True,
                 "product_margin": 0.08,
                 "shadow_margin": 0.12,
+                "evidence_path": "manifests/proof-evidence/proof-20260815T153000Z-a1b2c3d/alpha-safety.json",
+                "evidence_sha256": "e" * 64,
+                "result": {
+                    "canvas_size": [100, 100], "product_bounds": [10, 10, 89, 89], "shadow_bounds": [15, 15, 84, 84],
+                    "product_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0}, "shadow_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0},
+                    "product_alpha_extrema": [0, 255], "shadow_alpha_extrema": [0, 128], "catcher_visible": False, "reasons": [], "passed": True,
+                },
             },
-            "contact_evidence": {
-                "status": "bound",
-                "reports": [{
-                    "machine": "30G",
-                    "report_path": "manifests/contact/pimm-30g-foot-contact.json",
-                    "report_sha256": "d" * 64,
-                    "foot_count": 4,
-                }],
-            },
+            "contact_evidence": {"status": "not-applicable"},
             "output_root": "renders/proofs/proof-20260815T153000Z-a1b2c3d",
         }
     )
@@ -179,19 +177,17 @@ def material_contract(backgrounds: list[str], object_masks: bool) -> ProofContra
             "backgrounds": list(backgrounds),
             "object_masks": object_masks,
             "alpha_safety": {
-                "required": True,
                 "product_margin": 0.08,
                 "shadow_margin": 0.12,
+                "evidence_path": "manifests/proof-evidence/proof-20260815T153001Z-b2c3d4e/alpha-safety.json",
+                "evidence_sha256": "e" * 64,
+                "result": {
+                    "canvas_size": [100, 100], "product_bounds": [10, 10, 89, 89], "shadow_bounds": [15, 15, 84, 84],
+                    "product_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0}, "shadow_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0},
+                    "product_alpha_extrema": [0, 255], "shadow_alpha_extrema": [0, 128], "catcher_visible": False, "reasons": [], "passed": True,
+                },
             },
-            "contact_evidence": {
-                "status": "bound",
-                "reports": [{
-                    "machine": "30G",
-                    "report_path": "manifests/contact/pimm-30g-foot-contact.json",
-                    "report_sha256": "d" * 64,
-                    "foot_count": 4,
-                }],
-            },
+            "contact_evidence": {"status": "not-applicable"},
             "output_root": "renders/proofs/proof-20260815T153001Z-b2c3d4e",
         }
     )
@@ -1680,8 +1676,8 @@ class ProofContractTests(unittest.TestCase):
         """Catches a proof contract that can omit alpha QA or bind an unauditable floor report."""
 
         payload = composition_contract().to_mapping()
-        payload["alpha_safety"] = {"required": True, "product_margin": 0.08}
-        payload["contact_evidence"] = {"status": "bound", "reports": [{"machine": "30G", "report_path": "../masters/contact.json", "report_sha256": "not-a-hash", "foot_count": 3}]}
+        payload["alpha_safety"] = {"product_margin": 0.08, "shadow_margin": 0.12}
+        payload["contact_evidence"] = {"status": "bound", "reports": [{"machine": "30G", "report_path": "../masters/contact.json", "report_sha256": "not-a-hash"}]}
         malformed = ProofContract.from_mapping(payload)
 
         errors = "\n".join(validate_proof_contract(malformed, scene_contract_fixture()))
@@ -1705,6 +1701,73 @@ class ProofContractTests(unittest.TestCase):
         errors = "\n".join(validate_proof_contract(contract, scene))
 
         self.assertIn("base/feet detail requires bound contact evidence", errors)
+
+    def test_campaign_proof_requires_hashed_measured_alpha_and_current_contact_reports(self):
+        """Catches campaign proof policy being accepted without authenticated measured evidence."""
+
+        scene = dataclasses.replace(
+            scene_contract_fixture(),
+            scene_id="pimm-30g--hero--desktop",
+            output_contract={"width": 2560, "height": 1440, "alpha": True},
+        )
+        result = {
+            "canvas_size": [100, 100],
+            "product_bounds": [10, 10, 89, 89],
+            "shadow_bounds": [15, 15, 84, 84],
+            "product_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0},
+            "shadow_edge_fractions": {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0},
+            "product_alpha_extrema": [0, 255],
+            "shadow_alpha_extrema": [0, 128],
+            "catcher_visible": False,
+            "reasons": [],
+            "passed": True,
+        }
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            alpha_path = root / "manifests/proof-evidence/proof-20260815T153000Z-a1b2c3d/alpha-safety.json"
+            alpha_path.parent.mkdir(parents=True)
+            alpha_path.write_text(json.dumps(result, sort_keys=True), encoding="utf-8")
+            contact_payload = {
+                "schema": "maliev.pimm-four-foot-contact/v1",
+                "machine": "30G",
+                "master_sha256": scene.master_sha256,
+                "foot_count": 4,
+                "stable_ids": ["pad-a", "pad-b", "pad-c", "pad-d"],
+                "contact_plane_z": -0.162624216,
+            }
+            contact_path = root / "manifests/contact/pimm-30g-foot-contact.json"
+            contact_path.parent.mkdir(parents=True)
+            contact_path.write_text(json.dumps(contact_payload, sort_keys=True), encoding="utf-8")
+            contract = dataclasses.replace(
+                composition_contract(),
+                scene_contract_path="scenes/contracts/pimm-30g--hero--desktop.json",
+                alpha_safety={
+                    "product_margin": 0.08,
+                    "shadow_margin": 0.12,
+                    "evidence_path": "manifests/proof-evidence/proof-20260815T153000Z-a1b2c3d/alpha-safety.json",
+                    "evidence_sha256": sha256_file(alpha_path),
+                    "result": result,
+                },
+                contact_evidence={
+                    "status": "bound",
+                    "reports": [{
+                        "machine": "30G",
+                        "report_path": "manifests/contact/pimm-30g-foot-contact.json",
+                        "report_sha256": sha256_file(contact_path),
+                    }],
+                },
+            )
+            _write_scene_contract(root, scene, contract.scene_contract_path)
+            with patch.object(proof_module, "ASSET_ROOT", root):
+                self.assertEqual(validate_proof_contract(contract, scene), [])
+                alpha_path.write_text("{}", encoding="utf-8")
+                errors = "\n".join(validate_proof_contract(contract, scene))
+
+            with patch.object(proof_module, "_CAMPAIGN_PATH", root / "missing-campaign.json"):
+                campaign_errors = "\n".join(validate_proof_contract(contract, scene))
+
+        self.assertIn("alpha_safety evidence", errors)
+        self.assertIn("campaign-owned proof validation failed closed", campaign_errors)
 
     def test_contract_rejects_cost_path_generation_and_hash_mutations(self):
         scene = scene_contract_fixture()

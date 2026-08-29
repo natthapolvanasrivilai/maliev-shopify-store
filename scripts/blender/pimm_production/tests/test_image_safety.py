@@ -6,7 +6,10 @@ import unittest
 
 from PIL import Image
 
-from scripts.blender.pimm_production.image_safety import analyze_alpha_safety
+from scripts.blender.pimm_production.image_safety import (
+    analyze_alpha_safety,
+    validate_alpha_safety_evidence,
+)
 
 
 def _rgba_canvas(size: tuple[int, int] = (100, 100)) -> Image.Image:
@@ -121,6 +124,19 @@ class AlphaSafetyTests(unittest.TestCase):
         self.assertFalse(evidence.passed)
         self.assertEqual(evidence.product_alpha_extrema, (255, 255))
         self.assertIn("product alpha is fully opaque", evidence.reasons)
+
+    def test_serialized_evidence_rejects_tampered_bounds_and_pass_flag(self) -> None:
+        """Catches contracts claiming a passing alpha result after its measured fields drift."""
+
+        product = _rectangle(_rgba_canvas(), (10, 10, 89, 89), (1, 2, 3, 255))
+        shadow = _rectangle(_rgba_canvas(), (15, 15, 84, 84), (0, 0, 0, 128))
+        payload = analyze_alpha_safety(product, shadow, 0.08, 0.12).to_mapping()
+        payload["product_bounds"] = [0, 10, 89, 89]
+        payload["passed"] = True
+
+        errors = validate_alpha_safety_evidence(payload)
+
+        self.assertIn("alpha safety product_bounds contradicts product edge fractions", errors)
 
 
 if __name__ == "__main__":

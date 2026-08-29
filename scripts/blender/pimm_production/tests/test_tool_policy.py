@@ -114,6 +114,21 @@ class ToolPolicyTests(unittest.TestCase):
         payload = self._valid_lock_payload()
         self.assertEqual(validate_tool_lock(payload), [])
 
+    def test_lock_rejects_each_pinned_hdri_provenance_drift(self):
+        """Catches a path, checksum, or license substitution for the campaign HDRI."""
+
+        mutations = {
+            "path": ("assets/hdri/substituted.exr", "path must equal"),
+            "sha256": ("0" * 64, "sha256 must equal"),
+            "license": ("CC-BY-4.0", "license must equal"),
+        }
+        for field, (value, message) in mutations.items():
+            with self.subTest(field=field):
+                payload = self._valid_lock_payload()
+                payload["asset_provenance"]["pinned_hdri"][field] = value
+
+                self.assertIn(message, "\n".join(validate_tool_lock(payload)))
+
     def test_lock_rejects_partial_schema_missing_checksum_and_network_endpoint(self):
         payload = self._valid_lock_payload()
         payload["schema"] = "pimm-free-tools-lock/v0"

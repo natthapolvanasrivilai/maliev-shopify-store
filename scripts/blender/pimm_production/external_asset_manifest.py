@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 import re
 from typing import Mapping
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlparse
 
 
 EXTERNAL_ASSET_SCHEMA = "maliev.pimm-external-assets/v1"
@@ -45,7 +45,9 @@ def _public_source_url(value: object) -> bool:
     if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
         return False
     segments = {segment.lower() for segment in parsed.path.split("/") if segment}
-    return not bool(segments & _ACCOUNT_GATED_SEGMENTS)
+    hostname = {segment.lower() for segment in parsed.hostname.split(".") if segment} if parsed.hostname else set()
+    query = {part.lower() for pair in parse_qsl(parsed.query, keep_blank_values=True) for part in pair}
+    return not bool((segments | hostname | query) & _ACCOUNT_GATED_SEGMENTS)
 
 
 def validate_external_assets(
