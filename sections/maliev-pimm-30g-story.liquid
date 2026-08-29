@@ -166,7 +166,7 @@
             {%- when 'configuration' -%}
               <p class="pimm30-chapter__label">{% if is_thai %}เลือกรุ่นและอุปกรณ์{% else %}Configuration and purchase{% endif %}</p>
               <h2>{% if is_thai %}เลือกชุดเครื่องที่เหมาะกับงาน{% else %}Choose the machine setup that fits your workshop.{% endif %}</h2>
-              <p>{% if is_thai %}ราคา ตัวเลือก และสถานะสินค้าด้านล่างดึงจาก Shopify โดยตรง การนัดชมเครื่องที่สำนักงานใหญ่ปากเกร็ดยังคงเป็นวิธีที่ดีที่สุดในการยืนยันแม่พิมพ์ วัสดุ และระบบลมก่อนสั่งซื้อ{% else %}Price, configuration and availability below come directly from Shopify. A demonstration at our Pak Kret headquarters is still the best way to confirm your mold, material and air-supply requirements before ordering.{% endif %}</p>
+              <p>{% if is_thai %}ราคา ตัวเลือก และสถานะสินค้าด้านล่างดึงจาก Shopify โดยตรง การจองรอบสาธิตเครื่องที่สำนักงานใหญ่ปากเกร็ดยังคงเป็นวิธีที่ดีที่สุดในการยืนยันแม่พิมพ์ วัสดุ และระบบลมก่อนสั่งซื้อ{% else %}Price, configuration and availability below come directly from Shopify. A demonstration at our Pak Kret headquarters is still the best way to confirm your mold, material and air-supply requirements before ordering.{% endif %}</p>
               <div class="pimm30-commerce" data-pimm30-commerce>
                 <div class="pimm30-commerce__summary">
                   <strong class="pimm30-commerce__variant" data-pimm30-variant-title>{{ selected_variant.title | escape }}</strong>
@@ -284,7 +284,7 @@
   "tag": "section",
   "class": "section section--pimm30-story",
   "settings": [
-    { "type": "url", "id": "visit_link", "label": "Factory visit link" },
+    { "type": "url", "id": "visit_link", "label": "Demo session link" },
     { "type": "product", "id": "next_product", "label": "Next model product", "info": "Used for the final live price and availability chapter." },
     { "type": "range", "id": "hero_light_milestone", "min": 0, "max": 9750, "step": 250, "unit": "ms", "label": "Hero bright-studio milestone", "default": 2750 }
   ],

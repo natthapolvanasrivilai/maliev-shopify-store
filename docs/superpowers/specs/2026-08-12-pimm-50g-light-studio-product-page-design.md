@@ -20,7 +20,7 @@ This is not an imitation of an automotive brand. It adapts three useful patterns
 
 The primary audience is a Thai workshop owner, manufacturing engineer, educator, or small-production operator evaluating whether the 50G fits a specific mold, material, utility setup, and production workflow.
 
-Primary conversion: book a factory visit or qualification conversation.
+Primary conversion: book a demo session or qualification conversation.
 
 Secondary conversion: add the selected configuration to cart after qualification.
 
@@ -61,7 +61,7 @@ Content:
 - `PIMM 50G`
 - concise proposition focused on larger shot capacity and reinforced heating hardware;
 - 50 g shot, steel melt zone, 2 × 350 W heating, machine height;
-- primary `Book a factory visit` action;
+- primary `Book a demo session` action;
 - secondary `Explore the engineering` anchor.
 
 Motion:
@@ -128,7 +128,7 @@ The panel contains:
 - primary factory-visit action;
 - secondary Add to cart action.
 
-Factory visit remains visually primary because this is a considered machine purchase.
+Demo session remains visually primary because this is a considered machine purchase.
 
 ## Media and Blender Requirements
 
@@ -239,7 +239,7 @@ The single custom product template remains authoritative. Do not restore Dawn's 
 3. Every machine media asset is alpha-capable, or a transparent poster replaces unsupported animated alpha playback.
 4. Animation-to-static handoffs do not change machine position, scale, crop, lighting, or controller state.
 5. Essential decision information remains visible at desktop, tablet, portrait mobile, and short landscape.
-6. The purchase form remains native Shopify HTML with factory visit primary and Add to cart secondary.
+6. The purchase form remains native Shopify HTML with demo session primary and Add to cart secondary.
 7. `prefers-reduced-motion` produces a complete static experience.
 8. No document horizontal overflow occurs at 320, 390, 768, 1024, 1440, or 3840 px widths.
 9. Theme Check, focused product-page contract tests, the Impeccable detector, and browser geometry checks pass.

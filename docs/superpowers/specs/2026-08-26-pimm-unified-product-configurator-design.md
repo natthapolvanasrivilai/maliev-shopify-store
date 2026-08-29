@@ -7,7 +7,7 @@ Status: approved design, implementation not started
 
 Replace the separate PIMM 30G and PIMM 50G storefront presentations with one product page backed by one Shopify product. The product has one customer-facing option, `Model`, with exactly two variants: `30G` and `50G`.
 
-The page must help a Thai workshop buyer understand practical fit, choose a model, inspect credible engineering evidence, and contact the factory. A factory visit remains the primary conversion. The selected model's 50% production deposit remains a secondary purchase path after qualification.
+The page must help a Thai workshop buyer understand practical fit, choose a model, inspect credible engineering evidence, and contact the factory. A demo session remains the primary conversion. The selected model's 50% production deposit remains a secondary purchase path after qualification.
 
 The design adds one purposeful bento section to an otherwise spacious product presentation. The whole page must not become a tile grid.
 
@@ -76,7 +76,7 @@ Use a conventional two-column product hero on desktop and a composed single-colu
 - the selected model's approved straight-on render;
 - accessible 30G and 50G radio controls;
 - market-aware full machine price, contextual 50% deposit, availability and lead time;
-- primary `Book a factory visit` action;
+- primary `Book a demo session` action;
 - secondary deposit action.
 
 The machine remains the dominant visual event. The configurator is compact and task-focused; it is not a dashboard or a multi-step wizard.
@@ -107,7 +107,7 @@ Explain Thai manufacturing, factory demonstration, installation, replacement par
 
 ### 6. Purchase qualification
 
-Repeat the selected model, full price, deposit, availability and lead time near the end. Keep `Book a factory visit` primary. The deposit action remains secondary and must clearly state that it is a 50% production deposit after qualification.
+Repeat the selected model, full price, deposit, availability and lead time near the end. Keep `Book a demo session` primary. The deposit action remains secondary and must clearly state that it is a 50% production deposit after qualification.
 
 ## Storefront component architecture
 

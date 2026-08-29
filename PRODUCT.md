@@ -33,7 +33,7 @@ The store makes MALIEV's engineered products understandable, comparable, purchas
 
 Success means:
 
-- a qualified machine visitor books a factory visit, requests a quotation, or starts a useful LINE conversation;
+- a qualified machine visitor books a demo session, requests a quotation, or starts a useful LINE conversation;
 - an informed machine buyer can place the correct 50% deposit in THB after qualification;
 - a SimMount visitor identifies compatibility and completes checkout without avoidable friction;
 - an existing owner finds the right document, part, or contact route quickly;

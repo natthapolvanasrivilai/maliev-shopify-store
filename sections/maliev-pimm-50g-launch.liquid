@@ -56,7 +56,7 @@
           </div>
         </dl>
         <div class="pimm50-page__actions">
-          <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}นัดชมเครื่องที่โรงงาน{% else %}Book a factory visit{% endif %}</a>
+          <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}จองรอบสาธิตเครื่อง{% else %}Book a demo session{% endif %}</a>
           <a class="pimm50-page__text-link" href="#pimm50-purchase">{% if is_thai %}ดูรุ่นและราคา{% else %}View configuration &amp; price{% endif %}</a>
           <a class="pimm50-page__text-link" href="#pimm50-capacity">{% if is_thai %}ดูรายละเอียดวิศวกรรม{% else %}Explore the engineering{% endif %}</a>
         </div>
@@ -267,7 +267,7 @@
           </select>
           <p class="pimm50-purchase__status" data-pimm50-variant-status role="status" aria-live="polite" aria-atomic="true"></p>
           <div class="pimm50-page__actions">
-            <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}นัดชมเครื่องที่โรงงาน{% else %}Book a factory visit{% endif %}</a>
+            <a class="pimm50-page__button" href="{{ visit_link }}">{% if is_thai %}จองรอบสาธิตเครื่อง{% else %}Book a demo session{% endif %}</a>
             <button class="pimm50-page__button pimm50-page__button--secondary" type="submit" name="add" data-pimm50-add-button{% unless selected_variant.available %} disabled{% endunless %}>{% if selected_variant.available %}{{ add_to_cart_label }}{% else %}{{ sold_out_label }}{% endif %}</button>
           </div>
         {%- endform -%}
@@ -289,5 +289,5 @@
 </div>
 
 {% schema %}
-{"name":"IMM 50g story","tag":"section","class":"section","disabled_on":{"groups":["header","footer"]},"settings":[{"type":"url","id":"visit_link","label":"Factory visit link"}],"presets":[{"name":"IMM 50g story"}]}
+{"name":"IMM 50g story","tag":"section","class":"section","disabled_on":{"groups":["header","footer"]},"settings":[{"type":"url","id":"visit_link","label":"Demo session link"}],"presets":[{"name":"IMM 50g story"}]}
 {% endschema %}

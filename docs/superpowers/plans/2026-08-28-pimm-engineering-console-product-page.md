@@ -16,7 +16,7 @@
 - Do not push, deploy, mutate Shopify catalog data, publish a theme, or replace a production asset.
 - Preserve exactly two ordered model records: `30G`, then `50G`. Do not change variant IDs, price/deposit arithmetic, metafields, or product schema.
 - Keep `assets/maliev-pimm-machine.js` as the only state owner. New presentation must consume its existing `data-pimm-model-value`, `data-pimm-spec`, `data-pimm-media-model`, and `data-pimm-media-slot` interfaces.
-- Factory visit is the primary conversion. Configuration/qualification is secondary. The 50% deposit control remains only in the final qualification flow.
+- Demo session is the primary conversion. Configuration/qualification is secondary. The 50% deposit control remains only in the final qualification flow.
 - Use exactly one bento section. The rest of the page is an open hero, a qualification strip, and alternating editorial sections.
 - Reuse only the eight assets authenticated by `assets/pimm-unified-render-assets.v1.json`. Working proofs and corrected-but-unapproved tooling proofs are not storefront inputs.
 - Add no animation sequence, autoplay media, frontend framework, partner logos, unsupported claims, decorative watermark, glass effect, or duplicated storefront navigation.

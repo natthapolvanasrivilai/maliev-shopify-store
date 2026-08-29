@@ -26,7 +26,7 @@ test('product and commerce remain visible without JavaScript', () => {
   assert.match(section, /\{%[-]?\s*form 'product'/);
   assert.match(section, /name="id"/);
   assert.match(section, /name="add"/);
-  assert.match(section, /Book a factory visit/);
+  assert.match(section, /Book a demo session/);
   assert.doesNotMatch(css, /opacity:\s*0[^}]*data-pimm50-page/);
   assert.match(css, /\.pimm50-page__text-link\s*\{[^}]*align-items:\s*center[^}]*display:\s*inline-flex[^}]*min-height:\s*4\.8rem[^}]*padding:\s*0\s+2rem/s);
 });
@@ -70,10 +70,10 @@ test('hero and overview expose the complete decision proof in semantic HTML', ()
   const overview = sectionById('pimm50-overview');
 
   assert.equal(hero.match(/data-pimm50-hero-fact/g)?.length, 4);
-  assert.match(hero, /href="\{\{ visit_link \}\}"[^>]*>[^<]*(?:Book a factory visit|นัดชมเครื่อง)/);
+  assert.match(hero, /href="\{\{ visit_link \}\}"[^>]*>[^<]*(?:Book a demo session|จองรอบสาธิตเครื่อง)/);
   assert.match(hero, /href="#pimm50-capacity"/);
   assert.match(hero, /href="#pimm50-purchase"/);
-  assert.ok(hero.indexOf('href="{{ visit_link }}"') < hero.indexOf('href="#pimm50-purchase"'), 'Factory visit must remain the first hero action');
+  assert.ok(hero.indexOf('href="{{ visit_link }}"') < hero.indexOf('href="#pimm50-purchase"'), 'Demo session must remain the first hero action');
 
   assert.equal(overview.match(/<dl\b/g)?.length, 1);
   assert.equal(overview.match(/<dt\b/g)?.length, 5);

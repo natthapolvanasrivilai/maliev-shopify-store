@@ -59,7 +59,7 @@ Both complete machines settle from small opposing horizontal offsets onto the sa
 
 ### Configuration and Purchase
 
-The final machine render settles first. The configuration summary, qualification list, selector, and actions follow in decision order with a short capped stagger. Factory visit remains visually primary. Motion never disables or intercepts Shopify form controls.
+The final machine render settles first. The configuration summary, qualification list, selector, and actions follow in decision order with a short capped stagger. Demo session remains visually primary. Motion never disables or intercepts Shopify form controls.
 
 ## Implementation Architecture
 

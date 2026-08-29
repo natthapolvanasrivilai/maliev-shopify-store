@@ -392,7 +392,7 @@ On port 9393 with reduced-motion emulation, assert the local debug class is pres
 
 - [ ] **Step 3: Add keyboard and commerce cases**
 
-Tab sequentially through the control before the selector, variant selector, factory visit, and Add to Cart. Assert focus visibility, serialized selected variant ID, availability agreement, enabled/disabled Add state, and 44/48 px target sizing.
+Tab sequentially through the control before the selector, variant selector, demo session, and Add to Cart. Assert focus visibility, serialized selected variant ID, availability agreement, enabled/disabled Add state, and 44/48 px target sizing.
 
 - [ ] **Step 4: Run the full PIMM suite**
 

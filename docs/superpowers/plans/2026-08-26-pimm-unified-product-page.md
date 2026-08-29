@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Product option must equal `Model`; supported values are exactly `30G` and `50G`.
-- Factory visit is the first/primary action; 50% deposit is secondary.
+- Demo session is the first/primary action; 50% deposit is secondary.
 - Shopify variant state owns deposit price, availability and submitted variant ID.
 - The full-machine-price metafield remains base Admin-currency qualification evidence; storefront full-price presentment is exactly twice contextual `variant.price`. Variant metafields also own lead time and versioned specifications.
 - Missing/malformed model data disables the deposit action and preserves factory contact.
@@ -101,7 +101,7 @@ Allow `@app` blocks and render them in one bounded integration area after purcha
 
 - [ ] **Step 5: Add fail-closed Liquid selection**
 
-Map the selected variant's first option to the matching block. If the block or specification metafield is absent, set `model_contract_valid = false`, render an unavailable-data message, preserve factory visit and disable the deposit button.
+Map the selected variant's first option to the matching block. If the block or specification metafield is absent, set `model_contract_valid = false`, render an unavailable-data message, preserve demo session and disable the deposit button.
 
 - [ ] **Step 6: Run structural and schema checks**
 
@@ -195,7 +195,7 @@ Expected: FAIL because the payload/controller is absent.
 
 The radios live inside the canonical product form. Without JavaScript, submitting posts the checked variant ID.
 
-Wrap the form in the existing `<product-form>` custom element, include `product-form.js`, the loading spinner and `product-form__error-message-wrapper`. Cart failure must preserve the selected radio, surface the associated Shopify error and leave Book a factory visit operable.
+Wrap the form in the existing `<product-form>` custom element, include `product-form.js`, the loading spinner and `product-form__error-message-wrapper`. Cart failure must preserve the selected radio, surface the associated Shopify error and leave Book a demo session operable.
 
 - [ ] **Step 4: Serialize exact variant JSON**
 
@@ -236,7 +236,7 @@ Use `textContent`, property assignments and existing nodes only. Do not recreate
 
 - [ ] **Step 6: Add unavailable and invalid-contract tests**
 
-Assert that unavailable variants and malformed specification payloads disable deposit, preserve Book a factory visit, show explicit localized status and never fall back to the other model.
+Assert that unavailable variants and malformed specification payloads disable deposit, preserve Book a demo session, show explicit localized status and never fall back to the other model.
 
 - [ ] **Step 7: Run focused tests and commit**
 
@@ -446,7 +446,7 @@ The environment value is runtime evidence, not committed configuration. Expected
 
 - [ ] **Step 5: Test failure states**
 
-Use local fixture interception to test unavailable 50G, malformed specifications and missing engineering image. Unavailability and malformed specifications fail closed: Book a factory visit remains available, deposit disables, the other model's facts/media never appear and the live region explains the selected model's problem. Missing engineering media instead falls back to the same selected model hero source and hero alt while commerce remains valid; it never borrows the other model.
+Use local fixture interception to test unavailable 50G, malformed specifications and missing engineering image. Unavailability and malformed specifications fail closed: Book a demo session remains available, deposit disables, the other model's facts/media never appear and the live region explains the selected model's problem. Missing engineering media instead falls back to the same selected model hero source and hero alt while commerce remains valid; it never borrows the other model.
 
 - [ ] **Step 6: Commit the browser harness**
 

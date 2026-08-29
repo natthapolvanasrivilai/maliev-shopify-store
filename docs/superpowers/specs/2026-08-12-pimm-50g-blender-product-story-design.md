@@ -7,7 +7,7 @@
 
 ## Objective
 
-Replace the PIMM 50G page's AI-generated feature imagery with mechanically faithful Blender assets and restructure the page as a responsive keynote-style product presentation. The result must combine a distinctive dark-red launch reveal with bright, technically inspectable product slides that help a Thai workshop buyer understand the machine, verify fit, and arrange a factory visit.
+Replace the PIMM 50G page's AI-generated feature imagery with mechanically faithful Blender assets and restructure the page as a responsive keynote-style product presentation. The result must combine a distinctive dark-red launch reveal with bright, technically inspectable product slides that help a Thai workshop buyer understand the machine, verify fit, and arrange a demo session.
 
 The work must preserve Shopify pricing, availability, variant selection, cart behavior, localization, accessibility, and merchant-editable product data.
 
@@ -27,7 +27,7 @@ All specifications shown on the page must come from the verified product contrac
 
 ### Conversion hierarchy
 
-1. **Primary:** Book a factory visit.
+1. **Primary:** Book a demo session.
 2. **Secondary:** Configure the machine and confirm mold compatibility.
 3. **Transactional:** Add the selected Shopify variant to cart only after the product and configuration context is visible.
 

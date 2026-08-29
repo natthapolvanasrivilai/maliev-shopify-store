@@ -8,7 +8,7 @@
 
 ## Objective
 
-Redesign the unified pneumatic injection molding machine product page around one decisive product-presentation hero. The page must let a qualified buyer switch between the 30G and 50G, understand the selected machine, and move toward a factory visit or configuration without treating a considered equipment purchase like an impulse checkout.
+Redesign the unified pneumatic injection molding machine product page around one decisive product-presentation hero. The page must let a qualified buyer switch between the 30G and 50G, understand the selected machine, and move toward a demo session or configuration without treating a considered equipment purchase like an impulse checkout.
 
 The visual reference contributes its composition, not its drone branding or unsupported claims: decision copy on the left, a dominant isolated product in the center, compact proof on the right, and a restrained framed canvas. MALIEV keeps its existing typography, signal blue, Shopify contracts, Thai-first clarity, and engineering evidence.
 
@@ -17,7 +17,7 @@ The visual reference contributes its composition, not its drone branding or unsu
 - The machine is the dominant object at first paint and never overlaps copy, controls, or specification cells.
 - The 30G/50G selector is visible in the hero and updates every selected-model value and image consistently.
 - The hero communicates four verified specifications without becoming a dashboard or a repeated card-grid page.
-- The primary machine conversion is a factory visit; configuration and qualification remain explicit secondary paths.
+- The primary machine conversion is a demo session; configuration and qualification remain explicit secondary paths.
 - Desktop, tablet, and mobile layouts preserve complete product visibility and 44-pixel practical touch targets.
 - Existing variant, price, deposit, availability, lead-time, localization, app-block, and fail-closed contracts remain intact.
 - New storefront derivatives come only from owner-approved Blender proofs and immutable release lineage.
@@ -119,7 +119,7 @@ The hero message should use the verified positioning: real injection molding cap
 
 Action order:
 
-1. Book a factory visit.
+1. Book a demo session.
 2. Configure the selected machine or review qualification requirements.
 3. Open documentation or contact MALIEV through the existing support path.
 4. Place the deposit only after the buyer reaches the qualification section.

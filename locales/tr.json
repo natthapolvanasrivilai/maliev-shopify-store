@@ -119,7 +119,7 @@
       "media_stage": "PIMM 30G feature media",
       "chapter_navigation": "PIMM 30G presentation chapters",
       "identity": "Pneumatic injection molding machine",
-      "book_visit": "Book a factory visit",
+      "book_visit": "Book a demo session",
       "view_50g": "View the PIMM 50G",
       "next_model_unconfigured": "Choose the 50g product in the Theme Editor to show live price and availability.",
       "next_model": {
@@ -282,13 +282,13 @@
       },
       "purchase": {
         "heading": "See the machine before you commit",
-        "body": "Book a factory visit in Thailand to review your part, material, mold plan and utilities with the MALIEV team. A qualified buyer can then place the listed 50% deposit to start a made-to-order build.",
+        "body": "Book a demo session in Thailand to review your part, material, mold plan and utilities with the MALIEV team. A qualified buyer can then place the listed 50% deposit to start a made-to-order build.",
         "full_price": "Full machine price",
         "deposit_price": "50% production deposit",
         "lead_time_label": "Production lead time",
         "lead_time": "Approximately {{ days }} days",
         "deposit_explanation": "The deposit starts production for the selected model after qualification. The remaining balance and collection or delivery arrangements are confirmed directly with MALIEV.",
-        "book_visit": "Book a factory visit",
+        "book_visit": "Book a demo session",
         "start_deposit": "Place 50% deposit"
       },
       "status": {
@@ -569,7 +569,7 @@
       "support_heading": "Support & visit",
       "policies_heading": "Policies",
       "contact": "Contact MALIEV",
-      "factory_visit": "Book a factory visit",
+      "factory_visit": "Book a demo session",
       "workshop_guides": "Workshop guides",
       "manufacturing_services": "Manufacturing services"
     },

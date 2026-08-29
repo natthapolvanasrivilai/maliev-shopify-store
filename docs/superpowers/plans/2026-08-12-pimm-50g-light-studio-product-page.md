@@ -16,7 +16,7 @@
 - Animated and static asset pairs share the exact camera, projection, crop, transforms, lighting, color management, and final frame.
 - Content is visible before JavaScript runs; enhancement must never gate the product, copy, specifications, or form.
 - Motion uses restrained ease-out timing, does not fake 3D from a flat still, and supports `prefers-reduced-motion`.
-- Factory visit remains the primary conversion; Add to cart remains secondary and uses the native Shopify product form.
+- Demo session remains the primary conversion; Add to cart remains secondary and uses the native Shopify product form.
 - Essential decision copy is never hidden to fit a breakpoint.
 - All controls are at least 44px high and use Focus Yellow for `:focus-visible`.
 - The page has zero horizontal document overflow at 320px and above.
@@ -79,7 +79,7 @@ test('product and commerce remain visible without JavaScript', () => {
   assert.match(section, /\{%[-]?\s*form 'product'/);
   assert.match(section, /name="id"/);
   assert.match(section, /name="add"/);
-  assert.match(section, /Book a factory visit/);
+  assert.match(section, /Book a demo session/);
   assert.doesNotMatch(css, /opacity:\s*0[^}]*data-pimm50-page/);
 });
 ```
@@ -369,7 +369,7 @@ Assert every promoted asset appears in a `<picture>`, `<video>`, or poster fallb
 
 - [ ] **Step 2: Implement the 42/58 light-studio hero**
 
-Use a `<picture>` poster beneath an optional finite `<video muted playsinline>` so failure leaves the alpha still visible. Keep the H1, proposition, four proof facts, factory visit, and engineering anchor in HTML.
+Use a `<picture>` poster beneath an optional finite `<video muted playsinline>` so failure leaves the alpha still visible. Keep the H1, proposition, four proof facts, demo session, and engineering anchor in HTML.
 
 - [ ] **Step 3: Implement the overview proof strip**
 
@@ -403,7 +403,7 @@ Align the complete 30G and 50G alpha machines on a common baseline. Present veri
 
 - [ ] **Step 8: Implement configuration and purchase in normal flow**
 
-Keep the current native select/form. Use the approved purchase alpha render and no fake drag/3D interaction. Make the factory visit button visually primary and Add to cart secondary.
+Keep the current native select/form. Use the approved purchase alpha render and no fake drag/3D interaction. Make the demo session button visually primary and Add to cart secondary.
 
 - [ ] **Step 9: Run focused validation**
 
@@ -456,7 +456,7 @@ Emulate reduced motion and assert videos are paused/hidden while posters remain 
 
 - [ ] **Step 4: Add keyboard and commerce assertions**
 
-Tab through the variant select, factory visit, and Add to cart. Require a visible yellow focus outline and correct element order. Verify the selected option's value is the submitted `name="id"` and the add button remains inside the Shopify form.
+Tab through the variant select, demo session, and Add to cart. Require a visible yellow focus outline and correct element order. Verify the selected option's value is the submitted `name="id"` and the add button remains inside the Shopify form.
 
 - [ ] **Step 5: Run the initial matrix and fix deterministic failures**
 
