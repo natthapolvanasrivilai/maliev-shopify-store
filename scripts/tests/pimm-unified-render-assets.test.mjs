@@ -11,13 +11,13 @@ const manifestPath = join(root, 'assets', 'pimm-unified-render-assets.v1.json');
 const expectedLineage = new Map([
   ['pimm-machine-30g-hero-front.webp', {
     dimensions: [1800, 2200], machine: '30G', shot: 'hero-front',
-    proof_id: 'proof-20260828T130126Z-09aebd4', release_id: 'release-2026-08-28-r21',
+    proof_id: 'proof-20260829T115135Z-25dc5f8', release_id: 'release-2026-08-29-r23',
     shot_id: 'pimm-30g--hero--front',
-    scene_sha256: '09AEBD4D6DA5B482B7B1281C7CE2A4043C4D9F168ECD5EE01FE04C11A5585263',
-    sha256: '125F267F3041F8D6A3D4030785DFF2BDF196D894BA93C42A0BB4C972445FF7A5',
+    scene_sha256: '25DC5F8E4EE55A9BD05E7CE87F53CD1BD63F5E72AEDB494FCD937EAB3A7B5E42',
+    sha256: '33C3B02D56BB53129358C9AD391B4740271DB3CCDCED82EB6C66A224881396E3',
     native_source: {
-      path: 'renders/final/release-2026-08-28-r21/pimm-30g--hero--front/pimm-30g--hero--front--transparent.webp',
-      sha256: '0D9E47149CE31E8D9EEEF9F897D97B47BD135A91539C1701ABB79520A9D4F8BD',
+      path: 'renders/final/release-2026-08-29-r23/pimm-30g--hero--front/pimm-30g--hero--front--transparent.webp',
+      sha256: '33C3B02D56BB53129358C9AD391B4740271DB3CCDCED82EB6C66A224881396E3',
     },
   }],
   ['pimm-machine-30g-overview-three-quarter.webp', {
@@ -55,13 +55,13 @@ const expectedLineage = new Map([
   }],
   ['pimm-machine-50g-hero-front.webp', {
     dimensions: [1800, 2200], machine: '50G', shot: 'hero-front',
-    proof_id: 'proof-20260828T130126Z-13d7d14', release_id: 'release-2026-08-28-r22',
+    proof_id: 'proof-20260829T115135Z-78aa196', release_id: 'release-2026-08-29-r23',
     shot_id: 'pimm-50g--hero--front',
-    scene_sha256: '13D7D14BF41BFE3EA3161E63BB71642C8DC962A9B4BAA2159E4559E819791495',
-    sha256: '0E2DFABD424037C959F4378F057E04CC811D7CA4E2171FEF59FF37667BB19C1A',
+    scene_sha256: '78AA196F80ACBD9B1FB636BD063926FA9932146EA5B734B6E2C5AC770B6BDFC5',
+    sha256: 'FC91F20EAD93CB274C6F78C57B278D5039B4DFFDF3227E848BB529183D163810',
     native_source: {
-      path: 'renders/final/release-2026-08-28-r22/pimm-50g--hero--front/pimm-50g--hero--front--transparent.webp',
-      sha256: '0A4A76089A19AD821504BDDF7D2CD450277093BE35A72ACD400E56D937828C92',
+      path: 'renders/final/release-2026-08-29-r23/pimm-50g--hero--front/pimm-50g--hero--front--transparent.webp',
+      sha256: 'FC91F20EAD93CB274C6F78C57B278D5039B4DFFDF3227E848BB529183D163810',
     },
   }],
   ['pimm-machine-50g-overview-three-quarter.webp', {
