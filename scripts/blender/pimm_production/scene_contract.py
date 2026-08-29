@@ -9,6 +9,8 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Iterable, Mapping
 
+from scripts.blender.pimm_production.campaign_contract import load_campaign, shot_policy
+
 from scripts.blender.pimm_production.published_artwork import (
     PUBLISHED_ARTWORK_COUNT_PROPERTY,
     PUBLISHED_ARTWORK_SHA256_PROPERTY,
@@ -31,7 +33,7 @@ _FIELDS = {
     "output_contract",
 }
 _STATIC_PRODUCT_FIELDS = {"scene_path", "static_render_setup"}
-_SCENE_ID = re.compile(r"^pimm-(30g|50g)--[a-z0-9-]+(?:--[a-z0-9-]+)*$")
+_SCENE_ID = re.compile(r"^pimm-(?:(30g|50g)|(30g-50g))--[a-z0-9-]+(?:--[a-z0-9-]+)*$")
 _SLUG = re.compile(r"^[a-z0-9-]+$")
 _CAMERA = re.compile(r"^CAM_[A-Z0-9_]+$")
 _SHA256 = re.compile(r"^[A-Fa-f0-9]{64}$")
@@ -58,15 +60,21 @@ _STATIC_PHYSICAL_SHADOW_FIELDS = {"catcher_name", "gate"}
 _STATIC_LIGHT_NAMES = ["KEY_SOFTBOX", "FILL_SOFTBOX", "BASE_BOUNCE", "STRIP_LEFT", "STRIP_RIGHT"]
 _STATIC_HDRI_PATH = "assets/hdri/studio_kontrast_04_4k.exr"
 _STATIC_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
-_STATIC_SHOT_CAMERAS = {
-    "pimm-30g--hero--front": ("front", 85.0, 11.0),
-    "pimm-30g--overview--three-quarter": ("three-quarter", 85.0, 11.0),
-    "pimm-30g--engineering--controls": ("controls", 135.0, 8.0),
-    "pimm-30g--tooling--front-detail": ("front-detail", 135.0, 11.0),
-    "pimm-50g--hero--front": ("front", 85.0, 11.0),
-    "pimm-50g--overview--three-quarter": ("three-quarter", 85.0, 11.0),
-    "pimm-50g--engineering--controls": ("controls", 135.0, 8.0),
-    "pimm-50g--tooling--front-detail": ("front-detail", 135.0, 11.0),
+_CAMPAIGN_PATH = (
+    Path(__file__).resolve().parent
+    / "contracts"
+    / "campaigns"
+    / "pimm-responsive-product-photography-v1.json"
+)
+_LEGACY_STATIC_SCENE_IDS = {
+    f"pimm-{machine}--{purpose}--{view}"
+    for machine in ("30g", "50g")
+    for purpose, view in (
+        ("hero", "front"),
+        ("overview", "three-quarter"),
+        ("engineering", "controls"),
+        ("tooling", "front-detail"),
+    )
 }
 PUBLISHED_STABLE_ID_COUNT_PROPERTY = "pimm_published_stable_id_count"
 PUBLISHED_STABLE_ID_SHA256_PROPERTY = "pimm_published_stable_id_sha256"
@@ -78,7 +86,8 @@ class SceneContract:
 
     schema_version: int
     scene_id: str
-    machine: str
+    machine: str | None
+    machines: tuple[str, ...] | None
     purpose: str
     master_path: str
     master_sha256: str
@@ -97,9 +106,14 @@ class SceneContract:
         """Construct from an exact mapping without silently dropping fields."""
 
         fields = set(payload)
-        if fields != _FIELDS and fields != _FIELDS | _STATIC_PRODUCT_FIELDS:
-            missing = sorted(_FIELDS - set(payload))
-            extra = sorted(fields - (_FIELDS | _STATIC_PRODUCT_FIELDS))
+        required_without_scope = _FIELDS - {"machine"}
+        has_single_machine = "machine" in fields
+        has_shared_machines = "machines" in fields
+        expected = required_without_scope | ({"machine"} if has_single_machine else {"machines"})
+        allowed = expected | _STATIC_PRODUCT_FIELDS
+        if (has_single_machine == has_shared_machines) or fields != expected and fields != allowed:
+            missing = sorted(expected - fields)
+            extra = sorted(fields - allowed)
             raise ValueError(
                 "scene contract must contain exactly the required fields "
                 f"(missing={missing}, extra={extra})"
@@ -113,7 +127,12 @@ class SceneContract:
         return cls(
             schema_version=payload["schema_version"],
             scene_id=payload["scene_id"],
-            machine=payload["machine"],
+            machine=payload.get("machine"),
+            machines=(
+                tuple(payload["machines"])
+                if isinstance(payload.get("machines"), list)
+                else None
+            ),
             purpose=payload["purpose"],
             master_path=payload["master_path"],
             master_sha256=payload["master_sha256"],
@@ -145,7 +164,7 @@ class SceneContract:
         return {
             key: value
             for key, value in asdict(self).items()
-            if key not in _STATIC_PRODUCT_FIELDS or value is not None
+            if key not in _STATIC_PRODUCT_FIELDS | {"machine", "machines"} or value is not None
         }
 
 
@@ -175,10 +194,60 @@ def _canonical_relative(value: object, expected: str) -> bool:
     return not path.is_absolute() and ".." not in path.parts and "\\" not in value
 
 
+def _campaign_policy(scene_id: object):
+    """Return a campaign policy for its IDs while leaving retired contracts readable."""
+
+    if not isinstance(scene_id, str):
+        return None
+    campaign = load_campaign(_CAMPAIGN_PATH)
+    try:
+        return shot_policy(campaign, scene_id)
+    except ValueError:
+        return None
+
+
+def _legacy_camera_policy(contract: SceneContract) -> tuple[str, float, float] | None:
+    """Keep prior immutable stills valid until their governed replacements are authored."""
+
+    if contract.scene_id not in _LEGACY_STATIC_SCENE_IDS:
+        return None
+    if contract.purpose == "engineering":
+        return ("controls", 135.0, 8.0)
+    if contract.purpose == "tooling":
+        return ("front-detail", 135.0, 11.0)
+    if contract.purpose == "overview":
+        return ("three-quarter", 85.0, 11.0)
+    return ("front", 85.0, 11.0)
+
+
+def _validate_campaign_scene_policy(contract: SceneContract, errors: list[str]) -> None:
+    """Bind campaign-owned scene identity, machine scope, and output to the manifest."""
+
+    policy = _campaign_policy(contract.scene_id)
+    if policy is None:
+        return
+    if contract.machines is not None:
+        actual_machines = contract.machines
+    elif contract.machine is not None:
+        actual_machines = (contract.machine,)
+    else:
+        actual_machines = ()
+    if actual_machines != policy.machines:
+        errors.append("campaign scene machine scope must match the governed shot policy")
+    if contract.purpose != policy.purpose:
+        errors.append("campaign scene purpose must match the governed shot policy")
+    if contract.output_contract != {
+        "width": policy.width,
+        "height": policy.height,
+        "alpha": policy.alpha,
+    }:
+        errors.append("campaign scene output_contract must match the governed shot policy")
+
+
 def _validate_static_render_setup(contract: SceneContract, errors: list[str]) -> None:
     if contract.scene_path is None or contract.static_render_setup is None:
         if (
-            contract.scene_id in _STATIC_SHOT_CAMERAS
+            contract.scene_id in _LEGACY_STATIC_SCENE_IDS or _campaign_policy(contract.scene_id) is not None
             and contract.scene_path is None
             and contract.static_render_setup is None
         ):
@@ -204,9 +273,14 @@ def _validate_static_render_setup(contract: SceneContract, errors: list[str]) ->
     if not isinstance(camera, Mapping) or set(camera) != _STATIC_CAMERA_FIELDS:
         errors.append("static product camera setup has unexpected fields")
     else:
-        expected_camera = _STATIC_SHOT_CAMERAS.get(contract.scene_id)
+        campaign_shot = _campaign_policy(contract.scene_id)
+        expected_camera = (
+            (camera["view"], campaign_shot.focal_length_mm, campaign_shot.aperture_fstop)
+            if campaign_shot is not None
+            else _legacy_camera_policy(contract)
+        )
         if expected_camera is None:
-            errors.append("static product scene_id must be one of the governed static shots")
+            errors.append("static product scene_id must be one of the governed campaign shots")
         elif (
             camera["view"],
             camera["focal_length_mm"],
@@ -270,13 +344,17 @@ def validate_scene_contract(contract: SceneContract) -> list[str]:
     errors: list[str] = []
     if contract.schema_version != 1:
         errors.append("scene contract schema_version must be 1")
-    if contract.machine not in {"30G", "50G"}:
+    if contract.machine is not None and contract.machine not in {"30G", "50G"}:
         errors.append("scene contract machine must be 30G or 50G")
+    if contract.machine is None and contract.machines != ("30G", "50G"):
+        errors.append("shared scene contract machines must equal 30G and 50G")
     match = _SCENE_ID.fullmatch(contract.scene_id) if isinstance(contract.scene_id, str) else None
     if match is None:
         errors.append("scene contract scene_id must match the canonical PIMM scene pattern")
     elif contract.machine in {"30G", "50G"} and match.group(1) != contract.machine.lower():
         errors.append("scene contract scene_id machine must match machine")
+    elif contract.machines == ("30G", "50G") and match.group(2) != "30g-50g":
+        errors.append("shared scene contract scene_id must identify both machines")
     if not isinstance(contract.purpose, str) or _SLUG.fullmatch(contract.purpose) is None:
         errors.append("scene contract purpose must be a lowercase slug")
     elif isinstance(contract.scene_id, str) and f"--{contract.purpose}" not in contract.scene_id:
@@ -330,6 +408,7 @@ def validate_scene_contract(contract: SceneContract) -> list[str]:
         errors.append("scene contract output_contract height must be a positive integer")
     if not isinstance(alpha, bool):
         errors.append("scene contract output_contract alpha must be boolean")
+    _validate_campaign_scene_policy(contract, errors)
     _validate_static_render_setup(contract, errors)
     return errors
 

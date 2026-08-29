@@ -12,6 +12,7 @@ from scripts.blender.pimm_production.scene_contract import (
     canonical_scene_contract_json,
     validate_scene_contract,
 )
+from scripts.blender.pimm_production.campaign_contract import load_campaign
 
 
 BLENDER = Path(r"D:\Blender 5.2\blender.exe")
@@ -594,6 +595,82 @@ def run_scene_fixture_build(
 
 
 class SceneContractTests(unittest.TestCase):
+    def test_campaign_scene_contract_requires_the_exact_shared_machine_scope(self) -> None:
+        """Catches a comparison contract being represented as a single-machine scene."""
+
+        campaign_path = (
+            REPO_ROOT
+            / "scripts"
+            / "blender"
+            / "pimm_production"
+            / "contracts"
+            / "campaigns"
+            / "pimm-responsive-product-photography-v1.json"
+        )
+        comparison = load_campaign(campaign_path).by_shot_id[
+            "pimm-30g-50g--comparison--desktop"
+        ]
+        self.assertEqual(comparison.machines, ("30G", "50G"))
+
+        payload = _base_payload("a" * 64, "b" * 64)
+        payload.pop("machine")
+        payload["machines"] = ["30G", "50G"]
+        payload["scene_id"] = "pimm-30g-50g--comparison--desktop"
+        payload["purpose"] = "comparison"
+        contract = SceneContract.from_mapping(payload)
+
+        self.assertIsNone(contract.machine)
+        self.assertEqual(contract.machines, ("30G", "50G"))
+        self.assertEqual(contract.to_mapping()["machines"], ("30G", "50G"))
+
+    def test_campaign_scene_contract_derives_output_and_camera_policy(self) -> None:
+        """Catches a scene contract that drifts from its immutable campaign camera policy."""
+
+        payload = _base_payload("a" * 64, "b" * 64)
+        payload.update(
+            {
+                "scene_id": "pimm-30g--hero--desktop",
+                "purpose": "hero",
+                "output_contract": {"width": 2560, "height": 1440, "alpha": True},
+                "scene_path": "scenes/stills/pimm-30g--hero--desktop.blend",
+                "static_render_setup": {
+                    "camera": {
+                        "aperture_fstop": 11.0,
+                        "clip_end": 10000.0,
+                        "clip_start": 1.0,
+                        "focal_length_mm": 85.0,
+                        "sensor_width_mm": 36.0,
+                        "view": "hero-desktop",
+                    },
+                    "color_management": {
+                        "exposure": 0.0,
+                        "gamma": 1.0,
+                        "look": "AgX - Medium High Contrast",
+                        "view_transform": "AgX",
+                    },
+                    "lighting": {
+                        "lower_bounce_name": "BASE_BOUNCE",
+                        "required_light_names": ["KEY_SOFTBOX", "FILL_SOFTBOX", "BASE_BOUNCE", "STRIP_LEFT", "STRIP_RIGHT"],
+                        "temperature_kelvin": 5500.0,
+                    },
+                    "physical_shadow": {"catcher_name": "PIMM_SCENE_SHADOW_CATCHER", "gate": "required"},
+                    "world": {
+                        "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                        "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                        "rotation_degrees": 0.0,
+                        "strength": 0.5,
+                    },
+                },
+            }
+        )
+        self.assertEqual(validate_scene_contract(SceneContract.from_mapping(payload)), [])
+
+        payload["output_contract"]["width"] = 1800
+        payload["static_render_setup"]["camera"]["focal_length_mm"] = 135.0
+        errors = validate_scene_contract(SceneContract.from_mapping(payload))
+        self.assertIn("campaign scene output_contract must match the governed shot policy", errors)
+        self.assertIn("static product camera must match the governed shot configuration", errors)
+
     def test_scene_publication_material_gate_requires_explicit_material_ids(self) -> None:
         """Catches approved material state falling back to a datablock display name."""
 
