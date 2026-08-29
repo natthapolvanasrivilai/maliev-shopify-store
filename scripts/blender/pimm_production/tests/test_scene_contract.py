@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -9,6 +10,7 @@ import unittest
 from scripts.blender.pimm_production import (
     blender_scene_template,
     blender_scene_validator,
+    blender_static_product_scene,
     scene_contract,
 )
 from scripts.blender.pimm_production.shot_compositions import composition_for
@@ -24,6 +26,25 @@ BLENDER = Path(r"D:\Blender 5.2\blender.exe")
 REPO_ROOT = Path(__file__).resolve().parents[4]
 VALIDATION_MARKER = "PIMM_SCENE_VALIDATION_JSON="
 BUILD_MARKER = "PIMM_SCENE_BUILD_JSON="
+
+
+class RuntimeNamespace(dict):
+    def __init__(self, **values):
+        super().__init__()
+        self.__dict__.update(values)
+
+
+class ForwardMatrix:
+    def __init__(self, forward):
+        self.forward = forward
+
+    def to_quaternion(self):
+        return self
+
+    def __matmul__(self, value):
+        if tuple(value) == (0.0, 0.0, -1.0):
+            return self.forward
+        return value
 
 
 def _run_blender(arguments: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -622,6 +643,69 @@ class SceneContractTests(unittest.TestCase):
                 {"30G": -0.162624216},
             )
 
+    def test_comparison_reopen_requires_both_contact_reports_and_exact_transforms(self) -> None:
+        """Catches reopened comparison instances losing common-floor contact authority."""
+
+        config = blender_static_product_scene.SHOT_CONFIGS[
+            "pimm-30g-50g--comparison--desktop"
+        ]
+        contacts = {
+            machine: blender_static_product_scene.FootContactPlane(
+                z=z,
+                pad_bottoms=(z, z, z, z),
+                stable_ids=tuple(f"{machine}-pad-{index}" for index in range(4)),
+                outlier_stable_ids=(),
+            )
+            for machine, z in (("30G", -0.25), ("50G", -0.5))
+        }
+        plan = blender_scene_template.comparison_link_plan(
+            composition_for(config.scene_id),
+            {machine: contact.z for machine, contact in contacts.items()},
+        )
+        instances = []
+        for item in plan:
+            instance = RuntimeNamespace(
+                name=item.instance_name,
+                instance_type="COLLECTION",
+                location=(item.offset_x, item.offset_y, item.offset_z),
+                rotation_euler=(0.0, 0.0, 0.0),
+                scale=(1.0, 1.0, 1.0),
+            )
+            instance["pimm_comparison_machine"] = item.machine
+            instance["pimm_scene_transform_ownership"] = "scene-owned"
+            instance["pimm_source_contact_z"] = item.source_contact_z
+            instance["pimm_resolved_ground_z"] = item.resolved_ground_z
+            instances.append(instance)
+        scene = RuntimeNamespace()
+        scene["pimm_comparison_contact_evidence"] = json.dumps(
+            {
+                machine: blender_static_product_scene.foot_contact_evidence(
+                    machine, contact
+                )
+                for machine, contact in contacts.items()
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        bpy = SimpleNamespace(
+            context=SimpleNamespace(scene=scene),
+            data=SimpleNamespace(objects=instances),
+        )
+
+        self.assertEqual(
+            blender_scene_validator._validate_comparison_runtime_state(
+                bpy, config, contacts
+            ),
+            [],
+        )
+        instances[0].scale = (0.9, 0.9, 0.9)
+        scene["pimm_comparison_contact_evidence"] = "{}"
+        errors = blender_scene_validator._validate_comparison_runtime_state(
+            bpy, config, contacts
+        )
+        self.assertIn("identity-scale", "\n".join(errors))
+        self.assertIn("contact evidence", "\n".join(errors))
+
     def test_campaign_reopen_runtime_requires_exact_camera_rig_render_and_output(self) -> None:
         """Catches a structurally valid scene reopening with mutable runtime drift."""
 
@@ -672,7 +756,38 @@ class SceneContractTests(unittest.TestCase):
             }
         )
         contract = SceneContract.from_mapping(payload)
-        camera = SimpleNamespace(name="CAM_HERO", type="CAMERA", animation_data=None)
+        config = blender_static_product_scene.SHOT_CONFIGS[contract.scene_id]
+        target = blender_static_product_scene.TargetResolution(
+            bounds_min=(-200.0, -180.0, 0.0),
+            bounds_max=(220.0, 160.0, 900.0),
+            groups={"complete_product": ("30G-fixture-product",)},
+            stable_ids=("30G-fixture-product",),
+        )
+        pose = blender_static_product_scene.camera_pose(
+            target.bounds_min, target.bounds_max, config
+        )
+        forward = tuple(
+            (pose.target[index] - pose.location[index])
+            / math.dist(pose.location, pose.target)
+            for index in range(3)
+        )
+        placement = composition_for(contract.scene_id).subject_placement
+        camera = RuntimeNamespace(
+            name="CAM_HERO",
+            type="CAMERA",
+            animation_data=None,
+            location=pose.location,
+            matrix_world=ForwardMatrix(forward),
+            data=SimpleNamespace(
+                lens=85.0,
+                sensor_width=36.0,
+                clip_start=1.0,
+                clip_end=10000.0,
+                shift_x=0.5 - placement.center_x,
+                shift_y=placement.center_y - 0.5,
+                dof=SimpleNamespace(aperture_fstop=11.0),
+            ),
+        )
         lights = [
             SimpleNamespace(name=name, type="LIGHT", animation_data=None)
             for name in (
@@ -700,7 +815,7 @@ class SceneContractTests(unittest.TestCase):
             / contract.scene_id
             / contract.scene_id
         ).resolve()
-        scene = SimpleNamespace(
+        scene = RuntimeNamespace(
             camera=camera,
             animation_data=None,
             render=SimpleNamespace(
@@ -719,6 +834,17 @@ class SceneContractTests(unittest.TestCase):
                 exposure=0.0,
                 gamma=1.0,
             ),
+        )
+        scene["pimm_static_target_evidence"] = json.dumps(
+            blender_static_product_scene._target_evidence(config, target),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        scene["pimm_shot_composition"] = json.dumps(
+            blender_static_product_scene.composition_evidence(config, target, pose),
+            separators=(",", ":"),
+            sort_keys=True,
         )
         bpy = SimpleNamespace(
             context=SimpleNamespace(scene=scene),
@@ -748,6 +874,169 @@ class SceneContractTests(unittest.TestCase):
         self.assertIn("animation", joined)
         self.assertIn("Cycles", joined)
         self.assertIn("exact managed proof output path", joined)
+
+    def test_campaign_reopen_runtime_rejects_each_camera_and_composition_drift(self) -> None:
+        """Catches exact optics, orbit, target, safe-area, or evidence drift after reopen."""
+
+        payload = _base_payload("a" * 64, "b" * 64)
+        payload.update(
+            {
+                "scene_id": "pimm-30g--hero--desktop",
+                "purpose": "hero",
+                "output_contract": {"width": 2560, "height": 1440, "alpha": True},
+                "scene_path": "scenes/stills/pimm-30g--hero--desktop.blend",
+                "static_render_setup": {
+                    "camera": {
+                        "aperture_fstop": 11.0,
+                        "clip_end": 10000.0,
+                        "clip_start": 1.0,
+                        "focal_length_mm": 85.0,
+                        "sensor_width_mm": 36.0,
+                        "view": "hero-desktop",
+                    },
+                    "color_management": {
+                        "exposure": 0.0,
+                        "gamma": 1.0,
+                        "look": "AgX - Medium High Contrast",
+                        "view_transform": "AgX",
+                    },
+                    "lighting": {
+                        "lower_bounce_name": "BASE_BOUNCE",
+                        "required_light_names": [
+                            "KEY_SOFTBOX",
+                            "FILL_SOFTBOX",
+                            "BASE_BOUNCE",
+                            "STRIP_LEFT",
+                            "STRIP_RIGHT",
+                        ],
+                        "temperature_kelvin": 5500.0,
+                    },
+                    "physical_shadow": {
+                        "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                        "gate": "required",
+                    },
+                    "world": {
+                        "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                        "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                        "rotation_degrees": 0.0,
+                        "strength": 0.5,
+                    },
+                },
+            }
+        )
+        contract = SceneContract.from_mapping(payload)
+        config = blender_static_product_scene.SHOT_CONFIGS[contract.scene_id]
+        target = blender_static_product_scene.TargetResolution(
+            (-200.0, -180.0, 0.0),
+            (220.0, 160.0, 900.0),
+            {"complete_product": ("30G-fixture-product",)},
+            ("30G-fixture-product",),
+        )
+        pose = blender_static_product_scene.camera_pose(
+            target.bounds_min, target.bounds_max, config
+        )
+        distance = math.dist(pose.location, pose.target)
+        forward = tuple(
+            (pose.target[index] - pose.location[index]) / distance
+            for index in range(3)
+        )
+        placement = composition_for(contract.scene_id).subject_placement
+
+        def runtime_state():
+            camera = RuntimeNamespace(
+                name=contract.camera_name,
+                type="CAMERA",
+                animation_data=None,
+                location=list(pose.location),
+                matrix_world=ForwardMatrix(forward),
+                data=SimpleNamespace(
+                    lens=85.0,
+                    sensor_width=36.0,
+                    clip_start=1.0,
+                    clip_end=10000.0,
+                    shift_x=0.5 - placement.center_x,
+                    shift_y=placement.center_y - 0.5,
+                    dof=SimpleNamespace(aperture_fstop=11.0),
+                ),
+            )
+            lights = [
+                SimpleNamespace(name=name, type="LIGHT", animation_data=None)
+                for name in payload["static_render_setup"]["lighting"]["required_light_names"]
+            ]
+            cards = [
+                SimpleNamespace(name=name, type="MESH", animation_data=None)
+                for name in (
+                    "PIMM_REFLECTION_CARD_LEFT",
+                    "PIMM_REFLECTION_CARD_RIGHT",
+                    "PIMM_REFLECTION_CARD_TOP",
+                )
+            ]
+            expected_output = (
+                Path("X:/asset-root")
+                / "renders"
+                / "proofs"
+                / "unapproved"
+                / "pimm-responsive-product-photography-v1"
+                / contract.scene_id
+                / contract.scene_id
+            ).resolve()
+            scene = RuntimeNamespace(
+                camera=camera,
+                animation_data=None,
+                render=SimpleNamespace(
+                    engine="CYCLES",
+                    resolution_x=2560,
+                    resolution_y=1440,
+                    resolution_percentage=100,
+                    film_transparent=True,
+                    use_border=False,
+                    use_crop_to_border=False,
+                    filepath=str(expected_output),
+                ),
+                view_settings=SimpleNamespace(
+                    view_transform="AgX",
+                    look="AgX - Medium High Contrast",
+                    exposure=0.0,
+                    gamma=1.0,
+                ),
+            )
+            scene["pimm_static_target_evidence"] = json.dumps(
+                blender_static_product_scene._target_evidence(config, target),
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            scene["pimm_shot_composition"] = json.dumps(
+                blender_static_product_scene.composition_evidence(config, target, pose),
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            bpy = SimpleNamespace(
+                context=SimpleNamespace(scene=scene),
+                data=SimpleNamespace(objects=[camera, *lights, *cards], actions=[]),
+                path=SimpleNamespace(abspath=lambda value: value),
+            )
+            return bpy, camera, scene
+
+        cases = {
+            "focal": lambda camera, _scene: setattr(camera.data, "lens", 70.0),
+            "sensor": lambda camera, _scene: setattr(camera.data, "sensor_width", 32.0),
+            "aperture": lambda camera, _scene: setattr(camera.data.dof, "aperture_fstop", 8.0),
+            "near-clip": lambda camera, _scene: setattr(camera.data, "clip_start", 0.1),
+            "far-clip": lambda camera, _scene: setattr(camera.data, "clip_end", 1000.0),
+            "shift": lambda camera, _scene: setattr(camera.data, "shift_x", 0.0),
+            "orbit": lambda camera, _scene: camera.location.__setitem__(0, camera.location[0] + 100.0),
+            "aim": lambda camera, _scene: setattr(camera, "matrix_world", ForwardMatrix((0.0, 1.0, 0.0))),
+            "composition": lambda _camera, scene: scene.__setitem__("pimm_shot_composition", "{}"),
+            "target": lambda _camera, scene: scene.__setitem__("pimm_static_target_evidence", "{}"),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(name=name):
+                bpy, camera, scene = runtime_state()
+                mutate(camera, scene)
+                errors = blender_scene_validator._validate_campaign_runtime_state(
+                    bpy, contract, Path("X:/asset-root")
+                )
+                self.assertTrue(errors, name)
 
     def test_campaign_scene_contract_requires_the_exact_shared_machine_scope(self) -> None:
         """Catches a comparison contract being represented as a single-machine scene."""

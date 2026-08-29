@@ -31,8 +31,9 @@ try:
         studio_light_specs,
         studio_world_environment_spec,
     )
-    from .blender_scene_template import _run_fresh_validation
+    from .blender_scene_template import comparison_link_plan, _run_fresh_validation
     from .campaign_contract import load_campaign, validate_campaign
+    from .external_asset_manifest import validate_external_assets
     from .io_contract import atomic_write_json, sha256_file
     from .paths import ASSET_ROOT, require_within
     from .scene_contract import (
@@ -67,12 +68,18 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
         studio_light_specs,
         studio_world_environment_spec,
     )
-    from scripts.blender.pimm_production.blender_scene_template import _run_fresh_validation
+    from scripts.blender.pimm_production.blender_scene_template import (
+        comparison_link_plan,
+        _run_fresh_validation,
+    )
     from scripts.blender.pimm_production.campaign_contract import (
         load_campaign,
         validate_campaign,
     )
     from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
+    from scripts.blender.pimm_production.external_asset_manifest import (
+        validate_external_assets,
+    )
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.scene_contract import (
         SceneContract,
@@ -178,6 +185,35 @@ class FootContactPlane:
     pad_bottoms: tuple[float, ...]
     stable_ids: tuple[str, ...]
     outlier_stable_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class WorkshopSupportRecord:
+    """One hash-verified scene-local support asset authorized for a workshop shot."""
+
+    asset_version_id: str
+    path: Path
+    local_relative_path: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class _InstancedStableMesh:
+    """Read-only bounds view of a linked mesh beneath a scene-owned instance."""
+
+    source: Any
+    matrix_world: Any
+
+    @property
+    def type(self) -> str:
+        return str(self.source.type)
+
+    @property
+    def bound_box(self) -> Any:
+        return self.source.bound_box
+
+    def get(self, name: str, default: object = None) -> object:
+        return self.source.get(name, default)
 
 
 def _single_machine(config: ShotConfig) -> str:
@@ -437,7 +473,24 @@ def _validated_target_manifest_payload(
 
 def _stable_product_objects(bpy: Any) -> dict[str, Any]:
     by_stable_id: dict[str, Any] = {}
-    for obj in bpy.context.scene.objects:
+    scene_objects = list(bpy.context.scene.objects)
+    candidates: list[Any] = [
+        obj for obj in scene_objects if getattr(obj, "type", None) == "MESH"
+    ]
+    for instance in scene_objects:
+        collection = getattr(instance, "instance_collection", None)
+        if getattr(instance, "instance_type", None) != "COLLECTION" or collection is None:
+            continue
+        for obj in getattr(collection, "all_objects", ()):
+            if getattr(obj, "type", None) != "MESH":
+                continue
+            candidates.append(
+                _InstancedStableMesh(
+                    source=obj,
+                    matrix_world=instance.matrix_world @ obj.matrix_world,
+                )
+            )
+    for obj in candidates:
         if getattr(obj, "type", None) != "MESH":
             continue
         stable_id = obj.get("pimm_stable_id")
@@ -738,6 +791,16 @@ def _master_path(config: ShotConfig) -> Path:
     return ASSET_ROOT / "masters" / f"PIMM-{machine}-MASTER.blend"
 
 
+def _master_paths(config: ShotConfig) -> tuple[Path, ...]:
+    """Return every exact master authority in campaign machine order."""
+
+    _validate_shot_config(config)
+    return tuple(
+        ASSET_ROOT / "masters" / f"PIMM-{machine}-MASTER.blend"
+        for machine in config.machines
+    )
+
+
 def _template_path(config: ShotConfig) -> Path:
     if len(config.machines) > 1:
         return ASSET_ROOT / "scenes" / "shared-templates" / "pimm-30g-50g--comparison.blend"
@@ -764,11 +827,12 @@ def _foot_patch_path(config: ShotConfig) -> Path:
     )
 
 
-def load_foot_contact_plane(config: ShotConfig) -> FootContactPlane:
-    """Load the canonical, machine-specific foot evidence for studio grounding."""
-
+def _load_machine_foot_contact_plane(machine: str) -> FootContactPlane:
+    if machine not in {"30G", "50G"}:
+        raise ValueError(f"unsupported PIMM machine: {machine}")
     path = require_within(
-        _foot_patch_path(config), ASSET_ROOT / "manifests" / "patches"
+        ASSET_ROOT / "manifests" / "patches" / f"PIMM-{machine}-foot-refresh.json",
+        ASSET_ROOT / "manifests" / "patches",
     )
     if not path.is_file():
         raise FileNotFoundError(f"canonical foot patch is missing: {path}")
@@ -778,7 +842,174 @@ def load_foot_contact_plane(config: ShotConfig) -> FootContactPlane:
         raise ValueError(f"canonical foot patch is invalid JSON: {path}") from error
     if not isinstance(payload, Mapping):
         raise ValueError("canonical foot patch root must be an object")
-    return resolve_foot_contact_plane(payload, _single_machine(config))
+    return resolve_foot_contact_plane(payload, machine)
+
+
+def load_foot_contact_planes(config: ShotConfig) -> dict[str, FootContactPlane]:
+    """Load exact physical contact evidence for every machine in one shot."""
+
+    _validate_shot_config(config)
+    return {
+        machine: _load_machine_foot_contact_plane(machine)
+        for machine in config.machines
+    }
+
+
+def load_foot_contact_plane(config: ShotConfig) -> FootContactPlane:
+    """Compatibility API for an exact single-machine physical contact plane."""
+
+    return load_foot_contact_planes(config)[_single_machine(config)]
+
+
+def load_workshop_support_records(
+    config: ShotConfig,
+) -> tuple[WorkshopSupportRecord, ...]:
+    """Read and hash-verify every approved support for one workshop shot."""
+
+    _validate_shot_config(config)
+    if config.purpose != "workshop":
+        raise ValueError("external workshop supports are valid only for workshop shots")
+    manifest_path = require_within(
+        ASSET_ROOT / "manifests" / "external-assets-v1.json",
+        ASSET_ROOT / "manifests",
+    )
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"external asset manifest cannot be read: {manifest_path}: {error}"
+        ) from error
+    errors = validate_external_assets(payload, set(_CAMPAIGN.by_shot_id))
+    if errors:
+        raise ValueError("external asset manifest is invalid: " + "; ".join(errors))
+    records: list[WorkshopSupportRecord] = []
+    for record in payload["assets"]:
+        if config.scene_id not in record["intended_shot_ids"]:
+            continue
+        relative = str(record["local_relative_path"])
+        path = require_within(ASSET_ROOT / Path(relative), ASSET_ROOT / "assets")
+        if not path.is_file():
+            raise FileNotFoundError(f"approved workshop support is missing: {path}")
+        expected = str(record["sha256"]).upper()
+        actual = sha256_file(path)
+        if actual != expected:
+            raise ValueError(
+                f"approved workshop support SHA-256 mismatch: expected {expected}, "
+                f"found {actual}: {path}"
+            )
+        records.append(
+            WorkshopSupportRecord(
+                asset_version_id=str(record["asset_version_id"]),
+                path=path,
+                local_relative_path=relative,
+                sha256=expected,
+            )
+        )
+    return tuple(records)
+
+
+def _workshop_product_like_error(obj: Any) -> str | None:
+    if getattr(obj, "type", None) != "MESH":
+        return None
+    if any(
+        obj.get(name) is not None
+        for name in (
+            "pimm_stable_id",
+            "pimm_artwork_id",
+            "pimm_machine",
+            "pimm_asset_role",
+            "pimm_product_material_override",
+        )
+    ):
+        return f"product-like workshop support object is forbidden: {obj.name}"
+    mesh = getattr(obj, "data", None)
+    for material in getattr(mesh, "materials", ()) if mesh is not None else ():
+        if (
+            material.get("pimm_material_id") is not None
+            or material.get("pimm_material_scope") in {"shared", "machine-local"}
+        ):
+            return (
+                "product-like workshop support material is forbidden: "
+                f"{material.name}"
+            )
+    return None
+
+
+def load_workshop_support_assets(
+    bpy: Any, config: ShotConfig
+) -> tuple[WorkshopSupportRecord, ...]:
+    """Append and tag only hash-verified non-product workshop support assets."""
+
+    records = load_workshop_support_records(config)
+    for record in records:
+        before_collections = set(bpy.data.collections)
+        before_objects = set(bpy.data.objects)
+        before_meshes = set(bpy.data.meshes)
+        before_materials = set(bpy.data.materials)
+        try:
+            with bpy.data.libraries.load(
+                str(record.path), link=False, relative=False
+            ) as (available, requested):
+                if not available.collections:
+                    raise ValueError(
+                        f"approved workshop support contains no collections: {record.path}"
+                    )
+                requested.collections = list(available.collections)
+            loaded_collections = [
+                collection
+                for collection in requested.collections
+                if collection is not None
+            ]
+            loaded_objects = {
+                obj
+                for collection in loaded_collections
+                for obj in getattr(collection, "all_objects", ())
+            }
+            mesh_objects = [
+                obj for obj in loaded_objects if getattr(obj, "type", None) == "MESH"
+            ]
+            if not mesh_objects:
+                raise ValueError(
+                    f"approved workshop support contains no mesh props: {record.path}"
+                )
+            for obj in loaded_objects:
+                product_error = _workshop_product_like_error(obj)
+                if product_error:
+                    raise ValueError(product_error)
+            for collection in loaded_collections:
+                collection["pimm_scene_support_ownership"] = "scene-support"
+                collection["pimm_external_asset_version_id"] = record.asset_version_id
+                bpy.context.scene.collection.children.link(collection)
+            for obj in loaded_objects:
+                obj["pimm_scene_support_ownership"] = "scene-support"
+                obj["pimm_scene_support_role"] = "workshop-prop"
+                obj["pimm_external_asset_version_id"] = record.asset_version_id
+                obj["pimm_external_asset_local_relative_path"] = (
+                    record.local_relative_path
+                )
+                obj["pimm_external_asset_sha256"] = record.sha256
+                mesh = getattr(obj, "data", None)
+                if mesh is None:
+                    continue
+                mesh["pimm_scene_support_ownership"] = "scene-support"
+                mesh["pimm_scene_support_role"] = "workshop-prop"
+                for material in getattr(mesh, "materials", ()):
+                    material["pimm_scene_support_ownership"] = "scene-support"
+                    material["pimm_scene_support_role"] = "workshop-prop"
+        except Exception:
+            for collection in list(set(bpy.data.collections) - before_collections):
+                bpy.data.collections.remove(collection)
+            for obj in list(set(bpy.data.objects) - before_objects):
+                if getattr(obj, "users", 0) == 0:
+                    bpy.data.objects.remove(obj)
+            for mesh in list(set(bpy.data.meshes) - before_meshes):
+                if getattr(mesh, "users", 0) == 0:
+                    bpy.data.meshes.remove(mesh)
+            for material in list(set(bpy.data.materials) - before_materials):
+                if getattr(material, "users", 0) == 0:
+                    bpy.data.materials.remove(material)
+            raise
+    return records
 
 
 def foot_contact_evidence(
@@ -929,7 +1160,7 @@ def contract_payload(config: ShotConfig) -> dict[str, object]:
     if len(config.machines) == 1:
         payload["machine"] = config.machines[0]
     else:
-        payload["machines"] = list(config.machines)
+        payload["machines"] = config.machines
     return payload
 
 
@@ -960,38 +1191,135 @@ def _resolved_library_path(bpy: Any, datablock: Any) -> Path | None:
     return Path(absolute).resolve()
 
 
+def _install_comparison_master_instances(
+    bpy: Any, config: ShotConfig
+) -> dict[str, FootContactPlane]:
+    """Link both immutable masters once beneath exact scene-owned transforms."""
+
+    if config.purpose != "comparison" or config.machines != ("30G", "50G"):
+        raise ValueError("comparison instance authoring requires exact 30G/50G scope")
+    existing = [
+        obj
+        for obj in bpy.context.scene.objects
+        if getattr(obj, "instance_type", None) == "COLLECTION"
+        or str(getattr(obj, "name", "")).startswith("PIMM_")
+        and str(getattr(obj, "name", "")).endswith("_INSTANCE")
+    ]
+    if existing:
+        raise ValueError("comparison source template must not contain product instances")
+    contacts = load_foot_contact_planes(config)
+    plan = comparison_link_plan(
+        composition_for(config.scene_id),
+        {machine: contact.z for machine, contact in contacts.items()},
+    )
+    for item, master_path in zip(plan, _master_paths(config), strict=True):
+        if not master_path.is_file():
+            raise FileNotFoundError(f"comparison master is missing: {master_path}")
+        with bpy.data.libraries.load(
+            str(master_path), link=True, relative=True
+        ) as (available, requested):
+            if MASTER_COLLECTION not in available.collections:
+                raise ValueError(
+                    f"comparison {item.machine} master lacks {MASTER_COLLECTION}"
+                )
+            requested.collections = [MASTER_COLLECTION]
+        linked = requested.collections[0]
+        if linked is None or not list(getattr(linked, "all_objects", ())):
+            raise ValueError(
+                f"comparison {item.machine} {MASTER_COLLECTION} is empty"
+            )
+        instance = bpy.data.objects.new(item.instance_name, None)
+        instance.instance_type = "COLLECTION"
+        instance.instance_collection = linked
+        instance.location = (item.offset_x, item.offset_y, item.offset_z)
+        instance.rotation_euler = (0.0, 0.0, 0.0)
+        instance.scale = (item.scale, item.scale, item.scale)
+        instance["pimm_comparison_machine"] = item.machine
+        instance["pimm_scene_transform_ownership"] = "scene-owned"
+        instance["pimm_source_contact_z"] = item.source_contact_z
+        instance["pimm_resolved_ground_z"] = item.resolved_ground_z
+        bpy.context.scene.collection.objects.link(instance)
+    return contacts
+
+
 def _validate_open_template_authority(bpy: Any, config: ShotConfig) -> None:
     """Reject any template state outside the exact linked master/material authority."""
 
-    expected_master = _master_path(config).resolve()
+    expected_masters = {
+        machine: path.resolve()
+        for machine, path in zip(config.machines, _master_paths(config), strict=True)
+    }
     expected_material = _material_library_path().resolve()
     library_paths = {
         path
         for path in (_resolved_library_path(bpy, library) for library in bpy.data.libraries)
         if path
     }
-    if library_paths != {expected_master, expected_material}:
+    expected_libraries = {*expected_masters.values(), expected_material}
+    if library_paths != expected_libraries:
         raise ValueError(
-            "shared template must link only the exact master and material library: "
+            "shared template must link only the exact master(s) and material library: "
             f"found={sorted(str(path) for path in library_paths)}"
         )
-    published_candidates = [
-        collection
-        for collection in bpy.data.collections
-        if getattr(collection, "name", None) == MASTER_COLLECTION
-        and _resolved_library_path(bpy, collection) == expected_master
-    ]
-    if len(published_candidates) != 1 or not list(published_candidates[0].all_objects):
-        raise ValueError("shared template must link exactly one nonempty PIMM_PUBLISHED")
-    published_object_identities = {id(obj) for obj in published_candidates[0].all_objects}
+    published_by_machine: dict[str, Any] = {}
+    for machine, expected_master in expected_masters.items():
+        published_candidates = [
+            collection
+            for collection in bpy.data.collections
+            if str(getattr(collection, "name", "")).startswith(MASTER_COLLECTION)
+            and _resolved_library_path(bpy, collection) == expected_master
+        ]
+        if len(published_candidates) != 1 or not list(
+            published_candidates[0].all_objects
+        ):
+            raise ValueError(
+                f"shared template must link exactly one nonempty {machine} PIMM_PUBLISHED"
+            )
+        published_by_machine[machine] = published_candidates[0]
+    published_object_identities = {
+        id(obj)
+        for published in published_by_machine.values()
+        for obj in published.all_objects
+    }
+    if config.purpose == "comparison":
+        contacts = load_foot_contact_planes(config)
+        plan = comparison_link_plan(
+            composition_for(config.scene_id),
+            {machine: contact.z for machine, contact in contacts.items()},
+        )
+        instances = {
+            str(getattr(obj, "name", "")): obj
+            for obj in bpy.context.scene.objects
+            if getattr(obj, "instance_type", None) == "COLLECTION"
+        }
+        if set(instances) != {item.instance_name for item in plan}:
+            raise ValueError("comparison scene must contain both unique managed instances")
+        for item in plan:
+            instance = instances[item.instance_name]
+            expected_collection = published_by_machine[item.machine]
+            if (
+                getattr(instance, "instance_collection", None) is not expected_collection
+                or tuple(float(value) for value in instance.location)
+                != (item.offset_x, item.offset_y, item.offset_z)
+                or tuple(float(value) for value in instance.rotation_euler)
+                != (0.0, 0.0, 0.0)
+                or tuple(float(value) for value in instance.scale) != (1.0, 1.0, 1.0)
+                or instance.get("pimm_comparison_machine") != item.machine
+                or instance.get("pimm_scene_transform_ownership") != "scene-owned"
+                or instance.get("pimm_source_contact_z") != item.source_contact_z
+                or instance.get("pimm_resolved_ground_z") != item.resolved_ground_z
+            ):
+                raise ValueError(
+                    f"comparison {item.machine} instance transform or contact evidence drifted"
+                )
     for obj in bpy.context.scene.objects:
         if getattr(obj, "type", None) != "MESH":
             continue
         if obj.get("pimm_scene_environment_role") is not None:
             continue
-        if _resolved_library_path(bpy, obj) != expected_master or _resolved_library_path(
-            bpy, getattr(obj, "data", None)
-        ) != expected_master:
+        origin = _resolved_library_path(bpy, obj)
+        data_origin = _resolved_library_path(bpy, getattr(obj, "data", None))
+        if origin not in expected_masters.values() or data_origin not in expected_masters.values():
             raise ValueError(f"scene-local product mesh is forbidden: {getattr(obj, 'name', '')}")
         if id(obj) not in published_object_identities:
             raise ValueError(f"product mesh is outside linked PIMM_PUBLISHED: {getattr(obj, 'name', '')}")
@@ -1001,7 +1329,7 @@ def _validate_open_template_authority(bpy: Any, config: ShotConfig) -> None:
         if material.get("pimm_scene_environment_role") is not None:
             continue
         origin = _resolved_library_path(bpy, material)
-        if origin not in {expected_master, expected_material}:
+        if origin not in expected_libraries:
             raise ValueError(
                 f"localized linked material is forbidden: {getattr(material, 'name', '')}"
             )
@@ -1116,6 +1444,50 @@ def _target_evidence(config: ShotConfig, target: TargetResolution) -> dict[str, 
     }
 
 
+def composition_evidence(
+    config: ShotConfig, target: TargetResolution, pose: CameraPose
+) -> dict[str, object]:
+    """Serialize exact spatial authority for fresh-reopen camera validation."""
+
+    composition = composition_for(config.scene_id)
+    placement = composition.subject_placement
+    protected = composition.protected_copy_rect
+    return {
+        "schema_version": 1,
+        "shot_id": config.scene_id,
+        "camera_view": composition.camera_view,
+        "studio_profile": composition.studio_profile,
+        "camera_azimuth_degrees": composition.camera_azimuth_degrees,
+        "camera_elevation_degrees": composition.camera_elevation_degrees,
+        "camera_location": list(pose.location),
+        "camera_target": list(pose.target),
+        "working_distance": math.dist(pose.location, pose.target),
+        "minimum_working_distance_heights": (
+            composition.minimum_working_distance_heights
+        ),
+        "target_bounds_min": list(target.bounds_min),
+        "target_bounds_max": list(target.bounds_max),
+        "subject_placement": {
+            "center_x": placement.center_x,
+            "center_y": placement.center_y,
+            "clearance_left": placement.clearance_left,
+            "clearance_right": placement.clearance_right,
+            "clearance_top": placement.clearance_top,
+            "clearance_bottom": placement.clearance_bottom,
+        },
+        "protected_copy_rect": (
+            None
+            if protected is None
+            else {
+                "left": protected.left,
+                "top": protected.top,
+                "right": protected.right,
+                "bottom": protected.bottom,
+            }
+        ),
+    }
+
+
 def managed_output_path(config: ShotConfig) -> Path:
     """Return the only mutable proof-output prefix permitted during authoring."""
 
@@ -1137,9 +1509,10 @@ def _install_profile_supports(bpy: Any, specs: Sequence[SceneSupportSpec]) -> No
     for obj in list(bpy.context.scene.objects):
         if getattr(obj, "library", None) is not None:
             continue
-        if obj.get("pimm_scene_environment_role") is None and obj.get(
-            "pimm_scene_support_ownership"
-        ) is None:
+        if (
+            obj.get("pimm_scene_environment_role") is None
+            and obj.get("pimm_scene_support_role") != "reflection-card"
+        ):
             continue
         mesh = getattr(obj, "data", None)
         materials = list(getattr(mesh, "materials", ())) if mesh is not None else []
@@ -1183,6 +1556,7 @@ def _install_profile_supports(bpy: Any, specs: Sequence[SceneSupportSpec]) -> No
             mesh["pimm_scene_support_role"] = spec.role
         mesh.from_pydata(vertices, [], faces)
         material = bpy.data.materials.new(f"{spec.name}_MATERIAL")
+        material.use_nodes = True
         material["pimm_material_id"] = (
             "SCENE_SHADOW_CATCHER"
             if spec.role == "shadow-catcher"
@@ -1237,12 +1611,20 @@ def _configure_authored_scene(
     camera.data.dof.focus_distance = math.dist(pose.location, pose.target)
     camera.data.dof.aperture_fstop = config.aperture_fstop
 
-    foot_contact = load_foot_contact_plane(config)
+    contacts = load_foot_contact_planes(config)
+    if config.purpose == "comparison":
+        link_plan = comparison_link_plan(
+            composition_for(config.scene_id),
+            {machine: contact.z for machine, contact in contacts.items()},
+        )
+        ground_z = link_plan[0].resolved_ground_z
+    else:
+        ground_z = contacts[_single_machine(config)].z
     lights, supports = profile_rig_specs(
         product_bounds_min, product_bounds_max, pose, config
     )
     supports = tuple(
-        replace(spec, center=(spec.center[0], spec.center[1], foot_contact.z))
+        replace(spec, center=(spec.center[0], spec.center[1], ground_z))
         if spec.role == "shadow-catcher"
         else spec
         for spec in supports
@@ -1250,6 +1632,11 @@ def _configure_authored_scene(
     _install_lights(bpy, lights)
     _install_profile_supports(bpy, supports)
     _install_world_environment(bpy, scene, world_environment)
+    workshop_records = (
+        load_workshop_support_assets(bpy, config)
+        if config.purpose == "workshop"
+        else ()
+    )
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.length_unit = "MILLIMETERS"
     scene.unit_settings.scale_length = 0.001
@@ -1275,22 +1662,41 @@ def _configure_authored_scene(
         separators=(",", ":"),
         sort_keys=True,
     )
-    scene["pimm_foot_contact_evidence"] = json.dumps(
-        _foot_contact_evidence(config, foot_contact),
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    if config.purpose == "comparison":
+        scene["pimm_comparison_contact_evidence"] = json.dumps(
+            {
+                machine: foot_contact_evidence(machine, contact)
+                for machine, contact in contacts.items()
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    else:
+        scene["pimm_foot_contact_evidence"] = json.dumps(
+            _foot_contact_evidence(config, contacts[_single_machine(config)]),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
     scene["pimm_shot_composition"] = json.dumps(
-        {
-            "shot_id": config.scene_id,
-            "camera_view": composition_for(config.scene_id).camera_view,
-            "studio_profile": composition_for(config.scene_id).studio_profile,
-            "subject_center": [placement.center_x, placement.center_y],
-        },
+        composition_evidence(config, target, pose),
         separators=(",", ":"),
         sort_keys=True,
     )
+    if config.purpose == "workshop":
+        scene["pimm_workshop_support_evidence"] = json.dumps(
+            [
+                {
+                    "asset_version_id": record.asset_version_id,
+                    "local_relative_path": record.local_relative_path,
+                    "sha256": record.sha256,
+                }
+                for record in workshop_records
+            ],
+            separators=(",", ":"),
+            sort_keys=True,
+        )
     return camera, pose
 
 
@@ -1547,6 +1953,8 @@ def author_scene(
     if destination.exists():
         raise FileExistsError(f"static product scene already exists: {destination}")
     contract, contract_bytes = _load_authoring_contract(config)
+    if config.purpose == "comparison":
+        _install_comparison_master_instances(bpy, config)
     _validate_open_template_authority(bpy, config)
     world_environment = _require_pinned_hdri()
     target = resolve_target_bounds(bpy, config, target_manifest)
@@ -1555,7 +1963,10 @@ def author_scene(
     )
     _validate_authored_scene_state(bpy, config, contract, target, camera, pose)
 
-    master_before = sha256_file(_master_path(config))
+    master_before = {
+        path.resolve(): sha256_file(path)
+        for path in _master_paths(config)
+    }
     material_before = sha256_file(_material_library_path())
     destination.parent.mkdir(parents=True, exist_ok=True)
     nonce = uuid.uuid4().hex
@@ -1574,7 +1985,10 @@ def author_scene(
         if not temporary.is_file():
             raise RuntimeError("Blender did not create the temporary static product scene")
         validation_errors = _run_fresh_validation(temporary, contract_snapshot)
-        master_after = sha256_file(_master_path(config))
+        master_after = {
+            path.resolve(): sha256_file(path)
+            for path in _master_paths(config)
+        }
         material_after = sha256_file(_material_library_path())
         if master_after != master_before or material_after != material_before:
             validation_errors.append("scene authoring changed a protected library fingerprint")

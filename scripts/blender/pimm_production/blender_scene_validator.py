@@ -6,6 +6,7 @@ import argparse
 from dataclasses import replace
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -15,6 +16,19 @@ from typing import Any, Mapping, Sequence
 
 try:
     from .campaign_contract import CAMPAIGN_ID, load_campaign, shot_policy, validate_campaign
+    from .blender_static_product_scene import (
+        CameraPose,
+        FootContactPlane,
+        SHOT_CONFIGS,
+        ShotConfig,
+        TargetResolution,
+        camera_pose,
+        composition_evidence,
+        foot_contact_evidence,
+        frame_coordinates,
+        load_foot_contact_planes,
+    )
+    from .blender_scene_template import comparison_link_plan
     from .external_asset_manifest import validate_external_assets
     from .io_contract import sha256_file
     from .machine_contract import load_machine_contract, validate_controller_scene
@@ -43,6 +57,21 @@ except ImportError:  # Blender may execute this checked-in script directly.
         load_campaign,
         shot_policy,
         validate_campaign,
+    )
+    from scripts.blender.pimm_production.blender_static_product_scene import (
+        CameraPose,
+        FootContactPlane,
+        SHOT_CONFIGS,
+        ShotConfig,
+        TargetResolution,
+        camera_pose,
+        composition_evidence,
+        foot_contact_evidence,
+        frame_coordinates,
+        load_foot_contact_planes,
+    )
+    from scripts.blender.pimm_production.blender_scene_template import (
+        comparison_link_plan,
     )
     from scripts.blender.pimm_production.external_asset_manifest import (
         validate_external_assets,
@@ -330,6 +359,226 @@ def _validate_static_camera_clip_range(
         errors.append("static product camera far clip does not match contract")
 
 
+def _numeric_triplet(value: object) -> tuple[float, float, float] | None:
+    try:
+        values = tuple(float(item) for item in value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if len(values) != 3 or not all(math.isfinite(item) for item in values):
+        return None
+    return values
+
+
+def _close_triplet(
+    actual: tuple[float, float, float],
+    expected: tuple[float, float, float],
+    tolerance: float = 1e-5,
+) -> bool:
+    return all(abs(left - right) <= tolerance for left, right in zip(actual, expected))
+
+
+def _validate_campaign_camera_and_composition(
+    camera: object,
+    scene: object,
+    contract: SceneContract,
+) -> list[str]:
+    errors: list[str] = []
+    config = SHOT_CONFIGS[contract.scene_id]
+    composition = composition_for(contract.scene_id)
+    camera_data = getattr(camera, "data", None)
+    placement = composition.subject_placement
+    if camera_data is None:
+        return ["campaign managed camera must contain exact camera data"]
+    dof = getattr(camera_data, "dof", None)
+    if (
+        getattr(camera_data, "lens", None) != config.focal_length_mm
+        or getattr(camera_data, "sensor_width", None) != 36.0
+        or getattr(dof, "aperture_fstop", None) != config.aperture_fstop
+        or getattr(camera_data, "clip_start", None) != 1.0
+        or getattr(camera_data, "clip_end", None) != 10000.0
+        or getattr(camera_data, "shift_x", None) != 0.5 - placement.center_x
+        or getattr(camera_data, "shift_y", None) != placement.center_y - 0.5
+    ):
+        errors.append("campaign managed camera optics, clip, or shift drifted")
+
+    raw_target = _property(scene, "pimm_static_target_evidence")
+    try:
+        target_payload = json.loads(raw_target) if isinstance(raw_target, str) else None
+    except json.JSONDecodeError:
+        target_payload = None
+    required_target_fields = {
+        "schema_version",
+        "scene_id",
+        "selection_basis",
+        "groups",
+        "stable_ids",
+        "bounds_min",
+        "bounds_max",
+    }
+    if not isinstance(target_payload, Mapping) or set(target_payload) != required_target_fields:
+        return [*errors, "campaign target evidence is missing or malformed"]
+    bounds_min = _numeric_triplet(target_payload.get("bounds_min"))
+    bounds_max = _numeric_triplet(target_payload.get("bounds_max"))
+    stable_ids = target_payload.get("stable_ids")
+    groups = target_payload.get("groups")
+    if (
+        target_payload.get("schema_version") != 1
+        or target_payload.get("scene_id") != contract.scene_id
+        or target_payload.get("selection_basis") != "pimm_stable_id"
+        or bounds_min is None
+        or bounds_max is None
+        or not all(bounds_min[index] < bounds_max[index] for index in range(3))
+        or not isinstance(stable_ids, list)
+        or not stable_ids
+        or not all(isinstance(value, str) and value for value in stable_ids)
+        or not isinstance(groups, Mapping)
+    ):
+        return [*errors, "campaign target evidence is missing or malformed"]
+    target = TargetResolution(
+        bounds_min=bounds_min,
+        bounds_max=bounds_max,
+        groups={
+            str(name): tuple(values)
+            for name, values in groups.items()
+            if isinstance(name, str) and isinstance(values, list)
+        },
+        stable_ids=tuple(stable_ids),
+    )
+    expected_pose = camera_pose(bounds_min, bounds_max, config)
+    expected_evidence = composition_evidence(config, target, expected_pose)
+    raw_composition = _property(scene, "pimm_shot_composition")
+    try:
+        actual_evidence = (
+            json.loads(raw_composition) if isinstance(raw_composition, str) else None
+        )
+    except json.JSONDecodeError:
+        actual_evidence = None
+    if actual_evidence != expected_evidence:
+        errors.append("embedded campaign composition evidence drifted")
+
+    actual_location = _numeric_triplet(getattr(camera, "location", None))
+    if actual_location is None or not _close_triplet(
+        actual_location, expected_pose.location
+    ):
+        errors.append("campaign managed camera orbit or working distance drifted")
+        return errors
+    expected_forward = tuple(
+        (expected_pose.target[index] - actual_location[index])
+        / math.dist(actual_location, expected_pose.target)
+        for index in range(3)
+    )
+    try:
+        try:
+            from mathutils import Vector
+
+            forward_value = camera.matrix_world.to_quaternion() @ Vector(
+                (0.0, 0.0, -1.0)
+            )
+        except ImportError:
+            forward_value = camera.matrix_world.to_quaternion() @ (0.0, 0.0, -1.0)
+        actual_forward = _numeric_triplet(forward_value)
+    except (AttributeError, TypeError, ValueError):
+        actual_forward = None
+    if actual_forward is None:
+        errors.append("campaign managed camera transform is unreadable")
+    else:
+        length = math.sqrt(sum(value * value for value in actual_forward))
+        normalized = tuple(value / length for value in actual_forward) if length else actual_forward
+        if not _close_triplet(normalized, expected_forward):
+            errors.append("campaign managed camera optical axis missed the governed target")
+    working_distance = math.dist(actual_location, expected_pose.target)
+    machine_height = bounds_max[2] - bounds_min[2]
+    if working_distance + 1e-5 < (
+        machine_height * composition.minimum_working_distance_heights
+    ):
+        errors.append("campaign managed camera violates minimum working distance")
+    if contract.purpose != "detail" and abs(actual_location[2] - expected_pose.target[2]) > 1e-5:
+        errors.append("full-machine campaign camera must remain eye-level")
+    actual_pose = CameraPose(
+        location=actual_location,
+        target=expected_pose.target,
+        pitch_degrees=composition.camera_elevation_degrees,
+    )
+    try:
+        coordinates = frame_coordinates(bounds_min, bounds_max, actual_pose, config)
+    except ValueError:
+        coordinates = ()
+    if not coordinates or any(
+        x < placement.clearance_left
+        or x > 1.0 - placement.clearance_right
+        or y < placement.clearance_top
+        or y > 1.0 - placement.clearance_bottom
+        for x, y in coordinates
+    ):
+        errors.append("campaign target violates normalized safe-area placement")
+    protected = composition.protected_copy_rect
+    if protected is not None and any(
+        protected.contains(x, y) for x, y in coordinates
+    ):
+        errors.append("campaign target overlaps the protected-copy rectangle")
+    return errors
+
+
+def _validate_comparison_runtime_state(
+    bpy: Any,
+    config: ShotConfig,
+    contacts: Mapping[str, FootContactPlane],
+) -> list[str]:
+    """Validate both immutable instances and their common physical floor."""
+
+    errors: list[str] = []
+    try:
+        plan = comparison_link_plan(
+            composition_for(config.scene_id),
+            {machine: contact.z for machine, contact in contacts.items()},
+        )
+    except ValueError as error:
+        return [str(error)]
+    instances = {
+        str(getattr(obj, "name", "")): obj
+        for obj in getattr(bpy.data, "objects", ())
+        if getattr(obj, "instance_type", None) == "COLLECTION"
+    }
+    if set(instances) != {item.instance_name for item in plan}:
+        errors.append("comparison scene must contain both unique managed instances")
+    for item in plan:
+        instance = instances.get(item.instance_name)
+        if instance is None:
+            continue
+        location = _numeric_triplet(getattr(instance, "location", None))
+        rotation = _numeric_triplet(getattr(instance, "rotation_euler", None))
+        scale = _numeric_triplet(getattr(instance, "scale", None))
+        if (
+            location != (item.offset_x, item.offset_y, item.offset_z)
+            or rotation != (0.0, 0.0, 0.0)
+            or scale != (1.0, 1.0, 1.0)
+            or _property(instance, "pimm_comparison_machine") != item.machine
+            or _property(instance, "pimm_scene_transform_ownership")
+            != "scene-owned"
+            or _property(instance, "pimm_source_contact_z")
+            != item.source_contact_z
+            or _property(instance, "pimm_resolved_ground_z")
+            != item.resolved_ground_z
+        ):
+            errors.append(
+                f"comparison {item.machine} instance must retain its exact identity-scale common-floor transform"
+            )
+    expected_evidence = json.dumps(
+        {
+            machine: foot_contact_evidence(machine, contact)
+            for machine, contact in contacts.items()
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    if _property(
+        bpy.context.scene, "pimm_comparison_contact_evidence"
+    ) != expected_evidence:
+        errors.append("comparison scene contact evidence must bind both foot reports")
+    return errors
+
+
 def _validate_campaign_runtime_state(
     bpy: Any,
     contract: SceneContract,
@@ -355,6 +604,12 @@ def _validate_campaign_runtime_state(
         or getattr(bpy.context.scene, "camera", None) is not cameras[0]
     ):
         errors.append("campaign scene must contain exactly one managed camera")
+    else:
+        errors.extend(
+            _validate_campaign_camera_and_composition(
+                cameras[0], bpy.context.scene, contract
+            )
+        )
 
     setup = contract.static_render_setup
     lighting = setup.get("lighting") if isinstance(setup, Mapping) else None
@@ -390,6 +645,17 @@ def _validate_campaign_runtime_state(
     )
     if actions or animated:
         errors.append("campaign scene animation is forbidden")
+    if policy.purpose == "comparison":
+        try:
+            contacts = load_foot_contact_planes(SHOT_CONFIGS[contract.scene_id])
+        except (OSError, TypeError, ValueError) as error:
+            errors.append(f"comparison contact reports cannot be loaded: {error}")
+        else:
+            errors.extend(
+                _validate_comparison_runtime_state(
+                    bpy, SHOT_CONFIGS[contract.scene_id], contacts
+                )
+            )
 
     render = bpy.context.scene.render
     if getattr(render, "engine", None) != "CYCLES":

@@ -5,19 +5,24 @@ from __future__ import annotations
 from contextlib import redirect_stderr
 from copy import deepcopy
 from io import StringIO
+import hashlib
 import importlib
 import importlib.util
 from dataclasses import replace
 import json
 import math
 from pathlib import Path
+import subprocess
 from tempfile import TemporaryDirectory
+import textwrap
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 
 MODULE = "scripts.blender.pimm_production.blender_static_product_scene"
+BLENDER = Path(r"D:\Blender 5.2\blender.exe")
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 class IdentityMatrix:
     def __matmul__(self, value):
@@ -326,6 +331,481 @@ class StaticProductSceneTests(unittest.TestCase):
         catcher = next(item for item in supports if item.role == "shadow-catcher")
         self.assertEqual(catcher.name, "PIMM_SCENE_SHADOW_CATCHER")
         self.assertTrue(self.module.catcher_edges_outside_camera_frustum(catcher, pose, config))
+
+    def test_comparison_authority_covers_both_masters_and_contact_planes(self):
+        """Catches comparison authoring falling back to a one-machine helper."""
+
+        module = self._module()
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            original = module.ASSET_ROOT
+            module.ASSET_ROOT = root
+            self.addCleanup(setattr, module, "ASSET_ROOT", original)
+            masters = root / "masters"
+            patches = root / "manifests" / "patches"
+            masters.mkdir(parents=True)
+            patches.mkdir(parents=True)
+            for machine, contact_z in (("30G", -0.25), ("50G", -0.5)):
+                (masters / f"PIMM-{machine}-MASTER.blend").write_bytes(
+                    f"master-{machine}".encode("ascii")
+                )
+                payload = {
+                    "kind": "PIMM_FOOT_GEOMETRY_PATCH",
+                    "machine": machine,
+                    "schema_version": 1,
+                    "solids": [
+                        {
+                            "original_name": "nylon feet",
+                            "stable_id": f"{machine}-pad-{index}",
+                            "geometry": {
+                                "bounds": [-1, -1, contact_z, 1, 1, contact_z + 1]
+                            },
+                        }
+                        for index in range(4)
+                    ],
+                }
+                (patches / f"PIMM-{machine}-foot-refresh.json").write_text(
+                    json.dumps(payload), encoding="utf-8"
+                )
+
+            config = module.SHOT_CONFIGS["pimm-30g-50g--comparison--desktop"]
+            self.assertEqual(
+                tuple(path.name for path in module._master_paths(config)),
+                ("PIMM-30G-MASTER.blend", "PIMM-50G-MASTER.blend"),
+            )
+            contacts = module.load_foot_contact_planes(config)
+            self.assertEqual(set(contacts), {"30G", "50G"})
+            plan = module.comparison_link_plan(
+                module.composition_for(config.scene_id),
+                {machine: contact.z for machine, contact in contacts.items()},
+            )
+            self.assertEqual({item.resolved_ground_z for item in plan}, {0.0})
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime is unavailable")
+    def test_comparison_author_scene_executes_desktop_and_mobile_in_blender(self):
+        """Catches a comparison plan that has no executable two-master authoring caller."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            fixture = root / "comparison_authoring_fixture.py"
+            fixture.write_text(
+                textwrap.dedent(
+                    """
+                    import json
+                    from pathlib import Path
+                    from types import SimpleNamespace
+                    import sys
+
+                    import bpy
+
+                    root = Path(sys.argv[sys.argv.index("--") + 1]).resolve()
+                    repository = Path(sys.argv[sys.argv.index("--") + 2]).resolve()
+                    sys.path.insert(0, str(repository))
+                    import scripts.blender.pimm_production.blender_static_product_scene as authoring
+                    import scripts.blender.pimm_production.blender_scene_validator as validator
+
+                    masters = root / "masters"
+                    templates = root / "scenes" / "shared-templates"
+                    contracts = root / "scenes" / "contracts"
+                    patches = root / "manifests" / "patches"
+                    for path in (masters, templates, contracts, patches):
+                        path.mkdir(parents=True, exist_ok=True)
+
+                    material_path = masters / "PIMM-MATERIAL-LIBRARY.blend"
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    material = bpy.data.materials.new("PIMM_FIXTURE_SHARED")
+                    material["pimm_material_id"] = "FIXTURE_SHARED"
+                    material["pimm_material_scope"] = "shared"
+                    material.use_fake_user = True
+                    bpy.ops.wm.save_as_mainfile(filepath=str(material_path), check_existing=False)
+
+                    for machine, contact_z, width in (("30G", -0.25, 200.0), ("50G", -0.5, 260.0)):
+                        bpy.ops.wm.read_factory_settings(use_empty=True)
+                        with bpy.data.libraries.load(str(material_path), link=True) as (available, requested):
+                            requested.materials = ["PIMM_FIXTURE_SHARED"]
+                        published = bpy.data.collections.new("PIMM_PUBLISHED")
+                        bpy.context.scene.collection.children.link(published)
+                        mesh = bpy.data.meshes.new(f"{machine}_FIXTURE_MESH")
+                        mesh.from_pydata(
+                            [
+                                (-width, -100.0, contact_z),
+                                (width, -100.0, contact_z),
+                                (width, 100.0, 800.0),
+                                (-width, 100.0, 800.0),
+                            ],
+                            [],
+                            [(0, 1, 2, 3)],
+                        )
+                        mesh.materials.append(bpy.data.materials["PIMM_FIXTURE_SHARED"])
+                        product = bpy.data.objects.new(f"{machine}_FIXTURE_PRODUCT", mesh)
+                        product["pimm_stable_id"] = f"{machine}-fixture-product"
+                        published.objects.link(product)
+                        bpy.ops.wm.save_as_mainfile(
+                            filepath=str(masters / f"PIMM-{machine}-MASTER.blend"),
+                            check_existing=False,
+                        )
+                        patch = {
+                            "kind": "PIMM_FOOT_GEOMETRY_PATCH",
+                            "machine": machine,
+                            "schema_version": 1,
+                            "solids": [
+                                {
+                                    "original_name": "nylon feet",
+                                    "stable_id": f"{machine}-pad-{index}",
+                                    "geometry": {"bounds": [-1, -1, contact_z, 1, 1, contact_z + 1]},
+                                }
+                                for index in range(4)
+                            ],
+                        }
+                        (patches / f"PIMM-{machine}-foot-refresh.json").write_text(
+                            json.dumps(patch), encoding="utf-8"
+                        )
+
+                    template = templates / "pimm-30g-50g--comparison.blend"
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    bpy.ops.wm.save_as_mainfile(filepath=str(template), check_existing=False)
+
+                    authoring.ASSET_ROOT = root
+                    shots = {}
+                    for config in authoring.SHOT_CONFIGS.values():
+                        if config.purpose != "detail":
+                            continue
+                        groups = authoring.composition_for(config.scene_id).target_groups
+                        shots[config.scene_id] = {
+                            "groups": {name: list(values) for name, values in groups.items()}
+                        }
+                    target_path = root / "manifests" / "PIMM-static-shot-targets-v1.json"
+                    target_path.write_text(
+                        json.dumps({"schema_version": 1, "shots": shots}), encoding="utf-8"
+                    )
+                    manifest = authoring.load_target_manifest(target_path)
+                    authoring._run_fresh_validation = lambda *_args: []
+                    authoring._require_pinned_hdri = lambda: SimpleNamespace(
+                        path=root / "unused.exr", sha256="0" * 64,
+                        strength=0.5, rotation_degrees=0.0,
+                    )
+                    authoring._install_world_environment = lambda *_args: None
+
+                    results = []
+                    for shot_id in (
+                        "pimm-30g-50g--comparison--desktop",
+                        "pimm-30g-50g--comparison--mobile",
+                    ):
+                        config = authoring.SHOT_CONFIGS[shot_id]
+                        contract_path = contracts / f"{shot_id}.json"
+                        contract_path.write_text(
+                            json.dumps(authoring.contract_payload(config)), encoding="utf-8"
+                        )
+                        bpy.ops.wm.open_mainfile(filepath=str(template))
+                        result = authoring.author_scene(bpy, config, manifest)
+                        contacts = authoring.load_foot_contact_planes(config)
+                        comparison_errors = validator._validate_comparison_runtime_state(
+                            bpy, config, contacts
+                        )
+                        instances = sorted(
+                            (
+                                obj for obj in bpy.context.scene.objects
+                                if getattr(obj, "instance_type", None) == "COLLECTION"
+                            ),
+                            key=lambda obj: obj.name,
+                        )
+                        results.append(
+                            {
+                                "shot_id": shot_id,
+                                "status": result["status"],
+                                "instances": [obj.name for obj in instances],
+                                "scales": [list(obj.scale) for obj in instances],
+                                "grounds": [
+                                    obj.get("pimm_resolved_ground_z") for obj in instances
+                                ],
+                                "comparison_errors": comparison_errors,
+                                "output_exists": Path(result["path"]).is_file(),
+                            }
+                        )
+                    print("PIMM_COMPARISON_FIXTURE_JSON=" + json.dumps(results, sort_keys=True))
+                    """
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(BLENDER),
+                    "--factory-startup",
+                    "--background",
+                    "--python",
+                    str(fixture),
+                    "--",
+                    str(root),
+                    str(REPO_ROOT),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=120,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            marker = "PIMM_COMPARISON_FIXTURE_JSON="
+            lines = [line for line in result.stdout.splitlines() if line.startswith(marker)]
+            self.assertEqual(len(lines), 1, result.stdout + result.stderr)
+            line = lines[0]
+            payload = json.loads(line.removeprefix(marker))
+            self.assertEqual([item["status"] for item in payload], ["scene_created"] * 2)
+            self.assertTrue(all(item["output_exists"] for item in payload))
+            self.assertTrue(
+                all(
+                    item["instances"] == ["PIMM_30G_INSTANCE", "PIMM_50G_INSTANCE"]
+                    and item["scales"] == [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]
+                    and item["grounds"] == [0.0, 0.0]
+                    and item["comparison_errors"] == []
+                    for item in payload
+                )
+            )
+
+    def test_workshop_provenance_records_are_read_and_hash_verified(self):
+        """Catches workshop authoring ignoring empty, valid, drifted, or unrecorded assets."""
+
+        module = self._module()
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            original = module.ASSET_ROOT
+            module.ASSET_ROOT = root
+            self.addCleanup(setattr, module, "ASSET_ROOT", original)
+            manifests = root / "manifests"
+            assets = root / "assets" / "props"
+            manifests.mkdir(parents=True)
+            assets.mkdir(parents=True)
+            config = module.SHOT_CONFIGS["pimm-50g--workshop--wide"]
+            manifest_path = manifests / "external-assets-v1.json"
+            manifest_path.write_text(
+                json.dumps({"schema": "maliev.pimm-external-assets/v1", "assets": []}),
+                encoding="utf-8",
+            )
+            self.assertEqual(module.load_workshop_support_records(config), ())
+
+            unrecorded = assets / "unrecorded.blend"
+            unrecorded.write_bytes(b"unrecorded")
+            self.assertEqual(module.load_workshop_support_records(config), ())
+
+            support = assets / "fixture.blend"
+            support.write_bytes(b"approved-support")
+            digest = hashlib.sha256(support.read_bytes()).hexdigest().upper()
+            record = {
+                "source_url": "https://polyhaven.com/a/fixture",
+                "asset_version_id": "fixture-1.0",
+                "license": "CC0-1.0",
+                "local_relative_path": "assets/props/fixture.blend",
+                "sha256": digest,
+                "intended_shot_ids": [config.scene_id],
+                "machine_master_modified": False,
+            }
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "maliev.pimm-external-assets/v1",
+                        "assets": [record],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            approved = module.load_workshop_support_records(config)
+            self.assertEqual(len(approved), 1)
+            self.assertEqual(approved[0].asset_version_id, "fixture-1.0")
+            self.assertEqual(approved[0].path, support.resolve())
+
+            support.write_bytes(b"drifted-support")
+            with self.assertRaisesRegex(ValueError, "SHA-256"):
+                module.load_workshop_support_records(config)
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime is unavailable")
+    def test_workshop_loader_appends_only_hash_verified_non_product_supports(self):
+        """Catches approved workshop records that are validated but never safely loaded."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            fixture = root / "workshop_support_fixture.py"
+            fixture.write_text(
+                textwrap.dedent(
+                    """
+                    import hashlib
+                    import json
+                    from pathlib import Path
+                    import sys
+
+                    import bpy
+
+                    root = Path(sys.argv[sys.argv.index("--") + 1]).resolve()
+                    repository = Path(sys.argv[sys.argv.index("--") + 2]).resolve()
+                    sys.path.insert(0, str(repository))
+                    import scripts.blender.pimm_production.blender_static_product_scene as authoring
+
+                    props = root / "assets" / "props"
+                    manifests = root / "manifests"
+                    masters = root / "masters"
+                    for path in (props, manifests, masters):
+                        path.mkdir(parents=True, exist_ok=True)
+                    master = masters / "PIMM-50G-MASTER.blend"
+                    master.write_bytes(b"immutable-50g-master")
+
+                    def build_support(path, product_like=False, material_like=False):
+                        bpy.ops.wm.read_factory_settings(use_empty=True)
+                        collection = bpy.data.collections.new("FIXTURE_SUPPORT")
+                        bpy.context.scene.collection.children.link(collection)
+                        mesh = bpy.data.meshes.new("FIXTURE_SUPPORT_MESH")
+                        mesh.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
+                        material = bpy.data.materials.new("FIXTURE_SUPPORT_MATERIAL")
+                        if material_like:
+                            material["pimm_material_id"] = "BLACK_POWDERCOAT"
+                        mesh.materials.append(material)
+                        obj = bpy.data.objects.new("FIXTURE_SUPPORT_OBJECT", mesh)
+                        if product_like:
+                            obj["pimm_stable_id"] = "50G-forbidden-support-product"
+                        collection.objects.link(obj)
+                        bpy.ops.wm.save_as_mainfile(filepath=str(path), check_existing=False)
+
+                    valid_path = props / "valid-support.blend"
+                    product_path = props / "product-like.blend"
+                    material_path = props / "material-like.blend"
+                    unrecorded_path = props / "unrecorded.blend"
+                    build_support(valid_path)
+                    build_support(product_path, product_like=True)
+                    build_support(material_path, material_like=True)
+                    unrecorded_path.write_bytes(b"unrecorded")
+                    authoring.ASSET_ROOT = root
+                    config = authoring.SHOT_CONFIGS["pimm-50g--workshop--wide"]
+                    manifest_path = manifests / "external-assets-v1.json"
+
+                    def digest(path):
+                        return hashlib.sha256(path.read_bytes()).hexdigest().upper()
+
+                    def record(path, version):
+                        return {
+                            "source_url": f"https://polyhaven.com/a/{version}",
+                            "asset_version_id": version,
+                            "license": "CC0-1.0",
+                            "local_relative_path": f"assets/props/{path.name}",
+                            "sha256": digest(path),
+                            "intended_shot_ids": [config.scene_id],
+                            "machine_master_modified": False,
+                        }
+
+                    def write_manifest(records):
+                        manifest_path.write_text(
+                            json.dumps({"schema": "maliev.pimm-external-assets/v1", "assets": records}),
+                            encoding="utf-8",
+                        )
+
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    write_manifest([])
+                    empty = authoring.load_workshop_support_assets(bpy, config)
+                    unrecorded = authoring.load_workshop_support_assets(bpy, config)
+
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    write_manifest([record(valid_path, "valid-1.0")])
+                    before = digest(master)
+                    loaded = authoring.load_workshop_support_assets(bpy, config)
+                    after = digest(master)
+                    tagged = [
+                        obj for obj in bpy.context.scene.objects
+                        if obj.get("pimm_scene_support_ownership") == "scene-support"
+                    ]
+                    authoring._install_profile_supports(bpy, ())
+                    retained = [
+                        obj for obj in bpy.context.scene.objects
+                        if obj.get("pimm_external_asset_version_id") == "valid-1.0"
+                    ]
+                    valid = {
+                        "count": len(loaded),
+                        "tagged": len(tagged),
+                        "retained_after_rig": len(retained),
+                        "asset_id": tagged[0].get("pimm_external_asset_version_id"),
+                        "master_unchanged": before == after,
+                    }
+
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    drift_record = record(valid_path, "drift-1.0")
+                    write_manifest([drift_record])
+                    valid_path.write_bytes(valid_path.read_bytes() + b"drift")
+                    try:
+                        authoring.load_workshop_support_assets(bpy, config)
+                    except ValueError as error:
+                        hash_drift = "SHA-256" in str(error)
+                    else:
+                        hash_drift = False
+
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    write_manifest([record(product_path, "product-1.0")])
+                    try:
+                        authoring.load_workshop_support_assets(bpy, config)
+                    except ValueError as error:
+                        product_rejected = "product-like" in str(error)
+                    else:
+                        product_rejected = False
+
+                    bpy.ops.wm.read_factory_settings(use_empty=True)
+                    write_manifest([record(material_path, "material-1.0")])
+                    try:
+                        authoring.load_workshop_support_assets(bpy, config)
+                    except ValueError as error:
+                        material_rejected = "product-like" in str(error)
+                    else:
+                        material_rejected = False
+
+                    print(
+                        "PIMM_WORKSHOP_FIXTURE_JSON="
+                        + json.dumps(
+                            {
+                                "empty": len(empty),
+                                "unrecorded": len(unrecorded),
+                                "valid": valid,
+                                "hash_drift": hash_drift,
+                                "product_rejected": product_rejected,
+                                "material_rejected": material_rejected,
+                            },
+                            sort_keys=True,
+                        )
+                    )
+                    """
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(BLENDER),
+                    "--factory-startup",
+                    "--background",
+                    "--python",
+                    str(fixture),
+                    "--",
+                    str(root),
+                    str(REPO_ROOT),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=120,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            marker = "PIMM_WORKSHOP_FIXTURE_JSON="
+            lines = [line for line in result.stdout.splitlines() if line.startswith(marker)]
+            self.assertEqual(len(lines), 1, result.stdout + result.stderr)
+            payload = json.loads(lines[0].removeprefix(marker))
+            self.assertEqual(payload["empty"], 0)
+            self.assertEqual(payload["unrecorded"], 0)
+            self.assertEqual(
+                payload["valid"],
+                {
+                    "count": 1,
+                    "tagged": 1,
+                    "retained_after_rig": 1,
+                    "asset_id": "valid-1.0",
+                    "master_unchanged": True,
+                },
+            )
+            self.assertTrue(payload["hash_drift"])
+            self.assertTrue(payload["product_rejected"])
+            self.assertTrue(payload["material_rejected"])
 
     def test_governed_clip_range_contains_current_farthest_stable_geometry(self):
         """Catches the camera far plane clipping the observed 3622-unit product depth."""
