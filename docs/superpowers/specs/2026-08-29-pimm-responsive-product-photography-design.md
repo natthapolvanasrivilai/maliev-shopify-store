@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-29
 
-**Status:** Owner-approved direction; written specification pending final owner review
+**Status:** Owner-approved specification
 
 **Scope:** Governed 30G/50G Blender stills, one atomic storefront media release, and the local Shopify PIMM configurator presentation
 
