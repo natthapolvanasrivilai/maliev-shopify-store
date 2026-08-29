@@ -44,12 +44,23 @@ class CampaignProofPipelineContractTests(unittest.TestCase):
         self.assertIn('"cache_reuse": False', source)
 
     def test_semantic_crop_boxes_are_distinct_and_targeted(self):
-        gauge = render_module._campaign_crop_box(450, 562, "gauge")
-        regulator = render_module._campaign_crop_box(450, 562, "regulator")
+        regions = {
+            "gauge": (0.18, 0.10, 0.34, 0.27),
+            "regulator": (0.05, 0.02, 0.22, 0.20),
+        }
+        gauge = render_module._campaign_crop_box(450, 562, "gauge", regions)
+        regulator = render_module._campaign_crop_box(450, 562, "regulator", regions)
         black_material = render_module._campaign_crop_box(450, 562, "black-material")
         self.assertNotEqual(gauge, regulator)
-        self.assertGreater(gauge[0], regulator[0])
-        self.assertLess(regulator[2], 180)
+        for name, box in (("gauge", gauge), ("regulator", regulator)):
+            projected = (
+                round(450 * regions[name][0]), round(562 * regions[name][1]),
+                round(450 * regions[name][2]), round(562 * regions[name][3]),
+            )
+            self.assertLessEqual(box[0], projected[0])
+            self.assertLessEqual(box[1], projected[1])
+            self.assertGreaterEqual(box[2], projected[2])
+            self.assertGreaterEqual(box[3], projected[3])
         self.assertGreater(black_material[0], 150)
         self.assertLess(black_material[1], 160)
 

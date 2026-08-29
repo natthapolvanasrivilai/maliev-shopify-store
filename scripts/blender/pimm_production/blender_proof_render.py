@@ -41,6 +41,7 @@ from scripts.blender.pimm_production.proof_contract import (
     write_proof_manifest,
 )
 from scripts.blender.pimm_production.scene_contract import SceneContract
+from scripts.blender.pimm_production.shot_compositions import composition_for
 from scripts.blender.pimm_production.tool_policy import validate_tool_lock
 
 
@@ -243,6 +244,46 @@ def _project_named_shafts(bpy: Any, camera: object) -> dict[str, list[float]]:
         top = min(1.0, max(point.y for point in visible))
         if right > left and top > bottom:
             regions[obj.name] = [left, 1.0 - top, right, 1.0 - bottom]
+    return regions
+
+
+def _project_campaign_target_groups(bpy: Any, shot_id: str) -> dict[str, list[float]]:
+    """Project the governed stable-ID target groups into normalized image boxes."""
+
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils import Vector
+
+    composition = composition_for(shot_id)
+    camera = bpy.context.scene.camera
+    by_stable_id = {
+        str(obj.get("pimm_stable_id")): obj
+        for obj in bpy.data.objects
+        if getattr(obj, "type", None) == "MESH" and obj.get("pimm_stable_id")
+    }
+    regions: dict[str, list[float]] = {}
+    for group_name in ("regulator", "gauge"):
+        stable_ids = composition.target_groups.get(group_name, ())
+        points = []
+        for stable_id in stable_ids:
+            obj = by_stable_id.get(stable_id)
+            if obj is None:
+                raise ValueError(f"missing projected crop target: {group_name}:{stable_id}")
+            points.extend(
+                world_to_camera_view(
+                    bpy.context.scene, camera, obj.matrix_world @ Vector(corner)
+                )
+                for corner in obj.bound_box
+            )
+        visible = [point for point in points if point.z > 0]
+        if not visible:
+            raise ValueError(f"projected crop target is behind camera: {group_name}")
+        left = max(0.0, min(point.x for point in visible))
+        right = min(1.0, max(point.x for point in visible))
+        bottom = max(0.0, min(point.y for point in visible))
+        top = min(1.0, max(point.y for point in visible))
+        if right <= left or top <= bottom:
+            raise ValueError(f"projected crop target has no visible area: {group_name}")
+        regions[group_name] = [left, 1.0 - top, right, 1.0 - bottom]
     return regions
 
 
@@ -2412,7 +2453,35 @@ _CAMPAIGN_CROP_FOCUS = {
 }
 
 
-def _campaign_crop_box(width: int, height: int, name: str) -> tuple[int, int, int, int]:
+def _campaign_crop_box(
+    width: int,
+    height: int,
+    name: str,
+    target_regions: Mapping[str, Sequence[float]] | None = None,
+) -> tuple[int, int, int, int]:
+    if target_regions and name in {"gauge", "regulator"} and name in target_regions:
+        region = target_regions[name]
+        if len(region) != 4:
+            raise ValueError(f"invalid projected crop target: {name}")
+        projected = (
+            round(width * float(region[0])), round(height * float(region[1])),
+            round(width * float(region[2])), round(height * float(region[3])),
+        )
+        target_w = max(1, projected[2] - projected[0])
+        target_h = max(1, projected[3] - projected[1])
+        crop_w = min(width, max(140, target_w + 48))
+        crop_h = min(height, max(180, target_h + 48))
+        cx = (projected[0] + projected[2]) / 2
+        cy = (projected[1] + projected[3]) / 2
+        left = max(0, min(width - crop_w, round(cx - crop_w / 2)))
+        top = max(0, min(height - crop_h, round(cy - crop_h / 2)))
+        box = (left, top, left + crop_w, top + crop_h)
+        if not (
+            box[0] <= projected[0] and box[1] <= projected[1]
+            and box[2] >= projected[2] and box[3] >= projected[3]
+        ):
+            raise ValueError(f"crop does not contain projected target: {name}")
+        return box
     if name == "feet":
         crop_w, crop_h = width, max(256, height // 2)
     elif name in {"gauge", "regulator", "airtac"}:
@@ -2427,7 +2496,11 @@ def _campaign_crop_box(width: int, height: int, name: str) -> tuple[int, int, in
     return left, top, left + crop_w, top + crop_h
 
 
-def _write_campaign_crops(shot_dir: Path, shot_id: str) -> tuple[dict[str, str], dict[str, str]]:
+def _write_campaign_crops(
+    shot_dir: Path,
+    shot_id: str,
+    target_regions: Mapping[str, Sequence[float]] | None = None,
+) -> tuple[dict[str, str], dict[str, str]]:
     from PIL import Image
 
     white_path = shot_dir / "white.png"
@@ -2436,7 +2509,9 @@ def _write_campaign_crops(shot_dir: Path, shot_id: str) -> tuple[dict[str, str],
         white.load()
     crop_paths: dict[str, str] = {}
     for name in _campaign_crop_names(shot_id):
-        left, top, right, bottom = _campaign_crop_box(white.width, white.height, name)
+        left, top, right, bottom = _campaign_crop_box(
+            white.width, white.height, name, target_regions
+        )
         crop_path = shot_dir / f"crop-100pct-{name}.png"
         if crop_path.exists():
             crop_path.unlink()
@@ -2445,8 +2520,8 @@ def _write_campaign_crops(shot_dir: Path, shot_id: str) -> tuple[dict[str, str],
     crop_hashes = {name: sha256_file(shot_dir / path) for name, path in crop_paths.items()}
     for first, second in (("gauge", "regulator"), ("feet", "black-material")):
         if first in crop_hashes and second in crop_hashes:
-            if _campaign_crop_box(white.width, white.height, first) == _campaign_crop_box(
-                white.width, white.height, second
+            if _campaign_crop_box(white.width, white.height, first, target_regions) == _campaign_crop_box(
+                white.width, white.height, second, target_regions
             ):
                 raise ValueError(f"semantic crops share a box: {first}, {second}")
             if crop_hashes[first] == crop_hashes[second]:
@@ -2460,6 +2535,7 @@ def _campaign_finalize_shot(
     source_path: Path,
     shadow_path: Path,
     product_source_path: Path,
+    target_regions: Mapping[str, Sequence[float]] | None = None,
 ) -> tuple[dict[str, str], dict[str, object], dict[str, str]]:
     """Publish the review passes and literal unscaled crops for one shot."""
 
@@ -2545,7 +2621,9 @@ def _campaign_finalize_shot(
     published["full_frame"] = shot_dir / "full-frame.png"
     shutil.copyfile(published["white"], published["full_frame"])
 
-    crop_paths, crop_hashes = _write_campaign_crops(shot_dir, shot.shot_id)
+    crop_paths, crop_hashes = _write_campaign_crops(
+        shot_dir, shot.shot_id, target_regions
+    )
 
     if shot.alpha:
         safety_mapping = analyze_alpha_safety(
@@ -2656,6 +2734,8 @@ def _run_campaign_shot_worker(
         "source_path": str(source_path),
         "shadow_path": str(shadow_path),
         "product_source_path": str(product_source_path),
+        "projected_target_regions": _project_campaign_target_groups(bpy, shot_id)
+        if "--pneumatics--" in shot_id else {},
     }
 
 
@@ -2749,7 +2829,8 @@ def render_campaign(asset_root: Path, blender: Path) -> dict[str, object]:
                     f"missing={missing_worker_outputs}; observed={observed}"
                 )
             outputs, alpha_margins, crop_hashes = _campaign_finalize_shot(
-                shot_dir, shot, source_path, shadow_path, product_source_path
+                shot_dir, shot, source_path, shadow_path, product_source_path,
+                result.get("projected_target_regions"),
             )
             source_path.unlink()
             shadow_path.unlink()
