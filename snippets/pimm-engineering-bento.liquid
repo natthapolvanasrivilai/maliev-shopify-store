@@ -92,6 +92,7 @@
           >{% if model_contract_valid %}{{ specifications.shot_capacity_g }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
           <span data-pimm-spec-unit="shot_capacity_g" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.capacity.unit' | t }}</span>
         </dd>
+        <p>{{ 'products.pimm_machine.specs.capacity.guidance' | t }}</p>
       </div>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--temperature">
         <dt>{{ 'products.pimm_machine.specs.temperature.label' | t }}</dt>
@@ -102,6 +103,7 @@
           >{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
           <span data-pimm-spec-unit="max_melt_temperature_c" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.temperature.unit' | t }}</span>
         </dd>
+        <p>{{ 'products.pimm_machine.specs.temperature.guidance' | t }}</p>
       </div>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--mold">
         <dt>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</dt>
@@ -112,6 +114,7 @@
           >{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
           <span data-pimm-spec-unit="mold_envelope" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</span>
         </dd>
+        <p>{{ 'products.pimm_machine.specs.mold_envelope.guidance' | t }}</p>
       </div>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--pressure">
         <dt>{{ 'products.pimm_machine.specs.pressure.label' | t }}</dt>
@@ -122,6 +125,7 @@
           >{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
           <span data-pimm-spec-unit="max_air_pressure_mpa" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.pressure.unit' | t }}</span>
         </dd>
+        <p>{{ 'products.pimm_machine.specs.pressure.guidance' | t }}</p>
       </div>
     </dl>
   </div>

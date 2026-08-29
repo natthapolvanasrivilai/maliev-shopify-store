@@ -142,7 +142,7 @@
             "name": "PIMM 30G",
             "description": "The entry point to in-house molding. Compact enough for a desk-height bench, capable enough for production parts up to 30 grams.",
             "spec": "30 g shot capacity",
-            "price_note": "50% deposit starts production",
+            "price_note": "Made to order",
             "asset_name": "maliev-pimm-30g-alpha.webp",
             "image_alt": "MALIEV PIMM 30G injection molding machine, three-quarter studio view"
           }
@@ -154,7 +154,7 @@
             "name": "PIMM 50G",
             "description": "More shot volume, taller mold space, and the same footprint discipline — for bigger parts and longer production runs.",
             "spec": "50 g shot capacity",
-            "price_note": "50% deposit starts production",
+            "price_note": "Made to order",
             "asset_name": "maliev-pimm-50g-alpha.webp",
             "image_alt": "MALIEV PIMM 50G injection molding machine, three-quarter studio view"
           }

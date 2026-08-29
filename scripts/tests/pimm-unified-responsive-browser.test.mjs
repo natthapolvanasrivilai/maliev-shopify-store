@@ -24,7 +24,7 @@ const models = ['30G', '50G'];
 const expectedMarket = {
   en: {
     status: 'Made to order',
-    depositLabel: '50% production deposit',
+    unavailable: 'Currently unavailable',
     alt: {
       '30G': {
         hero: 'MALIEV 30G pneumatic injection molding machine, front view',
@@ -42,7 +42,7 @@ const expectedMarket = {
   },
   th: {
     status: 'ผลิตตามคำสั่งซื้อ',
-    depositLabel: 'เงินมัดจำเริ่มผลิต 50%',
+    unavailable: 'ยังไม่พร้อมให้สั่งซื้อในขณะนี้',
     alt: {
       '30G': {
         hero: 'เครื่องฉีดพลาสติกระบบลม MALIEV รุ่น 30G มุมมองด้านหน้า',
@@ -60,7 +60,6 @@ const expectedMarket = {
   },
   models: {
     '30G': {
-      depositPrice: '฿52,965.00 THB',
       fullPrice: '฿105,930.00 THB',
       specifications: {
         schema_version: 1,
@@ -78,7 +77,6 @@ const expectedMarket = {
       },
     },
     '50G': {
-      depositPrice: '฿85,000.00 THB',
       fullPrice: '฿170,000.00 THB',
       specifications: {
         schema_version: 1,
@@ -435,8 +433,8 @@ function applyFailureFixture(html, fixture) {
   if (fixture === 'unavailable-50g') {
     target.available = false;
     const thai = /<html[^>]+lang=["']th(?:-|["'])/i.test(html);
-    target.statusText = thai ? 'ยังไม่พร้อมรับเงินมัดจำในขณะนี้' : 'Currently unavailable for deposit';
-    target.announcementText = `${target.statusText}. ${thai ? 'เงินมัดจำเริ่มผลิต 50%' : '50% production deposit'}: ${target.depositPrice}`;
+    target.statusText = thai ? 'ยังไม่พร้อมให้สั่งซื้อในขณะนี้' : 'Currently unavailable';
+    target.announcementText = target.statusText;
   } else if (fixture === 'malformed-specifications') {
     target.specifications.model = '30G';
     target.statusText = invalidMessage;
@@ -501,7 +499,6 @@ async function navigateWithFixture(session, url, fixture) {
 const pageProbe = `(() => {
   const machine = document.querySelector('[data-pimm-machine-product]');
   const factory = document.querySelector('[data-pimm-book-visit]');
-  const deposit = document.querySelector('[data-pimm-deposit-action]');
   const radios = [...document.querySelectorAll('[data-pimm-model-radio]')];
   const status = document.querySelector('[data-pimm-variant-status]');
   const purchase = document.querySelector('[data-pimm-purchase-qualification]');
@@ -509,7 +506,7 @@ const pageProbe = `(() => {
   const payload = document.querySelector('[data-pimm-variant-data]');
   return {
     bentoCount: document.querySelectorAll('[data-pimm-engineering-bento]').length,
-    factoryBeforeDeposit: Boolean(factory && deposit && (factory.compareDocumentPosition(deposit) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    demoActionCount: machine?.querySelectorAll('[data-pimm-book-visit]').length ?? 0,
     h1Count: machine?.querySelectorAll('h1').length ?? 0,
     liveRegion: status && {
       atomic: status.getAttribute('aria-atomic'),
@@ -520,6 +517,7 @@ const pageProbe = `(() => {
     noOverflow: document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth,
     purchaseFullBleed: Boolean(purchaseRect && Math.abs(purchaseRect.left) <= 1 && Math.abs(purchaseRect.right - innerWidth) <= 1),
     purchaseRect: purchaseRect && { left: purchaseRect.left, right: purchaseRect.right, width: purchaseRect.width },
+    paymentActionCount: machine?.querySelectorAll('[data-pimm-deposit-action], button[type="submit"], product-form').length ?? 0,
     taxContext: {
       country: payload?.dataset.pimmCountry,
       currency: payload?.dataset.pimmCurrency,
@@ -647,12 +645,10 @@ const selectedStateProbe = (model) => `(async () => {
   const record = payload.find((variant) => variant.model === ${JSON.stringify(model)});
   const values = Object.fromEntries([...document.querySelectorAll('[data-pimm-model-value]')].map((node) => [node.dataset.pimmModelValue, node.textContent.trim()]));
   const specifications = Object.fromEntries([...document.querySelectorAll('[data-pimm-spec]')].map((node) => [node.dataset.pimmSpec, node.textContent.trim()]));
-  const deposit = document.querySelector('[data-pimm-deposit-action]');
   const status = document.querySelector('[data-pimm-variant-status]');
   const factory = document.querySelector('[data-pimm-book-visit]');
   return {
     checked: radio.checked,
-    depositDisabled: deposit.disabled,
     factoryHref: factory.href,
     invalidMessage: document.querySelector('[data-pimm-variant-data]').dataset.pimmInvalidMessage,
     imagesReady,
@@ -740,20 +736,21 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             true,
             `${language} ${width}x${height} must not overflow: ${JSON.stringify(probe.overflowEvidence)}`,
           );
-          assert.equal(probe.factoryBeforeDeposit, true);
+          assert.equal(probe.demoActionCount, 2);
+          assert.equal(probe.paymentActionCount, 0);
           assert.equal(
             probe.purchaseFullBleed,
             true,
             `${language} ${width}x${height} purchase must remain full bleed: ${JSON.stringify(probe.purchaseRect)}`,
           );
           assert.deepEqual(probe.radioModels, models);
-          assert.deepEqual(probe.radioNames, ['id', 'id']);
+          assert.deepEqual(probe.radioNames, ['pimm-model', 'pimm-model']);
           assert.equal(new Set(probe.radioValues).size, 2);
           assert.deepEqual(probe.liveRegion, {
             atomic: 'true',
             live: 'polite',
             role: 'status',
-            text: `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedMarket.models['30G'].depositPrice}`,
+            text: expectedMarket[language].status,
           });
           assert.deepEqual(probe.taxContext, { country: 'TH', currency: 'THB', taxesIncluded: 'true' });
 
@@ -763,7 +760,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             const consoleGeometry = await evaluate(session, consoleGeometryProbe);
             const expectedModel = expectedMarket.models[model];
             const expectedAlt = expectedMarket[language].alt[model];
-            const expectedAnnouncement = `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedModel.depositPrice}`;
+            const expectedAnnouncement = expectedMarket[language].status;
             const expectedMedia = Object.entries(expectedModel.media).map(([slot, media]) => ({
               alt: expectedAlt[slot],
               filename: media.filename,
@@ -823,12 +820,9 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               state.media.map(({ complete, naturalWidth }) => ({ complete, loaded: naturalWidth > 0 })),
               Array.from({ length: 4 }, () => ({ complete: true, loaded: true })),
             );
-            assert.equal(state.values.depositPrice, expectedModel.depositPrice);
             assert.equal(state.values.fullPrice, expectedModel.fullPrice);
-            assert.equal(state.record.depositPrice, expectedModel.depositPrice);
             assert.equal(state.record.fullPrice, expectedModel.fullPrice);
             assert.equal(state.values.leadTime, state.record.leadTime);
-            assert.equal(state.depositDisabled, false);
             assert.equal(state.record.available, true);
             assert.equal(state.record.contractValid, true);
             assert.equal(state.status, expectedAnnouncement);
@@ -866,7 +860,6 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               model,
               viewport: `${width}x${height}`,
               taxContext: probe.taxContext,
-              depositPrice: state.values.depositPrice,
               fullPrice: state.values.fullPrice,
               status: state.status,
               specifications: state.specifications,
@@ -897,6 +890,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
         await new Promise((resolveTransition) => setTimeout(resolveTransition, 220));
         radio50.focus();
         radio50.click();
+        await new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
         await new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
         await new Promise((resolveTransition) => setTimeout(resolveTransition, 50));
         const snapshot = (model) => [...document.querySelectorAll('[data-pimm-media-model="' + model + '"]')].map((group) => ({
@@ -1084,6 +1078,9 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       const zoom = await evaluate(session, `(() => {
         const decision = document.querySelector('.pimm-machine__hero-decision');
         const stage = document.querySelector('.pimm-machine__hero-stage');
+        const titleGroup = document.querySelector('.pimm-machine__hero-title-group');
+        const selector = document.querySelector('[data-pimm-model-selector]');
+        const actions = document.querySelector('.pimm-machine__hero-actions');
         const evidence = document.querySelector('.pimm-machine__hero-evidence');
         const qualification = document.querySelector('[data-pimm-qualification-strip]');
         const machine = document.querySelector('[data-pimm-machine-product]');
@@ -1093,10 +1090,13 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
         const visible = (selector) => Boolean(document.querySelector(selector)?.getClientRects().length);
         return {
           controls: {
-            configure: visible('.pimm-machine__hero-actions .pimm-machine__text-link'),
-            deposit: visible('[data-pimm-deposit-action]'),
             modelSelector: visible('[data-pimm-model-selector]'),
             visit: visible('[data-pimm-book-visit]'),
+          },
+          visualOrder: {
+            stageBeforeSelector: stage && selector && stage.getBoundingClientRect().bottom <= selector.getBoundingClientRect().top + 1,
+            selectorBeforeActions: selector && actions && selector.getBoundingClientRect().bottom <= actions.getBoundingClientRect().top + 1,
+            actionsBeforeTitle: actions && titleGroup && actions.getBoundingClientRect().bottom <= titleGroup.getBoundingClientRect().top + 1,
           },
           order: [
             decision?.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -1119,10 +1119,13 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       })()`);
       assert.deepEqual(zoom.order, [true, true, true]);
       assert.deepEqual(zoom.controls, {
-        configure: true,
-        deposit: true,
         modelSelector: true,
         visit: true,
+      });
+      assert.deepEqual(zoom.visualOrder, {
+        stageBeforeSelector: true,
+        selectorBeforeActions: true,
+        actionsBeforeTitle: true,
       });
       assert.ok(zoom.overflowX <= 1, `200% zoom flow ${JSON.stringify(zoom)}`);
       assert.ok(zoom.titleLineCount <= 5, `200% zoom title ${JSON.stringify(zoom)}`);
@@ -1145,27 +1148,24 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
           assert.ok(state.factoryHref);
           assert.equal(state.otherVisibleMedia, 0);
           if (fixture === 'unavailable-50g') {
-            assert.equal(state.depositDisabled, true);
             assert.equal(state.visibleMedia, 4);
             assert.equal(state.specifications.shot_capacity_g, '50');
             assert.equal(
               state.status,
-              `${language === 'th' ? 'ยังไม่พร้อมรับเงินมัดจำในขณะนี้' : 'Currently unavailable for deposit'}. ${expectedMarket[language].depositLabel}: ${expectedMarket.models['50G'].depositPrice}`,
+              expectedMarket[language].unavailable,
             );
           } else if (fixture === 'malformed-specifications') {
-            assert.equal(state.depositDisabled, true);
             assert.equal(state.visibleMedia, 0);
             assert.equal(state.specifications.shot_capacity_g, state.invalidMessage);
             assert.equal(state.status, state.invalidMessage);
           } else {
             const hero = expectedMarket.models['50G'].media.hero;
             const engineering = state.media.find((media) => media.slot === 'engineering');
-            assert.equal(state.depositDisabled, false);
             assert.equal(state.visibleMedia, 4);
             assert.equal(state.specifications.shot_capacity_g, '50');
             assert.equal(
               state.status,
-              `${expectedMarket[language].status}. ${expectedMarket[language].depositLabel}: ${expectedMarket.models['50G'].depositPrice}`,
+              expectedMarket[language].status,
             );
             assert.deepEqual(
               { alt: engineering.alt, filename: engineering.filename, height: engineering.height, width: engineering.width },

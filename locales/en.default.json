@@ -121,9 +121,6 @@
         "evidence_heading": "Selected machine",
         "engineering_detail": "Inspect pneumatic controls"
       },
-      "actions": {
-        "configure": "Configure this machine"
-      },
       "qualification": {
         "heading": "Commercial summary",
         "availability": "Availability"
@@ -147,19 +144,23 @@
       "specs": {
         "capacity": {
           "label": "Shot capacity",
-          "unit": "g"
+          "unit": "g",
+          "guidance": "Include the part, runner and a practical process margin when estimating shot weight."
         },
         "temperature": {
           "label": "Maximum melt temperature",
-          "unit": "°C"
+          "unit": "°C",
+          "guidance": "Confirm the material processing range before planning barrel temperatures."
         },
         "mold_envelope": {
           "label": "Mold envelope (W × H × D)",
-          "unit": "mm"
+          "unit": "mm",
+          "guidance": "Allow clearance for the mold, fixtures, injection entry and service access."
         },
         "pressure": {
           "label": "Maximum air pressure",
-          "unit": "MPa"
+          "unit": "MPa",
+          "guidance": "Verify compressor delivery at the machine while the system is under load."
         }
       },
       "tooling": {
@@ -168,18 +169,15 @@
       },
       "purchase": {
         "heading": "See the machine before you commit",
-        "body": "Book a demo session in Thailand to review your part, material, mold plan and utilities with the MALIEV team. A qualified buyer can then place the listed 50% deposit to start a made-to-order build.",
+        "body": "Book a demo session in Thailand to review your part, material, mold plan and utilities with the MALIEV team before confirming the right machine.",
         "full_price": "Full machine price",
-        "deposit_price": "50% production deposit",
         "lead_time_label": "Production lead time",
         "lead_time": "Approximately {{ days }} days",
-        "deposit_explanation": "The deposit starts production for the selected model after qualification. The remaining balance and collection or delivery arrangements are confirmed directly with MALIEV.",
-        "book_visit": "Book a demo session",
-        "start_deposit": "Place 50% deposit"
+        "book_visit": "Book a demo session"
       },
       "status": {
         "made_to_order": "Made to order",
-        "out_of_stock": "Currently unavailable for deposit",
+        "out_of_stock": "Currently unavailable",
         "unavailable": "Machine configuration unavailable"
       },
       "ownership": {

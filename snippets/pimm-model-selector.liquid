@@ -26,14 +26,14 @@
           <input
             id="PimmModel-{{ section.id }}-{{ variant.id }}"
             type="radio"
-            name="id"
+            name="pimm-model"
             value="{{ variant.id }}"
             data-pimm-model-radio
             data-model="{{ variant.option1 | escape }}"
             {% if variant.id == selected_variant.id %}checked{% endif %}
           >
           <span>{{ model_label }}</span>
-          <span>{{ variant.price | money_with_currency }}</span>
+          <span>{{ variant.price | times: 2 | money_with_currency }}</span>
         </label>
       {%- endif -%}
     {%- endfor -%}

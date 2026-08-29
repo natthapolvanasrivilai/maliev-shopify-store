@@ -34,7 +34,7 @@
 
 body main .section-pimm-machine-product .pimm-machine h1 {
   font-size: clamp(4.2rem, 3.8vw, 5.4rem) !important;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 0.94;
 }
@@ -258,8 +258,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   gap: 14px;
 }
 
-.pimm-machine__hero-actions .button,
-.pimm-machine__qualification-strip > .button {
+.pimm-machine__hero-actions .button {
   align-items: center;
   border: 1px solid #006FD6;
   border-radius: 4px;
@@ -280,14 +279,6 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
 .pimm-machine__hero-actions .button--primary:hover {
   background: #005BB5;
   border-color: #005BB5;
-}
-
-.pimm-machine__text-link {
-  color: #005BB5;
-  min-height: 44px;
-  padding-block: 10px;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
 }
 
 .pimm-machine__model-selector {
@@ -374,7 +365,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   border-bottom: 1px solid #D9DDE1;
   display: grid;
   gap: 24px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   padding-block: 24px;
 }
 
@@ -387,7 +378,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
 .pimm-machine__qualification-facts {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   min-width: 0;
 }
 
@@ -395,16 +386,6 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   display: grid;
   gap: 6px;
   min-width: 0;
-}
-
-.pimm-machine__qualification-strip > .button {
-  background: #FFFFFF;
-  color: #005BB5;
-  white-space: nowrap;
-}
-
-.pimm-machine__qualification-strip > .button:hover {
-  background: #E8F3FC;
 }
 
 .pimm-machine__prose {
@@ -513,8 +494,16 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   overflow-wrap: anywhere;
 }
 
+.pimm-machine__engineering-fact p {
+  color: #535A62;
+  font-size: 1.35rem;
+  line-height: 1.45;
+}
+
 .pimm-machine__engineering-fact--capacity :is(dt, dd),
-.pimm-machine__engineering-fact--pressure :is(dt, dd) {
+.pimm-machine__engineering-fact--pressure :is(dt, dd),
+.pimm-machine__engineering-fact--capacity p,
+.pimm-machine__engineering-fact--pressure p {
   color: #FFFFFF;
 }
 
@@ -553,45 +542,15 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   gap: 20px;
 }
 
-.pimm-machine__purchase-summary {
-  border-top: 1px solid #D9DDE1;
-}
-
-.pimm-machine__purchase-summary > div {
-  align-items: baseline;
-  border-bottom: 1px solid #D9DDE1;
+.pimm-machine__purchase-action {
+  align-items: flex-start;
+  align-self: center;
   display: flex;
-  gap: 24px;
-  justify-content: space-between;
-  padding-block: 16px;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.pimm-machine__purchase-summary dt {
-  color: #353A40;
-  font-size: 1.4rem;
-}
-
-.pimm-machine__purchase-summary dd {
-  color: #111315;
-  font-family: var(--maliev-font-mono, 'IBM Plex Mono', ui-monospace, monospace);
-  font-size: 1.4rem;
-  font-weight: 600;
-  text-align: end;
-}
-
-.pimm-machine__deposit-explanation,
-.pimm-machine__variant-status,
-.pimm-machine__actions {
-  grid-column: 2;
-}
-
-.pimm-machine__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.pimm-machine__actions .button {
+.pimm-machine__purchase-action .button {
   align-items: center;
   border: 1px solid #111315;
   border-radius: 4px;
@@ -605,25 +564,15 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   text-decoration: none;
 }
 
-.pimm-machine__actions .button--primary {
+.pimm-machine__purchase-action .button--primary {
   background: #006FD6;
   border-color: #006FD6;
   color: #FFFFFF;
 }
 
-.pimm-machine__actions .button--primary:hover {
+.pimm-machine__purchase-action .button--primary:hover {
   background: #005BB5;
   border-color: #005BB5;
-}
-
-.pimm-machine__actions .button--secondary {
-  background: #FFFFFF;
-  color: #111315;
-}
-
-.pimm-machine__actions .button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
 }
 
 .pimm-machine__app-integrations {
@@ -694,7 +643,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
 
   .pimm-machine__qualification-facts {
     gap: 12px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   body main .section-pimm-machine-product .pimm-machine h1 {
@@ -756,7 +705,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     align-items: center;
     grid-column: 1 / -1;
     grid-row: 3;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     padding-block: 10px 6px;
   }
 
@@ -877,7 +826,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   }
 
   .pimm-machine__hero-console > .pimm-machine__qualification-strip .pimm-machine__qualification-facts {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .pimm-machine__engineering-bento {
@@ -909,9 +858,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     padding-inline: 32px;
   }
 
-  .pimm-machine__deposit-explanation,
-  .pimm-machine__variant-status,
-  .pimm-machine__actions {
+  .pimm-machine__purchase-action {
     grid-column: 1;
   }
 }
@@ -925,18 +872,19 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     align-items: stretch;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 14px;
     height: auto;
     margin-inline: 0;
     margin-top: 0;
     min-height: 100svh;
     overflow: visible;
-    padding-block: calc(60px + 32px) 40px;
+    padding-block: calc(60px + 12px) 24px;
     padding-inline: 0;
   }
 
   body main .section-pimm-machine-product .pimm-machine h1 {
-    font-size: clamp(3.8rem, 12vw, 5.2rem) !important;
+    font-size: clamp(2.8rem, 8.5vw, 3.6rem) !important;
+    line-height: 1;
   }
 
   .pimm-machine__hero-decision {
@@ -944,7 +892,8 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   }
 
   .pimm-machine__hero-title-group {
-    order: 1;
+    gap: 8px;
+    order: 4;
   }
 
   .pimm-machine__model-selector {
@@ -952,25 +901,25 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   }
 
   .pimm-machine__hero-stage {
-    aspect-ratio: 9 / 11;
-    height: auto;
+    aspect-ratio: auto;
+    height: clamp(280px, 38svh, 350px);
+    margin-bottom: 52px;
     min-height: 0;
-    order: 3;
+    order: 1;
   }
 
   .pimm-machine__hero-stage img {
-    height: auto;
-    margin-inline: -9%;
+    height: 100%;
+    margin-inline: -6%;
     max-height: none;
-    width: 118%;
+    width: 112%;
   }
 
   .pimm-machine__hero-actions {
-    order: 4;
+    order: 3;
   }
 
-  .pimm-machine__hero-actions .button,
-  .pimm-machine__hero-actions .pimm-machine__text-link {
+  .pimm-machine__hero-actions .button {
     width: 100%;
   }
 
@@ -1009,20 +958,18 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     padding-block: 20px;
   }
 
-  .pimm-machine__qualification-strip > .button {
-    order: -1;
-    width: 100%;
-  }
-
   .pimm-machine__qualification-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pimm-machine__qualification-facts > div:last-child {
+    grid-column: 1 / -1;
   }
 
   .pimm-machine__tooling {
     gap: 32px;
   }
 
-  .pimm-machine__actions,
   .pimm-machine__ownership {
     align-items: stretch;
     flex-direction: column;
@@ -1054,18 +1001,12 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     padding-inline: 20px;
   }
 
-  .pimm-machine__actions .button {
+  .pimm-machine__purchase-action .button {
     width: 100%;
   }
 
   .pimm-machine__app-integrations {
     padding-inline: 20px;
-  }
-}
-
-@media (min-width: 750px) and (max-width: 849px) {
-  .pimm-machine__hero-actions .pimm-machine__text-link {
-    display: none;
   }
 }
 
@@ -1114,21 +1055,8 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     font-size: 1.3rem;
   }
 
-  .pimm-machine__purchase-summary > div {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .pimm-machine__purchase-summary dd {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    text-align: start;
-    white-space: normal;
-  }
-
-  .pimm-machine__purchase-summary .money {
-    white-space: normal !important;
+  .pimm-machine__qualification-facts > div:last-child {
+    grid-column: auto;
   }
 }
 

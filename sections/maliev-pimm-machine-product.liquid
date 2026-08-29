@@ -54,7 +54,6 @@
     endif
   endif
 
-  assign product_form_id = 'PimmMachineProductForm-' | append: section.id
   assign factory_visit_url = section.settings.factory_visit_url
   if factory_visit_url == blank
     assign factory_visit_url = routes.root_url | append: 'pages/contact'
@@ -62,21 +61,14 @@
 -%}
 
 {{ 'maliev-pimm-machine.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'maliev-pimm-machine.js' | asset_url }}" defer="defer"></script>
 
-<product-form data-section-id="{{ section.id }}">
-  <div class="product-form__error-message-wrapper" role="alert" hidden>
-    <span class="product-form__error-message"></span>
-  </div>
-
-  {%- form 'product', product, id: product_form_id, novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
-    <pimm-machine-product
-      class="pimm-machine"
-      data-pimm-machine-product
-      data-section-id="{{ section.id }}"
-      data-model-contract-valid="{{ model_contract_valid }}"
-    >
+<pimm-machine-product
+  class="pimm-machine"
+  data-pimm-machine-product
+  data-section-id="{{ section.id }}"
+  data-model-contract-valid="{{ model_contract_valid }}"
+>
       {% render 'pimm-hero-console',
         product: product,
         section: section,
@@ -166,8 +158,6 @@
       {% render 'pimm-ownership', section: section %}
       {% render 'pimm-purchase-qualification',
         selected_variant: selected_variant,
-        full_price_cents: selected_full_price_cents,
-        lead_time: lead_time,
         model_contract_valid: model_contract_valid,
         section: section
       %}
@@ -283,15 +273,7 @@
                 endif
               endif
 
-              capture variant_announcement_text
-                echo variant_status_text
-                if variant_contract_valid
-                  echo '. '
-                  echo 'products.pimm_machine.purchase.deposit_price' | t
-                  echo ': '
-                  echo variant.price | money_with_currency
-                endif
-              endcapture
+              assign variant_announcement_text = variant_status_text
 
               assign variant_hero_url = ''
               assign variant_overview_url = ''
@@ -341,7 +323,6 @@
             {
               "id": {{ variant.id | json }},
               "model": {{ variant.option1 | strip_html | json }},
-              "depositPrice": {{ variant.price | money_with_currency | strip_html | json }},
               "fullPrice": {{ variant_full_price_text | strip_html | json }},
               "available": {{ variant.available | json }},
               "leadTime": {{ variant_lead_time_text | strip_html | strip | json }},
@@ -399,9 +380,7 @@
           {%- endfor -%}
         ]
       </script>
-    </pimm-machine-product>
-  {%- endform -%}
-</product-form>
+</pimm-machine-product>
 
 {%- assign app_blocks = section.blocks | where: 'type', '@app' -%}
 {%- if app_blocks.size > 0 -%}

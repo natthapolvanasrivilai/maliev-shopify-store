@@ -54,7 +54,6 @@
         this.payloadContractValid &&
         variant?.contractValid === true &&
         (variant.model === '30G' || variant.model === '50G') &&
-        typeof variant.depositPrice === 'string' &&
         typeof variant.fullPrice === 'string' &&
         typeof variant.leadTime === 'string' &&
         typeof variant.statusText === 'string' &&
@@ -128,9 +127,6 @@
       const status = this.querySelector('[data-pimm-variant-status]');
       const announcement = contractValid ? variant.announcementText : this.invalidMessage;
       if (status && status.textContent.trim() !== announcement) status.textContent = announcement;
-
-      const deposit = this.querySelector('[data-pimm-deposit-action]');
-      if (deposit) deposit.disabled = !contractValid || !variant.available;
 
       this.applyMedia(variant, contractValid, media);
       if (contractValid) this.decodeSelectedHero(variant.model);
@@ -285,9 +281,6 @@
     }
 
     failClosed() {
-      const deposit = this.querySelector('[data-pimm-deposit-action]');
-      if (deposit) deposit.disabled = true;
-
       const status = this.querySelector('[data-pimm-variant-status]');
       if (status) status.textContent = this.invalidMessage;
 

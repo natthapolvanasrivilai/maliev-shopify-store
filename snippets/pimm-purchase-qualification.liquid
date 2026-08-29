@@ -1,10 +1,8 @@
 {% doc %}
-  Renders qualification copy, the primary factory-visit link and secondary deposit submit.
+  Renders the demo-led qualification close for the selected machine.
 
   @param {object} selected_variant - The selected Shopify variant.
-  @param {number} full_price_cents - Twice the selected contextual variant price in integer cents.
-  @param {string} lead_time - The selected variant's production lead time.
-  @param {boolean} model_contract_valid - Whether deposit submission is safe.
+  @param {boolean} model_contract_valid - Whether the selected machine data is valid.
   @param {section} section - The owning machine-product section.
 {% enddoc %}
 
@@ -21,15 +19,6 @@
       assign selected_status_text = 'products.pimm_machine.status.out_of_stock' | t
     endif
   endif
-  capture selected_announcement_text
-    echo selected_status_text
-    if model_contract_valid
-      echo '. '
-      echo 'products.pimm_machine.purchase.deposit_price' | t
-      echo ': '
-      echo selected_variant.price | money_with_currency
-    endif
-  endcapture
 -%}
 
 <section class="pimm-machine__purchase" data-pimm-purchase-qualification aria-labelledby="PimmMachinePurchase-{{ section.id }}">
@@ -38,46 +27,12 @@
     <p>{{ 'products.pimm_machine.purchase.body' | t }}</p>
   </div>
 
-  <dl class="pimm-machine__purchase-summary" data-pimm-purchase-summary>
-    <div>
-      <dt>{{ 'products.pimm_machine.purchase.full_price' | t }}</dt>
-      <dd data-pimm-model-value="fullPrice">
-        {%- if model_contract_valid -%}{{ full_price_cents | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
-      </dd>
-    </div>
-    <div>
-      <dt>{{ 'products.pimm_machine.purchase.deposit_price' | t }}</dt>
-      <dd data-pimm-model-value="depositPrice">
-        {%- if model_contract_valid -%}{{ selected_variant.price | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
-      </dd>
-    </div>
-    <div>
-      <dt>{{ 'products.pimm_machine.purchase.lead_time_label' | t }}</dt>
-      <dd data-pimm-model-value="leadTime">
-        {%- if model_contract_valid -%}{{ 'products.pimm_machine.purchase.lead_time' | t: days: lead_time }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
-      </dd>
-    </div>
-  </dl>
-
-  <p class="pimm-machine__variant-status" role="status" aria-live="polite" aria-atomic="true" data-pimm-variant-status>
-    {{- selected_announcement_text | strip -}}
-  </p>
-
-  <p class="pimm-machine__deposit-explanation">{{ 'products.pimm_machine.purchase.deposit_explanation' | t }}</p>
-
-  <div class="pimm-machine__actions">
+  <div class="pimm-machine__purchase-action">
+    <p class="pimm-machine__variant-status" role="status" aria-live="polite" aria-atomic="true" data-pimm-variant-status>
+      {{- selected_status_text -}}
+    </p>
     <a class="button button--primary" href="{{ factory_visit_url }}" data-pimm-book-visit>
       {{ 'products.pimm_machine.purchase.book_visit' | t }}
     </a>
-    <button
-      class="button button--secondary"
-      type="submit"
-      name="add"
-      data-pimm-deposit-action
-      {% unless model_contract_valid and selected_variant.available %}disabled{% endunless %}
-    >
-      <span>{{ 'products.pimm_machine.purchase.start_deposit' | t }}</span>
-      {%- render 'loading-spinner' -%}
-    </button>
   </div>
 </section>

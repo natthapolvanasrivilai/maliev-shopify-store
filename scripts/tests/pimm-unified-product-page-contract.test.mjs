@@ -7,7 +7,7 @@ const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.ur
 
 const stripShopifyComment = (source) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '');
 
-const [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership, templateSource, header, js, css, enLocaleSource, thLocaleSource] = await Promise.all([
+const [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership, templateSource, header, js, css, enLocaleSource, thLocaleSource, indexTemplateSource, thailandIndexTemplateSource] = await Promise.all([
   readThemeFile('sections/maliev-pimm-machine-product.liquid'),
   readThemeFile('snippets/pimm-hero-console.liquid'),
   readThemeFile('snippets/pimm-qualification-strip.liquid'),
@@ -21,6 +21,8 @@ const [section, heroConsole, qualificationStrip, selector, bento, purchase, owne
   readThemeFile('assets/maliev-pimm-machine.css').catch(() => ''),
   readThemeFile('locales/en.default.json'),
   readThemeFile('locales/th.json'),
+  readThemeFile('templates/index.json'),
+  readThemeFile('templates/index.context.thailand.json'),
 ]);
 
 const template = JSON.parse(stripShopifyComment(templateSource));
@@ -55,7 +57,6 @@ const placeholders = (value) =>
 const variantFixture = ({ model, id, available = true, contractValid = true }) => ({
   id,
   model,
-  depositPrice: model === '30G' ? 'THB 49,500.00' : 'THB 79,439.25',
   fullPrice: model === '30G' ? 'THB 99,000.00' : 'THB 158,878.50',
   available,
   leadTime: '30-day production lead time',
@@ -74,11 +75,7 @@ const variantFixture = ({ model, id, available = true, contractValid = true }) =
     tooling: { src: `https://cdn.example.test/${model}/tooling.webp`, alt: `${model} tooling detail`, width: 2400, height: 1800 },
   },
   statusText: available && contractValid ? 'Made to order' : available ? 'Unavailable' : 'Out of stock',
-  announcementText: available && contractValid
-    ? `Made to order. Deposit price: ${model === '30G' ? 'THB 49,500.00' : 'THB 79,439.25'}`
-    : available
-      ? 'Unavailable'
-      : `Out of stock. Deposit price: ${model === '30G' ? 'THB 49,500.00' : 'THB 79,439.25'}`,
+  announcementText: available && contractValid ? 'Made to order' : available ? 'Unavailable' : 'Out of stock',
   contractValid,
 });
 
@@ -128,13 +125,12 @@ const createControllerHarness = (variants) => {
     textContent: JSON.stringify(variants),
     dataset: { pimmInvalidMessage: 'Unavailable' },
   };
-  const values = ['depositPrice', 'fullPrice', 'leadTime'].map((field) => ({
+  const values = ['fullPrice', 'leadTime'].map((field) => ({
     dataset: { pimmModelValue: field },
     textContent: '',
   }));
   const selected = { textContent: '' };
   const status = { textContent: variants[0]?.announcementText ?? '' };
-  const deposit = { disabled: false };
   const factoryVisit = { href: '/pages/contact' };
   const radios = variants.map((variant, index) => ({ value: String(variant.id), checked: index === 0 }));
   const mediaGroups = variants.flatMap((variant) =>
@@ -182,7 +178,6 @@ const createControllerHarness = (variants) => {
     '[data-pimm-variant-data]': payload,
     '[data-pimm-selected-model]': selected,
     '[data-pimm-variant-status]': status,
-    '[data-pimm-deposit-action]': deposit,
     '[data-pimm-book-visit]': factoryVisit,
   })[selector] ?? null;
   controller.querySelectorAll = (selector) => ({
@@ -200,7 +195,6 @@ const createControllerHarness = (variants) => {
     values,
     selected,
     status,
-    deposit,
     factoryVisit,
     radios,
     mediaGroups,
@@ -227,10 +221,10 @@ test('unified template owns one semantic machine presentation', () => {
   assert.match(selector, /<fieldset[^>]*data-pimm-model-selector/);
   assert.match(selector, /<legend\b/);
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
-  assert.match(section, /<product-form\b/);
-  assert.match(section, /{%[-]?\s*form 'product'/);
-  assert.match(selector, /name="id"/);
-  assert.match(section, /product-form__error-message-wrapper/);
+  assert.doesNotMatch(section, /<product-form\b/);
+  assert.doesNotMatch(section, /{%[-]?\s*form 'product'/);
+  assert.doesNotMatch(section, /product-form__error-message-wrapper/);
+  assert.doesNotMatch(section, /product-form\.js/);
 });
 
 test('engineering console contains the first-screen qualification strip and leads one contained bento', () => {
@@ -282,12 +276,10 @@ test('engineering console uses the approved open twelve-column product stage', (
   assert.match(css, /\.pimm-machine__engineering-fact--pressure\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*4/s);
   assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*background:\s*transparent/s);
   assert.match(css, /\.pimm-machine__hero-stage img\s*\{[^}]*object-fit:\s*contain/s);
-  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*5\.4rem\)\s*!important[^}]*font-weight:\s*650/s);
+  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*5\.4rem\)\s*!important[^}]*font-weight:\s*600/s);
   assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine__hero-evidence\s*>\s*h2\s*\{[^}]*font-size:\s*2\.2rem\s*!important/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__model-option\s*\{[^}]*flex-direction:\s*column[^}]*width:\s*100%/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__hero-facts dd,[\s\S]*\.pimm-machine__qualification-facts dd\s*\{[^}]*font-size:\s*1\.3rem/s);
-  assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__purchase-summary\s*>\s*div\s*\{[^}]*flex-direction:\s*column/s);
-  assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__purchase-summary dd\s*\{[^}]*overflow-wrap:\s*anywhere[^}]*white-space:\s*normal/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*2\.4rem\s*!important[^}]*overflow-wrap:\s*normal[^}]*word-break:\s*normal/s);
   assert.doesNotMatch(css, /\.pimm-machine\s*\{[^}]*display:\s*grid/s);
   assert.doesNotMatch(css, /box-shadow\s*:/);
@@ -307,10 +299,11 @@ test('responsive controls preserve focus touch size motion and 320px containment
   assert.match(css, /@media\s*\(max-width:\s*1199px\)/);
   assert.match(css, /@media\s*\(max-width:\s*749px\)[^{]*\{[^}]*padding-inline:\s*20px/s);
   assert.match(css, /@media\s*\(max-width:\s*359px\)[^{]*\{[\s\S]*\.pimm-machine__hero-facts,[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
-  assert.match(css, /\.pimm-machine__hero-title-group\s*\{[^}]*order:\s*1/s);
-  assert.match(css, /\.pimm-machine__model-selector\s*\{[^}]*order:\s*2/s);
-  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*order:\s*3/s);
-  assert.match(css, /\.pimm-machine__hero-actions\s*\{[^}]*order:\s*4/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-stage\s*\{[^}]*order:\s*1/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-stage\s*\{[^}]*margin-bottom:\s*52px/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__model-selector\s*\{[^}]*order:\s*2/s);
+  assert.match(css, /\.pimm-machine__hero-actions\s*\{[^}]*order:\s*3/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-title-group\s*\{[^}]*order:\s*4/s);
   assert.match(css, /\.pimm-machine__hero-evidence\s*\{[^}]*order:\s*5/s);
   assert.match(css, /overflow-x:\s*clip/);
   assert.match(css, /max-width:\s*100%/);
@@ -328,7 +321,6 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
     'hero.promise',
     'hero.evidence_heading',
     'hero.engineering_detail',
-    'actions.configure',
     'qualification.heading',
     'qualification.availability',
     'model_selector.legend',
@@ -352,12 +344,13 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
     'purchase.heading',
     'purchase.body',
     'purchase.full_price',
-    'purchase.deposit_price',
     'purchase.lead_time_label',
     'purchase.lead_time',
-    'purchase.deposit_explanation',
     'purchase.book_visit',
-    'purchase.start_deposit',
+    'specs.capacity.guidance',
+    'specs.temperature.guidance',
+    'specs.mold_envelope.guidance',
+    'specs.pressure.guidance',
     'status.made_to_order',
     'status.out_of_stock',
     'status.unavailable',
@@ -383,7 +376,7 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
     assert.ok(getPath(en, key).trim(), `empty English ${key}`);
     assert.ok(getPath(th, key).trim(), `empty Thai ${key}`);
   }
-  for (const key of ['hero.fit_statement', 'hero.promise', 'hero.evidence_heading', 'hero.engineering_detail', 'actions.configure', 'qualification.heading', 'qualification.availability', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero']) {
+  for (const key of ['hero.fit_statement', 'hero.promise', 'hero.evidence_heading', 'hero.engineering_detail', 'qualification.heading', 'qualification.availability', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero']) {
     assert.match(getPath(th, key), /[\u0E00-\u0E7F]/, `${key} must contain native Thai copy`);
   }
 
@@ -417,6 +410,17 @@ test('every installed storefront locale preserves the unified machine key and pl
   }
 });
 
+test('storefront copy never mentions a production deposit', () => {
+  const storefrontCopy = [
+    ...storefrontLocales.map(({ value }) => JSON.stringify(value)),
+    indexTemplateSource,
+    thailandIndexTemplateSource,
+    renderedContract,
+  ].join('\n');
+
+  assert.doesNotMatch(storefrontCopy, /deposit|50%|มัดจำ/i);
+});
+
 test('one asymmetric engineering bento exposes stable model media and semantic specifications', () => {
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
   assert.match(bento, /class="pimm-machine__engineering-bento"/);
@@ -428,6 +432,9 @@ test('one asymmetric engineering bento exposes stable model media and semantic s
   }
   for (const field of ['shot_capacity_g', 'max_melt_temperature_c', 'mold_envelope', 'max_air_pressure_mpa']) {
     assert.match(bento, new RegExp(`data-pimm-spec="${field}"`));
+  }
+  for (const key of ['capacity', 'temperature', 'mold_envelope', 'pressure']) {
+    assert.match(bento, new RegExp(`products\\.pimm_machine\\.specs\\.${key}\\.guidance`));
   }
 
   assert.match(section, /for block in section\.blocks/);
@@ -469,12 +476,11 @@ test('missing non-hero media resolves to the selected model hero without invalid
   assert.match(js, /resolved\[slot\] = \{ \.\.\.hero \}/);
 });
 
-test('variant state exposes one localized price and availability announcement', () => {
+test('variant state exposes availability without a payment announcement', () => {
   assert.equal((purchase.match(/role="status"/g) ?? []).length, 1);
-  assert.match(purchase, /products\.pimm_machine\.purchase\.deposit_price/);
-  assert.match(purchase, /selected_variant\.price \| money_with_currency/);
   assert.match(variantPayloadSource, /"announcementText"/);
-  assert.match(section, /variant_status_text[\s\S]*products\.pimm_machine\.purchase\.deposit_price[\s\S]*variant\.price \| money_with_currency/);
+  assert.doesNotMatch(renderedContract, /deposit|มัดจำ|50%/i);
+  assert.doesNotMatch(section, /"depositPrice"/);
 });
 
 test('model media crossfade retains stable nodes and cleans rapid transitions', () => {
@@ -515,16 +521,15 @@ test('engineering facts keep numeric values separate from visible accessible uni
   assert.equal(bento.match(/unless model_contract_valid[^%]*%}hidden/g)?.length, 4);
 });
 
-test('demo session remains primary and precedes the secondary deposit action', () => {
+test('demo session is the only purchase conversion action', () => {
   const visit = purchase.indexOf('data-pimm-book-visit');
-  const deposit = purchase.indexOf('data-pimm-deposit-action');
 
-  assert.ok(visit >= 0 && deposit > visit);
+  assert.ok(visit >= 0);
   assert.match(purchase, /<a[^>]*class="[^"]*button--primary[^"]*"[^>]*data-pimm-book-visit/);
-  assert.match(purchase, /<button[^>]*class="[^"]*button--secondary[^"]*"[^>]*data-pimm-deposit-action/);
+  assert.doesNotMatch(purchase, /<button\b|type="submit"|data-pimm-deposit-action/);
 });
 
-test('model selection and deposit submission fail closed on malformed product data', () => {
+test('model selection fails closed on malformed product data', () => {
   assert.match(section, /assign model_contract_valid = false/);
   assert.match(section, /selected_variant\.option1/);
   assert.match(section, /block\.settings\.model_code == selected_model_code/);
@@ -540,7 +545,6 @@ test('model selection and deposit submission fail closed on malformed product da
   assert.match(section, /metafields\.custom\.full_machine_price\.value/);
   assert.match(section, /metafields\.custom\.lead_time_days\.value/);
   assert.match(purchase, /products\.pimm_machine\.status\.unavailable/);
-  assert.match(purchase, /unless model_contract_valid[^]*disabled/);
 });
 
 test('product model structure must be exactly Model with ordered 30G and 50G variants', () => {
@@ -685,25 +689,23 @@ test('template defaults contain exactly the 30G and 50G asset sets', () => {
 });
 
 test('content and native controls remain available without JavaScript', () => {
-  assert.match(selector, /<input[^>]*type="radio"[^>]*name="id"/);
+  assert.match(selector, /<input[^>]*type="radio"[^>]*name="pimm-model"/);
   assert.match(selector, /{%[-]?\s*for variant in product\.variants/);
-  assert.match(purchase, /<button[^>]*type="submit"/);
+  assert.match(purchase, /data-pimm-book-visit/);
   assert.doesNotMatch(renderedContract, /hidden[^>]*data-pimm-(machine-product|engineering-bento|purchase-qualification)/);
 });
 
-test('variant payload is JSON-safe and radios submit real variant IDs', () => {
+test('variant payload is JSON-safe and radios select real variant IDs', () => {
   assert.match(section, /maliev-pimm-machine\.js/);
-  assert.match(section, /product-form\.js/);
+  assert.doesNotMatch(section, /product-form\.js/);
   assert.match(section, /<script[^>]*type="application\/json"[^>]*data-pimm-variant-data/);
-  assert.match(selector, /type="radio"[^>]*name="id"[^>]*value="\{\{ variant\.id \}\}"[^>]*data-pimm-model-radio/s);
+  assert.match(selector, /type="radio"[^>]*name="pimm-model"[^>]*value="\{\{ variant\.id \}\}"[^>]*data-pimm-model-radio/s);
   assert.match(section, /variant\.option1 \| strip_html \| json/);
-  assert.match(section, /variant\.price \| money_with_currency \| strip_html \| json/);
   assert.doesNotMatch(section, /variant\.metafields\.custom\.pimm_specifications\.value \| json/);
   assert.match(section, /"contractValid": \{\{ variant_contract_valid \| json \}\}/);
   for (const key of [
     'id',
     'model',
-    'depositPrice',
     'fullPrice',
     'available',
     'leadTime',
@@ -766,7 +768,7 @@ test('variant payload is JSON-safe and radios submit real variant IDs', () => {
   assert.match(js, /image\.width = item\.width/);
   assert.match(js, /image\.height = item\.height/);
   assert.match(purchase, /role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
-  assert.match(purchase, /render 'loading-spinner'/);
+  assert.doesNotMatch(purchase, /loading-spinner|type="submit"/);
   assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|document\.write/);
 });
 
@@ -779,7 +781,7 @@ test('market-aware full prices double contextual variant cents while retaining m
   assert.match(section, /data-pimm-taxes-included="\{\{ cart\.taxes_included \}\}"/);
   assert.match(section, /data-pimm-country="\{\{ localization\.country\.iso_code/);
   assert.match(section, /data-pimm-currency="\{\{ cart\.currency\.iso_code/);
-  assert.match(purchase, /full_price_cents \| money_with_currency/);
+  assert.match(qualificationStrip, /full_price_cents \| money_with_currency/);
   assert.doesNotMatch(renderedContract, /full_price\.amount|variant_full_price\.amount/);
 });
 
@@ -789,7 +791,7 @@ test('controller selects a valid variant without rebuilding DOM', () => {
 
   harness.controller.selectVariant(202);
 
-  assert.equal(harness.status.textContent, 'Made to order. Deposit price: THB 79,439.25');
+  assert.equal(harness.status.textContent, 'Made to order');
   assert.deepEqual(harness.mediaGroups.slice(0, 4).map((group) => [group.hidden, group.ariaHidden, group.inert, group.dataset.pimmMediaState]), [
     [false, 'true', true, 'exiting'],
     [false, 'true', true, 'exiting'],
@@ -799,9 +801,7 @@ test('controller selects a valid variant without rebuilding DOM', () => {
   harness.flushTimers();
 
   assert.equal(harness.selected.textContent, '50G');
-  assert.equal(harness.deposit.disabled, false);
   assert.deepEqual(harness.values.map((node) => node.textContent), [
-    'THB 79,439.25',
     'THB 158,878.50',
     '30-day production lead time',
   ]);
@@ -830,7 +830,6 @@ test('non-hero media fallback preserves commerce and uses hero source alt and di
   const engineering = harness.mediaGroups.find(
     (group) => group.dataset.pimmMediaModel === '50G' && group.image.dataset.pimmMediaSlot === 'engineering',
   );
-  assert.equal(harness.deposit.disabled, false);
   assert.equal(engineering.image.src, fallback50G.media.hero.src);
   assert.equal(engineering.image.srcset, fallback50G.media.hero.src);
   assert.equal(engineering.image.alt, fallback50G.media.hero.alt);
@@ -885,14 +884,13 @@ test('invalid specification state hides every unit and a later valid selection r
   ]);
 });
 
-test('malformed, unavailable and unknown selections disable deposit without model fallback', () => {
+test('malformed, unavailable and unknown selections fail closed without model fallback', () => {
   const malformed = variantFixture({ model: '50G', id: 202, contractValid: false });
   const harness = createControllerHarness([variantFixture({ model: '30G', id: 101 }), malformed]);
 
   harness.controller.selectVariant(202);
   assert.equal(harness.selected.textContent, '50G');
   assert.equal(harness.status.textContent, 'Unavailable');
-  assert.equal(harness.deposit.disabled, true);
   assert.deepEqual(harness.radios.map((radio) => radio.checked), [false, true]);
   assert.ok(harness.mediaGroups.every((group) => group.hidden && group.ariaHidden === 'true'));
   assert.ok(harness.specificationNodes.every((node) => node.textContent === 'Unavailable'));
@@ -902,7 +900,6 @@ test('malformed, unavailable and unknown selections disable deposit without mode
   harness.controller.selectVariant(999);
   assert.equal(harness.selected.textContent, selectedBeforeUnknown);
   assert.equal(harness.status.textContent, 'Unavailable');
-  assert.equal(harness.deposit.disabled, true);
   assert.deepEqual(harness.radios.map((radio) => radio.checked), [false, true]);
 
   const unavailable = createControllerHarness([
@@ -911,8 +908,7 @@ test('malformed, unavailable and unknown selections disable deposit without mode
   ]);
   unavailable.controller.selectVariant(202);
   unavailable.flushTimers();
-  assert.equal(unavailable.status.textContent, 'Out of stock. Deposit price: THB 79,439.25');
-  assert.equal(unavailable.deposit.disabled, true);
+  assert.equal(unavailable.status.textContent, 'Out of stock');
   assert.deepEqual(unavailable.mediaGroups.map((group) => group.hidden), [true, true, true, true, false, false, false, false]);
 });
 
@@ -922,7 +918,6 @@ test('invalid payload structure hides all model media at connection time', () =>
     variantFixture({ model: '30G', id: 101 }),
   ]);
 
-  assert.equal(reversed.deposit.disabled, true);
   assert.equal(reversed.status.textContent, 'Unavailable');
   assert.ok(reversed.mediaGroups.every((group) => group.hidden));
   assert.ok(reversed.mediaGroups.every((group) => group.ariaHidden === 'true'));

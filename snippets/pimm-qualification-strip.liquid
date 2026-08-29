@@ -5,7 +5,6 @@
   @param {number} full_price_cents - Twice the selected contextual variant price in integer cents.
   @param {string} lead_time - The selected variant's production lead time.
   @param {boolean} model_contract_valid - Whether commerce and presentation data agree.
-  @param {string} factory_visit_url - The factory-visit destination.
   @param {section} section - The owning machine-product section.
 {% enddoc %}
 
@@ -34,19 +33,10 @@
       </dd>
     </div>
     <div>
-      <dt>{{ 'products.pimm_machine.purchase.deposit_price' | t }}</dt>
-      <dd data-pimm-model-value="depositPrice">
-        {%- if model_contract_valid -%}{{ selected_variant.price | money_with_currency }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
-      </dd>
-    </div>
-    <div>
       <dt>{{ 'products.pimm_machine.purchase.lead_time_label' | t }}</dt>
       <dd data-pimm-model-value="leadTime">
         {%- if model_contract_valid -%}{{ 'products.pimm_machine.purchase.lead_time' | t: days: lead_time }}{%- else -%}{{ 'products.pimm_machine.status.unavailable' | t }}{%- endif -%}
       </dd>
     </div>
   </dl>
-  <a class="button button--secondary" href="{{ factory_visit_url }}">
-    {{ 'products.pimm_machine.purchase.book_visit' | t }}
-  </a>
 </section>
