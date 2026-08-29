@@ -2403,13 +2403,28 @@ def _campaign_crop_names(shot_id: str) -> tuple[str, ...]:
 _CAMPAIGN_CROP_FOCUS = {
     "controller": (0.76, 0.34),
     "controller-segments": (0.76, 0.34),
-    "gauge": (0.18, 0.18),
-    "regulator": (0.18, 0.18),
+    "gauge": (0.25, 0.18),
+    "regulator": (0.10, 0.15),
     "airtac": (0.78, 0.18),
     "tooling": (0.50, 0.48),
     "feet": (0.50, 0.82),
-    "black-material": (0.50, 0.50),
+    "black-material": (0.60, 0.33),
 }
+
+
+def _campaign_crop_box(width: int, height: int, name: str) -> tuple[int, int, int, int]:
+    if name == "feet":
+        crop_w, crop_h = width, max(256, height // 2)
+    elif name in {"gauge", "regulator", "airtac"}:
+        crop_w, crop_h = min(140, width), min(180, height)
+    elif name == "black-material":
+        crop_w, crop_h = min(180, width), min(140, height)
+    else:
+        crop_w, crop_h = max(256, width // 2), max(256, height // 2)
+    cx, cy = _CAMPAIGN_CROP_FOCUS[name]
+    left = max(0, min(width - crop_w, round(width * cx - crop_w / 2)))
+    top = max(0, min(height - crop_h, round(height * cy - crop_h / 2)))
+    return left, top, left + crop_w, top + crop_h
 
 
 def _write_campaign_crops(shot_dir: Path, shot_id: str) -> tuple[dict[str, str], dict[str, str]]:
@@ -2421,23 +2436,22 @@ def _write_campaign_crops(shot_dir: Path, shot_id: str) -> tuple[dict[str, str],
         white.load()
     crop_paths: dict[str, str] = {}
     for name in _campaign_crop_names(shot_id):
-        if name == "feet":
-            crop_w, crop_h = white.width, max(256, white.height // 2)
-        elif name in {"gauge", "regulator", "airtac"}:
-            # Keep literal source pixels while framing the real pneumatic artwork
-            # tightly enough for 100% owner review.  No resampling is applied.
-            crop_w, crop_h = min(180, white.width), min(180, white.height)
-        else:
-            crop_w, crop_h = max(256, white.width // 2), max(256, white.height // 2)
-        cx, cy = _CAMPAIGN_CROP_FOCUS[name]
-        left = max(0, min(white.width - crop_w, round(white.width * cx - crop_w / 2)))
-        top = max(0, min(white.height - crop_h, round(white.height * cy - crop_h / 2)))
+        left, top, right, bottom = _campaign_crop_box(white.width, white.height, name)
         crop_path = shot_dir / f"crop-100pct-{name}.png"
         if crop_path.exists():
             crop_path.unlink()
-        _save_png_once(white.crop((left, top, left + crop_w, top + crop_h)), crop_path)
+        _save_png_once(white.crop((left, top, right, bottom)), crop_path)
         crop_paths[name] = crop_path.name
-    return crop_paths, {name: sha256_file(shot_dir / path) for name, path in crop_paths.items()}
+    crop_hashes = {name: sha256_file(shot_dir / path) for name, path in crop_paths.items()}
+    for first, second in (("gauge", "regulator"), ("feet", "black-material")):
+        if first in crop_hashes and second in crop_hashes:
+            if _campaign_crop_box(white.width, white.height, first) == _campaign_crop_box(
+                white.width, white.height, second
+            ):
+                raise ValueError(f"semantic crops share a box: {first}, {second}")
+            if crop_hashes[first] == crop_hashes[second]:
+                raise ValueError(f"semantic crops share image bytes: {first}, {second}")
+    return crop_paths, crop_hashes
 
 
 def _campaign_finalize_shot(
@@ -2697,30 +2711,10 @@ def render_campaign(asset_root: Path, blender: Path) -> dict[str, object]:
     contract_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(contract_path, contract_payload)
     results: list[dict[str, object]] = []
-    # Cache key is deliberately stable for this proof campaign. Scene hashes are
-    # included in each shot key, and cached outputs are never a published root.
-    pipeline_revision = "17bc5e13adf872d2"
-    cache_root = proofs_root / ".campaign-preview-cache" / pipeline_revision
-    cache_root.mkdir(parents=True, exist_ok=True)
     try:
         for shot in campaign.shots:
             shot_metadata = campaign.metadata_by_shot_id[shot.shot_id]
             scene_path = asset_root / Path(*PurePosixPath(str(shot_metadata.scene_path)).parts)
-            scene_record = next(record for record in scene_records if record["shot_id"] == shot.shot_id)
-            cached = cache_root / f"{shot.shot_id}-{str(scene_record['scene_sha256'])[:12]}"
-            cached_result = cached / "result.json"
-            if cached_result.is_file():
-                shutil.copytree(cached / "outputs", staging / shot.shot_id)
-                cached_payload = json.loads(cached_result.read_text(encoding="utf-8"))
-                cached_payload["alpha_margins"].setdefault("product", shot.product_safe_margin)
-                cached_payload["alpha_margins"].setdefault("shadow", shot.shadow_safe_margin)
-                crop_paths, crop_hashes = _write_campaign_crops(staging / shot.shot_id, shot.shot_id)
-                cached_payload["crops"] = {
-                    name: f"{shot.shot_id}/{path}" for name, path in crop_paths.items()
-                }
-                cached_payload["crop_hashes"] = crop_hashes
-                results.append(cached_payload)
-                continue
             command = [
                 str(blender), "--factory-startup", "-b", str(scene_path),
                 "--python", str(Path(__file__).resolve()), "--",
@@ -2774,10 +2768,8 @@ def render_campaign(asset_root: Path, blender: Path) -> dict[str, object]:
                 "crop_hashes": crop_hashes,
                 "alpha_margins": alpha_margins,
                 "image_safety_status": "pass",
+                "render_source": "fresh-blender",
             })
-            cached.mkdir(parents=False, exist_ok=False)
-            shutil.copytree(shot_dir, cached / "outputs")
-            atomic_write_json(cached / "result.json", result)
             results.append(result)
         if len(results) != 22:
             raise ValueError("campaign render did not return exactly 22 passing shots")
@@ -2791,6 +2783,7 @@ def render_campaign(asset_root: Path, blender: Path) -> dict[str, object]:
             "scene_authority_passes": sum(item["scene_authority_status"] == "pass" for item in results),
             "stale_master_links": 0,
             "contact_passes": sum(item["contact_status"] == "pass" for item in results),
+            "cache_reuse": False,
             "shots": results,
         }
         manifest_path = staging / "campaign-manifest.json"

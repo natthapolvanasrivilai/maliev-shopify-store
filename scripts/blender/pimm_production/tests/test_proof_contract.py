@@ -37,6 +37,31 @@ RESULT_MARKER = "PIMM_PROOF_RENDER_JSON="
 
 
 class CampaignProofPipelineContractTests(unittest.TestCase):
+    def test_owner_campaign_disables_preview_cache_reuse(self):
+        source = PROOF_RUNNER.read_text(encoding="utf-8")
+        self.assertNotIn(".campaign-preview-cache", source)
+        self.assertIn('"render_source": "fresh-blender"', source)
+        self.assertIn('"cache_reuse": False', source)
+
+    def test_semantic_crop_boxes_are_distinct_and_targeted(self):
+        gauge = render_module._campaign_crop_box(450, 562, "gauge")
+        regulator = render_module._campaign_crop_box(450, 562, "regulator")
+        black_material = render_module._campaign_crop_box(450, 562, "black-material")
+        self.assertNotEqual(gauge, regulator)
+        self.assertGreater(gauge[0], regulator[0])
+        self.assertLess(regulator[2], 180)
+        self.assertGreater(black_material[0], 150)
+        self.assertLess(black_material[1], 160)
+
+    def test_semantic_crop_writer_rejects_identical_crop_bytes(self):
+        with TemporaryDirectory() as temporary:
+            shot_dir = Path(temporary)
+            Image.new("RGB", (450, 562), "white").save(shot_dir / "white.png")
+            with self.assertRaisesRegex(ValueError, "semantic crops share image bytes"):
+                render_module._write_campaign_crops(
+                    shot_dir, "pimm-30g--pneumatics--macro"
+                )
+
     def test_campaign_crop_library_covers_required_detail_evidence(self):
         self.assertEqual(
             render_module._campaign_crop_names("pimm-50g--pneumatics--macro"),
