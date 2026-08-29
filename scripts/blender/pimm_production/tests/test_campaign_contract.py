@@ -141,6 +141,41 @@ class CampaignContractTests(unittest.TestCase):
         self.assertIn("pimm-30g--hero--desktop aperture_fstop must be one of 8, 11, 16", errors)
         self.assertIn("pimm-30g--hero--desktop animation_contract must be null", errors)
 
+    def test_campaign_validation_rejects_a_permitted_but_wrong_shot_policy(self) -> None:
+        """Catches a desktop hero being silently changed to another permitted camera policy."""
+
+        payload = _campaign_payload()
+        desktop = payload["shots"][0]
+        desktop["width"] = 2048
+        desktop["height"] = 1536
+        desktop["focal_length_mm"] = 135.0
+        desktop["storefront_roles"] = ["hero-tablet"]
+        with TemporaryDirectory() as root:
+            path = Path(root) / "campaign.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            errors = validate_campaign(load_campaign(path))
+
+        self.assertIn(
+            "pimm-30g--hero--desktop must match its exact approved campaign policy",
+            errors,
+        )
+
+    def test_campaign_validation_collects_malformed_semantic_field_types(self) -> None:
+        """Catches malformed campaign fields raising a TypeError instead of failing closed."""
+
+        payload = _campaign_payload()
+        payload["shots"][0]["purpose"] = []
+        payload["shots"][0]["focal_length_mm"] = []
+        payload["shots"][0]["machines"] = [["30G"]]
+        with TemporaryDirectory() as root:
+            path = Path(root) / "campaign.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            errors = validate_campaign(load_campaign(path))
+
+        self.assertIn("pimm-30g--hero--desktop purpose must be a string", errors)
+        self.assertIn("pimm-30g--hero--desktop focal_length_mm must be one of 85, 135, 200", errors)
+        self.assertIn("pimm-30g--hero--desktop machines must be 30G, 50G, or the exact shared pair", errors)
+
     def test_loader_rejects_ambiguous_json_and_uncontracted_shot_policy(self) -> None:
         """Catches a permissive loader silently accepting an ambiguous campaign shape."""
 

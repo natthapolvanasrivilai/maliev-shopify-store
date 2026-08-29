@@ -9,7 +9,12 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Iterable, Mapping
 
-from scripts.blender.pimm_production.campaign_contract import load_campaign, shot_policy
+from scripts.blender.pimm_production.campaign_contract import (
+    camera_view,
+    load_campaign,
+    shot_policy,
+    validate_campaign,
+)
 
 from scripts.blender.pimm_production.published_artwork import (
     PUBLISHED_ARTWORK_COUNT_PROPERTY,
@@ -200,6 +205,9 @@ def _campaign_policy(scene_id: object):
     if not isinstance(scene_id, str):
         return None
     campaign = load_campaign(_CAMPAIGN_PATH)
+    errors = validate_campaign(campaign)
+    if errors:
+        raise ValueError("campaign validation failed: " + "; ".join(errors))
     try:
         return shot_policy(campaign, scene_id)
     except ValueError:
@@ -242,6 +250,8 @@ def _validate_campaign_scene_policy(contract: SceneContract, errors: list[str]) 
         "alpha": policy.alpha,
     }:
         errors.append("campaign scene output_contract must match the governed shot policy")
+    if contract.animation_contract is not None:
+        errors.append("campaign scene animation_contract must be null")
 
 
 def _validate_static_render_setup(contract: SceneContract, errors: list[str]) -> None:
@@ -275,7 +285,11 @@ def _validate_static_render_setup(contract: SceneContract, errors: list[str]) ->
     else:
         campaign_shot = _campaign_policy(contract.scene_id)
         expected_camera = (
-            (camera["view"], campaign_shot.focal_length_mm, campaign_shot.aperture_fstop)
+            (
+                camera_view(load_campaign(_CAMPAIGN_PATH), campaign_shot.shot_id),
+                campaign_shot.focal_length_mm,
+                campaign_shot.aperture_fstop,
+            )
             if campaign_shot is not None
             else _legacy_camera_policy(contract)
         )
@@ -355,6 +369,8 @@ def validate_scene_contract(contract: SceneContract) -> list[str]:
         errors.append("scene contract scene_id machine must match machine")
     elif contract.machines == ("30G", "50G") and match.group(2) != "30g-50g":
         errors.append("shared scene contract scene_id must identify both machines")
+    if contract.machines == ("30G", "50G") and _campaign_policy(contract.scene_id) is None:
+        errors.append("shared scene contract must refer to an approved campaign comparison shot")
     if not isinstance(contract.purpose, str) or _SLUG.fullmatch(contract.purpose) is None:
         errors.append("scene contract purpose must be a lowercase slug")
     elif isinstance(contract.scene_id, str) and f"--{contract.purpose}" not in contract.scene_id:

@@ -6,7 +6,7 @@ import textwrap
 from types import SimpleNamespace
 import unittest
 
-from scripts.blender.pimm_production import blender_scene_validator
+from scripts.blender.pimm_production import blender_scene_validator, scene_contract
 from scripts.blender.pimm_production.scene_contract import (
     SceneContract,
     canonical_scene_contract_json,
@@ -670,6 +670,51 @@ class SceneContractTests(unittest.TestCase):
         errors = validate_scene_contract(SceneContract.from_mapping(payload))
         self.assertIn("campaign scene output_contract must match the governed shot policy", errors)
         self.assertIn("static product camera must match the governed shot configuration", errors)
+
+        payload["output_contract"]["width"] = 2560
+        payload["static_render_setup"]["camera"]["focal_length_mm"] = 85.0
+        payload["animation_contract"] = "still"
+        errors = validate_scene_contract(SceneContract.from_mapping(payload))
+        self.assertIn("campaign scene animation_contract must be null", errors)
+
+        payload["animation_contract"] = None
+        payload["static_render_setup"]["camera"]["view"] = "hero-tablet"
+        errors = validate_scene_contract(SceneContract.from_mapping(payload))
+        self.assertIn("static product camera must match the governed shot configuration", errors)
+
+    def test_campaign_policy_rejects_invalid_manifest_and_rogue_shared_scene(self) -> None:
+        """Catches a mutable campaign manifest or uncontracted shared scene entering validation."""
+
+        payload = json.loads(
+            (
+                REPO_ROOT
+                / "scripts"
+                / "blender"
+                / "pimm_production"
+                / "contracts"
+                / "campaigns"
+                / "pimm-responsive-product-photography-v1.json"
+            ).read_text(encoding="utf-8")
+        )
+        payload["shots"][0]["width"] = 2048
+        with TemporaryDirectory() as root:
+            path = Path(root) / "campaign.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            original = scene_contract._CAMPAIGN_PATH
+            try:
+                scene_contract._CAMPAIGN_PATH = path
+                with self.assertRaisesRegex(ValueError, "campaign validation failed"):
+                    scene_contract._campaign_policy("pimm-30g--hero--desktop")
+            finally:
+                scene_contract._CAMPAIGN_PATH = original
+
+        payload = _base_payload("a" * 64, "b" * 64)
+        payload.pop("machine")
+        payload["machines"] = ["30G", "50G"]
+        payload["scene_id"] = "pimm-30g-50g--hero--rogue"
+        payload["purpose"] = "hero"
+        errors = validate_scene_contract(SceneContract.from_mapping(payload))
+        self.assertIn("shared scene contract must refer to an approved campaign comparison shot", errors)
 
     def test_scene_publication_material_gate_requires_explicit_material_ids(self) -> None:
         """Catches approved material state falling back to a datablock display name."""

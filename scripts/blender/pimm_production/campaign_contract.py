@@ -40,6 +40,42 @@ class CampaignShot:
     storefront_roles: tuple[str, ...]
 
 
+_APPROVED_SHOT_POLICIES = {
+    "pimm-30g--hero--desktop": CampaignShot("pimm-30g--hero--desktop", ("30G",), "hero", 2560, 1440, True, 85.0, 11.0, 0.08, 0.12, ("hero-desktop",)),
+    "pimm-30g--hero--tablet": CampaignShot("pimm-30g--hero--tablet", ("30G",), "hero", 2048, 1536, True, 135.0, 11.0, 0.08, 0.12, ("hero-tablet",)),
+    "pimm-30g--hero--mobile": CampaignShot("pimm-30g--hero--mobile", ("30G",), "hero", 1440, 2560, True, 135.0, 11.0, 0.08, 0.12, ("hero-mobile",)),
+    "pimm-50g--hero--desktop": CampaignShot("pimm-50g--hero--desktop", ("50G",), "hero", 2560, 1440, True, 85.0, 11.0, 0.08, 0.12, ("hero-desktop",)),
+    "pimm-50g--hero--tablet": CampaignShot("pimm-50g--hero--tablet", ("50G",), "hero", 2048, 1536, True, 135.0, 11.0, 0.08, 0.12, ("hero-tablet",)),
+    "pimm-50g--hero--mobile": CampaignShot("pimm-50g--hero--mobile", ("50G",), "hero", 1440, 2560, True, 135.0, 11.0, 0.08, 0.12, ("hero-mobile",)),
+    "pimm-30g--editorial-bright--three-quarter": CampaignShot("pimm-30g--editorial-bright--three-quarter", ("30G",), "editorial", 1800, 2250, False, 135.0, 11.0, 0.0, 0.0, ("editorial-bright", "bento-primary")),
+    "pimm-30g--editorial-dark--three-quarter": CampaignShot("pimm-30g--editorial-dark--three-quarter", ("30G",), "editorial", 1800, 2250, False, 135.0, 11.0, 0.0, 0.0, ("editorial-dark",)),
+    "pimm-50g--editorial-bright--three-quarter": CampaignShot("pimm-50g--editorial-bright--three-quarter", ("50G",), "editorial", 1800, 2250, False, 135.0, 11.0, 0.0, 0.0, ("editorial-bright", "bento-primary")),
+    "pimm-50g--editorial-dark--three-quarter": CampaignShot("pimm-50g--editorial-dark--three-quarter", ("50G",), "editorial", 1800, 2250, False, 135.0, 11.0, 0.0, 0.0, ("editorial-dark",)),
+    "pimm-30g--controls--macro": CampaignShot("pimm-30g--controls--macro", ("30G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-controls", "bento-controls")),
+    "pimm-30g--pneumatics--macro": CampaignShot("pimm-30g--pneumatics--macro", ("30G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-pneumatics", "bento-pneumatics")),
+    "pimm-30g--tooling--macro": CampaignShot("pimm-30g--tooling--macro", ("30G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-tooling", "bento-tooling")),
+    "pimm-30g--base-feet--macro": CampaignShot("pimm-30g--base-feet--macro", ("30G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-base-feet", "bento-base-feet")),
+    "pimm-50g--controls--macro": CampaignShot("pimm-50g--controls--macro", ("50G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-controls", "bento-controls")),
+    "pimm-50g--pneumatics--macro": CampaignShot("pimm-50g--pneumatics--macro", ("50G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-pneumatics", "bento-pneumatics")),
+    "pimm-50g--tooling--macro": CampaignShot("pimm-50g--tooling--macro", ("50G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-tooling", "bento-tooling")),
+    "pimm-50g--base-feet--macro": CampaignShot("pimm-50g--base-feet--macro", ("50G",), "detail", 1800, 2250, False, 135.0, 8.0, 0.0, 0.0, ("detail-base-feet", "bento-base-feet")),
+    "pimm-30g-50g--comparison--desktop": CampaignShot("pimm-30g-50g--comparison--desktop", ("30G", "50G"), "comparison", 2560, 1440, False, 85.0, 11.0, 0.0, 0.0, ("comparison-desktop",)),
+    "pimm-30g-50g--comparison--mobile": CampaignShot("pimm-30g-50g--comparison--mobile", ("30G", "50G"), "comparison", 1440, 1800, False, 135.0, 11.0, 0.0, 0.0, ("comparison-mobile",)),
+    "pimm-50g--workshop--wide": CampaignShot("pimm-50g--workshop--wide", ("50G",), "workshop", 2560, 1440, False, 85.0, 11.0, 0.0, 0.0, ("workshop-wide",)),
+    "pimm-50g--workshop--portrait": CampaignShot("pimm-50g--workshop--portrait", ("50G",), "workshop", 1800, 2250, False, 135.0, 11.0, 0.0, 0.0, ("workshop-portrait",)),
+}
+_APPROVED_CAMERA_VIEWS = {
+    "pimm-30g--hero--desktop": "hero-desktop", "pimm-30g--hero--tablet": "hero-tablet", "pimm-30g--hero--mobile": "hero-mobile",
+    "pimm-50g--hero--desktop": "hero-desktop", "pimm-50g--hero--tablet": "hero-tablet", "pimm-50g--hero--mobile": "hero-mobile",
+    "pimm-30g--editorial-bright--three-quarter": "three-quarter", "pimm-30g--editorial-dark--three-quarter": "three-quarter",
+    "pimm-50g--editorial-bright--three-quarter": "three-quarter", "pimm-50g--editorial-dark--three-quarter": "three-quarter",
+    "pimm-30g--controls--macro": "controls-macro", "pimm-30g--pneumatics--macro": "pneumatics-macro", "pimm-30g--tooling--macro": "tooling-macro", "pimm-30g--base-feet--macro": "base-feet-macro",
+    "pimm-50g--controls--macro": "controls-macro", "pimm-50g--pneumatics--macro": "pneumatics-macro", "pimm-50g--tooling--macro": "tooling-macro", "pimm-50g--base-feet--macro": "base-feet-macro",
+    "pimm-30g-50g--comparison--desktop": "comparison-desktop", "pimm-30g-50g--comparison--mobile": "comparison-mobile",
+    "pimm-50g--workshop--wide": "workshop-wide", "pimm-50g--workshop--portrait": "workshop-portrait",
+}
+
+
 @dataclass(frozen=True)
 class _ShotMetadata:
     """Non-camera immutable campaign metadata retained for semantic validation."""
@@ -146,23 +182,43 @@ def validate_campaign(campaign: RenderCampaign) -> list[str]:
         errors.append(f"campaign schema must equal {CAMPAIGN_SCHEMA}")
     if campaign.campaign_id != CAMPAIGN_ID:
         errors.append(f"campaign_id must equal {CAMPAIGN_ID}")
-    if len(campaign.shots) != 22:
+    if len(campaign.shots) != len(_APPROVED_SHOT_POLICIES):
         errors.append("campaign must contain exactly 22 shots")
     if len(campaign.by_shot_id) != len(campaign.shots):
         errors.append("campaign shot_id values must be unique")
+    if set(campaign.by_shot_id) != set(_APPROVED_SHOT_POLICIES):
+        errors.append("campaign shot IDs must equal the exact approved 22-shot library")
 
     allowed_backgrounds = {
         "hero": "transparent", "editorial": "studio", "detail": "studio",
         "comparison": "studio", "workshop": "workshop",
     }
+    purpose_counts = {purpose: 0 for purpose in allowed_backgrounds}
     for shot in campaign.shots:
         metadata = campaign.metadata_by_shot_id[shot.shot_id]
         prefix = shot.shot_id
-        if shot.purpose not in allowed_backgrounds:
+        expected = _APPROVED_SHOT_POLICIES.get(prefix)
+        if expected is None:
+            errors.append(f"{prefix} is not an approved campaign shot")
+        elif shot != expected:
+            errors.append(f"{prefix} must match its exact approved campaign policy")
+        if not isinstance(shot.purpose, str):
+            errors.append(f"{prefix} purpose must be a string")
+        elif shot.purpose not in allowed_backgrounds:
             errors.append(f"{prefix} purpose is not governed")
-        if shot.machines not in {("30G",), ("50G",), ("30G", "50G")}:
+        else:
+            purpose_counts[shot.purpose] += 1
+        if (
+            not isinstance(shot.machines, tuple)
+            or not all(isinstance(machine, str) for machine in shot.machines)
+            or shot.machines not in (("30G",), ("50G",), ("30G", "50G"))
+        ):
             errors.append(f"{prefix} machines must be 30G, 50G, or the exact shared pair")
-        if len(shot.machines) != len(set(shot.machines)):
+        if any(
+            machine == other
+            for index, machine in enumerate(shot.machines)
+            for other in shot.machines[index + 1 :]
+        ):
             errors.append(f"{prefix} machines must not contain duplicates")
         if not isinstance(shot.width, int) or isinstance(shot.width, bool) or shot.width <= 0:
             errors.append(f"{prefix} width must be a positive integer")
@@ -170,17 +226,34 @@ def validate_campaign(campaign: RenderCampaign) -> list[str]:
             errors.append(f"{prefix} height must be a positive integer")
         if not isinstance(shot.alpha, bool):
             errors.append(f"{prefix} alpha must be boolean")
-        if shot.focal_length_mm not in {85.0, 135.0, 200.0}:
+        if (
+            not isinstance(shot.focal_length_mm, (int, float))
+            or isinstance(shot.focal_length_mm, bool)
+            or shot.focal_length_mm not in (85.0, 135.0, 200.0)
+        ):
             errors.append(f"{prefix} focal_length_mm must be one of 85, 135, 200")
-        if shot.aperture_fstop not in {8.0, 11.0, 16.0}:
+        if (
+            not isinstance(shot.aperture_fstop, (int, float))
+            or isinstance(shot.aperture_fstop, bool)
+            or shot.aperture_fstop not in (8.0, 11.0, 16.0)
+        ):
             errors.append(f"{prefix} aperture_fstop must be one of 8, 11, 16")
-        if not isinstance(shot.storefront_roles, tuple) or not shot.storefront_roles:
+        if (
+            not isinstance(shot.storefront_roles, tuple)
+            or not shot.storefront_roles
+            or not all(isinstance(role, str) for role in shot.storefront_roles)
+        ):
             errors.append(f"{prefix} storefront_roles must be a nonempty list")
         if metadata.scene_contract_path != f"scenes/contracts/{prefix}.json":
             errors.append(f"{prefix} scene_contract_path must match shot_id")
         if metadata.scene_path != f"scenes/stills/{prefix}.blend":
             errors.append(f"{prefix} scene_path must match shot_id")
-        if metadata.background_class != allowed_backgrounds.get(shot.purpose):
+        expected_background = (
+            allowed_backgrounds.get(shot.purpose)
+            if isinstance(shot.purpose, str)
+            else None
+        )
+        if metadata.background_class != expected_background:
             errors.append(f"{prefix} background_class must match purpose")
         if metadata.animation_contract is not None:
             errors.append(f"{prefix} animation_contract must be null")
@@ -203,10 +276,14 @@ def validate_campaign(campaign: RenderCampaign) -> list[str]:
                 errors.append(f"{prefix} hero alpha must be true")
         elif (shot.product_safe_margin, shot.shadow_safe_margin) != (0.0, 0.0):
             errors.append(f"{prefix} non-hero safe margins must equal zero")
-        if shot.purpose in {"editorial", "detail"} and (shot.width, shot.height) != (1800, 2250):
+        if shot.purpose in ("editorial", "detail") and (shot.width, shot.height) != (1800, 2250):
             errors.append(f"{prefix} editorial and detail dimensions must equal 1800x2250")
         if shot.purpose == "comparison" and shot.machines != ("30G", "50G"):
             errors.append(f"{prefix} comparison shots must declare both 30G and 50G")
+    if purpose_counts != {
+        "hero": 6, "editorial": 4, "detail": 8, "comparison": 2, "workshop": 2,
+    }:
+        errors.append("campaign shot purpose counts must equal 6 heroes, 4 editorials, 8 details, 2 comparisons, and 2 workshops")
     return errors
 
 
@@ -217,3 +294,10 @@ def shot_policy(campaign: RenderCampaign, shot_id: str) -> CampaignShot:
         return campaign.by_shot_id[shot_id]
     except KeyError as error:
         raise ValueError(f"uncontracted shot: {shot_id}") from error
+
+
+def camera_view(campaign: RenderCampaign, shot_id: str) -> str:
+    """Return the immutable approved camera view for a contracted campaign shot."""
+
+    shot_policy(campaign, shot_id)
+    return _APPROVED_CAMERA_VIEWS[shot_id]
