@@ -32,12 +32,21 @@ try:
         studio_world_environment_spec,
     )
     from .blender_scene_template import _run_fresh_validation
+    from .campaign_contract import load_campaign, validate_campaign
     from .io_contract import atomic_write_json, sha256_file
     from .paths import ASSET_ROOT, require_within
     from .scene_contract import (
         SceneContract,
         canonical_scene_contract_json,
         validate_scene_contract,
+    )
+    from .shot_compositions import (
+        CAMPAIGN_PATH,
+        COMPLETE_PRODUCT_BOUNDS,
+        MANAGED_REFLECTION_CARD_NAMES,
+        STABLE_ID_GROUPS,
+        ShotComposition,
+        composition_for,
     )
 except ImportError:  # Blender executes checked-in scripts outside package mode.
     repository_root = Path(__file__).resolve().parents[3]
@@ -59,6 +68,10 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
         studio_world_environment_spec,
     )
     from scripts.blender.pimm_production.blender_scene_template import _run_fresh_validation
+    from scripts.blender.pimm_production.campaign_contract import (
+        load_campaign,
+        validate_campaign,
+    )
     from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.scene_contract import (
@@ -66,21 +79,21 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
         canonical_scene_contract_json,
         validate_scene_contract,
     )
+    from scripts.blender.pimm_production.shot_compositions import (
+        CAMPAIGN_PATH,
+        COMPLETE_PRODUCT_BOUNDS,
+        MANAGED_REFLECTION_CARD_NAMES,
+        STABLE_ID_GROUPS,
+        ShotComposition,
+        composition_for,
+    )
 
 
 RESULT_MARKER = "PIMM_STATIC_PRODUCT_SCENE_JSON="
 MASTER_COLLECTION = "PIMM_PUBLISHED"
-OUTPUT_WIDTH = 2400
-OUTPUT_HEIGHT = 1800
 STATIC_CAMERA_CLIP_START = 1.0
 STATIC_CAMERA_CLIP_END = 10000.0
-CAMERA_DISTANCE_MULTIPLIER_BY_PURPOSE = {
-    "overview": 1.25,
-    "engineering": 1.0,
-    "tooling": 1.25,
-}
-_ALLOWED_FOCAL_LENGTHS = {85.0, 135.0}
-_REQUIRED_LIGHT_NAMES = (
+MANAGED_LIGHT_NAMES = (
     "KEY_SOFTBOX",
     "FILL_SOFTBOX",
     "BASE_BOUNCE",
@@ -116,14 +129,35 @@ class ShotConfig:
     """Immutable camera and output requirements for one static PIMM still."""
 
     scene_id: str
-    machine: str
+    machines: tuple[str, ...]
     purpose: str
     view: str
     focal_length_mm: float
     aperture_fstop: float
-    output_width: int = OUTPUT_WIDTH
-    output_height: int = OUTPUT_HEIGHT
+    output_width: int
+    output_height: int
+    alpha: bool
     animation_contract: None = None
+
+    @property
+    def machine(self) -> str | None:
+        """Return the one machine for single-product shots, otherwise ``None``."""
+
+        return self.machines[0] if len(self.machines) == 1 else None
+
+
+@dataclass(frozen=True)
+class SceneSupportSpec:
+    """Scene-owned finite geometry used only to light or support the product."""
+
+    name: str
+    role: str
+    center: tuple[float, float, float]
+    width: float
+    depth: float
+    height: float
+    base_color: tuple[float, float, float, float]
+    roughness: float
 
 
 @dataclass(frozen=True)
@@ -144,6 +178,13 @@ class FootContactPlane:
     pad_bottoms: tuple[float, ...]
     stable_ids: tuple[str, ...]
     outlier_stable_ids: tuple[str, ...]
+
+
+def _single_machine(config: ShotConfig) -> str:
+    machine = config.machine
+    if machine is None:
+        raise ValueError(f"shot requires one machine: {config.scene_id}")
+    return machine
 
 
 def resolve_foot_contact_plane(
@@ -231,22 +272,26 @@ class ValidatedTargetManifest:
     canonical_json: str
 
 
+_CAMPAIGN = load_campaign(CAMPAIGN_PATH)
+_CAMPAIGN_ERRORS = validate_campaign(_CAMPAIGN)
+if _CAMPAIGN_ERRORS:
+    raise ValueError("campaign validation failed: " + "; ".join(_CAMPAIGN_ERRORS))
+
 SHOT_CONFIGS = {
-    shot.scene_id: shot
-    for shot in (
-        ShotConfig("pimm-30g--overview--three-quarter", "30G", "overview", "three-quarter", 85.0, 11.0),
-        ShotConfig("pimm-30g--engineering--controls", "30G", "engineering", "controls", 135.0, 8.0),
-        ShotConfig("pimm-30g--tooling--front-detail", "30G", "tooling", "front-detail", 135.0, 11.0),
-        ShotConfig("pimm-50g--overview--three-quarter", "50G", "overview", "three-quarter", 85.0, 11.0),
-        ShotConfig("pimm-50g--engineering--controls", "50G", "engineering", "controls", 135.0, 8.0),
-        ShotConfig("pimm-50g--tooling--front-detail", "50G", "tooling", "front-detail", 135.0, 11.0),
+    policy.shot_id: ShotConfig(
+        scene_id=policy.shot_id,
+        machines=policy.machines,
+        purpose=policy.purpose,
+        view=composition_for(policy.shot_id).camera_view,
+        focal_length_mm=policy.focal_length_mm,
+        aperture_fstop=policy.aperture_fstop,
+        output_width=policy.width,
+        output_height=policy.height,
+        alpha=policy.alpha,
     )
+    for policy in _CAMPAIGN.shots
 }
 
-_DETAIL_TARGET_GROUPS = {
-    "engineering": ("gauge", "regulator", "controller", "actuator_artwork"),
-    "tooling": ("nozzle", "platen", "fixture"),
-}
 _FRAME_MARGIN = 0.05
 
 
@@ -314,7 +359,7 @@ def _validate_target_manifest_payload(payload: object) -> dict[str, object]:
     if payload["schema_version"] != 1 or not isinstance(payload["shots"], dict):
         raise ValueError("target manifest schema_version must be 1 and shots must be an object")
     shots = payload["shots"]
-    detail_configs = [config for config in SHOT_CONFIGS.values() if config.purpose != "overview"]
+    detail_configs = [config for config in SHOT_CONFIGS.values() if config.purpose == "detail"]
     if set(shots) != {config.scene_id for config in detail_configs}:
         raise ValueError("target manifest shots must exactly match the governed detail shots")
     for config in detail_configs:
@@ -322,13 +367,16 @@ def _validate_target_manifest_payload(payload: object) -> dict[str, object]:
         if not isinstance(shot, dict) or set(shot) != {"groups"}:
             raise ValueError(f"target manifest {config.scene_id} must contain exactly groups")
         groups = shot["groups"]
-        expected_groups = _DETAIL_TARGET_GROUPS[config.purpose]
+        expected_groups = tuple(composition_for(config.scene_id).target_groups)
         if not isinstance(groups, dict) or set(groups) != set(expected_groups):
             raise ValueError(
                 f"target manifest {config.scene_id} groups must equal {list(expected_groups)}"
             )
         for group_name in expected_groups:
             identifiers = groups[group_name]
+            exact_identifiers = list(
+                composition_for(config.scene_id).target_groups[group_name]
+            )
             if (
                 not isinstance(identifiers, list)
                 or not identifiers
@@ -337,9 +385,10 @@ def _validate_target_manifest_payload(payload: object) -> dict[str, object]:
                     for identifier in identifiers
                 )
                 or len(set(identifiers)) != len(identifiers)
+                or identifiers != exact_identifiers
             ):
                 raise ValueError(
-                    f"target manifest {config.scene_id} {group_name} must be a nonempty stable-ID list"
+                    f"target manifest {config.scene_id} {group_name} must equal the composition stable-ID list"
                 )
     return payload
 
@@ -405,19 +454,20 @@ def _stable_product_objects(bpy: Any) -> dict[str, Any]:
 def resolve_target_bounds(
     bpy: Any, config: ShotConfig, target_manifest: ValidatedTargetManifest
 ) -> TargetResolution:
-    """Resolve overview or semantic detail bounds without using display names."""
+    """Resolve complete-product or semantic detail bounds without display names."""
 
     _validate_shot_config(config)
     target_payload = _validated_target_manifest_payload(target_manifest)
     by_stable_id = _stable_product_objects(bpy)
-    if config.purpose == "overview":
+    composition = composition_for(config.scene_id)
+    if composition.target_mode == COMPLETE_PRODUCT_BOUNDS:
         stable_ids = tuple(sorted(by_stable_id))
         groups = {"complete_product": stable_ids}
     else:
         shots = target_payload["shots"]
         shot = shots.get(config.scene_id) if isinstance(shots, dict) else None
         source_groups = shot.get("groups") if isinstance(shot, dict) else None
-        expected_groups = _DETAIL_TARGET_GROUPS[config.purpose]
+        expected_groups = tuple(composition.target_groups)
         if not isinstance(source_groups, dict) or set(source_groups) != set(expected_groups):
             raise ValueError(f"stable target groups are invalid for {config.scene_id}")
         groups = {
@@ -433,10 +483,16 @@ def resolve_target_bounds(
         }
         missing_by_group = {name: values for name, values in missing_by_group.items() if values}
         if missing_by_group:
-            if "actuator_artwork" in missing_by_group:
+            artwork_groups = {"gauge_decal", "airtac_artwork"}
+            missing_artwork = sorted(artwork_groups & set(missing_by_group))
+            if missing_artwork:
                 raise ValueError(
                     "missing artwork target stable IDs: "
-                    + ", ".join(missing_by_group["actuator_artwork"])
+                    + ", ".join(
+                        stable_id
+                        for group in missing_artwork
+                        for stable_id in missing_by_group[group]
+                    )
                 )
             raise ValueError(f"missing stable target IDs: {missing_by_group}")
         stable_ids = tuple(sorted({item for values in groups.values() for item in values}))
@@ -497,6 +553,9 @@ def frame_coordinates(
     horizontal_tangent = DEFAULT_SENSOR_WIDTH_MM / (2.0 * config.focal_length_mm)
     sensor_height = DEFAULT_SENSOR_WIDTH_MM * config.output_height / config.output_width
     vertical_tangent = sensor_height / (2.0 * config.focal_length_mm)
+    placement = composition_for(config.scene_id).subject_placement
+    offset_x = placement.center_x - 0.5
+    offset_y = placement.center_y - 0.5
     projected: list[tuple[float, float]] = []
     for corner in _bounds_corners(bounds_min, bounds_max):
         relative = _subtract(corner, pose.location)
@@ -505,8 +564,8 @@ def frame_coordinates(
             raise ValueError("contracted target lies behind the camera")
         projected.append(
             (
-                0.5 + _dot(relative, right) / (2.0 * depth * horizontal_tangent),
-                0.5 + _dot(relative, up) / (2.0 * depth * vertical_tangent),
+                0.5 + offset_x + _dot(relative, right) / (2.0 * depth * horizontal_tangent),
+                0.5 + offset_y + _dot(relative, up) / (2.0 * depth * vertical_tangent),
             )
         )
     return tuple(projected)
@@ -539,27 +598,131 @@ def camera_pose(
 
     _validate_shot_config(config)
     center, _size = _center_and_size(bounds_min, bounds_max)
-    azimuth = -24.0 if config.purpose == "overview" else 0.0
-    unit_pose = orbit_camera_pose(bounds_min, bounds_max, 1.0, azimuth, 0.0)
+    composition = composition_for(config.scene_id)
+    azimuth = composition.camera_azimuth_degrees
+    elevation = composition.camera_elevation_degrees
+    unit_pose = orbit_camera_pose(bounds_min, bounds_max, 1.0, azimuth, elevation)
     right, up, forward = _camera_basis(unit_pose)
     horizontal_tangent = DEFAULT_SENSOR_WIDTH_MM / (2.0 * config.focal_length_mm)
     sensor_height = DEFAULT_SENSOR_WIDTH_MM * config.output_height / config.output_width
     vertical_tangent = sensor_height / (2.0 * config.focal_length_mm)
-    usable_half_frame = 0.5 - _FRAME_MARGIN
+    placement = composition.subject_placement
+    usable_half_width = min(
+        placement.center_x - placement.clearance_left,
+        1.0 - placement.clearance_right - placement.center_x,
+    )
+    usable_half_height = min(
+        placement.center_y - placement.clearance_top,
+        1.0 - placement.clearance_bottom - placement.center_y,
+    )
+    if usable_half_width <= 0.0 or usable_half_height <= 0.0:
+        raise ValueError("normalized subject placement leaves no usable camera frame")
     distance = 1.0
     for corner in _bounds_corners(bounds_min, bounds_max):
         offset = _subtract(corner, center)
         along = _dot(offset, forward)
         distance = max(
             distance,
-            abs(_dot(offset, right)) / (2.0 * usable_half_frame * horizontal_tangent)
+            abs(_dot(offset, right)) / (2.0 * usable_half_width * horizontal_tangent)
             - along,
-            abs(_dot(offset, up)) / (2.0 * usable_half_frame * vertical_tangent)
+            abs(_dot(offset, up)) / (2.0 * usable_half_height * vertical_tangent)
             - along,
         )
     distance *= 1.001
-    distance *= CAMERA_DISTANCE_MULTIPLIER_BY_PURPOSE[config.purpose]
-    return orbit_camera_pose(bounds_min, bounds_max, distance, azimuth, 0.0)
+    distance = max(
+        distance,
+        _size[2] * composition.minimum_working_distance_heights,
+    )
+    return orbit_camera_pose(bounds_min, bounds_max, distance, azimuth, elevation)
+
+
+def profile_rig_specs(
+    bounds_min: Sequence[float],
+    bounds_max: Sequence[float],
+    pose: CameraPose,
+    config: ShotConfig,
+) -> tuple[tuple[Any, ...], tuple[SceneSupportSpec, ...]]:
+    """Return the exact broad light rig and finite scene-owned support geometry."""
+
+    _validate_shot_config(config)
+    center, size = _center_and_size(bounds_min, bounds_max)
+    width, depth, height = size
+    profile = composition_for(config.scene_id).studio_profile
+    energy_scale = {"dark": 0.72, "workshop": 0.86}.get(profile, 1.0)
+    lights = tuple(
+        replace(spec, energy=spec.energy * energy_scale)
+        for spec in studio_light_specs(bounds_min, bounds_max)
+    )
+    horizontal_tangent = DEFAULT_SENSOR_WIDTH_MM / (2.0 * config.focal_length_mm)
+    catcher_half_width = (
+        STATIC_CAMERA_CLIP_END * horizontal_tangent
+        + abs(center[0] - pose.location[0])
+        + width
+    )
+    catcher_half_depth = STATIC_CAMERA_CLIP_END + abs(center[1] - pose.location[1]) + depth
+    card_color = (0.03, 0.03, 0.035, 1.0) if profile == "dark" else (0.92, 0.92, 0.92, 1.0)
+    supports = (
+        SceneSupportSpec(
+            "PIMM_SCENE_SHADOW_CATCHER",
+            "shadow-catcher",
+            (center[0], center[1], float(bounds_min[2])),
+            catcher_half_width * 2.0,
+            catcher_half_depth * 2.0,
+            0.0,
+            (0.86, 0.86, 0.86, 1.0),
+            0.72,
+        ),
+        SceneSupportSpec(
+            MANAGED_REFLECTION_CARD_NAMES[0],
+            "reflection-card",
+            (center[0] - width * 1.8, center[1], center[2]),
+            max(depth, 600.0),
+            20.0,
+            max(height * 1.3, 1_000.0),
+            card_color,
+            0.35,
+        ),
+        SceneSupportSpec(
+            MANAGED_REFLECTION_CARD_NAMES[1],
+            "reflection-card",
+            (center[0] + width * 1.8, center[1], center[2]),
+            max(depth, 600.0),
+            20.0,
+            max(height * 1.3, 1_000.0),
+            card_color,
+            0.35,
+        ),
+        SceneSupportSpec(
+            MANAGED_REFLECTION_CARD_NAMES[2],
+            "reflection-card",
+            (center[0], center[1], float(bounds_max[2]) + height * 0.9),
+            max(width * 1.8, 1_200.0),
+            max(depth * 1.5, 900.0),
+            20.0,
+            card_color,
+            0.35,
+        ),
+    )
+    if tuple(spec.name for spec in lights) != MANAGED_LIGHT_NAMES:
+        raise ValueError("profile light rig names do not match managed authority")
+    return lights, supports
+
+
+def catcher_edges_outside_camera_frustum(
+    catcher: SceneSupportSpec, pose: CameraPose, config: ShotConfig
+) -> bool:
+    """Prove all finite catcher edges lie beyond the managed camera frustum."""
+
+    if catcher.role != "shadow-catcher" or catcher.name != "PIMM_SCENE_SHADOW_CATCHER":
+        return False
+    horizontal_tangent = DEFAULT_SENSOR_WIDTH_MM / (2.0 * config.focal_length_mm)
+    center_x, center_y, _center_z = catcher.center
+    required_half_width = (
+        STATIC_CAMERA_CLIP_END * horizontal_tangent
+        + abs(center_x - pose.location[0])
+    )
+    required_half_depth = STATIC_CAMERA_CLIP_END + abs(center_y - pose.location[1])
+    return catcher.width / 2.0 > required_half_width and catcher.depth / 2.0 > required_half_depth
 
 
 def _contract_path(config: ShotConfig) -> Path:
@@ -571,15 +734,19 @@ def _scene_path(config: ShotConfig) -> Path:
 
 
 def _master_path(config: ShotConfig) -> Path:
-    return ASSET_ROOT / "masters" / f"PIMM-{config.machine}-MASTER.blend"
+    machine = _single_machine(config)
+    return ASSET_ROOT / "masters" / f"PIMM-{machine}-MASTER.blend"
 
 
 def _template_path(config: ShotConfig) -> Path:
+    if len(config.machines) > 1:
+        return ASSET_ROOT / "scenes" / "shared-templates" / "pimm-30g-50g--comparison.blend"
+    machine = _single_machine(config)
     return (
         ASSET_ROOT
         / "scenes"
         / "shared-templates"
-        / f"pimm-{config.machine.lower()}--hero--three-quarter.blend"
+        / f"pimm-{machine.lower()}--hero--three-quarter.blend"
     )
 
 
@@ -588,11 +755,12 @@ def _material_library_path() -> Path:
 
 
 def _foot_patch_path(config: ShotConfig) -> Path:
+    machine = _single_machine(config)
     return (
         ASSET_ROOT
         / "manifests"
         / "patches"
-        / f"PIMM-{config.machine}-foot-refresh.json"
+        / f"PIMM-{machine}-foot-refresh.json"
     )
 
 
@@ -610,7 +778,7 @@ def load_foot_contact_plane(config: ShotConfig) -> FootContactPlane:
         raise ValueError(f"canonical foot patch is invalid JSON: {path}") from error
     if not isinstance(payload, Mapping):
         raise ValueError("canonical foot patch root must be an object")
-    return resolve_foot_contact_plane(payload, config.machine)
+    return resolve_foot_contact_plane(payload, _single_machine(config))
 
 
 def foot_contact_evidence(
@@ -658,7 +826,7 @@ def _foot_contact_evidence(
 ) -> dict[str, object]:
     """Compatibility wrapper for existing static-scene authoring callers."""
 
-    return foot_contact_evidence(config.machine, contact)
+    return foot_contact_evidence(_single_machine(config), contact)
 
 
 def _static_render_setup(config: ShotConfig) -> dict[str, object]:
@@ -666,7 +834,7 @@ def _static_render_setup(config: ShotConfig) -> dict[str, object]:
 
     light_specs = studio_light_specs((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
     light_names = tuple(spec.name for spec in light_specs)
-    if light_names != _REQUIRED_LIGHT_NAMES:
+    if light_names != MANAGED_LIGHT_NAMES:
         raise ValueError("static product studio rig must retain the approved light arrangement")
     if any(spec.temperature_kelvin != DEFAULT_LIGHT_TEMPERATURE_KELVIN for spec in light_specs):
         raise ValueError("static product studio rig must retain 5500K lights")
@@ -696,7 +864,7 @@ def _static_render_setup(config: ShotConfig) -> dict[str, object]:
         },
         "physical_shadow": {
             "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
-            "gate": "not-applicable" if config.purpose == "engineering" else "required",
+            "gate": "required",
         },
         "world": {
             "hdri_path": hdri_path.as_posix(),
@@ -708,36 +876,47 @@ def _static_render_setup(config: ShotConfig) -> dict[str, object]:
 
 
 def _validate_shot_config(config: ShotConfig) -> None:
-    if config.machine not in {"30G", "50G"}:
-        raise ValueError("static product shot machine must be 30G or 50G")
-    if config.focal_length_mm not in _ALLOWED_FOCAL_LENGTHS:
-        raise ValueError("static product shot focal length must be 85mm or 135mm")
     if config.animation_contract is not None:
         raise ValueError("static product scenes must not contain animation")
-    if (config.output_width, config.output_height) != (OUTPUT_WIDTH, OUTPUT_HEIGHT):
-        raise ValueError("static product output must be 2400 x 1800")
     if SHOT_CONFIGS.get(config.scene_id) != config:
         raise ValueError(f"unknown or altered static product shot: {config.scene_id}")
+
+
+def _comparison_master_sha256(config: ShotConfig) -> str:
+    """Bind both comparison masters through one deterministic contract digest."""
+
+    rows = []
+    for machine in config.machines:
+        path = ASSET_ROOT / "masters" / f"PIMM-{machine}-MASTER.blend"
+        rows.append(f"{machine}:{sha256_file(path)}")
+    return hashlib.sha256(("\n".join(rows) + "\n").encode("ascii")).hexdigest().upper()
 
 
 def contract_payload(config: ShotConfig) -> dict[str, object]:
     """Return the exact, hash-pinned SceneContract payload for *config*."""
 
     _validate_shot_config(config)
-    master_path = _master_path(config)
+    master_path = (
+        _master_path(config)
+        if len(config.machines) == 1
+        else ASSET_ROOT / "masters" / "PIMM-30G-MASTER.blend"
+    )
     material_path = ASSET_ROOT / "masters" / "PIMM-MATERIAL-LIBRARY.blend"
-    return {
+    payload = {
         "animation_contract": None,
         "camera_name": "CAM_PRODUCT",
         "complete_product": True,
-        "machine": config.machine,
         "master_collection": MASTER_COLLECTION,
         "master_path": master_path.relative_to(ASSET_ROOT).as_posix(),
-        "master_sha256": sha256_file(master_path),
+        "master_sha256": (
+            sha256_file(master_path)
+            if len(config.machines) == 1
+            else _comparison_master_sha256(config)
+        ),
         "material_library_path": material_path.relative_to(ASSET_ROOT).as_posix(),
         "material_library_sha256": sha256_file(material_path),
         "output_contract": {
-            "alpha": True,
+            "alpha": config.alpha,
             "height": config.output_height,
             "width": config.output_width,
         },
@@ -747,6 +926,11 @@ def contract_payload(config: ShotConfig) -> dict[str, object]:
         "schema_version": 1,
         "static_render_setup": _static_render_setup(config),
     }
+    if len(config.machines) == 1:
+        payload["machine"] = config.machines[0]
+    else:
+        payload["machines"] = list(config.machines)
+    return payload
 
 
 def prepare_contract(config: ShotConfig) -> dict[str, object]:
@@ -932,6 +1116,100 @@ def _target_evidence(config: ShotConfig, target: TargetResolution) -> dict[str, 
     }
 
 
+def managed_output_path(config: ShotConfig) -> Path:
+    """Return the only mutable proof-output prefix permitted during authoring."""
+
+    _validate_shot_config(config)
+    return (
+        ASSET_ROOT
+        / "renders"
+        / "proofs"
+        / "unapproved"
+        / _CAMPAIGN.campaign_id
+        / config.scene_id
+        / config.scene_id
+    ).resolve()
+
+
+def _install_profile_supports(bpy: Any, specs: Sequence[SceneSupportSpec]) -> None:
+    """Replace only scene-owned reflection/support geometry with exact finite meshes."""
+
+    for obj in list(bpy.context.scene.objects):
+        if getattr(obj, "library", None) is not None:
+            continue
+        if obj.get("pimm_scene_environment_role") is None and obj.get(
+            "pimm_scene_support_ownership"
+        ) is None:
+            continue
+        mesh = getattr(obj, "data", None)
+        materials = list(getattr(mesh, "materials", ())) if mesh is not None else []
+        bpy.data.objects.remove(obj, do_unlink=True)
+        if mesh is not None and getattr(mesh, "users", 0) == 0:
+            bpy.data.meshes.remove(mesh)
+        for material in materials:
+            if material.users == 0:
+                bpy.data.materials.remove(material)
+    for spec in specs:
+        mesh = bpy.data.meshes.new(spec.name)
+        center_x, center_y, center_z = spec.center
+        half_width = spec.width / 2.0
+        half_depth = spec.depth / 2.0
+        half_height = spec.height / 2.0
+        if spec.role == "shadow-catcher":
+            vertices = [
+                (center_x - half_width, center_y - half_depth, center_z),
+                (center_x + half_width, center_y - half_depth, center_z),
+                (center_x + half_width, center_y + half_depth, center_z),
+                (center_x - half_width, center_y + half_depth, center_z),
+            ]
+            faces = [(0, 1, 2, 3)]
+            mesh["pimm_scene_environment_role"] = spec.role
+        else:
+            vertices = [
+                (center_x + x, center_y + y, center_z + z)
+                for x in (-half_width, half_width)
+                for y in (-half_depth, half_depth)
+                for z in (-half_height, half_height)
+            ]
+            faces = [
+                (0, 1, 3, 2),
+                (4, 6, 7, 5),
+                (0, 4, 5, 1),
+                (2, 3, 7, 6),
+                (0, 2, 6, 4),
+                (1, 5, 7, 3),
+            ]
+            mesh["pimm_scene_support_ownership"] = "scene-support"
+            mesh["pimm_scene_support_role"] = spec.role
+        mesh.from_pydata(vertices, [], faces)
+        material = bpy.data.materials.new(f"{spec.name}_MATERIAL")
+        material["pimm_material_id"] = (
+            "SCENE_SHADOW_CATCHER"
+            if spec.role == "shadow-catcher"
+            else spec.name.removeprefix("PIMM_")
+        )
+        if spec.role == "shadow-catcher":
+            material["pimm_scene_environment_role"] = spec.role
+        else:
+            material["pimm_scene_support_ownership"] = "scene-support"
+            material["pimm_scene_support_role"] = spec.role
+        material.diffuse_color = spec.base_color
+        principled = material.node_tree.nodes.get("Principled BSDF")
+        if principled is None:
+            raise ValueError(f"scene support material lacks Principled BSDF: {spec.name}")
+        principled.inputs["Base Color"].default_value = spec.base_color
+        principled.inputs["Roughness"].default_value = spec.roughness
+        mesh.materials.append(material)
+        obj = bpy.data.objects.new(spec.name, mesh)
+        if spec.role == "shadow-catcher":
+            obj["pimm_scene_environment_role"] = spec.role
+            obj.is_shadow_catcher = True
+        else:
+            obj["pimm_scene_support_ownership"] = "scene-support"
+            obj["pimm_scene_support_role"] = spec.role
+        bpy.context.scene.collection.objects.link(obj)
+
+
 def _configure_authored_scene(
     bpy: Any,
     config: ShotConfig,
@@ -952,21 +1230,25 @@ def _configure_authored_scene(
     camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
     camera.data.clip_start = STATIC_CAMERA_CLIP_START
     camera.data.clip_end = STATIC_CAMERA_CLIP_END
-    camera.data.shift_x = 0.0
-    camera.data.shift_y = 0.0
+    placement = composition_for(config.scene_id).subject_placement
+    camera.data.shift_x = 0.5 - placement.center_x
+    camera.data.shift_y = placement.center_y - 0.5
     camera.data.dof.use_dof = True
     camera.data.dof.focus_distance = math.dist(pose.location, pose.target)
     camera.data.dof.aperture_fstop = config.aperture_fstop
 
     foot_contact = load_foot_contact_plane(config)
-    _install_lights(bpy, studio_light_specs(product_bounds_min, product_bounds_max))
-    _install_environment(
-        bpy,
-        contact_environment_specs(
-            studio_environment_specs(product_bounds_min, product_bounds_max),
-            foot_contact.z,
-        ),
+    lights, supports = profile_rig_specs(
+        product_bounds_min, product_bounds_max, pose, config
     )
+    supports = tuple(
+        replace(spec, center=(spec.center[0], spec.center[1], foot_contact.z))
+        if spec.role == "shadow-catcher"
+        else spec
+        for spec in supports
+    )
+    _install_lights(bpy, lights)
+    _install_profile_supports(bpy, supports)
     _install_world_environment(bpy, scene, world_environment)
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.length_unit = "MILLIMETERS"
@@ -979,12 +1261,10 @@ def _configure_authored_scene(
     scene.render.resolution_x = config.output_width
     scene.render.resolution_y = config.output_height
     scene.render.resolution_percentage = 100
-    scene.render.film_transparent = True
+    scene.render.film_transparent = config.alpha
     scene.render.use_border = False
     scene.render.use_crop_to_border = False
-    scene.render.filepath = str(
-        (ASSET_ROOT / "renders" / "proofs" / "unapproved" / config.scene_id).resolve()
-    )
+    scene.render.filepath = str(managed_output_path(config))
     scene["pimm_scene_contract_payload"] = canonical_scene_contract_json(contract)
     scene["pimm_scene_contract_snapshot_sha256"] = hashlib.sha256(
         contract_bytes
@@ -998,6 +1278,16 @@ def _configure_authored_scene(
     scene["pimm_foot_contact_evidence"] = json.dumps(
         _foot_contact_evidence(config, foot_contact),
         ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    scene["pimm_shot_composition"] = json.dumps(
+        {
+            "shot_id": config.scene_id,
+            "camera_view": composition_for(config.scene_id).camera_view,
+            "studio_profile": composition_for(config.scene_id).studio_profile,
+            "subject_center": [placement.center_x, placement.center_y],
+        },
         separators=(",", ":"),
         sort_keys=True,
     )
@@ -1174,11 +1464,14 @@ def _validate_authored_scene_state(
     if scene.camera is not camera or getattr(camera, "name", None) != contract.camera_name:
         errors.append("contracted CAM_PRODUCT must be active")
     camera_data = getattr(camera, "data", None)
+    placement = composition_for(config.scene_id).subject_placement
     if (
         camera_data is None
         or camera_data.lens != config.focal_length_mm
         or camera_data.sensor_width != DEFAULT_SENSOR_WIDTH_MM
         or camera_data.dof.aperture_fstop != config.aperture_fstop
+        or camera_data.shift_x != 0.5 - placement.center_x
+        or camera_data.shift_y != placement.center_y - 0.5
     ):
         errors.append("camera optics do not match the governed static shot")
     if camera_data is not None and camera_data.clip_start != STATIC_CAMERA_CLIP_START:
@@ -1209,7 +1502,8 @@ def _validate_authored_scene_state(
         or render.resolution_x != config.output_width
         or render.resolution_y != config.output_height
         or render.resolution_percentage != 100
-        or render.film_transparent is not True
+        or render.film_transparent is not config.alpha
+        or Path(str(render.filepath)).resolve() != managed_output_path(config)
     ):
         errors.append("Cycles output settings do not match the governed static shot")
     if render.use_border is not False or render.use_crop_to_border is not False:
@@ -1217,10 +1511,10 @@ def _validate_authored_scene_state(
     try:
         coordinates = frame_coordinates(target.bounds_min, target.bounds_max, pose, config)
         if any(
-            x < _FRAME_MARGIN
-            or x > 1.0 - _FRAME_MARGIN
-            or y < _FRAME_MARGIN
-            or y > 1.0 - _FRAME_MARGIN
+            x < placement.clearance_left
+            or x > 1.0 - placement.clearance_right
+            or y < placement.clearance_top
+            or y > 1.0 - placement.clearance_bottom
             for x, y in coordinates
         ):
             errors.append("stable target crop lies outside the contracted frame")
@@ -1309,7 +1603,7 @@ def author_scene(
             contract_snapshot.unlink()
     return {
         "status": "scene_created",
-        "machine": config.machine,
+        "machines": list(config.machines),
         "scene_id": config.scene_id,
         "path": str(destination),
         "camera": {

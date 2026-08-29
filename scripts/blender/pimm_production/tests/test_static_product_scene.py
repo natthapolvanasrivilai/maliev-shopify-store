@@ -19,16 +19,6 @@ from unittest.mock import patch
 
 MODULE = "scripts.blender.pimm_production.blender_static_product_scene"
 
-EXPECTED = {
-    "pimm-30g--overview--three-quarter": ("30G", "overview", "three-quarter", 85.0, 11.0),
-    "pimm-30g--engineering--controls": ("30G", "engineering", "controls", 135.0, 8.0),
-    "pimm-30g--tooling--front-detail": ("30G", "tooling", "front-detail", 135.0, 11.0),
-    "pimm-50g--overview--three-quarter": ("50G", "overview", "three-quarter", 85.0, 11.0),
-    "pimm-50g--engineering--controls": ("50G", "engineering", "controls", 135.0, 8.0),
-    "pimm-50g--tooling--front-detail": ("50G", "tooling", "front-detail", 135.0, 11.0),
-}
-
-
 class IdentityMatrix:
     def __matmul__(self, value):
         return value
@@ -74,16 +64,22 @@ class StaticProductSceneTests(unittest.TestCase):
         return importlib.import_module(MODULE)
 
     def test_registry_has_exact_static_shots(self):
-        """Catches a missing, renamed, or miscalibrated governed still shot."""
+        """Catches the authoring registry drifting from campaign-owned shot policy."""
 
         module = self._module()
-        self.assertEqual(set(module.SHOT_CONFIGS), set(EXPECTED))
-        for shot_id, (machine, purpose, view, lens, aperture) in EXPECTED.items():
+        campaign = module.load_campaign(module.CAMPAIGN_PATH)
+        self.assertEqual(module.validate_campaign(campaign), [])
+        self.assertEqual(set(module.SHOT_CONFIGS), set(campaign.by_shot_id))
+        self.assertEqual(len(module.SHOT_CONFIGS), 22)
+        for shot_id, policy in campaign.by_shot_id.items():
             config = module.SHOT_CONFIGS[shot_id]
-            self.assertEqual((config.machine, config.purpose, config.view), (machine, purpose, view))
-            self.assertEqual(config.focal_length_mm, lens)
-            self.assertEqual(config.aperture_fstop, aperture)
-            self.assertEqual((config.output_width, config.output_height), (2400, 1800))
+            self.assertEqual(config.machines, policy.machines)
+            self.assertEqual(config.purpose, policy.purpose)
+            self.assertEqual(config.view, module.composition_for(shot_id).camera_view)
+            self.assertEqual(config.focal_length_mm, policy.focal_length_mm)
+            self.assertEqual(config.aperture_fstop, policy.aperture_fstop)
+            self.assertEqual((config.output_width, config.output_height), (policy.width, policy.height))
+            self.assertIs(config.alpha, policy.alpha)
             self.assertIsNone(config.animation_contract)
 
     def test_three_quarter_camera_is_level_and_uses_realistic_orbit(self):
@@ -178,23 +174,18 @@ class StaticProductSceneTests(unittest.TestCase):
         self.assertEqual(corrected[0].base_color, original[0].base_color)
 
     def _target_manifest(self):
-        shots = {}
-        for machine in ("30g", "50g"):
-            shots[f"pimm-{machine}--engineering--controls"] = {
+        shots = {
+            config.scene_id: {
                 "groups": {
-                    "gauge": [f"{machine}-gauge"],
-                    "regulator": [f"{machine}-regulator"],
-                    "controller": [f"{machine}-controller"],
-                    "actuator_artwork": [f"{machine}-actuator-artwork"],
+                    name: list(identifiers)
+                    for name, identifiers in self.module.composition_for(
+                        config.scene_id
+                    ).target_groups.items()
                 }
             }
-            shots[f"pimm-{machine}--tooling--front-detail"] = {
-                "groups": {
-                    "nozzle": [f"{machine}-nozzle"],
-                    "platen": [f"{machine}-platen"],
-                    "fixture": [f"{machine}-fixture"],
-                }
-            }
+            for config in self.module.SHOT_CONFIGS.values()
+            if config.purpose == "detail"
+        }
         return {"schema_version": 1, "shots": shots}
 
     def test_target_manifest_requires_every_semantic_stable_id_group(self):
@@ -207,29 +198,28 @@ class StaticProductSceneTests(unittest.TestCase):
         )
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = self._target_manifest()
-        payload["shots"]["pimm-30g--engineering--controls"]["groups"][
-            "actuator_artwork"
+        payload["shots"]["pimm-30g--pneumatics--macro"]["groups"][
+            "airtac_artwork"
         ] = []
         path.write_text(json.dumps(payload), encoding="utf-8")
 
-        with self.assertRaisesRegex(ValueError, "actuator_artwork.*nonempty stable-ID list"):
+        with self.assertRaisesRegex(ValueError, "airtac_artwork.*composition stable-ID list"):
             self.module.load_target_manifest(path)
 
     def test_detail_bounds_resolve_by_stable_id_and_preserve_group_evidence(self):
         """Catches detail targeting by display name or loss of semantic target evidence."""
 
-        config = self.module.SHOT_CONFIGS["pimm-30g--engineering--controls"]
+        config = self.module.SHOT_CONFIGS["pimm-30g--controls--macro"]
         _manifest_path, manifest = self._write_canonical_target_manifest()
+        identifiers = self.module.composition_for(config.scene_id).target_stable_ids
         objects = [
-            StableMesh("30g-gauge", (-10, -5, 100), (10, 5, 120), name="renamed-A"),
-            StableMesh("30g-regulator", (20, -4, 80), (35, 4, 110), name="renamed-B"),
-            StableMesh("30g-controller", (-25, -6, 130), (25, 6, 190), name="renamed-C"),
             StableMesh(
-                "30g-actuator-artwork",
-                (-8, -7, 60),
-                (8, 7, 78),
-                name="mutable display name",
-            ),
+                stable_id,
+                (-25 + index * 5, -7, 60 + index * 10),
+                (10 + index * 5, 7, 100 + index * 15),
+                name="mutable display name" if index == 0 else f"renamed-{index}",
+            )
+            for index, stable_id in enumerate(identifiers)
         ]
         bpy = type(
             "Bpy",
@@ -240,22 +230,26 @@ class StaticProductSceneTests(unittest.TestCase):
         target = self.module.resolve_target_bounds(bpy, config, manifest)
 
         self.assertEqual(target.bounds_min, (-25.0, -7.0, 60.0))
-        self.assertEqual(target.bounds_max, (35.0, 7.0, 190.0))
+        self.assertEqual(target.bounds_max, (25.0, 7.0, 145.0))
         self.assertEqual(
-            target.groups["actuator_artwork"],
-            ("30g-actuator-artwork",),
+            target.groups["controller_segments"],
+            self.module.composition_for(config.scene_id).target_groups[
+                "controller_segments"
+            ],
         )
         self.assertNotIn("mutable display name", target.stable_ids)
 
     def test_detail_bounds_reject_a_missing_artwork_stable_target(self):
         """Catches an engineering crop that silently omits the actuator artwork."""
 
-        config = self.module.SHOT_CONFIGS["pimm-30g--engineering--controls"]
+        config = self.module.SHOT_CONFIGS["pimm-30g--pneumatics--macro"]
         _manifest_path, manifest = self._write_canonical_target_manifest()
+        composition = self.module.composition_for(config.scene_id)
+        omitted = composition.target_groups["airtac_artwork"][0]
         objects = [
-            StableMesh("30g-gauge", (-10, -5, 100), (10, 5, 120)),
-            StableMesh("30g-regulator", (20, -4, 80), (35, 4, 110)),
-            StableMesh("30g-controller", (-25, -6, 130), (25, 6, 190)),
+            StableMesh(stable_id, (-10, -5, 100), (10, 5, 120))
+            for stable_id in composition.target_stable_ids
+            if stable_id != omitted
         ]
         bpy = type(
             "Bpy",
@@ -270,9 +264,9 @@ class StaticProductSceneTests(unittest.TestCase):
         """Catches focal-length or distance drift that crops the contracted target bounds."""
 
         for shot_id in (
-            "pimm-30g--overview--three-quarter",
-            "pimm-30g--engineering--controls",
-            "pimm-30g--tooling--front-detail",
+            "pimm-30g--hero--desktop",
+            "pimm-30g--hero--tablet",
+            "pimm-30g--controls--macro",
         ):
             with self.subTest(shot_id=shot_id):
                 config = self.module.SHOT_CONFIGS[shot_id]
@@ -280,38 +274,58 @@ class StaticProductSceneTests(unittest.TestCase):
                 bounds_max = (220.0, 160.0, 900.0)
                 pose = self.module.camera_pose(bounds_min, bounds_max, config)
                 frame = self.module.frame_coordinates(bounds_min, bounds_max, pose, config)
-                self.assertGreaterEqual(min(x for x, _y in frame), 0.05)
-                self.assertLessEqual(max(x for x, _y in frame), 0.95)
-                self.assertGreaterEqual(min(y for _x, y in frame), 0.05)
-                self.assertLessEqual(max(y for _x, y in frame), 0.95)
+                placement = self.module.composition_for(shot_id).subject_placement
+                self.assertGreaterEqual(min(x for x, _y in frame), placement.clearance_left)
+                self.assertLessEqual(max(x for x, _y in frame), 1.0 - placement.clearance_right)
+                self.assertGreaterEqual(min(y for _x, y in frame), placement.clearance_top)
+                self.assertLessEqual(max(y for _x, y in frame), 1.0 - placement.clearance_bottom)
 
     def test_camera_distances_keep_exact_reviewed_margin_policy(self):
-        """Catches a wrong purpose-bound margin or distance drift in any shot class."""
+        """Catches a full-machine camera moving inside the three-height minimum."""
 
         bounds_min = (-200.0, -180.0, 0.0)
         bounds_max = (220.0, 160.0, 900.0)
-        overview = self.module.camera_pose(
+        desktop = self.module.camera_pose(
             bounds_min,
             bounds_max,
-            self.module.SHOT_CONFIGS["pimm-30g--overview--three-quarter"],
+            self.module.SHOT_CONFIGS["pimm-30g--hero--desktop"],
         )
-        engineering = self.module.camera_pose(
+        tablet = self.module.camera_pose(
             bounds_min,
             bounds_max,
-            self.module.SHOT_CONFIGS["pimm-30g--engineering--controls"],
+            self.module.SHOT_CONFIGS["pimm-30g--hero--tablet"],
         )
-        tooling = self.module.camera_pose(
+        detail = self.module.camera_pose(
             bounds_min,
             bounds_max,
-            self.module.SHOT_CONFIGS["pimm-30g--tooling--front-detail"],
+            self.module.SHOT_CONFIGS["pimm-30g--controls--macro"],
         )
 
-        self.assertAlmostEqual(math.dist(overview.location, overview.target), 4240.318045705377)
-        self.assertAlmostEqual(math.dist(engineering.location, engineering.target), 5175.169999999998)
-        self.assertAlmostEqual(math.dist(tooling.location, tooling.target), 6468.962499999998)
-        self.assertEqual(overview.target, (10.0, -10.0, 450.0))
-        self.assertEqual(engineering.target, (10.0, -10.0, 450.0))
-        self.assertEqual(tooling.target, (10.0, -10.0, 450.0))
+        self.assertGreaterEqual(math.dist(desktop.location, desktop.target), 2700.0)
+        self.assertGreaterEqual(math.dist(tablet.location, tablet.target), 2700.0)
+        self.assertGreaterEqual(math.dist(detail.location, detail.target), 900.0)
+        self.assertEqual(desktop.target, (10.0, -10.0, 450.0))
+        self.assertEqual(tablet.target, (10.0, -10.0, 450.0))
+        self.assertEqual(detail.target, (10.0, -10.0, 450.0))
+
+    def test_profile_rig_has_exact_broad_lights_cards_and_frustum_safe_catcher(self):
+        """Catches a profile losing reflection control or exposing a finite floor edge."""
+
+        config = self.module.SHOT_CONFIGS["pimm-30g--hero--desktop"]
+        bounds_min = (-200.0, -180.0, 0.0)
+        bounds_max = (220.0, 160.0, 900.0)
+        pose = self.module.camera_pose(bounds_min, bounds_max, config)
+
+        lights, supports = self.module.profile_rig_specs(
+            bounds_min, bounds_max, pose, config
+        )
+
+        self.assertEqual(tuple(item.name for item in lights), self.module.MANAGED_LIGHT_NAMES)
+        cards = tuple(item.name for item in supports if item.role == "reflection-card")
+        self.assertEqual(cards, self.module.MANAGED_REFLECTION_CARD_NAMES)
+        catcher = next(item for item in supports if item.role == "shadow-catcher")
+        self.assertEqual(catcher.name, "PIMM_SCENE_SHADOW_CATCHER")
+        self.assertTrue(self.module.catcher_edges_outside_camera_frustum(catcher, pose, config))
 
     def test_governed_clip_range_contains_current_farthest_stable_geometry(self):
         """Catches the camera far plane clipping the observed 3622-unit product depth."""
@@ -363,8 +377,8 @@ class StaticProductSceneTests(unittest.TestCase):
             clip_start=1.0,
             clip_end=10000.0,
             sensor_fit="HORIZONTAL",
-            shift_x=0.0,
-            shift_y=0.0,
+            shift_x=0.5 - self.module.composition_for(config.scene_id).subject_placement.center_x,
+            shift_y=self.module.composition_for(config.scene_id).subject_placement.center_y - 0.5,
             dof=SimpleNamespace(use_dof=True, aperture_fstop=config.aperture_fstop),
         )
         camera = PropertyNamespace(
@@ -376,12 +390,13 @@ class StaticProductSceneTests(unittest.TestCase):
         )
         render = SimpleNamespace(
             engine="CYCLES",
-            resolution_x=2400,
-            resolution_y=1800,
+            resolution_x=config.output_width,
+            resolution_y=config.output_height,
             resolution_percentage=100,
-            film_transparent=True,
+            film_transparent=config.alpha,
             use_border=False,
             use_crop_to_border=False,
+            filepath=str(self.module.managed_output_path(config)),
         )
         scene = PropertyNamespace(
             objects=[],
@@ -563,7 +578,7 @@ class StaticProductSceneTests(unittest.TestCase):
     def test_cli_exposes_inspection_and_manifest_gated_authoring_modes(self):
         """Catches Task 3 losing either the read-only inspection or manifest-gated author path."""
 
-        shot_id = "pimm-30g--overview--three-quarter"
+        shot_id = "pimm-30g--hero--desktop"
         inspected = self.module._arguments(["--shot-id", shot_id, "--inspect-targets"])
         self.assertTrue(inspected.inspect_targets)
         self.assertFalse(inspected.author_scene)
@@ -738,18 +753,18 @@ class StaticProductSceneTests(unittest.TestCase):
         (masters / "PIMM-30G-MASTER.blend").write_bytes(b"master-30g")
         (masters / "PIMM-50G-MASTER.blend").write_bytes(b"master-50g")
         (masters / "PIMM-MATERIAL-LIBRARY.blend").write_bytes(b"material-library")
-        self.config = self.module.SHOT_CONFIGS["pimm-30g--overview--three-quarter"]
+        self.config = self.module.SHOT_CONFIGS["pimm-30g--hero--desktop"]
 
     def test_contract_payload_is_hash_pinned_and_static(self):
         """Catches a payload that loses its master, material, alpha, or still-image guard."""
 
         payload = self.module.contract_payload(self.config)
 
-        self.assertEqual(payload["scene_id"], "pimm-30g--overview--three-quarter")
-        self.assertEqual(payload["purpose"], "overview")
+        self.assertEqual(payload["scene_id"], "pimm-30g--hero--desktop")
+        self.assertEqual(payload["purpose"], "hero")
         self.assertEqual(
             payload["scene_path"],
-            "scenes/stills/pimm-30g--overview--three-quarter.blend",
+            "scenes/stills/pimm-30g--hero--desktop.blend",
         )
         self.assertEqual(payload["master_path"], "masters/PIMM-30G-MASTER.blend")
         self.assertEqual(
@@ -764,7 +779,7 @@ class StaticProductSceneTests(unittest.TestCase):
         self.assertEqual(payload["master_collection"], "PIMM_PUBLISHED")
         self.assertTrue(payload["complete_product"])
         self.assertIsNone(payload["animation_contract"])
-        self.assertEqual(payload["output_contract"], {"width": 2400, "height": 1800, "alpha": True})
+        self.assertEqual(payload["output_contract"], {"width": 2560, "height": 1440, "alpha": True})
         self.assertEqual(
             payload["static_render_setup"],
             {
@@ -774,7 +789,7 @@ class StaticProductSceneTests(unittest.TestCase):
                     "clip_start": 1.0,
                     "focal_length_mm": 85.0,
                     "sensor_width_mm": 36.0,
-                    "view": "three-quarter",
+                    "view": "hero-desktop",
                 },
                 "color_management": {
                     "exposure": 0.0,
@@ -807,11 +822,6 @@ class StaticProductSceneTests(unittest.TestCase):
         )
 
     def test_physical_shadow_gate_is_contract_bound_by_shot_class(self):
-        expected = {
-            "overview": "required",
-            "engineering": "not-applicable",
-            "tooling": "required",
-        }
         for config in self.module.SHOT_CONFIGS.values():
             with self.subTest(shot_id=config.scene_id):
                 payload = self.module.contract_payload(config)
@@ -819,23 +829,16 @@ class StaticProductSceneTests(unittest.TestCase):
                     payload["static_render_setup"]["physical_shadow"],
                     {
                         "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
-                        "gate": expected[config.purpose],
+                        "gate": "required",
                     },
                 )
 
     def test_scene_contract_rejects_shadow_policy_drift(self):
-        for purpose, invalid_gate in (
-            ("overview", "not-applicable"),
-            ("engineering", "required"),
-            ("tooling", "not-applicable"),
-        ):
-            config = next(
-                candidate
-                for candidate in self.module.SHOT_CONFIGS.values()
-                if candidate.machine == "30G" and candidate.purpose == purpose
-            )
+        for config in self.module.SHOT_CONFIGS.values():
+            if config.machine != "30G":
+                continue
             payload = self.module.contract_payload(config)
-            payload["static_render_setup"]["physical_shadow"]["gate"] = invalid_gate
+            payload["static_render_setup"]["physical_shadow"]["gate"] = "not-applicable"
 
             errors = self.module.validate_scene_contract(
                 self.module.SceneContract.from_mapping(payload)

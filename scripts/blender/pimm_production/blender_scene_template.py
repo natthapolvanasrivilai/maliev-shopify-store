@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -27,6 +28,7 @@ try:
         stable_id_evidence,
         validate_scene_contract,
     )
+    from .shot_compositions import ShotComposition
 except ImportError:  # Blender may execute this checked-in script directly.
     repository_root = Path(__file__).resolve().parents[3]
     if str(repository_root) not in sys.path:
@@ -45,6 +47,7 @@ except ImportError:  # Blender may execute this checked-in script directly.
         stable_id_evidence,
         validate_scene_contract,
     )
+    from scripts.blender.pimm_production.shot_compositions import ShotComposition
 
 
 STATUS_BLOCKED = "blocked_manual_material_approval"
@@ -53,6 +56,63 @@ BUILD_MARKER = "PIMM_SCENE_BUILD_JSON="
 VALIDATION_MARKER = "PIMM_SCENE_VALIDATION_JSON="
 _CANONICAL_ASSET_ROOT = ASSET_ROOT
 _MATERIAL_ID = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+@dataclass(frozen=True)
+class ComparisonLink:
+    """One immutable collection linked beneath a scene-owned transform."""
+
+    machine: str
+    collection_name: str
+    instance_name: str
+    offset_x: float
+    offset_y: float
+    offset_z: float
+    source_contact_z: float
+    resolved_ground_z: float
+    scale: float
+    scene_owned_transform: bool
+
+
+def comparison_link_plan(
+    composition: ShotComposition,
+    contact_z_by_machine: dict[str, float],
+) -> tuple[ComparisonLink, ...]:
+    """Resolve two immutable linked machines to one scene-owned floor plane."""
+
+    placements = composition.machine_placements
+    machines = tuple(item.machine for item in placements)
+    if composition.studio_profile != "comparison" or machines != ("30G", "50G"):
+        raise ValueError("comparison composition must contain exact 30G and 50G placements")
+    if set(contact_z_by_machine) != set(machines):
+        raise ValueError("comparison contact plane evidence must cover both machines exactly")
+    plan: list[ComparisonLink] = []
+    for placement in placements:
+        contact_z = contact_z_by_machine[placement.machine]
+        if not isinstance(contact_z, (int, float)) or isinstance(contact_z, bool):
+            raise ValueError("comparison contact plane values must be numeric")
+        offset_z = placement.ground_z - float(contact_z)
+        plan.append(
+            ComparisonLink(
+                machine=placement.machine,
+                collection_name="PIMM_PUBLISHED",
+                instance_name=f"PIMM_{placement.machine}_INSTANCE",
+                offset_x=placement.offset_x,
+                offset_y=placement.offset_y,
+                offset_z=offset_z,
+                source_contact_z=float(contact_z),
+                resolved_ground_z=float(contact_z) + offset_z,
+                scale=placement.scale,
+                scene_owned_transform=True,
+            )
+        )
+    if len({item.instance_name for item in plan}) != 2 or any(
+        item.scale != 1.0 for item in plan
+    ):
+        raise ValueError("comparison links must use unique identity-scale scene transforms")
+    if len({item.resolved_ground_z for item in plan}) != 1:
+        raise ValueError("comparison linked machines must resolve to one contact plane")
+    return tuple(plan)
 
 
 def _material_gate_errors(objects: list[object]) -> tuple[list[str], list[str]]:

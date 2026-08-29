@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,6 +14,8 @@ import tempfile
 from typing import Any, Mapping, Sequence
 
 try:
+    from .campaign_contract import CAMPAIGN_ID, load_campaign, shot_policy, validate_campaign
+    from .external_asset_manifest import validate_external_assets
     from .io_contract import sha256_file
     from .machine_contract import load_machine_contract, validate_controller_scene
     from .paths import ASSET_ROOT, require_within
@@ -24,14 +28,35 @@ try:
         stable_id_evidence,
         validate_scene_contract,
     )
+    from .shot_compositions import (
+        CAMPAIGN_PATH,
+        MANAGED_REFLECTION_CARD_NAMES,
+        composition_for,
+        validate_workshop_support_assets,
+    )
 except ImportError:  # Blender may execute this checked-in script directly.
     repository_root = Path(__file__).resolve().parents[3]
     if str(repository_root) not in sys.path:
         sys.path.insert(0, str(repository_root))
+    from scripts.blender.pimm_production.campaign_contract import (
+        CAMPAIGN_ID,
+        load_campaign,
+        shot_policy,
+        validate_campaign,
+    )
+    from scripts.blender.pimm_production.external_asset_manifest import (
+        validate_external_assets,
+    )
     from scripts.blender.pimm_production.io_contract import sha256_file
     from scripts.blender.pimm_production.machine_contract import (
         load_machine_contract,
         validate_controller_scene,
+    )
+    from scripts.blender.pimm_production.shot_compositions import (
+        CAMPAIGN_PATH,
+        MANAGED_REFLECTION_CARD_NAMES,
+        composition_for,
+        validate_workshop_support_assets,
     )
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.published_artwork import (
@@ -113,6 +138,12 @@ def _property(datablock: object, name: str, default: object = None) -> object:
 def _reachable_collections(scene: object) -> set[object]:
     reachable: set[object] = set()
     stack = list(getattr(getattr(scene, "collection", None), "children", ()))
+    stack.extend(
+        collection
+        for obj in getattr(scene, "objects", ())
+        for collection in (getattr(obj, "instance_collection", None),)
+        if collection is not None
+    )
     while stack:
         collection = stack.pop()
         if collection in reachable:
@@ -120,6 +151,37 @@ def _reachable_collections(scene: object) -> set[object]:
         reachable.add(collection)
         stack.extend(getattr(collection, "children", ()))
     return reachable
+
+
+def _master_authorities(contract: SceneContract) -> dict[str, Path]:
+    machines = contract.machines or ((contract.machine,) if contract.machine else ())
+    return {
+        machine: (ASSET_ROOT / "masters" / f"PIMM-{machine}-MASTER.blend").resolve()
+        for machine in machines
+    }
+
+
+def _combined_master_sha256(authorities: Mapping[str, Path]) -> str:
+    rows = [f"{machine}:{sha256_file(path)}" for machine, path in authorities.items()]
+    return hashlib.sha256(("\n".join(rows) + "\n").encode("ascii")).hexdigest().upper()
+
+
+def _external_asset_provenance() -> tuple[dict[str, Mapping[str, object]], list[str]]:
+    path = ASSET_ROOT / "manifests" / "external-assets-v1.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return {}, [f"external asset manifest cannot be read: {path}: {error}"]
+    campaign = load_campaign(CAMPAIGN_PATH)
+    errors = validate_external_assets(payload, set(campaign.by_shot_id))
+    assets = payload.get("assets", ()) if isinstance(payload, Mapping) else ()
+    provenance = {
+        record["asset_version_id"]: record
+        for record in assets
+        if isinstance(record, Mapping)
+        and isinstance(record.get("asset_version_id"), str)
+    }
+    return provenance, errors
 
 
 def _validate_complete_product(
@@ -268,6 +330,102 @@ def _validate_static_camera_clip_range(
         errors.append("static product camera far clip does not match contract")
 
 
+def _validate_campaign_runtime_state(
+    bpy: Any,
+    contract: SceneContract,
+    asset_root: Path = ASSET_ROOT,
+) -> list[str]:
+    """Validate exact reopened runtime state for one governed campaign scene."""
+
+    campaign = load_campaign(CAMPAIGN_PATH)
+    campaign_errors = validate_campaign(campaign)
+    if campaign_errors:
+        return ["campaign validation failed: " + "; ".join(campaign_errors)]
+    try:
+        policy = shot_policy(campaign, contract.scene_id)
+    except ValueError:
+        return []
+
+    errors: list[str] = []
+    objects = list(getattr(bpy.data, "objects", ()))
+    cameras = [obj for obj in objects if getattr(obj, "type", None) == "CAMERA"]
+    if (
+        len(cameras) != 1
+        or getattr(cameras[0], "name", None) != contract.camera_name
+        or getattr(bpy.context.scene, "camera", None) is not cameras[0]
+    ):
+        errors.append("campaign scene must contain exactly one managed camera")
+
+    setup = contract.static_render_setup
+    lighting = setup.get("lighting") if isinstance(setup, Mapping) else None
+    expected_lights = tuple(
+        lighting.get("required_light_names", ())
+        if isinstance(lighting, Mapping)
+        else ()
+    )
+    actual_lights = tuple(
+        sorted(
+            str(getattr(obj, "name", ""))
+            for obj in objects
+            if getattr(obj, "type", None) == "LIGHT"
+        )
+    )
+    if actual_lights != tuple(sorted(expected_lights)):
+        errors.append("campaign scene light names must equal the exact managed rig")
+
+    actual_cards = tuple(
+        sorted(
+            str(getattr(obj, "name", ""))
+            for obj in objects
+            if getattr(obj, "type", None) == "MESH"
+            and str(getattr(obj, "name", "")) in MANAGED_REFLECTION_CARD_NAMES
+        )
+    )
+    if actual_cards != tuple(sorted(MANAGED_REFLECTION_CARD_NAMES)):
+        errors.append("campaign scene reflection-card names must equal the exact managed rig")
+
+    actions = list(getattr(bpy.data, "actions", ()))
+    animated = getattr(bpy.context.scene, "animation_data", None) is not None or any(
+        getattr(obj, "animation_data", None) is not None for obj in objects
+    )
+    if actions or animated:
+        errors.append("campaign scene animation is forbidden")
+
+    render = bpy.context.scene.render
+    if getattr(render, "engine", None) != "CYCLES":
+        errors.append("campaign scene render engine must equal Cycles")
+    if (
+        getattr(render, "resolution_x", None) != policy.width
+        or getattr(render, "resolution_y", None) != policy.height
+        or getattr(render, "resolution_percentage", None) != 100
+        or getattr(render, "film_transparent", None) is not policy.alpha
+        or getattr(render, "use_border", None) is not False
+        or getattr(render, "use_crop_to_border", None) is not False
+    ):
+        errors.append("campaign scene render settings must match exact output policy")
+    view = bpy.context.scene.view_settings
+    if (
+        getattr(view, "view_transform", None) != "AgX"
+        or getattr(view, "look", None) != "AgX - Medium High Contrast"
+        or getattr(view, "exposure", None) != 0.0
+        or getattr(view, "gamma", None) != 1.0
+    ):
+        errors.append("campaign scene color settings must match exact AgX policy")
+    output_path = Path(bpy.path.abspath(render.filepath)).resolve()
+    expected_output = (
+        Path(asset_root)
+        / "renders"
+        / "proofs"
+        / "unapproved"
+        / CAMPAIGN_ID
+        / contract.scene_id
+        / contract.scene_id
+    ).resolve()
+    if output_path != expected_output:
+        errors.append("campaign scene must use the exact managed proof output path")
+    return errors
+
+
 def validate_open_render_scene(
     bpy: Any,
     contract: SceneContract,
@@ -279,6 +437,7 @@ def validate_open_render_scene(
     errors = list(validate_scene_contract(contract))
     if errors:
         return errors
+    errors.extend(_validate_campaign_runtime_state(bpy, contract, ASSET_ROOT))
 
     embedded_payload = _property(
         bpy.context.scene, "pimm_scene_contract_payload"
@@ -303,25 +462,37 @@ def validate_open_render_scene(
     ):
         errors.append("embedded scene contract snapshot SHA-256 does not match snapshot")
 
-    machine_contract = load_machine_contract(contract.machine)
-    errors.extend(validate_controller_scene(bpy, machine_contract))
-    animation = machine_contract["animation"]
-    if (
-        contract.animation_contract is not None
-        and animation["status"] != "enabled_owner_approved"
-    ):
-        errors.append(
-            "scene animation_contract is present while the machine motion map remains blocked"
-        )
+    machines = contract.machines or ((contract.machine,) if contract.machine else ())
+    for machine in machines:
+        machine_contract = load_machine_contract(machine)
+        errors.extend(validate_controller_scene(bpy, machine_contract))
+        animation = machine_contract["animation"]
+        if (
+            contract.animation_contract is not None
+            and animation["status"] != "enabled_owner_approved"
+        ):
+            errors.append(
+                "scene animation_contract is present while the machine motion map remains blocked"
+            )
 
-    expected_master = (ASSET_ROOT / Path(contract.master_path)).resolve()
+    expected_masters = _master_authorities(contract)
     expected_material_library = (
         ASSET_ROOT / Path(contract.material_library_path)
     ).resolve()
-    if not expected_master.is_file():
-        errors.append(f"expected master is missing: {expected_master}")
-    elif sha256_file(expected_master) != contract.master_sha256.upper():
-        errors.append(f"master SHA-256 mismatch: {expected_master}")
+    for expected_master in expected_masters.values():
+        if not expected_master.is_file():
+            errors.append(f"expected master is missing: {expected_master}")
+    if all(path.is_file() for path in expected_masters.values()):
+        actual_master_sha256 = (
+            sha256_file(next(iter(expected_masters.values())))
+            if len(expected_masters) == 1
+            else _combined_master_sha256(expected_masters)
+        )
+        if actual_master_sha256 != contract.master_sha256.upper():
+            errors.append(
+                "master SHA-256 mismatch: "
+                + ", ".join(str(path) for path in expected_masters.values())
+            )
     if not expected_material_library.is_file():
         errors.append(f"expected material library is missing: {expected_material_library}")
     elif sha256_file(expected_material_library) != contract.material_library_sha256.upper():
@@ -340,14 +511,15 @@ def validate_open_render_scene(
         for path in (_library_path(bpy, library) for library in bpy.data.libraries)
         if path is not None
     }
-    if expected_master not in library_paths:
-        errors.append(f"missing expected master library link: {expected_master}")
+    for expected_master in expected_masters.values():
+        if expected_master not in library_paths:
+            errors.append(f"missing expected master library link: {expected_master}")
     if expected_material_library not in library_paths:
         errors.append(
             f"missing expected material-library dependency: {expected_material_library}; found={sorted(str(path) for path in library_paths)}"
         )
     unexpected_library_paths = library_paths - {
-        expected_master,
+        *expected_masters.values(),
         expected_material_library,
     }
     if unexpected_library_paths:
@@ -356,26 +528,30 @@ def validate_open_render_scene(
             f"authority: {sorted(str(path) for path in unexpected_library_paths)}"
         )
 
-    candidates = [
-        collection
-        for collection in bpy.data.collections
-        if getattr(collection, "name", "") == contract.master_collection
-        and _datablock_library_path(bpy, collection) == expected_master
-    ]
-    published = candidates[0] if len(candidates) == 1 else None
-    if published is None:
-        errors.append(
-            "render scene must link exactly one PIMM_PUBLISHED collection from the expected master"
-        )
-    elif not list(getattr(published, "all_objects", ())):
-        errors.append("linked PIMM_PUBLISHED collection is empty")
-    if published is not None and published not in _reachable_collections(
-        bpy.context.scene
-    ):
-        errors.append(
-            "linked PIMM_PUBLISHED is not reachable from the active scene hierarchy"
-        )
-    errors.extend(_validate_complete_product(published, contract))
+    published_by_machine: dict[str, object] = {}
+    reachable = _reachable_collections(bpy.context.scene)
+    for machine, expected_master in expected_masters.items():
+        candidates = [
+            collection
+            for collection in bpy.data.collections
+            if str(getattr(collection, "name", "")).startswith(contract.master_collection)
+            and _datablock_library_path(bpy, collection) == expected_master
+        ]
+        published = candidates[0] if len(candidates) == 1 else None
+        if published is None:
+            errors.append(
+                f"render scene must link exactly one PIMM_PUBLISHED collection from the expected {machine} master"
+            )
+            continue
+        published_by_machine[machine] = published
+        if not list(getattr(published, "all_objects", ())):
+            errors.append(f"linked {machine} PIMM_PUBLISHED collection is empty")
+        if published not in reachable:
+            errors.append(
+                f"linked {machine} PIMM_PUBLISHED is not reachable from the active scene hierarchy"
+            )
+        machine_contract = replace(contract, machine=machine, machines=None)
+        errors.extend(_validate_complete_product(published, machine_contract))
 
     environment_objects = [
         obj
@@ -418,15 +594,100 @@ def validate_open_render_scene(
         environment_meshes.add(mesh)
         environment_materials.add(materials[0])
 
+    support_objects = [
+        obj
+        for obj in bpy.data.objects
+        if getattr(obj, "type", None) == "MESH"
+        and _property(obj, "pimm_scene_support_ownership") is not None
+    ]
+    support_meshes: set[object] = set()
+    support_materials: set[object] = set()
+    workshop_support_records: list[dict[str, object]] = []
+    reflection_names = {
+        str(getattr(obj, "name", ""))
+        for obj in support_objects
+        if _property(obj, "pimm_scene_support_role") == "reflection-card"
+    }
+    if reflection_names and reflection_names != set(MANAGED_REFLECTION_CARD_NAMES):
+        errors.append("scene reflection-card geometry must use the exact managed names")
+    for support in support_objects:
+        name = str(getattr(support, "name", ""))
+        mesh = getattr(support, "data", None)
+        materials = list(getattr(mesh, "materials", ())) if mesh is not None else []
+        role = _property(support, "pimm_scene_support_role")
+        valid_local = (
+            _property(support, "pimm_scene_support_ownership") == "scene-support"
+            and _datablock_library_path(bpy, support) is None
+            and mesh is not None
+            and _datablock_library_path(bpy, mesh) is None
+            and _property(mesh, "pimm_scene_support_ownership") == "scene-support"
+            and bool(materials)
+            and all(_datablock_library_path(bpy, material) is None for material in materials)
+            and all(
+                _property(material, "pimm_scene_support_ownership") == "scene-support"
+                for material in materials
+            )
+            and _property(support, "pimm_stable_id") is None
+        )
+        if role == "reflection-card":
+            valid_local = (
+                valid_local
+                and len(materials) == 1
+                and name in MANAGED_REFLECTION_CARD_NAMES
+            )
+        elif contract.purpose == "workshop":
+            valid_local = valid_local and isinstance(
+                _property(support, "pimm_external_asset_version_id"), str
+            )
+            workshop_support_records.append(
+                {
+                    "name": name,
+                    "ownership": _property(
+                        support, "pimm_scene_support_ownership"
+                    ),
+                    "asset_version_id": _property(
+                        support, "pimm_external_asset_version_id"
+                    ),
+                    "local_relative_path": _property(
+                        support, "pimm_external_asset_local_relative_path"
+                    ),
+                    "sha256": _property(support, "pimm_external_asset_sha256"),
+                }
+            )
+        else:
+            valid_local = False
+        if not valid_local:
+            errors.append(f"scene support mesh is unowned or unauthorized: {name}")
+            continue
+        support_meshes.add(mesh)
+        support_materials.update(materials)
+
+    if workshop_support_records:
+        provenance, provenance_errors = _external_asset_provenance()
+        errors.extend(provenance_errors)
+        errors.extend(
+            validate_workshop_support_assets(
+                composition_for(contract.scene_id),
+                workshop_support_records,
+                provenance,
+            )
+        )
+
     products = sorted(
         (
             obj
             for obj in bpy.data.objects
-            if getattr(obj, "type", None) == "MESH" and obj not in environment_objects
+            if getattr(obj, "type", None) == "MESH"
+            and obj not in environment_objects
+            and obj not in support_objects
         ),
         key=lambda obj: str(getattr(obj, "name", "")),
     )
-    expected_products = set(getattr(published, "all_objects", ())) if published else set()
+    expected_products = {
+        product
+        for published in published_by_machine.values()
+        for product in getattr(published, "all_objects", ())
+    }
     material_registry: dict[str, object] = {}
     # Validate every used material datablock, not only object slots. Geometry
     # Nodes and node-socket pointers can contribute a material to rendering
@@ -434,7 +695,7 @@ def validate_open_render_scene(
     for material in getattr(bpy.data, "materials", ()):
         if int(getattr(material, "users", 0)) <= 0:
             continue
-        if material in environment_materials:
+        if material in environment_materials or material in support_materials:
             continue
         material_name = str(getattr(material, "name", ""))
         material_id = _property(material, "pimm_material_id")
@@ -465,12 +726,12 @@ def validate_open_render_scene(
                     "shared material name/pimm_material_id mismatch: "
                     f"{material_name}/{material_id}"
                 )
-        elif origin == expected_master and material_id in _APPROVED_SHARED_MATERIAL_IDS:
+        elif origin in set(expected_masters.values()) and material_id in _APPROVED_SHARED_MATERIAL_IDS:
             errors.append(
                 "shared material resolved from master instead of material library: "
                 f"{material_name}/{material_id}"
             )
-        elif origin not in {expected_master, expected_material_library}:
+        elif origin not in {*expected_masters.values(), expected_material_library}:
             errors.append(
                 "used material is scene-local or outside the exact master/material-library "
                 f"authority: {material_name}/{material_id} origin={origin}"
@@ -480,7 +741,11 @@ def validate_open_render_scene(
         object_library = _datablock_library_path(bpy, product)
         mesh = getattr(product, "data", None)
         mesh_library = _datablock_library_path(bpy, mesh)
-        if object_library != expected_master:
+        expected_master = next(
+            (path for path in expected_masters.values() if path == object_library),
+            None,
+        )
+        if expected_master is None:
             errors.append(
                 f"scene-local MESH object is forbidden; private machine mesh: {name}"
             )
@@ -501,9 +766,9 @@ def validate_open_render_scene(
         )
 
     for mesh in bpy.data.meshes:
-        if mesh in environment_meshes:
+        if mesh in environment_meshes or mesh in support_meshes:
             continue
-        if _datablock_library_path(bpy, mesh) != expected_master:
+        if _datablock_library_path(bpy, mesh) not in set(expected_masters.values()):
             name = str(getattr(mesh, "name", ""))
             message = f"scene-local MESH datablock is forbidden: {name}"
             if message not in errors:

@@ -6,7 +6,12 @@ import textwrap
 from types import SimpleNamespace
 import unittest
 
-from scripts.blender.pimm_production import blender_scene_validator, scene_contract
+from scripts.blender.pimm_production import (
+    blender_scene_template,
+    blender_scene_validator,
+    scene_contract,
+)
+from scripts.blender.pimm_production.shot_compositions import composition_for
 from scripts.blender.pimm_production.scene_contract import (
     SceneContract,
     canonical_scene_contract_json,
@@ -595,6 +600,155 @@ def run_scene_fixture_build(
 
 
 class SceneContractTests(unittest.TestCase):
+    def test_comparison_link_plan_uses_two_immutable_collections_on_one_floor(self) -> None:
+        """Catches comparison setup duplicating, scaling, or editing linked machines."""
+
+        composition = composition_for("pimm-30g-50g--comparison--desktop")
+        plan = blender_scene_template.comparison_link_plan(
+            composition,
+            {"30G": -0.162624216, "50G": -0.162624216},
+        )
+
+        self.assertEqual(tuple(item.machine for item in plan), ("30G", "50G"))
+        self.assertEqual(tuple(item.collection_name for item in plan), ("PIMM_PUBLISHED",) * 2)
+        self.assertEqual(len({item.instance_name for item in plan}), 2)
+        self.assertEqual({item.resolved_ground_z for item in plan}, {0.0})
+        self.assertEqual({item.scale for item in plan}, {1.0})
+        self.assertTrue(all(item.scene_owned_transform for item in plan))
+
+        with self.assertRaisesRegex(ValueError, "contact plane"):
+            blender_scene_template.comparison_link_plan(
+                composition,
+                {"30G": -0.162624216},
+            )
+
+    def test_campaign_reopen_runtime_requires_exact_camera_rig_render_and_output(self) -> None:
+        """Catches a structurally valid scene reopening with mutable runtime drift."""
+
+        payload = _base_payload("a" * 64, "b" * 64)
+        payload.update(
+            {
+                "scene_id": "pimm-30g--hero--desktop",
+                "purpose": "hero",
+                "output_contract": {"width": 2560, "height": 1440, "alpha": True},
+                "scene_path": "scenes/stills/pimm-30g--hero--desktop.blend",
+                "static_render_setup": {
+                    "camera": {
+                        "aperture_fstop": 11.0,
+                        "clip_end": 10000.0,
+                        "clip_start": 1.0,
+                        "focal_length_mm": 85.0,
+                        "sensor_width_mm": 36.0,
+                        "view": "hero-desktop",
+                    },
+                    "color_management": {
+                        "exposure": 0.0,
+                        "gamma": 1.0,
+                        "look": "AgX - Medium High Contrast",
+                        "view_transform": "AgX",
+                    },
+                    "lighting": {
+                        "lower_bounce_name": "BASE_BOUNCE",
+                        "required_light_names": [
+                            "KEY_SOFTBOX",
+                            "FILL_SOFTBOX",
+                            "BASE_BOUNCE",
+                            "STRIP_LEFT",
+                            "STRIP_RIGHT",
+                        ],
+                        "temperature_kelvin": 5500.0,
+                    },
+                    "physical_shadow": {
+                        "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                        "gate": "required",
+                    },
+                    "world": {
+                        "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                        "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                        "rotation_degrees": 0.0,
+                        "strength": 0.5,
+                    },
+                },
+            }
+        )
+        contract = SceneContract.from_mapping(payload)
+        camera = SimpleNamespace(name="CAM_HERO", type="CAMERA", animation_data=None)
+        lights = [
+            SimpleNamespace(name=name, type="LIGHT", animation_data=None)
+            for name in (
+                "KEY_SOFTBOX",
+                "FILL_SOFTBOX",
+                "BASE_BOUNCE",
+                "STRIP_LEFT",
+                "STRIP_RIGHT",
+            )
+        ]
+        cards = [
+            SimpleNamespace(name=name, type="MESH", animation_data=None)
+            for name in (
+                "PIMM_REFLECTION_CARD_LEFT",
+                "PIMM_REFLECTION_CARD_RIGHT",
+                "PIMM_REFLECTION_CARD_TOP",
+            )
+        ]
+        expected_output = (
+            Path("X:/asset-root")
+            / "renders"
+            / "proofs"
+            / "unapproved"
+            / "pimm-responsive-product-photography-v1"
+            / contract.scene_id
+            / contract.scene_id
+        ).resolve()
+        scene = SimpleNamespace(
+            camera=camera,
+            animation_data=None,
+            render=SimpleNamespace(
+                engine="CYCLES",
+                resolution_x=2560,
+                resolution_y=1440,
+                resolution_percentage=100,
+                film_transparent=True,
+                use_border=False,
+                use_crop_to_border=False,
+                filepath=str(expected_output),
+            ),
+            view_settings=SimpleNamespace(
+                view_transform="AgX",
+                look="AgX - Medium High Contrast",
+                exposure=0.0,
+                gamma=1.0,
+            ),
+        )
+        bpy = SimpleNamespace(
+            context=SimpleNamespace(scene=scene),
+            data=SimpleNamespace(objects=[camera, *lights, *cards], actions=[]),
+            path=SimpleNamespace(abspath=lambda value: value),
+        )
+
+        self.assertEqual(
+            blender_scene_validator._validate_campaign_runtime_state(
+                bpy, contract, Path("X:/asset-root")
+            ),
+            [],
+        )
+
+        extra_camera = SimpleNamespace(
+            name="CAM_ROGUE", type="CAMERA", animation_data=None
+        )
+        bpy.data.objects.append(extra_camera)
+        bpy.data.actions.append(SimpleNamespace(name="ROGUE_ACTION"))
+        scene.render.engine = "BLENDER_EEVEE_NEXT"
+        scene.render.filepath = "X:/escaped.png"
+        errors = blender_scene_validator._validate_campaign_runtime_state(
+            bpy, contract, Path("X:/asset-root")
+        )
+        joined = "\n".join(errors)
+        self.assertIn("exactly one managed camera", joined)
+        self.assertIn("animation", joined)
+        self.assertIn("Cycles", joined)
+        self.assertIn("exact managed proof output path", joined)
+
     def test_campaign_scene_contract_requires_the_exact_shared_machine_scope(self) -> None:
         """Catches a comparison contract being represented as a single-machine scene."""
 
