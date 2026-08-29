@@ -109,6 +109,7 @@ MANAGED_LIGHT_NAMES = (
 )
 FOOT_CONTACT_REPORT_SCHEMA = "maliev.pimm-foot-contact-report/v1"
 FOOT_CONTACT_TOLERANCE = 1e-6
+MASTER_FOOT_CONTACT_TOLERANCE = 0.0002
 _FOOT_CONTACT_REPORT_FIELDS = {
     "schema",
     "scene_id",
@@ -207,6 +208,10 @@ class _InstancedStableMesh:
     @property
     def type(self) -> str:
         return str(self.source.type)
+
+    @property
+    def name(self) -> str:
+        return str(self.source.name)
 
     @property
     def bound_box(self) -> Any:
@@ -508,6 +513,63 @@ def _stable_product_objects(bpy: Any) -> dict[str, Any]:
     if not by_stable_id:
         raise ValueError("linked scene contains no stable target product meshes")
     return by_stable_id
+
+
+def resolve_live_foot_contact_planes(
+    bpy: Any, config: ShotConfig
+) -> dict[str, FootContactPlane]:
+    """Derive current four-foot contact authority from linked master geometry."""
+
+    _validate_shot_config(config)
+    by_stable_id = _stable_product_objects(bpy)
+    contacts: dict[str, FootContactPlane] = {}
+    for machine in config.machines:
+        prefix = f"{machine}__nylon-feet__"
+        candidates = [
+            (stable_id, obj)
+            for stable_id, obj in by_stable_id.items()
+            if stable_id.startswith(f"{machine}-")
+            and str(getattr(obj, "name", "")).startswith(prefix)
+        ]
+        if len(candidates) != 4:
+            raise ValueError(
+                f"current {machine} master must expose exactly four nylon foot meshes"
+            )
+        measured: list[tuple[float, float, str, float]] = []
+        for stable_id, obj in candidates:
+            try:
+                from mathutils import Vector
+
+                points = tuple(obj.matrix_world @ Vector(corner) for corner in obj.bound_box)
+            except ImportError:
+                points = tuple(obj.matrix_world @ corner for corner in obj.bound_box)
+            if not points:
+                raise ValueError(f"current nylon foot has no bounds: {stable_id}")
+            xs = tuple(float(point[0]) for point in points)
+            ys = tuple(float(point[1]) for point in points)
+            zs = tuple(float(point[2]) for point in points)
+            if not all(math.isfinite(value) for value in (*xs, *ys, *zs)):
+                raise ValueError(f"current nylon foot has non-finite bounds: {stable_id}")
+            measured.append(
+                ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0, stable_id, min(zs))
+            )
+        measured.sort(key=lambda item: (item[0], item[1]))
+        stable_ids = tuple(item[2] for item in measured)
+        bottoms = tuple(item[3] for item in measured)
+        contact_z = float(median(bottoms))
+        spread = max(bottoms) - min(bottoms)
+        if spread > MASTER_FOOT_CONTACT_TOLERANCE:
+            raise ValueError(
+                f"current {machine} nylon feet exceed common-plane tolerance: "
+                f"spread={spread}, tolerance={MASTER_FOOT_CONTACT_TOLERANCE}"
+            )
+        contacts[machine] = FootContactPlane(
+            z=contact_z,
+            pad_bottoms=bottoms,
+            stable_ids=stable_ids,
+            outlier_stable_ids=(),
+        )
+    return contacts
 
 
 def resolve_target_bounds(
@@ -1243,12 +1305,12 @@ def _install_comparison_master_instances(
     ]
     if existing:
         raise ValueError("comparison source template must not contain product instances")
-    contacts = load_foot_contact_planes(config)
-    plan = comparison_link_plan(
+    provisional_plan = comparison_link_plan(
         composition_for(config.scene_id),
-        {machine: contact.z for machine, contact in contacts.items()},
+        {machine: 0.0 for machine in config.machines},
     )
-    for item, master_path in zip(plan, _master_paths(config), strict=True):
+    instances: dict[str, Any] = {}
+    for item, master_path in zip(provisional_plan, _master_paths(config), strict=True):
         if not master_path.is_file():
             raise FileNotFoundError(f"comparison master is missing: {master_path}")
         with bpy.data.libraries.load(
@@ -1275,11 +1337,29 @@ def _install_comparison_master_instances(
         instance["pimm_source_contact_z"] = item.source_contact_z
         instance["pimm_resolved_ground_z"] = item.resolved_ground_z
         bpy.context.scene.collection.objects.link(instance)
+        instances[item.machine] = instance
     # Blender does not immediately evaluate linked objects' world matrices after
     # collection instances are added. Bounds queried before this update observe
     # identity-scale matrices instead of the masters' authored transforms.
     bpy.context.view_layer.update()
-    return contacts
+    source_contacts = resolve_live_foot_contact_planes(bpy, config)
+    plan = comparison_link_plan(
+        composition_for(config.scene_id),
+        {machine: contact.z for machine, contact in source_contacts.items()},
+    )
+    for item in plan:
+        instance = instances[item.machine]
+        instance.location = (item.offset_x, item.offset_y, item.offset_z)
+        instance["pimm_source_contact_z"] = item.source_contact_z
+        instance["pimm_resolved_ground_z"] = item.resolved_ground_z
+    bpy.context.view_layer.update()
+    resolved_contacts = resolve_live_foot_contact_planes(bpy, config)
+    for placement in composition_for(config.scene_id).machine_placements:
+        if abs(resolved_contacts[placement.machine].z - placement.ground_z) > MASTER_FOOT_CONTACT_TOLERANCE:
+            raise ValueError(
+                f"comparison {placement.machine} current feet do not resolve to common ground"
+            )
+    return resolved_contacts
 
 
 def _validate_open_template_authority(bpy: Any, config: ShotConfig) -> None:
@@ -1322,45 +1402,63 @@ def _validate_open_template_authority(bpy: Any, config: ShotConfig) -> None:
         for obj in published.all_objects
     }
     if config.purpose == "comparison":
-        contacts = load_foot_contact_planes(config)
-        plan = comparison_link_plan(
-            composition_for(config.scene_id),
-            {machine: contact.z for machine, contact in contacts.items()},
-        )
+        contacts = resolve_live_foot_contact_planes(bpy, config)
+        composition = composition_for(config.scene_id)
+        placements = {
+            placement.machine: placement for placement in composition.machine_placements
+        }
         instances = {
             str(getattr(obj, "name", "")): obj
             for obj in bpy.context.scene.objects
             if getattr(obj, "instance_type", None) == "COLLECTION"
         }
-        if set(instances) != {item.instance_name for item in plan}:
+        expected_names = {
+            f"PIMM_{machine}_INSTANCE" for machine in config.machines
+        }
+        if set(instances) != expected_names:
             raise ValueError("comparison scene must contain both unique managed instances")
-        for item in plan:
-            instance = instances[item.instance_name]
-            expected_collection = published_by_machine[item.machine]
+        for machine in config.machines:
+            placement = placements[machine]
+            instance = instances[f"PIMM_{machine}_INSTANCE"]
+            expected_collection = published_by_machine[machine]
+            location = tuple(float(value) for value in instance.location)
+            source_contact_z = contacts[machine].z - location[2]
             if (
                 getattr(instance, "instance_collection", None) is not expected_collection
                 or not _numeric_values_match(
-                    instance.location, (item.offset_x, item.offset_y, item.offset_z)
+                    location,
+                    (
+                        placement.offset_x,
+                        placement.offset_y,
+                        placement.ground_z - source_contact_z,
+                    ),
+                    tolerance=MASTER_FOOT_CONTACT_TOLERANCE,
                 )
                 or not _numeric_values_match(instance.rotation_euler, (0.0, 0.0, 0.0))
                 or not _numeric_values_match(instance.scale, (1.0, 1.0, 1.0))
-                or instance.get("pimm_comparison_machine") != item.machine
+                or instance.get("pimm_comparison_machine") != machine
                 or instance.get("pimm_scene_transform_ownership") != "scene-owned"
                 or not math.isclose(
                     float(instance.get("pimm_source_contact_z")),
-                    item.source_contact_z,
+                    source_contact_z,
                     rel_tol=0.0,
-                    abs_tol=1e-6,
+                    abs_tol=MASTER_FOOT_CONTACT_TOLERANCE,
                 )
                 or not math.isclose(
                     float(instance.get("pimm_resolved_ground_z")),
-                    item.resolved_ground_z,
+                    placement.ground_z,
                     rel_tol=0.0,
-                    abs_tol=1e-6,
+                    abs_tol=MASTER_FOOT_CONTACT_TOLERANCE,
+                )
+                or not math.isclose(
+                    contacts[machine].z,
+                    placement.ground_z,
+                    rel_tol=0.0,
+                    abs_tol=MASTER_FOOT_CONTACT_TOLERANCE,
                 )
             ):
                 raise ValueError(
-                    f"comparison {item.machine} instance transform or contact evidence drifted"
+                    f"comparison {machine} instance transform or contact evidence drifted"
                 )
     for obj in bpy.context.scene.objects:
         if getattr(obj, "type", None) != "MESH":
@@ -1668,7 +1766,7 @@ def _configure_authored_scene(
     camera.data.dof.focus_distance = math.dist(pose.location, pose.target)
     camera.data.dof.aperture_fstop = config.aperture_fstop
 
-    contacts = load_foot_contact_planes(config)
+    contacts = resolve_live_foot_contact_planes(bpy, config)
     if config.purpose == "comparison":
         link_plan = comparison_link_plan(
             composition_for(config.scene_id),
@@ -1799,7 +1897,7 @@ def _contact_plane_state(bpy: Any, config: ShotConfig) -> tuple[Any, FootContact
         raise ValueError(f"open scene must equal governed static scene: {expected}")
     _validate_open_template_authority(bpy, config)
     catcher, current_z = _live_shadow_catcher_plane(bpy)
-    return catcher, load_foot_contact_plane(config), current_z
+    return catcher, resolve_live_foot_contact_planes(bpy, config)[_single_machine(config)], current_z
 
 
 def validate_live_foot_contact_report(

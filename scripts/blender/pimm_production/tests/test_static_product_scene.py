@@ -109,6 +109,42 @@ class StaticProductSceneTests(unittest.TestCase):
             )
         )
 
+    def test_live_foot_contact_uses_current_master_geometry_not_stale_patch(self):
+        """Catches a historical patch lowering the catcher below the current feet."""
+
+        module = self._module()
+        resolver = getattr(module, "resolve_live_foot_contact_planes", None)
+        self.assertIsNotNone(resolver, "live master foot-contact resolver must exist")
+        if resolver is None:
+            return
+        config = module.SHOT_CONFIGS["pimm-30g--hero--desktop"]
+        bottoms = (0.000001223, -0.000008132, 0.000001223, -0.000003455)
+        feet = {
+            f"30G-{suffix}": StableMesh(
+                f"30G-{suffix}",
+                (index * 50.0, 0.0, bottom),
+                (index * 50.0 + 20.0, 20.0, bottom + 2.74),
+                name=f"30G__nylon-feet__{suffix}",
+            )
+            for index, (suffix, bottom) in enumerate(
+                zip(("64039c77f719dbec", "1a7f1009f15a7ee4", "7419ee7fe262373b", "d81608e985bd200f"), bottoms)
+            )
+        }
+        stale = module.FootContactPlane(
+            z=-0.162624216,
+            pad_bottoms=(-0.162624216,) * 4,
+            stable_ids=tuple(f"30G-stale-{index}" for index in range(4)),
+            outlier_stable_ids=(),
+        )
+        with patch.object(module, "_stable_product_objects", return_value=feet), patch.object(
+            module, "load_foot_contact_planes", return_value={"30G": stale}
+        ):
+            contact = resolver(SimpleNamespace(), config)["30G"]
+        self.assertAlmostEqual(contact.z, -0.000001116, places=9)
+        self.assertEqual(contact.pad_bottoms, bottoms)
+        self.assertEqual(set(contact.stable_ids), set(feet))
+        self.assertEqual(contact.outlier_stable_ids, ())
+
     def test_three_quarter_camera_is_level_and_uses_realistic_orbit(self):
         """Catches a three-quarter camera collapsing to a straight-on or tilted view."""
 
@@ -462,6 +498,26 @@ class StaticProductSceneTests(unittest.TestCase):
                         product = bpy.data.objects.new(f"{machine}_FIXTURE_PRODUCT", mesh)
                         product["pimm_stable_id"] = f"{machine}-fixture-product"
                         published.objects.link(product)
+                        for index, (x, y) in enumerate(
+                            ((-150.0, -70.0), (-150.0, 70.0), (150.0, -70.0), (150.0, 70.0))
+                        ):
+                            foot_mesh = bpy.data.meshes.new(f"{machine}_FIXTURE_FOOT_{index}")
+                            foot_mesh.from_pydata(
+                                [
+                                    (x - 5.0, y - 5.0, contact_z),
+                                    (x + 5.0, y - 5.0, contact_z),
+                                    (x + 5.0, y + 5.0, contact_z + 10.0),
+                                    (x - 5.0, y + 5.0, contact_z + 10.0),
+                                ],
+                                [],
+                                [(0, 1, 2, 3)],
+                            )
+                            foot_mesh.materials.append(bpy.data.materials["PIMM_FIXTURE_SHARED"])
+                            foot = bpy.data.objects.new(
+                                f"{machine}__nylon-feet__fixture-{index}", foot_mesh
+                            )
+                            foot["pimm_stable_id"] = f"{machine}-fixture-foot-{index}"
+                            published.objects.link(foot)
                         bpy.ops.wm.save_as_mainfile(
                             filepath=str(masters / f"PIMM-{machine}-MASTER.blend"),
                             check_existing=False,
@@ -521,7 +577,7 @@ class StaticProductSceneTests(unittest.TestCase):
                         )
                         bpy.ops.wm.open_mainfile(filepath=str(template))
                         result = authoring.author_scene(bpy, config, manifest)
-                        contacts = authoring.load_foot_contact_planes(config)
+                        contacts = authoring.resolve_live_foot_contact_planes(bpy, config)
                         comparison_errors = validator._validate_comparison_runtime_state(
                             bpy, config, contacts, root
                         )
@@ -582,7 +638,8 @@ class StaticProductSceneTests(unittest.TestCase):
                     and item["grounds"] == [0.0, 0.0]
                     and item["comparison_errors"] == []
                     for item in payload
-                )
+                ),
+                payload,
             )
 
     def test_workshop_provenance_records_are_read_and_hash_verified(self):

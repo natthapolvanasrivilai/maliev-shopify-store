@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 import textwrap
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from scripts.blender.pimm_production import (
     blender_scene_template,
@@ -666,6 +667,54 @@ def run_scene_fixture_build(
 
 
 class SceneContractTests(unittest.TestCase):
+    def test_reopen_rejects_stale_foot_evidence_and_shadow_plane(self) -> None:
+        """Catches rebuilt scenes retaining the obsolete pre-master-fix floor."""
+
+        validator = getattr(
+            blender_scene_validator, "_validate_live_contact_runtime_state", None
+        )
+        self.assertIsNotNone(validator, "reopen contact-state validator must exist")
+        if validator is None:
+            return
+        config = blender_static_product_scene.SHOT_CONFIGS[
+            "pimm-30g--hero--desktop"
+        ]
+        contact = blender_static_product_scene.FootContactPlane(
+            z=-0.000001116,
+            pad_bottoms=(0.000001223, -0.000008132, 0.000001223, -0.000003455),
+            stable_ids=tuple(f"30G-current-{index}" for index in range(4)),
+            outlier_stable_ids=(),
+        )
+        stale = blender_static_product_scene.FootContactPlane(
+            z=-0.162624216,
+            pad_bottoms=(-0.162624216,) * 4,
+            stable_ids=tuple(f"30G-stale-{index}" for index in range(4)),
+            outlier_stable_ids=(),
+        )
+        scene = RuntimeNamespace()
+        scene["pimm_foot_contact_evidence"] = json.dumps(
+            blender_static_product_scene.foot_contact_evidence("30G", stale),
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        catcher = RuntimeNamespace(
+            name="PIMM_SCENE_SHADOW_CATCHER",
+            type="MESH",
+            data=SimpleNamespace(
+                vertices=[
+                    SimpleNamespace(co=(0.0, 0.0, stale.z)) for _index in range(4)
+                ]
+            ),
+        )
+        catcher["pimm_scene_environment_role"] = "shadow-catcher"
+        bpy = SimpleNamespace(
+            context=SimpleNamespace(scene=scene),
+            data=SimpleNamespace(objects=[catcher]),
+        )
+        errors = validator(bpy, config, {"30G": contact})
+        self.assertIn("current master geometry", "\n".join(errors))
+        self.assertIn("shadow-catcher", "\n".join(errors))
+
     def test_comparison_link_plan_uses_two_immutable_collections_on_one_floor(self) -> None:
         """Catches comparison setup duplicating, scaling, or editing linked machines."""
 
@@ -694,7 +743,7 @@ class SceneContractTests(unittest.TestCase):
         config = blender_static_product_scene.SHOT_CONFIGS[
             "pimm-30g-50g--comparison--desktop"
         ]
-        contacts = {
+        source_contacts = {
             machine: blender_static_product_scene.FootContactPlane(
                 z=z,
                 pad_bottoms=(z, z, z, z),
@@ -705,8 +754,17 @@ class SceneContractTests(unittest.TestCase):
         }
         plan = blender_scene_template.comparison_link_plan(
             composition_for(config.scene_id),
-            {machine: contact.z for machine, contact in contacts.items()},
+            {machine: contact.z for machine, contact in source_contacts.items()},
         )
+        contacts = {
+            machine: blender_static_product_scene.FootContactPlane(
+                z=0.0,
+                pad_bottoms=(0.0, 0.0, 0.0, 0.0),
+                stable_ids=source_contacts[machine].stable_ids,
+                outlier_stable_ids=(),
+            )
+            for machine in config.machines
+        }
         with TemporaryDirectory() as root_text:
             asset_root = Path(root_text)
             collections = {
@@ -1070,6 +1128,22 @@ class SceneContractTests(unittest.TestCase):
         product = _stable_box(
             target.stable_ids[0], target.bounds_min, target.bounds_max
         )
+        foot_bottoms = (0.000001223, -0.000008132, 0.000001223, -0.000003455)
+        contact = blender_static_product_scene.FootContactPlane(
+            z=float(sorted(foot_bottoms)[1] + sorted(foot_bottoms)[2]) / 2.0,
+            pad_bottoms=foot_bottoms,
+            stable_ids=tuple(f"30G-current-foot-{index}" for index in range(4)),
+            outlier_stable_ids=(),
+        )
+        catcher = RuntimeNamespace(
+            name="PIMM_SCENE_SHADOW_CATCHER",
+            type="MESH",
+            animation_data=None,
+            data=SimpleNamespace(
+                vertices=[SimpleNamespace(co=(0.0, 0.0, contact.z)) for _ in range(4)]
+            ),
+        )
+        catcher["pimm_scene_environment_role"] = "shadow-catcher"
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         asset_root = Path(temporary.name)
@@ -1114,19 +1188,30 @@ class SceneContractTests(unittest.TestCase):
             separators=(",", ":"),
             sort_keys=True,
         )
-        scene.objects = [camera, *lights, *cards, product]
+        scene["pimm_foot_contact_evidence"] = json.dumps(
+            blender_static_product_scene.foot_contact_evidence("30G", contact),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        scene.objects = [camera, *lights, *cards, catcher, product]
         bpy = SimpleNamespace(
             context=SimpleNamespace(scene=scene),
             data=SimpleNamespace(objects=scene.objects, actions=[]),
             path=SimpleNamespace(abspath=lambda value: value),
         )
 
-        self.assertEqual(
-            blender_scene_validator._validate_campaign_runtime_state(
-                bpy, contract, asset_root
-            ),
-            [],
-        )
+        with patch.object(
+            blender_scene_validator,
+            "resolve_live_foot_contact_planes",
+            return_value={"30G": contact},
+        ):
+            self.assertEqual(
+                blender_scene_validator._validate_campaign_runtime_state(
+                    bpy, contract, asset_root
+                ),
+                [],
+            )
 
         extra_camera = SimpleNamespace(
             name="CAM_ROGUE", type="CAMERA", animation_data=None
@@ -1135,9 +1220,14 @@ class SceneContractTests(unittest.TestCase):
         bpy.data.actions.append(SimpleNamespace(name="ROGUE_ACTION"))
         scene.render.engine = "BLENDER_EEVEE_NEXT"
         scene.render.filepath = "X:/escaped.png"
-        errors = blender_scene_validator._validate_campaign_runtime_state(
-            bpy, contract, asset_root
-        )
+        with patch.object(
+            blender_scene_validator,
+            "resolve_live_foot_contact_planes",
+            return_value={"30G": contact},
+        ):
+            errors = blender_scene_validator._validate_campaign_runtime_state(
+                bpy, contract, asset_root
+            )
         joined = "\n".join(errors)
         self.assertIn("exactly one managed camera", joined)
         self.assertIn("animation", joined)
@@ -1214,6 +1304,13 @@ class SceneContractTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         asset_root = Path(temporary.name)
         _write_target_manifest(asset_root)
+        foot_bottoms = (0.000001223, -0.000008132, 0.000001223, -0.000003455)
+        contact = blender_static_product_scene.FootContactPlane(
+            z=float(sorted(foot_bottoms)[1] + sorted(foot_bottoms)[2]) / 2.0,
+            pad_bottoms=foot_bottoms,
+            stable_ids=tuple(f"30G-current-foot-{index}" for index in range(4)),
+            outlier_stable_ids=(),
+        )
 
         def runtime_state():
             camera = RuntimeNamespace(
@@ -1247,6 +1344,17 @@ class SceneContractTests(unittest.TestCase):
             product = _stable_box(
                 target.stable_ids[0], target.bounds_min, target.bounds_max
             )
+            catcher = RuntimeNamespace(
+                name="PIMM_SCENE_SHADOW_CATCHER",
+                type="MESH",
+                animation_data=None,
+                data=SimpleNamespace(
+                    vertices=[
+                        SimpleNamespace(co=(0.0, 0.0, contact.z)) for _ in range(4)
+                    ]
+                ),
+            )
+            catcher["pimm_scene_environment_role"] = "shadow-catcher"
             expected_output = (
                 asset_root
                 / "renders"
@@ -1286,7 +1394,12 @@ class SceneContractTests(unittest.TestCase):
                 separators=(",", ":"),
                 sort_keys=True,
             )
-            scene.objects = [camera, *lights, *cards, product]
+            scene["pimm_foot_contact_evidence"] = json.dumps(
+                blender_static_product_scene.foot_contact_evidence("30G", contact),
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            scene.objects = [camera, *lights, *cards, catcher, product]
             bpy = SimpleNamespace(
                 context=SimpleNamespace(scene=scene),
                 data=SimpleNamespace(objects=scene.objects, actions=[]),
@@ -1295,12 +1408,17 @@ class SceneContractTests(unittest.TestCase):
             return bpy, camera, scene
 
         baseline_bpy, _baseline_camera, _baseline_scene = runtime_state()
-        self.assertEqual(
-            blender_scene_validator._validate_campaign_runtime_state(
-                baseline_bpy, contract, asset_root
-            ),
-            [],
-        )
+        with patch.object(
+            blender_scene_validator,
+            "resolve_live_foot_contact_planes",
+            return_value={"30G": contact},
+        ):
+            self.assertEqual(
+                blender_scene_validator._validate_campaign_runtime_state(
+                    baseline_bpy, contract, asset_root
+                ),
+                [],
+            )
 
         cases = {
             "focal": lambda camera, _scene: setattr(camera.data, "lens", 70.0),
@@ -1318,9 +1436,14 @@ class SceneContractTests(unittest.TestCase):
             with self.subTest(name=name):
                 bpy, camera, scene = runtime_state()
                 mutate(camera, scene)
-                errors = blender_scene_validator._validate_campaign_runtime_state(
-                    bpy, contract, asset_root
-                )
+                with patch.object(
+                    blender_scene_validator,
+                    "resolve_live_foot_contact_planes",
+                    return_value={"30G": contact},
+                ):
+                    errors = blender_scene_validator._validate_campaign_runtime_state(
+                        bpy, contract, asset_root
+                    )
                 self.assertTrue(errors, name)
 
     def test_campaign_reopen_recomputes_camera_authority_from_linked_geometry(self) -> None:

@@ -27,7 +27,7 @@ try:
         foot_contact_evidence,
         frame_coordinates,
         load_target_manifest,
-        load_foot_contact_planes,
+        resolve_live_foot_contact_planes,
         resolve_target_bounds,
     )
     from .blender_scene_template import comparison_link_plan
@@ -71,7 +71,7 @@ except ImportError:  # Blender may execute this checked-in script directly.
         foot_contact_evidence,
         frame_coordinates,
         load_target_manifest,
-        load_foot_contact_planes,
+        resolve_live_foot_contact_planes,
         resolve_target_bounds,
     )
     from scripts.blender.pimm_production.blender_scene_template import (
@@ -584,13 +584,10 @@ def _validate_comparison_runtime_state(
     """Validate both immutable instances and their common physical floor."""
 
     errors: list[str] = []
-    try:
-        plan = comparison_link_plan(
-            composition_for(config.scene_id),
-            {machine: contact.z for machine, contact in contacts.items()},
-        )
-    except ValueError as error:
-        return [str(error)]
+    composition = composition_for(config.scene_id)
+    placements = {
+        placement.machine: placement for placement in composition.machine_placements
+    }
     asset_root = ASSET_ROOT if asset_root is None else asset_root
     expected_masters = {
         machine: (asset_root / "masters" / f"PIMM-{machine}-MASTER.blend").resolve()
@@ -616,49 +613,63 @@ def _validate_comparison_runtime_state(
         for obj in getattr(bpy.data, "objects", ())
         if getattr(obj, "instance_type", None) == "COLLECTION"
     ]
-    expected_names = {item.instance_name for item in plan}
+    expected_names = {f"PIMM_{machine}_INSTANCE" for machine in config.machines}
     if {str(getattr(obj, "name", "")) for obj in collection_instances} != expected_names:
         errors.append("comparison scene must contain both unique managed instances")
-    for item in plan:
+    for machine in config.machines:
+        placement = placements[machine]
+        instance_name = f"PIMM_{machine}_INSTANCE"
         named_instances = [
             instance
             for instance in collection_instances
-            if str(getattr(instance, "name", "")) == item.instance_name
+            if str(getattr(instance, "name", "")) == instance_name
         ]
         if len(named_instances) != 1:
             errors.append(
-                f"comparison {item.machine} must contain exactly one named scene-owned instance"
+                f"comparison {machine} must contain exactly one named scene-owned instance"
             )
             continue
         instance = named_instances[0]
         if getattr(instance, "instance_collection", None) is not expected_collections.get(
-            item.machine
+            machine
         ):
             errors.append(
-                f"comparison {item.machine} instance must use its expected linked PIMM_PUBLISHED collection"
+                f"comparison {machine} instance must use its expected linked PIMM_PUBLISHED collection"
             )
         location = _numeric_triplet(getattr(instance, "location", None))
         rotation = _numeric_triplet(getattr(instance, "rotation_euler", None))
         scale = _numeric_triplet(getattr(instance, "scale", None))
+        source_contact_z = (
+            contacts[machine].z - location[2] if location is not None else None
+        )
         if (
             location is None
-            or not _close_triplet(location, (item.offset_x, item.offset_y, item.offset_z))
+            or source_contact_z is None
+            or not _close_triplet(
+                location,
+                (
+                    placement.offset_x,
+                    placement.offset_y,
+                    placement.ground_z - source_contact_z,
+                ),
+            )
             or rotation is None
             or not _close_triplet(rotation, (0.0, 0.0, 0.0))
             or scale is None
             or not _close_triplet(scale, (1.0, 1.0, 1.0))
-            or _property(instance, "pimm_comparison_machine") != item.machine
+            or _property(instance, "pimm_comparison_machine") != machine
             or _property(instance, "pimm_scene_transform_ownership")
             != "scene-owned"
             or not _close_number(
-                _property(instance, "pimm_source_contact_z"), item.source_contact_z
+                _property(instance, "pimm_source_contact_z"), source_contact_z
             )
             or not _close_number(
-                _property(instance, "pimm_resolved_ground_z"), item.resolved_ground_z
+                _property(instance, "pimm_resolved_ground_z"), placement.ground_z
             )
+            or not _close_number(contacts[machine].z, placement.ground_z)
         ):
             errors.append(
-                f"comparison {item.machine} instance must retain its exact identity-scale common-floor transform"
+                f"comparison {machine} instance must retain its exact identity-scale common-floor transform"
             )
     expected_evidence = json.dumps(
         {
@@ -673,6 +684,67 @@ def _validate_comparison_runtime_state(
         bpy.context.scene, "pimm_comparison_contact_evidence"
     ) != expected_evidence:
         errors.append("comparison scene contact evidence must bind both foot reports")
+    return errors
+
+
+def _validate_live_contact_runtime_state(
+    bpy: Any,
+    config: ShotConfig,
+    contacts: Mapping[str, FootContactPlane],
+) -> list[str]:
+    """Bind reopened catcher and embedded evidence to current linked master feet."""
+
+    errors: list[str] = []
+    catchers = [
+        obj
+        for obj in getattr(bpy.data, "objects", ())
+        if _property(obj, "pimm_scene_environment_role") == "shadow-catcher"
+        and str(getattr(obj, "name", "")) == "PIMM_SCENE_SHADOW_CATCHER"
+    ]
+    catcher_z: float | None = None
+    if len(catchers) != 1:
+        errors.append("current master contact requires exactly one managed shadow-catcher")
+    else:
+        vertices = list(getattr(getattr(catchers[0], "data", None), "vertices", ()))
+        try:
+            values = tuple(float(vertex.co[2]) for vertex in vertices)
+        except (AttributeError, TypeError, ValueError):
+            values = ()
+        if len(values) != 4 or not all(math.isfinite(value) for value in values):
+            errors.append("managed shadow-catcher contact plane is unreadable")
+        elif max(values) - min(values) > 1e-6:
+            errors.append("managed shadow-catcher contact plane is not coplanar")
+        else:
+            catcher_z = sum(values) / len(values)
+
+    if config.purpose == "comparison":
+        expected = json.dumps(
+            {
+                machine: foot_contact_evidence(machine, contacts[machine])
+                for machine in config.machines
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        actual = _property(bpy.context.scene, "pimm_comparison_contact_evidence")
+    else:
+        machine = config.machines[0]
+        expected = json.dumps(
+            foot_contact_evidence(machine, contacts[machine]),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        actual = _property(bpy.context.scene, "pimm_foot_contact_evidence")
+    if actual != expected:
+        errors.append(
+            "embedded foot-contact evidence does not match current master geometry"
+        )
+    if catcher_z is not None and any(
+        abs(catcher_z - contact.z) > 1e-6 for contact in contacts.values()
+    ):
+        errors.append("managed shadow-catcher does not match current master contact plane")
     return errors
 
 
@@ -759,12 +831,13 @@ def _validate_campaign_runtime_state(
     )
     if actions or animated:
         errors.append("campaign scene animation is forbidden")
-    if policy.purpose == "comparison":
-        try:
-            contacts = load_foot_contact_planes(config, asset_root=asset_root)
-        except (OSError, TypeError, ValueError) as error:
-            errors.append(f"comparison contact reports cannot be loaded: {error}")
-        else:
+    try:
+        contacts = resolve_live_foot_contact_planes(bpy, config)
+    except (OSError, TypeError, ValueError) as error:
+        errors.append(f"current master foot contact cannot be resolved: {error}")
+    else:
+        errors.extend(_validate_live_contact_runtime_state(bpy, config, contacts))
+        if policy.purpose == "comparison":
             errors.extend(
                 _validate_comparison_runtime_state(
                     bpy, config, contacts, asset_root
