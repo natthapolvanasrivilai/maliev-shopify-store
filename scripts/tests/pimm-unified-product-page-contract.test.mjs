@@ -7,7 +7,7 @@ const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.ur
 
 const stripShopifyComment = (source) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '');
 
-const [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership, templateSource, js, css, enLocaleSource, thLocaleSource] = await Promise.all([
+const [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership, templateSource, header, js, css, enLocaleSource, thLocaleSource] = await Promise.all([
   readThemeFile('sections/maliev-pimm-machine-product.liquid'),
   readThemeFile('snippets/pimm-hero-console.liquid'),
   readThemeFile('snippets/pimm-qualification-strip.liquid'),
@@ -16,6 +16,7 @@ const [section, heroConsole, qualificationStrip, selector, bento, purchase, owne
   readThemeFile('snippets/pimm-purchase-qualification.liquid'),
   readThemeFile('snippets/pimm-ownership.liquid'),
   readThemeFile('templates/product.pimm-configurator.json'),
+  readThemeFile('sections/maliev-header.liquid'),
   readThemeFile('assets/maliev-pimm-machine.js').catch(() => ''),
   readThemeFile('assets/maliev-pimm-machine.css').catch(() => ''),
   readThemeFile('locales/en.default.json'),
@@ -258,10 +259,14 @@ test('engineering console uses the approved open twelve-column product stage', (
   assert.match(section, /maliev-pimm-machine\.css[^]*stylesheet_tag/);
   assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
   assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
-  assert.match(css, /\.pimm-machine__hero-decision\s*\{[^}]*grid-column:\s*1\s*\/\s*5/s);
-  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*grid-column:\s*5\s*\/\s*9/s);
-  assert.match(css, /\.pimm-machine__hero-evidence\s*\{[^}]*grid-column:\s*9\s*\/\s*-1/s);
+  assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*height:\s*100svh[^}]*min-height:\s*720px/s);
+  assert.match(css, /\.pimm-machine__hero-decision\s*\{[^}]*grid-column:\s*1\s*\/\s*4/s);
+  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*grid-column:\s*4\s*\/\s*10/s);
+  assert.match(css, /\.pimm-machine__hero-evidence\s*\{[^}]*grid-column:\s*10\s*\/\s*-1/s);
   assert.doesNotMatch(css, /\.pimm-machine__hero-console\s*\{[^}]*(?:background|border|border-radius):/s);
+  assert.match(heroConsole, /data-header-overlay-sentinel/);
+  assert.match(heroConsole, /data-header-overlay-tone="bright"/);
+  assert.match(header, /template\.suffix == 'injection-molding-machine' or template\.suffix == 'pimm-configurator'/);
   assert.match(css, /\.pimm-machine__qualification-strip\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
@@ -273,7 +278,7 @@ test('engineering console uses the approved open twelve-column product stage', (
   assert.match(css, /\.pimm-machine__engineering-fact--pressure\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*4/s);
   assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*background:\s*transparent/s);
   assert.match(css, /\.pimm-machine__hero-stage img\s*\{[^}]*object-fit:\s*contain/s);
-  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*6rem\)\s*!important[^}]*font-weight:\s*650/s);
+  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*5\.4rem\)\s*!important[^}]*font-weight:\s*650/s);
   assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine__hero-evidence\s*>\s*h2\s*\{[^}]*font-size:\s*2\.2rem\s*!important/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__model-option\s*\{[^}]*flex-direction:\s*column[^}]*width:\s*100%/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__hero-facts dd,[\s\S]*\.pimm-machine__qualification-facts dd\s*\{[^}]*font-size:\s*1\.3rem/s);

@@ -1000,7 +1000,7 @@
    only the foreground tone; open surfaces and the post-presentation state stay solid. */
 .mc-header--overlay {
   background: transparent;
-  border-bottom-color: transparent;
+  border-bottom: 0;
   left: 0;
   position: fixed;
   right: 0;
@@ -1019,7 +1019,7 @@
 .mc-header--overlay:has(.mc-localization[open]),
 .mc-header--overlay:has(.mc-mobile-menu[open]) {
   background: var(--maliev-surface);
-  border-bottom-color: var(--maliev-rule);
+  border-bottom: 0.1rem solid var(--maliev-rule);
   color: var(--maliev-ink);
 }
 

@@ -17,7 +17,13 @@
   endif
 -%}
 
-<section class="pimm-machine__hero-console" aria-labelledby="PimmMachineTitle-{{ section.id }}" data-pimm-hero-console>
+<section
+  class="pimm-machine__hero-console"
+  aria-labelledby="PimmMachineTitle-{{ section.id }}"
+  data-pimm-hero-console
+  data-header-overlay-sentinel
+  data-header-overlay-tone="bright"
+>
   <div class="pimm-machine__hero-decision">
     <div class="pimm-machine__hero-title-group">
       <h1 id="PimmMachineTitle-{{ section.id }}">{{ product.title | remove: ' (Development)' | escape }}</h1>

@@ -19,8 +19,10 @@
   if request.page_type == 'index'
     assign header_is_home = true
   endif
-  if request.page_type == 'product' and template.suffix == 'injection-molding-machine'
-    assign header_has_overlay = true
+  if request.page_type == 'product'
+    if template.suffix == 'injection-molding-machine' or template.suffix == 'pimm-configurator'
+      assign header_has_overlay = true
+    endif
   endif
   if customer == blank
     assign account_url = routes.account_login_url

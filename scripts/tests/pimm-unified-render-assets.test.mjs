@@ -14,7 +14,7 @@ const expectedLineage = new Map([
     proof_id: 'proof-20260828T130126Z-09aebd4', release_id: 'release-2026-08-28-r21',
     shot_id: 'pimm-30g--hero--front',
     scene_sha256: '09AEBD4D6DA5B482B7B1281C7CE2A4043C4D9F168ECD5EE01FE04C11A5585263',
-    sha256: 'FCB5057FD1607D6A324BD67FF4E4BD16C358F3B99B369311D722BA10E3A699FD',
+    sha256: 'A207F998DABCFD70B4148869041CFAC8B86AD4DD23D4004FB4981E99167B0BDE',
     native_source: {
       path: 'renders/final/release-2026-08-28-r21/pimm-30g--hero--front/pimm-30g--hero--front--transparent.webp',
       sha256: '0D9E47149CE31E8D9EEEF9F897D97B47BD135A91539C1701ABB79520A9D4F8BD',
@@ -58,7 +58,7 @@ const expectedLineage = new Map([
     proof_id: 'proof-20260828T130126Z-13d7d14', release_id: 'release-2026-08-28-r22',
     shot_id: 'pimm-50g--hero--front',
     scene_sha256: '13D7D14BF41BFE3EA3161E63BB71642C8DC962A9B4BAA2159E4559E819791495',
-    sha256: '252DD2B6F189A96887211960F61683E1C39BE76A59581A4CD154FE04ED45797C',
+    sha256: '8C0EFC001FCA2747BFBB8683E80951BC5388A83469C1D67824ACF71014866C05',
     native_source: {
       path: 'renders/final/release-2026-08-28-r22/pimm-50g--hero--front/pimm-50g--hero--front--transparent.webp',
       sha256: '0A4A76089A19AD821504BDDF7D2CD450277093BE35A72ACD400E56D937828C92',
