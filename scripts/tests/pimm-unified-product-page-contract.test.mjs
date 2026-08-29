@@ -254,13 +254,14 @@ test('engineering console and qualification strip lead one contained bento', () 
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
 });
 
-test('engineering console uses the approved twelve-column product stage', () => {
+test('engineering console uses the approved open twelve-column product stage', () => {
   assert.match(section, /maliev-pimm-machine\.css[^]*stylesheet_tag/);
   assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
   assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
-  assert.match(css, /\.pimm-machine__hero-decision\s*\{[^}]*grid-column:\s*1\s*\/\s*4/s);
-  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*grid-column:\s*4\s*\/\s*9/s);
+  assert.match(css, /\.pimm-machine__hero-decision\s*\{[^}]*grid-column:\s*1\s*\/\s*5/s);
+  assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*grid-column:\s*5\s*\/\s*9/s);
   assert.match(css, /\.pimm-machine__hero-evidence\s*\{[^}]*grid-column:\s*9\s*\/\s*-1/s);
+  assert.doesNotMatch(css, /\.pimm-machine__hero-console\s*\{[^}]*(?:background|border|border-radius):/s);
   assert.match(css, /\.pimm-machine__qualification-strip\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
@@ -272,8 +273,8 @@ test('engineering console uses the approved twelve-column product stage', () => 
   assert.match(css, /\.pimm-machine__engineering-fact--pressure\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*4/s);
   assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*background:\s*transparent/s);
   assert.match(css, /\.pimm-machine__hero-stage img\s*\{[^}]*object-fit:\s*contain/s);
-  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*4\.8rem\)\s*!important/s);
-  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine__hero-evidence\s*>\s*h2\s*\{[^}]*font-size:\s*1\.8rem\s*!important/s);
+  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*6rem\)\s*!important[^}]*font-weight:\s*650/s);
+  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine__hero-evidence\s*>\s*h2\s*\{[^}]*font-size:\s*2\.2rem\s*!important/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__model-option\s*\{[^}]*flex-direction:\s*column[^}]*width:\s*100%/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__hero-facts dd,[\s\S]*\.pimm-machine__qualification-facts dd\s*\{[^}]*font-size:\s*1\.3rem/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__purchase-summary\s*>\s*div\s*\{[^}]*flex-direction:\s*column/s);

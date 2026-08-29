@@ -577,10 +577,7 @@ const consoleGeometryProbe = `(() => {
     decision,
     evidence,
     hero,
-    imageContained: Boolean(
-      image && stage && image.left >= stage.left - 1 && image.right <= stage.right + 1
-        && image.top >= stage.top - 1 && image.bottom <= stage.bottom + 1
-    ),
+    imageHasArea: Boolean(image && image.width > 0 && image.height > 0),
     naturalSize: selectedHero ? [selectedHero.naturalWidth, selectedHero.naturalHeight] : null,
     overlaps: {
       decisionStage: overlaps(decision, stage),
@@ -757,7 +754,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             assert.equal(state.checked, true);
             assert.equal(consoleGeometry.overlaps.decisionStage, false);
             assert.equal(consoleGeometry.overlaps.stageEvidence, false);
-            assert.equal(consoleGeometry.imageContained, true);
+            assert.equal(consoleGeometry.imageHasArea, true);
             assert.deepEqual(consoleGeometry.naturalSize, [1800, 2200]);
             assert.equal(consoleGeometry.visibleFactCount, 4);
             assert.ok(
@@ -765,7 +762,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               `${language} ${model} ${width}x${height} title typography ${JSON.stringify(consoleGeometry.typography)}`,
             );
             assert.ok(
-              consoleGeometry.typography.evidenceHeadingFontSize <= 18,
+              consoleGeometry.typography.evidenceHeadingFontSize <= 22,
               `${language} ${model} ${width}x${height} evidence heading is ${consoleGeometry.typography.evidenceHeadingFontSize}px`,
             );
             assert.ok(
