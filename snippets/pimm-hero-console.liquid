@@ -6,6 +6,8 @@
   @param {string} selected_model_code - The selected 30G or 50G model code.
   @param {object} selected_variant - The selected Shopify variant.
   @param {object} specifications - The validated versioned specifications object.
+  @param {number} full_price_cents - Twice the selected contextual variant price in integer cents.
+  @param {string} lead_time - The selected variant's production lead time.
   @param {boolean} model_contract_valid - Whether commerce and presentation data agree.
   @param {string} factory_visit_url - The factory-visit destination.
 {% enddoc %}
@@ -197,4 +199,13 @@
       </figure>
     </a>
   </aside>
+
+  {% render 'pimm-qualification-strip',
+    section: section,
+    selected_variant: selected_variant,
+    full_price_cents: full_price_cents,
+    lead_time: lead_time,
+    model_contract_valid: model_contract_valid,
+    factory_visit_url: factory_visit_url
+  %}
 </section>

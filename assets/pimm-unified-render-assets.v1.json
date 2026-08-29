@@ -3,7 +3,7 @@
   "assets": [
     {
       "name": "pimm-machine-30g-hero-front.webp",
-      "sha256": "A207F998DABCFD70B4148869041CFAC8B86AD4DD23D4004FB4981E99167B0BDE",
+      "sha256": "125F267F3041F8D6A3D4030785DFF2BDF196D894BA93C42A0BB4C972445FF7A5",
       "dimensions": [1800, 2200],
       "machine": "30G",
       "shot": "hero-front",
@@ -63,7 +63,7 @@
     },
     {
       "name": "pimm-machine-50g-hero-front.webp",
-      "sha256": "8C0EFC001FCA2747BFBB8683E80951BC5388A83469C1D67824ACF71014866C05",
+      "sha256": "0E2DFABD424037C959F4378F057E04CC811D7CA4E2171FEF59FF37667BB19C1A",
       "dimensions": [1800, 2200],
       "machine": "50G",
       "shot": "hero-front",

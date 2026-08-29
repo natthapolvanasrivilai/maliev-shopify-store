@@ -233,10 +233,9 @@ test('unified template owns one semantic machine presentation', () => {
   assert.match(section, /product-form__error-message-wrapper/);
 });
 
-test('engineering console and qualification strip lead one contained bento', () => {
+test('engineering console contains the first-screen qualification strip and leads one contained bento', () => {
   const orderedLandmarks = [
     "render 'pimm-hero-console'",
-    "render 'pimm-qualification-strip'",
     "render 'pimm-engineering-bento'",
     'pimm-machine__tooling',
     "render 'pimm-ownership'",
@@ -250,6 +249,9 @@ test('engineering console and qualification strip lead one contained bento', () 
     cursor = next;
   }
 
+  assert.match(heroConsole, /render 'pimm-qualification-strip'/);
+  assert.doesNotMatch(section, /render 'pimm-qualification-strip'/);
+
   assert.doesNotMatch(section, /class="pimm-machine__fit"/);
   assert.match(ownership, /<section[^>]*data-pimm-ownership/);
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
@@ -259,6 +261,7 @@ test('engineering console uses the approved open twelve-column product stage', (
   assert.match(section, /maliev-pimm-machine\.css[^]*stylesheet_tag/);
   assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
   assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s*auto/s);
   assert.match(css, /\.pimm-machine__hero-console\s*\{[^}]*height:\s*100svh[^}]*min-height:\s*720px/s);
   assert.match(css, /\.pimm-machine__hero-decision\s*\{[^}]*grid-column:\s*1\s*\/\s*4/s);
   assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*grid-column:\s*4\s*\/\s*10/s);
@@ -268,6 +271,7 @@ test('engineering console uses the approved open twelve-column product stage', (
   assert.match(heroConsole, /data-header-overlay-tone="bright"/);
   assert.match(header, /template\.suffix == 'injection-molding-machine' or template\.suffix == 'pimm-configurator'/);
   assert.match(css, /\.pimm-machine__qualification-strip\s*\{[^}]*display:\s*grid/s);
+  assert.match(css, /\.pimm-machine__hero-console\s*>\s*\.pimm-machine__qualification-strip\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*grid-row:\s*2/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
   assert.match(css, /\.pimm-machine__engineering-media\s*\{[^}]*grid-column:\s*1\s*\/\s*8[^}]*grid-row:\s*1\s*\/\s*5/s);
@@ -511,7 +515,7 @@ test('engineering facts keep numeric values separate from visible accessible uni
   assert.equal(bento.match(/unless model_contract_valid[^%]*%}hidden/g)?.length, 4);
 });
 
-test('factory visit remains primary and precedes the secondary deposit action', () => {
+test('demo session remains primary and precedes the secondary deposit action', () => {
   const visit = purchase.indexOf('data-pimm-book-visit');
   const deposit = purchase.indexOf('data-pimm-deposit-action');
 

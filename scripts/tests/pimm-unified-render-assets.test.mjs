@@ -14,7 +14,7 @@ const expectedLineage = new Map([
     proof_id: 'proof-20260828T130126Z-09aebd4', release_id: 'release-2026-08-28-r21',
     shot_id: 'pimm-30g--hero--front',
     scene_sha256: '09AEBD4D6DA5B482B7B1281C7CE2A4043C4D9F168ECD5EE01FE04C11A5585263',
-    sha256: 'A207F998DABCFD70B4148869041CFAC8B86AD4DD23D4004FB4981E99167B0BDE',
+    sha256: '125F267F3041F8D6A3D4030785DFF2BDF196D894BA93C42A0BB4C972445FF7A5',
     native_source: {
       path: 'renders/final/release-2026-08-28-r21/pimm-30g--hero--front/pimm-30g--hero--front--transparent.webp',
       sha256: '0D9E47149CE31E8D9EEEF9F897D97B47BD135A91539C1701ABB79520A9D4F8BD',
@@ -58,7 +58,7 @@ const expectedLineage = new Map([
     proof_id: 'proof-20260828T130126Z-13d7d14', release_id: 'release-2026-08-28-r22',
     shot_id: 'pimm-50g--hero--front',
     scene_sha256: '13D7D14BF41BFE3EA3161E63BB71642C8DC962A9B4BAA2159E4559E819791495',
-    sha256: '8C0EFC001FCA2747BFBB8683E80951BC5388A83469C1D67824ACF71014866C05',
+    sha256: '0E2DFABD424037C959F4378F057E04CC811D7CA4E2171FEF59FF37667BB19C1A',
     native_source: {
       path: 'renders/final/release-2026-08-28-r22/pimm-50g--hero--front/pimm-50g--hero--front--transparent.webp',
       sha256: '0A4A76089A19AD821504BDDF7D2CD450277093BE35A72ACD400E56D937828C92',
@@ -285,6 +285,7 @@ const alphaRange = (path, width, height) => {
   let min = 255;
   let max = 0;
   let maxSideEdge = 0;
+  let maxBottomEdge = 0;
   for (let index = 3; index < rgba.length; index += 4) {
     min = Math.min(min, rgba[index]);
     max = Math.max(max, rgba[index]);
@@ -296,7 +297,10 @@ const alphaRange = (path, width, height) => {
       rgba[(((y * width) + width - 1) * 4) + 3],
     );
   }
-  return { min, max, maxSideEdge };
+  for (let x = 0; x < width; x += 1) {
+    maxBottomEdge = Math.max(maxBottomEdge, rgba[((((height - 1) * width) + x) * 4) + 3]);
+  }
+  return { min, max, maxBottomEdge, maxSideEdge };
 };
 
 test('local decoder verifies WebP pixels and alpha extrema', {
@@ -312,6 +316,7 @@ test('local decoder verifies WebP pixels and alpha extrema', {
     assert.equal(alpha.max, 255, `${name} has no fully opaque subject pixels`);
     if (expected.shot === 'hero-front') {
       assert.equal(alpha.maxSideEdge, 0, `${name} can render a clipped side shadow`);
+      assert.equal(alpha.maxBottomEdge, 0, `${name} can render a clipped ground shadow`);
     }
   }
 });

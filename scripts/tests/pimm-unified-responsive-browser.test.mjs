@@ -766,8 +766,9 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               `${language} ${model} ${width}x${height} evidence heading is ${consoleGeometry.typography.evidenceHeadingFontSize}px`,
             );
             assert.ok(
-              consoleGeometry.qualification.top >= consoleGeometry.hero.bottom - 1,
-              `${language} ${model} ${width}x${height} qualification must follow the hero`,
+              consoleGeometry.qualification.top >= consoleGeometry.hero.top - 1
+                && consoleGeometry.qualification.bottom <= consoleGeometry.hero.bottom + 1,
+              `${language} ${model} ${width}x${height} qualification must remain inside the first-screen hero`,
             );
             assert.ok(
               consoleGeometry.overflowX <= 1,
