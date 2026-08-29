@@ -144,6 +144,20 @@ def composition_contract() -> ProofContract:
             "denoise": True,
             "backgrounds": ["white", "checker", "dark"],
             "object_masks": False,
+            "alpha_safety": {
+                "required": True,
+                "product_margin": 0.08,
+                "shadow_margin": 0.12,
+            },
+            "contact_evidence": {
+                "status": "bound",
+                "reports": [{
+                    "machine": "30G",
+                    "report_path": "manifests/contact/pimm-30g-foot-contact.json",
+                    "report_sha256": "d" * 64,
+                    "foot_count": 4,
+                }],
+            },
             "output_root": "renders/proofs/proof-20260815T153000Z-a1b2c3d",
         }
     )
@@ -164,6 +178,20 @@ def material_contract(backgrounds: list[str], object_masks: bool) -> ProofContra
             "denoise": True,
             "backgrounds": list(backgrounds),
             "object_masks": object_masks,
+            "alpha_safety": {
+                "required": True,
+                "product_margin": 0.08,
+                "shadow_margin": 0.12,
+            },
+            "contact_evidence": {
+                "status": "bound",
+                "reports": [{
+                    "machine": "30G",
+                    "report_path": "manifests/contact/pimm-30g-foot-contact.json",
+                    "report_sha256": "d" * 64,
+                    "foot_count": 4,
+                }],
+            },
             "output_root": "renders/proofs/proof-20260815T153001Z-b2c3d4e",
         }
     )
@@ -1647,6 +1675,36 @@ class ProofContractTests(unittest.TestCase):
             path.write_text(json.dumps(payload), encoding="utf-8")
             self.assertEqual(ProofContract.from_json(path), contract)
         self.assertIsInstance(contract.backgrounds, tuple)
+
+    def test_contract_requires_alpha_policy_and_current_contact_evidence(self):
+        """Catches a proof contract that can omit alpha QA or bind an unauditable floor report."""
+
+        payload = composition_contract().to_mapping()
+        payload["alpha_safety"] = {"required": True, "product_margin": 0.08}
+        payload["contact_evidence"] = {"status": "bound", "reports": [{"machine": "30G", "report_path": "../masters/contact.json", "report_sha256": "not-a-hash", "foot_count": 3}]}
+        malformed = ProofContract.from_mapping(payload)
+
+        errors = "\n".join(validate_proof_contract(malformed, scene_contract_fixture()))
+
+        self.assertIn("alpha_safety must contain exactly", errors)
+        self.assertIn("contact_evidence reports[0] report_path", errors)
+        self.assertIn("contact_evidence reports[0] report_sha256", errors)
+
+    def test_campaign_base_feet_detail_cannot_skip_current_contact_plane_evidence(self):
+        """Catches a base/feet proof declaring its full-machine contact plane irrelevant."""
+
+        scene = dataclasses.replace(
+            scene_contract_fixture(), scene_id="pimm-30g--base-feet--macro"
+        )
+        contract = dataclasses.replace(
+            composition_contract(),
+            scene_contract_path="scenes/contracts/pimm-30g--base-feet--macro.json",
+            contact_evidence={"status": "not-applicable"},
+        )
+
+        errors = "\n".join(validate_proof_contract(contract, scene))
+
+        self.assertIn("base/feet detail requires bound contact evidence", errors)
 
     def test_contract_rejects_cost_path_generation_and_hash_mutations(self):
         scene = scene_contract_fixture()

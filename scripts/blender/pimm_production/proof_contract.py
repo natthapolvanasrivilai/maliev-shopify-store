@@ -18,6 +18,7 @@ from scripts.blender.master_assets.pimm_material_library import MATERIAL_SPECS
 from .io_contract import atomic_write_json, sha256_file
 from .paths import ASSET_ROOT, require_within
 from .scene_contract import SceneContract
+from .campaign_contract import load_campaign, shot_policy
 
 
 MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD = 32
@@ -34,6 +35,8 @@ _FIELDS = {
     "denoise",
     "backgrounds",
     "object_masks",
+    "alpha_safety",
+    "contact_evidence",
     "output_root",
 }
 _GENERATION_ID = re.compile(r"^proof-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7}$")
@@ -129,6 +132,10 @@ _CAMERA_SETTINGS_FIELDS = {
 }
 _COMPOSITOR_SETTINGS_FIELDS = {"enabled", "node_tree"}
 _MASK_METRIC_FIELDS = {"bounds", "nonzero_fraction", "unique_values", "unique_value_count"}
+_ALPHA_SAFETY_FIELDS = {"required", "product_margin", "shadow_margin"}
+_CONTACT_EVIDENCE_FIELDS = {"status", "reports"}
+_CONTACT_REPORT_FIELDS = {"machine", "report_path", "report_sha256", "foot_count"}
+_CAMPAIGN_PATH = Path(__file__).resolve().parent / "contracts" / "campaigns" / "pimm-responsive-product-photography-v1.json"
 _IDENTITY_FIELDS = {"name", "type", "library"}
 _EMBEDDED_IDENTITY_FIELDS = _IDENTITY_FIELDS | {"content_sha256"}
 _OPTIONAL_IDENTITY_FIELDS = {"pimm_stable_id", "pimm_material_id"}
@@ -502,6 +509,8 @@ class ProofContract:
     denoise: bool
     backgrounds: tuple[str, ...]
     object_masks: bool
+    alpha_safety: Mapping[str, object]
+    contact_evidence: Mapping[str, object]
     output_root: str
 
     @classmethod
@@ -531,6 +540,8 @@ class ProofContract:
             denoise=payload["denoise"],
             backgrounds=tuple(backgrounds),
             object_masks=payload["object_masks"],
+            alpha_safety=payload["alpha_safety"],
+            contact_evidence=payload["contact_evidence"],
             output_root=payload["output_root"],
         )
 
@@ -544,6 +555,13 @@ class ProofContract:
     def to_mapping(self) -> dict[str, object]:
         payload = asdict(self)
         payload["backgrounds"] = list(self.backgrounds)
+        payload["alpha_safety"] = dict(self.alpha_safety)
+        payload["contact_evidence"] = {
+            key: [dict(item) for item in value]
+            if key == "reports" and isinstance(value, (list, tuple))
+            else value
+            for key, value in self.contact_evidence.items()
+        }
         return payload
 
 
@@ -583,6 +601,70 @@ def effective_dimensions(
             )
         dimensions.append(int(effective))
     return dimensions[0], dimensions[1]
+
+
+def _validate_alpha_safety(value: object) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, Mapping) or set(value) != _ALPHA_SAFETY_FIELDS:
+        return ["proof contract alpha_safety must contain exactly required/product_margin/shadow_margin"]
+    if value.get("required") is not True:
+        errors.append("proof contract alpha_safety required must be true")
+    for field in ("product_margin", "shadow_margin"):
+        margin = value.get(field)
+        if (
+            not isinstance(margin, (int, float))
+            or isinstance(margin, bool)
+            or not math.isfinite(float(margin))
+            or not 0 <= float(margin) < 0.5
+        ):
+            errors.append(f"proof contract alpha_safety {field} must be between 0 and 0.5")
+    return errors
+
+
+def _validate_contact_evidence(value: object) -> tuple[list[str], tuple[str, ...]]:
+    errors: list[str] = []
+    if not isinstance(value, Mapping):
+        return ["proof contract contact_evidence must be an object"], ()
+    status = value.get("status")
+    if status == "not-applicable":
+        if set(value) != {"status"}:
+            errors.append("proof contract not-applicable contact_evidence must contain only status")
+        return errors, ()
+    if status != "bound" or set(value) != _CONTACT_EVIDENCE_FIELDS:
+        return ["proof contract contact_evidence must be bound with exact reports or not-applicable"], ()
+    reports = value.get("reports")
+    if not isinstance(reports, (list, tuple)) or not reports:
+        return ["proof contract contact_evidence reports must be a nonempty list"], ()
+    machines: list[str] = []
+    for index, report in enumerate(reports):
+        prefix = f"proof contract contact_evidence reports[{index}]"
+        if not isinstance(report, Mapping) or set(report) != _CONTACT_REPORT_FIELDS:
+            errors.append(f"{prefix} must contain exactly machine/report_path/report_sha256/foot_count")
+            continue
+        machine = report.get("machine")
+        if machine not in {"30G", "50G"}:
+            errors.append(f"{prefix} machine must be 30G or 50G")
+        else:
+            machines.append(machine)
+        if not _canonical_relative(report.get("report_path"), "manifests", ".json"):
+            errors.append(f"{prefix} report_path must be a managed manifests/*.json path")
+        digest = report.get("report_sha256")
+        if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+            errors.append(f"{prefix} report_sha256 must be 64 hexadecimal characters")
+        if report.get("foot_count") != 4:
+            errors.append(f"{prefix} foot_count must equal 4")
+    if len(machines) != len(set(machines)):
+        errors.append("proof contract contact_evidence reports must contain one report per machine")
+    return errors, tuple(machines)
+
+
+def _campaign_policy_for_scene(scene_id: object):
+    if not isinstance(scene_id, str):
+        return None
+    try:
+        return shot_policy(load_campaign(_CAMPAIGN_PATH), scene_id)
+    except (OSError, ValueError):
+        return None
 
 
 def validate_proof_contract(contract: ProofContract, scene: SceneContract) -> list[str]:
@@ -650,6 +732,29 @@ def validate_proof_contract(contract: ProofContract, scene: SceneContract) -> li
         errors.append("material-lighting proof requires object/material masks")
     elif not isinstance(contract.object_masks, bool):
         errors.append("proof object_masks must be boolean")
+
+    errors.extend(_validate_alpha_safety(contract.alpha_safety))
+    contact_errors, contact_machines = _validate_contact_evidence(contract.contact_evidence)
+    errors.extend(contact_errors)
+    campaign_shot = _campaign_policy_for_scene(scene.scene_id)
+    if campaign_shot is not None:
+        alpha = contract.alpha_safety
+        if (
+            isinstance(alpha, Mapping)
+            and alpha.get("product_margin") != campaign_shot.product_safe_margin
+        ):
+            errors.append("proof contract alpha_safety product_margin must equal the campaign shot policy")
+        if (
+            isinstance(alpha, Mapping)
+            and alpha.get("shadow_margin") != campaign_shot.shadow_safe_margin
+        ):
+            errors.append("proof contract alpha_safety shadow_margin must equal the campaign shot policy")
+        status = contract.contact_evidence.get("status") if isinstance(contract.contact_evidence, Mapping) else None
+        base_feet_detail = campaign_shot.purpose == "detail" and "--base-feet--" in campaign_shot.shot_id
+        if (campaign_shot.purpose != "detail" or base_feet_detail) and status != "bound":
+            errors.append("proof contract complete-machine or base/feet detail requires bound contact evidence")
+        if status == "bound" and set(contact_machines) != set(campaign_shot.machines):
+            errors.append("proof contract contact evidence must bind every campaign machine")
 
     expected_output = (
         f"renders/proofs/{contract.generation_id}" if generation_valid else None

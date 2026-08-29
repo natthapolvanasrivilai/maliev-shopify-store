@@ -28,9 +28,12 @@ TOOL_LICENSES = {
     "python": "PSF-2.0",
     "pillow": "MIT-CMU",
 }
-LOCK_FIELDS = frozenset({"schema", "tools", "license_evidence"})
+LOCK_FIELDS = frozenset({"schema", "tools", "license_evidence", "asset_provenance"})
 TOOL_FIELDS = frozenset({"id", "version", "license", "execution", "path", "sha256"})
 LICENSE_EVIDENCE_FIELDS = frozenset({"path", "sha256"})
+ASSET_PROVENANCE_FIELDS = frozenset({"path", "sha256", "license"})
+PINNED_HDRI_RELATIVE_PATH = "assets/hdri/studio_kontrast_04_4k.exr"
+PINNED_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
 NETWORK_FIELD_TOKENS = ("endpoint", "url", "uri", "remote", "network", "host", "port")
 SHA256_PATTERN = re.compile(r"^[A-Fa-f0-9]{64}$")
 TOOL_ROOTS = {
@@ -245,6 +248,20 @@ def validate_tool_lock(payload: Mapping[str, object]) -> list[str]:
             evidence_hash = evidence.get("sha256")
             if not isinstance(evidence_hash, str) or not SHA256_PATTERN.fullmatch(evidence_hash):
                 errors.append("blender-mcp license evidence invalid sha256")
+    asset_provenance = payload.get("asset_provenance")
+    if not isinstance(asset_provenance, Mapping) or set(asset_provenance) != {"pinned_hdri"}:
+        errors.append("asset_provenance must contain only pinned_hdri")
+    else:
+        hdri = asset_provenance["pinned_hdri"]
+        if not isinstance(hdri, Mapping) or set(hdri) != ASSET_PROVENANCE_FIELDS:
+            errors.append("pinned_hdri provenance must contain only path, sha256, and license")
+        else:
+            if hdri.get("path") != PINNED_HDRI_RELATIVE_PATH:
+                errors.append("pinned_hdri provenance path must equal the governed HDRI")
+            if hdri.get("sha256") != PINNED_HDRI_SHA256:
+                errors.append("pinned_hdri provenance sha256 must equal the governed HDRI hash")
+            if hdri.get("license") != "CC0-1.0":
+                errors.append("pinned_hdri provenance license must equal CC0-1.0")
     return errors
 
 
@@ -258,6 +275,13 @@ def free_tool_lock_payload() -> dict[str, object]:
         "tools": [{**asdict(record), "execution": "local"} for record in records],
         "license_evidence": {
             "blender-mcp": {"path": str(license_path), "sha256": sha256_file(license_path)}
+        },
+        "asset_provenance": {
+            "pinned_hdri": {
+                "path": PINNED_HDRI_RELATIVE_PATH,
+                "sha256": PINNED_HDRI_SHA256,
+                "license": "CC0-1.0",
+            }
         },
     }
     errors = validate_tool_lock(payload)

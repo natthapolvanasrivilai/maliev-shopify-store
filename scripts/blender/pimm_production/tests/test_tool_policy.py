@@ -67,6 +67,13 @@ class ToolPolicyTests(unittest.TestCase):
             "license_evidence": {
                 "blender-mcp": {"path": r"C:\Users\natth\blender_mcp\LICENSE", "sha256": "E" * 64}
             },
+            "asset_provenance": {
+                "pinned_hdri": {
+                    "path": "assets/hdri/studio_kontrast_04_4k.exr",
+                    "sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                    "license": "CC0-1.0",
+                }
+            },
         }
 
     def test_tool_policy_script_runs_from_the_repository_root(self):
@@ -99,6 +106,12 @@ class ToolPolicyTests(unittest.TestCase):
     def test_allowed_local_tools_require_version_and_license(self):
         payload = self._valid_lock_payload()
 
+        self.assertEqual(validate_tool_lock(payload), [])
+
+    def test_lock_binds_the_pinned_hdri_as_local_cc0_provenance(self):
+        """Catches a lock that lets the campaign HDRI hash drift outside local provenance."""
+
+        payload = self._valid_lock_payload()
         self.assertEqual(validate_tool_lock(payload), [])
 
     def test_lock_rejects_partial_schema_missing_checksum_and_network_endpoint(self):
