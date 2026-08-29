@@ -15,8 +15,10 @@ const viewports = [
   [1440, 900],
   [1280, 800],
   [1024, 768],
+  [768, 1024],
   [390, 844],
   [360, 800],
+  [320, 800],
 ];
 const models = ['30G', '50G'];
 const expectedMarket = {
@@ -563,9 +565,14 @@ const consoleGeometryProbe = `(() => {
     a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
   );
   const decision = rect('.pimm-machine__hero-decision');
+  const actions = rect('.pimm-machine__hero-actions');
   const stage = rect('.pimm-machine__hero-stage');
   const evidence = rect('.pimm-machine__hero-evidence');
   const hero = rect('[data-pimm-hero-console]');
+  const header = rect('.mc-header-section > header')
+    || rect('.mc-header-section .header')
+    || rect('.mc-header-section')
+    || rect('[id$="__header"]');
   const qualification = rect('[data-pimm-qualification-strip]');
   const title = document.querySelector('.pimm-machine__hero-title-group h1');
   const evidenceHeading = document.querySelector('.pimm-machine__hero-evidence > h2');
@@ -574,12 +581,23 @@ const consoleGeometryProbe = `(() => {
   const selectedHero = document.querySelector('[data-pimm-media-model]:not([hidden])[data-pimm-media-slot="hero"] img');
   const image = selectedHero?.getBoundingClientRect();
   return {
+    actions,
     decision,
     evidence,
+    header,
     hero,
+    image: image ? {
+      bottom: image.bottom,
+      height: image.height,
+      left: image.left,
+      right: image.right,
+      top: image.top,
+      width: image.width,
+    } : null,
     imageHasArea: Boolean(image && image.width > 0 && image.height > 0),
     naturalSize: selectedHero ? [selectedHero.naturalWidth, selectedHero.naturalHeight] : null,
     overlaps: {
+      actionsEvidence: overlaps(actions, evidence),
       decisionStage: overlaps(decision, stage),
       stageEvidence: overlaps(stage, evidence),
     },
@@ -589,6 +607,7 @@ const consoleGeometryProbe = `(() => {
       evidenceHeadingFontSize: evidenceHeading ? parseFloat(getComputedStyle(evidenceHeading).fontSize) : null,
       titleFontSize: title ? parseFloat(getComputedStyle(title).fontSize) : null,
       titleLineCount: titleRange ? [...titleRange.getClientRects()].filter((value) => value.width > 0).length : 0,
+      titleTop: title?.getBoundingClientRect().top ?? null,
     },
     visibleFactCount: [...document.querySelectorAll('.pimm-machine__hero-facts [data-pimm-spec]')]
       .filter((node) => node.getClientRects().length > 0).length,
@@ -740,6 +759,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
 
           for (const model of models) {
             const state = await evaluate(session, selectedStateProbe(model));
+            await evaluate(session, 'scrollTo(0, 0); true');
             const consoleGeometry = await evaluate(session, consoleGeometryProbe);
             const expectedModel = expectedMarket.models[model];
             const expectedAlt = expectedMarket[language].alt[model];
@@ -754,6 +774,11 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             assert.equal(state.checked, true);
             assert.equal(consoleGeometry.overlaps.decisionStage, false);
             assert.equal(consoleGeometry.overlaps.stageEvidence, false);
+            assert.equal(
+              consoleGeometry.overlaps.actionsEvidence,
+              false,
+              `${language} ${model} ${width}x${height} hero actions must not overlap evidence`,
+            );
             assert.equal(consoleGeometry.imageHasArea, true);
             assert.deepEqual(consoleGeometry.naturalSize, [1800, 2200]);
             assert.equal(consoleGeometry.visibleFactCount, 4);
@@ -766,10 +791,21 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               `${language} ${model} ${width}x${height} evidence heading is ${consoleGeometry.typography.evidenceHeadingFontSize}px`,
             );
             assert.ok(
+              !consoleGeometry.header
+                || consoleGeometry.typography.titleTop >= consoleGeometry.header.bottom - 1,
+              `${language} ${model} ${width}x${height} title must clear the transparent header: ${JSON.stringify({ header: consoleGeometry.header, titleTop: consoleGeometry.typography.titleTop })}`,
+            );
+            assert.ok(
               consoleGeometry.qualification.top >= consoleGeometry.hero.top - 1
                 && consoleGeometry.qualification.bottom <= consoleGeometry.hero.bottom + 1,
               `${language} ${model} ${width}x${height} qualification must remain inside the first-screen hero`,
             );
+            if (width >= 990 && width <= 1100) {
+              assert.ok(
+                consoleGeometry.evidence.top >= consoleGeometry.decision.bottom - 1,
+                `${language} ${model} ${width}x${height} tablet evidence must sit below the decision panel`,
+              );
+            }
             assert.ok(
               consoleGeometry.overflowX <= 1,
               `${language} ${model} ${width}x${height} console must not overflow horizontally`,
