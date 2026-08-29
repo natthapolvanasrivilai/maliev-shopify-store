@@ -812,12 +812,15 @@ class SceneContractTests(unittest.TestCase):
 
         def support(asset_id):
             record = expected[asset_id]
+            name = f"{asset_id}-object"
             return {
-                "name": f"{asset_id}-object",
+                "name": name,
                 "ownership": "scene-support",
                 "asset_version_id": asset_id,
                 "local_relative_path": record["local_relative_path"],
                 "sha256": record["sha256"],
+                "member_count": 1,
+                "member_names": [name],
             }
 
         valid = [support("bench-v1"), support("tray-v1")]
@@ -827,14 +830,17 @@ class SceneContractTests(unittest.TestCase):
             ),
             [],
         )
-        for label, actual in {
-            "all-deleted": [],
-            "one-deleted": valid[:1],
-            "duplicate": [*valid, support("bench-v1")],
+        for label, (actual, expected_error) in {
+            "all-deleted": ([], "exact expected asset set"),
+            "one-deleted": (valid[:1], "exact expected asset set"),
+            "duplicate": (
+                [*valid, support("bench-v1")],
+                "member set does not match",
+            ),
         }.items():
             with self.subTest(label=label):
                 self.assertIn(
-                    "exact expected asset set",
+                    expected_error,
                     "\n".join(
                         blender_scene_validator.validate_workshop_support_assets(
                             composition, actual, expected

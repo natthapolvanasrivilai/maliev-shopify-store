@@ -979,6 +979,21 @@ def validate_open_render_scene(
         mesh = getattr(support, "data", None)
         materials = list(getattr(mesh, "materials", ())) if mesh is not None else []
         role = _property(support, "pimm_scene_support_role")
+        product_like = any(
+            _property(support, property_name) is not None
+            for property_name in (
+                "pimm_stable_id",
+                "pimm_artwork_id",
+                "pimm_machine",
+                "pimm_asset_role",
+                "pimm_product_material_override",
+            )
+        ) or any(
+            _property(material, "pimm_material_id") is not None
+            or _property(material, "pimm_material_scope")
+            in {"shared", "machine-local"}
+            for material in materials
+        )
         valid_local = (
             _property(support, "pimm_scene_support_ownership") == "scene-support"
             and _datablock_library_path(bpy, support) is None
@@ -991,7 +1006,7 @@ def validate_open_render_scene(
                 _property(material, "pimm_scene_support_ownership") == "scene-support"
                 for material in materials
             )
-            and _property(support, "pimm_stable_id") is None
+            and not product_like
         )
         if role == "reflection-card":
             valid_local = (
@@ -1003,6 +1018,17 @@ def validate_open_render_scene(
             valid_local = valid_local and isinstance(
                 _property(support, "pimm_external_asset_version_id"), str
             )
+            raw_member_names = _property(
+                support, "pimm_external_asset_member_names"
+            )
+            try:
+                member_names = (
+                    json.loads(raw_member_names)
+                    if isinstance(raw_member_names, str)
+                    else None
+                )
+            except json.JSONDecodeError:
+                member_names = None
             workshop_support_records.append(
                 {
                     "name": name,
@@ -1016,6 +1042,10 @@ def validate_open_render_scene(
                         support, "pimm_external_asset_local_relative_path"
                     ),
                     "sha256": _property(support, "pimm_external_asset_sha256"),
+                    "member_count": _property(
+                        support, "pimm_external_asset_member_count"
+                    ),
+                    "member_names": member_names,
                 }
             )
         else:

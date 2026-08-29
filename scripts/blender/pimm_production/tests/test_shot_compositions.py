@@ -166,6 +166,8 @@ class ShotCompositionTests(unittest.TestCase):
             "asset_version_id": "bench-v1",
             "local_relative_path": "assets/props/bench-v1.blend",
             "sha256": "A" * 64,
+            "member_count": 1,
+            "member_names": ["PIMM_SUPPORT_BENCH"],
         }
         self.assertEqual(validate_workshop_support_assets(shot, [support], approved), [])
         wrong_owner = {**support, "ownership": "product"}

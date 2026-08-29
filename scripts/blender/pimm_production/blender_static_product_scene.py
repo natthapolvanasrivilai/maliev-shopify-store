@@ -993,9 +993,17 @@ def load_workshop_support_assets(
                 product_error = _workshop_product_like_error(obj)
                 if product_error:
                     raise ValueError(product_error)
+            member_names = sorted(str(obj.name) for obj in mesh_objects)
+            member_names_json = json.dumps(
+                member_names,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
             for collection in loaded_collections:
                 collection["pimm_scene_support_ownership"] = "scene-support"
                 collection["pimm_external_asset_version_id"] = record.asset_version_id
+                collection["pimm_external_asset_member_count"] = len(member_names)
+                collection["pimm_external_asset_member_names"] = member_names_json
                 bpy.context.scene.collection.children.link(collection)
             for obj in loaded_objects:
                 obj["pimm_scene_support_ownership"] = "scene-support"
@@ -1008,6 +1016,8 @@ def load_workshop_support_assets(
                 mesh = getattr(obj, "data", None)
                 if mesh is None:
                     continue
+                obj["pimm_external_asset_member_count"] = len(member_names)
+                obj["pimm_external_asset_member_names"] = member_names_json
                 mesh["pimm_scene_support_ownership"] = "scene-support"
                 mesh["pimm_scene_support_role"] = "workshop-prop"
                 for material in getattr(mesh, "materials", ()):

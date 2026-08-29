@@ -392,15 +392,14 @@ def validate_workshop_support_assets(
         for asset_id, provenance in provenance_by_asset_id.items()
         if composition.shot_id in provenance.get("intended_shot_ids", ())
     }
-    actual_asset_ids = [
-        support.get("asset_version_id")
-        for support in local_supports
-        if isinstance(support, Mapping)
-    ]
-    if (
-        len(actual_asset_ids) != len(expected_asset_ids)
-        or set(actual_asset_ids) != expected_asset_ids
-    ):
+    support_groups: dict[str, list[Mapping[str, object]]] = {}
+    for support in local_supports:
+        if not isinstance(support, Mapping):
+            continue
+        asset_id = support.get("asset_version_id")
+        if isinstance(asset_id, str):
+            support_groups.setdefault(asset_id, []).append(support)
+    if set(support_groups) != expected_asset_ids:
         errors.append(
             f"{composition.shot_id} workshop supports must equal the exact expected asset set"
         )
@@ -410,6 +409,8 @@ def validate_workshop_support_assets(
         "asset_version_id",
         "local_relative_path",
         "sha256",
+        "member_count",
+        "member_names",
     }
     for index, support in enumerate(local_supports):
         prefix = f"workshop support[{index}]"
@@ -428,6 +429,36 @@ def validate_workshop_support_assets(
         for field in ("asset_version_id", "local_relative_path", "sha256"):
             if support[field] != provenance.get(field):
                 errors.append(f"{prefix} {field} does not match provenance")
+    for asset_id in sorted(expected_asset_ids):
+        members = support_groups.get(asset_id, [])
+        if not members:
+            continue
+        expected_names_values = [member.get("member_names") for member in members]
+        expected_counts = [member.get("member_count") for member in members]
+        first_names = expected_names_values[0]
+        valid_names = (
+            isinstance(first_names, list)
+            and bool(first_names)
+            and all(isinstance(name, str) and name for name in first_names)
+            and len(first_names) == len(set(first_names))
+            and all(value == first_names for value in expected_names_values)
+        )
+        valid_count = (
+            all(isinstance(value, int) and not isinstance(value, bool) for value in expected_counts)
+            and len(set(expected_counts)) == 1
+            and valid_names
+            and expected_counts[0] == len(first_names)
+        )
+        actual_names = [member.get("name") for member in members]
+        if (
+            not valid_names
+            or not valid_count
+            or len(actual_names) != len(first_names)
+            or set(actual_names) != set(first_names)
+        ):
+            errors.append(
+                f"workshop support asset {asset_id} member set does not match its authored container"
+            )
     return errors
 
 

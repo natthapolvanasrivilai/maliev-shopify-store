@@ -639,6 +639,7 @@ class StaticProductSceneTests(unittest.TestCase):
                     repository = Path(sys.argv[sys.argv.index("--") + 2]).resolve()
                     sys.path.insert(0, str(repository))
                     import scripts.blender.pimm_production.blender_static_product_scene as authoring
+                    import scripts.blender.pimm_production.blender_scene_validator as validator
 
                     props = root / "assets" / "props"
                     manifests = root / "manifests"
@@ -648,31 +649,33 @@ class StaticProductSceneTests(unittest.TestCase):
                     master = masters / "PIMM-50G-MASTER.blend"
                     master.write_bytes(b"immutable-50g-master")
 
-                    def build_support(path, product_like=False, material_like=False):
+                    def build_support(path, product_like=False, material_like=False, mesh_count=1):
                         bpy.ops.wm.read_factory_settings(use_empty=True)
                         collection = bpy.data.collections.new("FIXTURE_SUPPORT")
                         bpy.context.scene.collection.children.link(collection)
-                        mesh = bpy.data.meshes.new("FIXTURE_SUPPORT_MESH")
-                        mesh.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
-                        material = bpy.data.materials.new("FIXTURE_SUPPORT_MATERIAL")
-                        if material_like:
-                            material["pimm_material_id"] = "BLACK_POWDERCOAT"
-                        mesh.materials.append(material)
-                        obj = bpy.data.objects.new("FIXTURE_SUPPORT_OBJECT", mesh)
-                        if product_like:
-                            obj["pimm_stable_id"] = "50G-forbidden-support-product"
-                        collection.objects.link(obj)
+                        for index in range(mesh_count):
+                            mesh = bpy.data.meshes.new(f"FIXTURE_SUPPORT_MESH_{index}")
+                            mesh.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
+                            material = bpy.data.materials.new(f"FIXTURE_SUPPORT_MATERIAL_{index}")
+                            if material_like:
+                                material["pimm_material_id"] = "BLACK_POWDERCOAT"
+                            mesh.materials.append(material)
+                            obj = bpy.data.objects.new(f"FIXTURE_SUPPORT_OBJECT_{index}", mesh)
+                            if product_like:
+                                obj["pimm_stable_id"] = "50G-forbidden-support-product"
+                            collection.objects.link(obj)
                         bpy.ops.wm.save_as_mainfile(filepath=str(path), check_existing=False)
 
                     valid_path = props / "valid-support.blend"
                     product_path = props / "product-like.blend"
                     material_path = props / "material-like.blend"
                     unrecorded_path = props / "unrecorded.blend"
-                    build_support(valid_path)
+                    build_support(valid_path, mesh_count=2)
                     build_support(product_path, product_like=True)
                     build_support(material_path, material_like=True)
                     unrecorded_path.write_bytes(b"unrecorded")
                     authoring.ASSET_ROOT = root
+                    validator.ASSET_ROOT = root
                     config = authoring.SHOT_CONFIGS["pimm-50g--workshop--wide"]
                     manifest_path = manifests / "external-assets-v1.json"
 
@@ -710,17 +713,79 @@ class StaticProductSceneTests(unittest.TestCase):
                         obj for obj in bpy.context.scene.objects
                         if obj.get("pimm_scene_support_ownership") == "scene-support"
                     ]
+                    tagged_asset_id = tagged[0].get("pimm_external_asset_version_id")
                     authoring._install_profile_supports(bpy, ())
                     retained = [
                         obj for obj in bpy.context.scene.objects
                         if obj.get("pimm_external_asset_version_id") == "valid-1.0"
                     ]
+                    scene_evidence = json.dumps(
+                        [
+                            {
+                                "asset_version_id": "valid-1.0",
+                                "local_relative_path": "assets/props/valid-support.blend",
+                                "sha256": digest(valid_path),
+                            }
+                        ],
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                    bpy.context.scene["pimm_workshop_support_evidence"] = scene_evidence
+                    reopened_path = root / "workshop-reopened.blend"
+                    bpy.ops.wm.save_as_mainfile(filepath=str(reopened_path), check_existing=False)
+                    bpy.ops.wm.open_mainfile(filepath=str(reopened_path))
+
+                    def support_records():
+                        return [
+                            {
+                                "name": obj.name,
+                                "ownership": obj.get("pimm_scene_support_ownership"),
+                                "asset_version_id": obj.get("pimm_external_asset_version_id"),
+                                "local_relative_path": obj.get("pimm_external_asset_local_relative_path"),
+                                "sha256": obj.get("pimm_external_asset_sha256"),
+                                "member_count": obj.get("pimm_external_asset_member_count"),
+                                "member_names": json.loads(
+                                    obj.get("pimm_external_asset_member_names")
+                                ),
+                            }
+                            for obj in bpy.context.scene.objects
+                            if obj.type == "MESH"
+                            and obj.get("pimm_external_asset_version_id") is not None
+                        ]
+
+                    records = support_records()
+                    reopened_valid = validator._validate_workshop_runtime_state(
+                        bpy.context.scene, config.scene_id, records, root
+                    )
+                    member_hash = [dict(item) for item in records]
+                    member_hash[0]["sha256"] = "0" * 64
+                    member_hash_rejected = bool(
+                        validator._validate_workshop_runtime_state(
+                            bpy.context.scene, config.scene_id, member_hash, root
+                        )
+                    )
+                    member_id = [dict(item) for item in records]
+                    member_id[0]["asset_version_id"] = "rogue-member"
+                    member_id_rejected = bool(
+                        validator._validate_workshop_runtime_state(
+                            bpy.context.scene, config.scene_id, member_id, root
+                        )
+                    )
+                    missing_member_rejected = bool(
+                        validator._validate_workshop_runtime_state(
+                            bpy.context.scene, config.scene_id, records[1:], root
+                        )
+                    )
                     valid = {
                         "count": len(loaded),
                         "tagged": len(tagged),
                         "retained_after_rig": len(retained),
-                        "asset_id": tagged[0].get("pimm_external_asset_version_id"),
+                        "asset_id": tagged_asset_id,
                         "master_unchanged": before == after,
+                        "reopened_valid": reopened_valid,
+                        "member_hash_rejected": member_hash_rejected,
+                        "member_id_rejected": member_id_rejected,
+                        "missing_member_rejected": missing_member_rejected,
                     }
 
                     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -798,10 +863,14 @@ class StaticProductSceneTests(unittest.TestCase):
                 payload["valid"],
                 {
                     "count": 1,
-                    "tagged": 1,
-                    "retained_after_rig": 1,
+                    "tagged": 2,
+                    "retained_after_rig": 2,
                     "asset_id": "valid-1.0",
                     "master_unchanged": True,
+                    "reopened_valid": [],
+                    "member_hash_rejected": True,
+                    "member_id_rejected": True,
+                    "missing_member_rejected": True,
                 },
             )
             self.assertTrue(payload["hash_drift"])
