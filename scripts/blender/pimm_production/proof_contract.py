@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 import hashlib
+from io import BytesIO
 import json
 import math
 import os
@@ -27,6 +28,7 @@ from .image_safety import analyze_alpha_safety, validate_alpha_safety_evidence
 
 
 MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD = 32
+ALPHA_RECOMPOSITION_TOLERANCE = 0
 _FIELDS = {
     "schema_version",
     "generation_id",
@@ -153,6 +155,16 @@ _CONTACT_REPORT_PAYLOAD_FIELDS = {
 _CAMPAIGN_PATH = Path(__file__).resolve().parent / "contracts" / "campaigns" / "pimm-responsive-product-photography-v1.json"
 _IDENTITY_FIELDS = {"name", "type", "library"}
 _EMBEDDED_IDENTITY_FIELDS = _IDENTITY_FIELDS | {"content_sha256"}
+
+
+@dataclass(frozen=True)
+class _HeldOutput:
+    """One owned proof file held as stable bytes through manifest publication."""
+
+    path: Path
+    payload: bytes
+    sha256: str
+    identity: tuple[int, int, int, int, int, int]
 _OPTIONAL_IDENTITY_FIELDS = {"pimm_stable_id", "pimm_material_id"}
 _TRANSFORM_FIELDS = {
     "location",
@@ -782,6 +794,36 @@ def _validate_current_contact_reports(
         if payload != expected:
             errors.append(f"{prefix} does not equal the governed foot patch report")
     return errors
+
+
+def load_authenticated_contact_report(
+    contract: ProofContract, scene: SceneContract
+) -> Mapping[str, object]:
+    """Return the current, hash-bound Task 4 report for the open scene machine."""
+
+    evidence = contract.contact_evidence
+    reports = evidence.get("reports") if isinstance(evidence, Mapping) else None
+    if not isinstance(reports, (list, tuple)):
+        raise ValueError("proof contract contact evidence has no bound report list")
+    matches = [
+        report
+        for report in reports
+        if isinstance(report, Mapping)
+        and report.get("machine") == scene.machine
+    ]
+    if len(matches) != 1:
+        raise ValueError("proof contract must bind exactly one contact report for the open scene machine")
+    errors = _validate_current_contact_reports(evidence, scene, contract)
+    if errors:
+        raise ValueError("; ".join(errors))
+    path = ASSET_ROOT / Path(*PurePosixPath(str(matches[0]["report_path"])).parts)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"authenticated contact report cannot be read: {error}") from error
+    if not isinstance(payload, Mapping):
+        raise ValueError("authenticated contact report must be an object")
+    return payload
 
 
 def validate_proof_contract(
@@ -2842,31 +2884,130 @@ def _generation_alpha_pass_path(output_root: Path, scene_id: str, kind: str) -> 
     return output_root / f".{scene_id}--alpha-{kind}.tmp.png"
 
 
-def _validate_output_derived_alpha_evidence(
-    contract: ProofContract, scene: SceneContract, output_root: Path
-) -> dict[str, object]:
-    """Re-measure the exact generated alpha passes before a campaign proof can publish."""
+def _owned_output_identity(path: Path) -> tuple[int, int, int, int, int, int]:
+    details = os.stat(path, follow_symlinks=False)
+    return (
+        int(details.st_dev),
+        int(details.st_ino),
+        int(details.st_size),
+        int(details.st_mtime_ns),
+        int(details.st_ctime_ns),
+        int(details.st_nlink),
+    )
 
+
+def _hold_owned_png(path: Path, output_root: Path, label: str) -> _HeldOutput:
+    """Read one non-link owned PNG and retain its exact pre-publication bytes."""
+
+    try:
+        require_within(path, output_root)
+        if not path.is_file() or path.is_symlink():
+            raise ValueError("is missing or unsafe")
+        before = _owned_output_identity(path)
+        payload = path.read_bytes()
+        after = _owned_output_identity(path)
+    except (OSError, ValueError) as error:
+        raise ValueError(f"{label} is missing or unsafe") from error
+    if before != after:
+        raise ValueError(f"{label} changed while its bytes were being held")
+    return _HeldOutput(path, payload, hashlib.sha256(payload).hexdigest().upper(), before)
+
+
+def _assert_held_output_is_current(held: _HeldOutput, label: str) -> None:
+    """Reject replacement or byte drift before publication after a held read."""
+
+    try:
+        if held.path.is_symlink():
+            raise ValueError("became a symlink")
+        if _owned_output_identity(held.path) != held.identity:
+            raise ValueError("identity changed")
+        if hashlib.sha256(held.path.read_bytes()).hexdigest().upper() != held.sha256:
+            raise ValueError("bytes changed")
+    except OSError as error:
+        raise ValueError(f"{label} changed before publication") from error
+    except ValueError as error:
+        raise ValueError(f"{label} changed before publication") from error
+
+
+def _held_rgba_image(held: _HeldOutput, label: str) -> object:
     from PIL import Image
 
-    paths = {
-        kind: _generation_alpha_pass_path(output_root, scene.scene_id, kind)
-        for kind in ("product", "shadow")
-    }
-    for kind, path in paths.items():
-        if not path.is_file() or path.is_symlink():
-            raise ValueError(f"computed alpha safety {kind} pass is missing or unsafe")
-        try:
-            require_within(path, output_root)
-        except ValueError as error:
-            raise ValueError(f"computed alpha safety {kind} pass escapes proof output") from error
     try:
-        with Image.open(paths["product"]) as product_loaded:
-            product = product_loaded.convert("RGBA")
-            product.load()
-        with Image.open(paths["shadow"]) as shadow_loaded:
-            shadow = shadow_loaded.convert("RGBA")
-            shadow.load()
+        with Image.open(BytesIO(held.payload)) as loaded:
+            image = loaded.convert("RGBA")
+            image.load()
+            return image
+    except OSError as error:
+        raise ValueError(f"{label} is not a readable RGBA PNG") from error
+
+
+def _assert_exact_alpha_recomposition(
+    published: object, product: object, shadow: object
+) -> None:
+    """Require the exact declared product/shadow passes to reconstruct published RGBA."""
+
+    if product.size != published.size or shadow.size != published.size:
+        raise ValueError("published proof RGBA and held alpha passes have different dimensions")
+    for index, (published_pixel, product_pixel, shadow_pixel) in enumerate(
+        zip(
+            published.get_flattened_data(),
+            product.get_flattened_data(),
+            shadow.get_flattened_data(),
+            strict=True,
+        )
+    ):
+        product_alpha = product_pixel[3]
+        shadow_alpha = shadow_pixel[3]
+        combined_alpha = product_alpha + shadow_alpha
+        if combined_alpha > 255:
+            raise ValueError(f"held alpha passes overlap at pixel {index}")
+        expected_alpha = combined_alpha
+        if expected_alpha:
+            expected_rgb = tuple(
+                round(
+                    (product_pixel[channel] * product_alpha + shadow_pixel[channel] * shadow_alpha)
+                    / expected_alpha
+                )
+                for channel in range(3)
+            )
+        else:
+            expected_rgb = (0, 0, 0)
+        if (
+            abs(published_pixel[3] - expected_alpha) > ALPHA_RECOMPOSITION_TOLERANCE
+            or any(
+                abs(published_pixel[channel] - expected_rgb[channel])
+                > ALPHA_RECOMPOSITION_TOLERANCE
+                for channel in range(3)
+            )
+        ):
+            raise ValueError(
+                f"published proof RGBA does not match held product/shadow alpha passes at pixel {index}"
+            )
+
+
+def _validate_output_derived_alpha_evidence(
+    contract: ProofContract, scene: SceneContract, output_root: Path, rgba_path: Path
+) -> tuple[dict[str, object], tuple[_HeldOutput, ...]]:
+    """Re-measure the exact generated alpha passes before a campaign proof can publish."""
+
+    held = {
+        "rgba": _hold_owned_png(rgba_path, output_root, "published proof RGBA"),
+        "product": _hold_owned_png(
+            _generation_alpha_pass_path(output_root, scene.scene_id, "product"),
+            output_root,
+            "computed alpha safety product pass",
+        ),
+        "shadow": _hold_owned_png(
+            _generation_alpha_pass_path(output_root, scene.scene_id, "shadow"),
+            output_root,
+            "computed alpha safety shadow pass",
+        ),
+    }
+    try:
+        published = _held_rgba_image(held["rgba"], "published proof RGBA")
+        product = _held_rgba_image(held["product"], "computed alpha safety product pass")
+        shadow = _held_rgba_image(held["shadow"], "computed alpha safety shadow pass")
+        _assert_exact_alpha_recomposition(published, product, shadow)
         computed = analyze_alpha_safety(
             product,
             shadow,
@@ -2882,9 +3023,10 @@ def _validate_output_derived_alpha_evidence(
         raise ValueError("computed alpha safety did not pass")
     return {
         "result": result,
-        "product_rgba_sha256": sha256_file(paths["product"]),
-        "shadow_rgba_sha256": sha256_file(paths["shadow"]),
-    }
+        "published_rgba_sha256": held["rgba"].sha256,
+        "product_rgba_sha256": held["product"].sha256,
+        "shadow_rgba_sha256": held["shadow"].sha256,
+    }, tuple(held.values())
 
 
 def write_proof_manifest(
@@ -2949,10 +3091,11 @@ def write_proof_manifest(
     campaign_shot, campaign_error = _campaign_policy_for_scene(scene)
     if campaign_error:
         raise ValueError(campaign_error)
-    alpha_evidence = (
-        _validate_output_derived_alpha_evidence(contract, scene, output_root)
+    rgba_path = next(path for path, _shot_id, background in parsed if background == "rgba")
+    alpha_evidence, held_alpha_outputs = (
+        _validate_output_derived_alpha_evidence(contract, scene, output_root, rgba_path)
         if campaign_shot is not None
-        else None
+        else (None, ())
     )
     metadata_path = output_root / "render-metadata.json"
     if not metadata_path.is_file():
@@ -2983,6 +3126,11 @@ def write_proof_manifest(
                 f"proof output dimensions do not match exact effective pixels: {entry['path']}"
             )
     by_background = {entry["background"]: entry for entry in entries}
+    if alpha_evidence is not None:
+        if by_background["rgba"]["sha256"] != alpha_evidence["published_rgba_sha256"]:
+            raise ValueError("published proof RGBA changed before manifest entry capture")
+        for held in held_alpha_outputs:
+            _assert_held_output_is_current(held, "published proof alpha authority")
     shadow = by_background.get("shadow-mask")
     fallback_subject = {
         "bounds": by_background["rgba"]["metrics"]["subject_bounds"],
@@ -3035,5 +3183,7 @@ def write_proof_manifest(
         "qa": qa,
         "outputs": entries,
     }
+    for held in held_alpha_outputs:
+        _assert_held_output_is_current(held, "published proof alpha authority")
     atomic_write_json(manifest_path, payload)
     return manifest_path

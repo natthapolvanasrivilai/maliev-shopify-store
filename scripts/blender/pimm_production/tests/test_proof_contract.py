@@ -287,6 +287,21 @@ def _write_alpha_passes(output_root: Path, shot_id: str) -> tuple[Path, Path, di
     )
 
 
+def _write_recomposed_rgba(product_path: Path, shadow_path: Path, destination: Path) -> None:
+    """Write the hand-derived alpha sum of the exact safety passes."""
+
+    from PIL import ImageChops
+
+    with Image.open(product_path) as product_loaded:
+        product = product_loaded.convert("RGBA")
+    with Image.open(shadow_path) as shadow_loaded:
+        shadow = shadow_loaded.convert("RGBA")
+    product.putalpha(
+        ImageChops.add(product.getchannel("A"), shadow.getchannel("A"), scale=1.0)
+    )
+    product.save(destination)
+
+
 def _run_fixture_proofs(
     scene_path: Path,
     proof_paths: list[Path],
@@ -1397,6 +1412,108 @@ def _prepare_canonical_shadow_fixture(
 
 class ProofContractTests(unittest.TestCase):
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
+    def test_blender_live_contact_authority_rejects_report_only_scene(self):
+        """Catches production contact acceptance when only a hand-written report exists."""
+
+        with TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            script = root / "live_contact.py"
+            script.write_text(
+                textwrap.dedent(
+                    f"""
+                    import json
+                    import sys
+                    sys.path.insert(0, {str(REPO_ROOT)!r})
+                    import bpy
+                    from scripts.blender.pimm_production import blender_proof_render as module
+                    from scripts.blender.pimm_production.scene_contract import SceneContract
+
+                    report = {{
+                        "schema": "maliev.pimm-foot-contact-report/v1",
+                        "scene_id": "pimm-30g--hero--desktop",
+                        "scene_contract_sha256": "A" * 64,
+                        "master_sha256": "B" * 64,
+                        "patch_sha256": "C" * 64,
+                        "contact_evidence": {{
+                            "schema_version": 1,
+                            "machine": "30G",
+                            "selection_basis": "median_nylon_foot_pad_bottom",
+                            "patch_path": "manifests/patches/PIMM-30G-foot-refresh.json",
+                            "contact_z": -0.162624216,
+                            "pad_bottoms": [-0.162624216, -0.162624216, -0.162624216, -4.825847972],
+                            "stable_ids": ["pad-a", "pad-b", "pad-c", "pad-d"],
+                            "outlier_stable_ids": ["pad-d"],
+                        }},
+                        "tolerance": 0.000001,
+                        "passed": True,
+                    }}
+                    scene_contract = SceneContract.from_mapping({{
+                        "schema_version": 1,
+                        "scene_id": report["scene_id"],
+                        "machine": "30G",
+                        "purpose": "hero",
+                        "master_path": "masters/PIMM-30G-MASTER.blend",
+                        "master_sha256": report["master_sha256"],
+                        "master_collection": "PIMM_PUBLISHED",
+                        "material_library_path": "masters/PIMM-MATERIAL-LIBRARY.blend",
+                        "material_library_sha256": "D" * 64,
+                        "camera_name": "CAM_HERO",
+                        "complete_product": True,
+                        "animation_contract": None,
+                        "output_contract": {{"width": 2560, "height": 1440, "alpha": True}},
+                    }})
+                    module.proof_module.load_authenticated_contact_report = lambda _contract, _scene: report
+                    bpy.ops.mesh.primitive_plane_add(size=20)
+                    catcher = bpy.context.object
+                    catcher.name = "PIMM_SCENE_SHADOW_CATCHER"
+                    catcher["pimm_scene_environment_role"] = "shadow-catcher"
+                    catcher.is_shadow_catcher = True
+                    for vertex in catcher.data.vertices:
+                        vertex.co.z = report["contact_evidence"]["contact_z"]
+                    try:
+                        report_only_error = module._live_contact_authority_errors(
+                            bpy, object(), scene_contract, report["scene_contract_sha256"]
+                        )
+                    except ValueError as error:
+                        report_only_error = [str(error)]
+                    bpy.context.scene["pimm_foot_contact_evidence"] = json.dumps(
+                        report["contact_evidence"], ensure_ascii=False,
+                        separators=(",", ":"), sort_keys=True,
+                    )
+                    valid = module._live_contact_authority_errors(
+                        bpy, object(), scene_contract, report["scene_contract_sha256"]
+                    )
+                    print("PIMM_LIVE_CONTACT_JSON=" + json.dumps({{
+                        "report_only_error": report_only_error,
+                        "valid_errors": valid,
+                    }}, sort_keys=True))
+                    """
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [str(BLENDER), "--background", "--factory-startup", "--python", str(script)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            marker = next(
+                (
+                    line.removeprefix("PIMM_LIVE_CONTACT_JSON=")
+                    for line in result.stdout.splitlines()
+                    if line.startswith("PIMM_LIVE_CONTACT_JSON=")
+                ),
+                None,
+            )
+            self.assertIsNotNone(marker, msg=result.stdout + result.stderr)
+            payload = json.loads(marker)
+            self.assertTrue(any("embedded" in error for error in payload["report_only_error"]))
+            self.assertEqual(payload["valid_errors"], [])
+
+    @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime unavailable")
     def test_blender_captures_lossless_canonical_shadow_pass_and_restores_state(self):
         with TemporaryDirectory() as root_text:
             root = Path(root_text)
@@ -1921,11 +2038,25 @@ class ProofContractTests(unittest.TestCase):
                 path = output_root / f"{scene.scene_id}--{background}.png"
                 Image.new("RGBA", (320, 180), color).save(path)
                 outputs.append(path)
-            _write_manifest_evidence(
-                root, output_root, contract, scene,
-                _valid_render_metadata(contract, actual_dimensions=[320, 180]),
-            )
+            metadata = _valid_render_metadata(contract, actual_dimensions=[320, 180])
+            metadata["base_dimensions"] = [2560, 1440]
+            _write_manifest_evidence(root, output_root, contract, scene, metadata)
             with patch.object(proof_module, "ASSET_ROOT", root):
+                with self.assertRaisesRegex(ValueError, "published proof RGBA"):
+                    write_proof_manifest(contract, outputs)
+                _write_recomposed_rgba(
+                    product_path,
+                    shadow_path,
+                    output_root / f"{scene.scene_id}--rgba.png",
+                )
+                rgba_path = output_root / f"{scene.scene_id}--rgba.png"
+                with Image.open(rgba_path) as published_loaded:
+                    published = published_loaded.convert("RGBA")
+                published.putpixel((100, 80), (1, 2, 3, 128))
+                published.save(rgba_path)
+                with self.assertRaisesRegex(ValueError, "published proof RGBA"):
+                    write_proof_manifest(contract, outputs)
+                _write_recomposed_rgba(product_path, shadow_path, rgba_path)
                 tampered = json.loads(json.dumps(result))
                 tampered["product_bounds"] = [41, 30, 279, 139]
                 alpha_path.write_text(json.dumps(tampered, sort_keys=True), encoding="utf-8")

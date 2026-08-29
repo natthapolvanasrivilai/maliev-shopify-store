@@ -89,6 +89,26 @@ _REQUIRED_LIGHT_NAMES = (
 )
 FOOT_CONTACT_REPORT_SCHEMA = "maliev.pimm-foot-contact-report/v1"
 FOOT_CONTACT_TOLERANCE = 1e-6
+_FOOT_CONTACT_REPORT_FIELDS = {
+    "schema",
+    "scene_id",
+    "scene_contract_sha256",
+    "master_sha256",
+    "patch_sha256",
+    "contact_evidence",
+    "tolerance",
+    "passed",
+}
+_FOOT_CONTACT_EVIDENCE_FIELDS = {
+    "schema_version",
+    "machine",
+    "selection_basis",
+    "patch_path",
+    "contact_z",
+    "pad_bottoms",
+    "stable_ids",
+    "outlier_stable_ids",
+}
 
 
 @dataclass(frozen=True)
@@ -984,14 +1004,9 @@ def _configure_authored_scene(
     return camera, pose
 
 
-def _contact_plane_state(bpy: Any, config: ShotConfig) -> tuple[Any, FootContactPlane, float]:
-    """Return the one local planar catcher and its governed physical contact evidence."""
+def _live_shadow_catcher_plane(bpy: Any) -> tuple[Any, float]:
+    """Read the one local, untransformed plane from an already-open governed scene."""
 
-    source = Path(str(bpy.data.filepath)).resolve()
-    expected = _scene_path(config).resolve()
-    if source != expected:
-        raise ValueError(f"open scene must equal governed static scene: {expected}")
-    _validate_open_template_authority(bpy, config)
     candidates = [
         obj
         for obj in bpy.context.scene.objects
@@ -1019,7 +1034,78 @@ def _contact_plane_state(bpy: Any, config: ShotConfig) -> tuple[Any, FootContact
     current_z = float(median(z_values))
     if any(abs(value - current_z) > 1e-6 for value in z_values):
         raise ValueError("shadow-catcher vertices must remain coplanar")
+    return catcher, current_z
+
+
+def _contact_plane_state(bpy: Any, config: ShotConfig) -> tuple[Any, FootContactPlane, float]:
+    """Return the one local planar catcher and its governed physical contact evidence."""
+
+    source = Path(str(bpy.data.filepath)).resolve()
+    expected = _scene_path(config).resolve()
+    if source != expected:
+        raise ValueError(f"open scene must equal governed static scene: {expected}")
+    _validate_open_template_authority(bpy, config)
+    catcher, current_z = _live_shadow_catcher_plane(bpy)
     return catcher, load_foot_contact_plane(config), current_z
+
+
+def validate_live_foot_contact_report(
+    bpy: Any,
+    report: Mapping[str, object],
+    *,
+    scene_id: str,
+    scene_contract_sha256: str,
+    master_sha256: str,
+) -> dict[str, object]:
+    """Require an open Blender scene to carry the exact authenticated contact report."""
+
+    if not isinstance(report, Mapping) or set(report) != _FOOT_CONTACT_REPORT_FIELDS:
+        raise ValueError("live contact report has an invalid exact schema")
+    if report.get("schema") != FOOT_CONTACT_REPORT_SCHEMA:
+        raise ValueError("live contact report schema is unsupported")
+    if report.get("scene_id") != scene_id:
+        raise ValueError("live contact report scene ID does not match the open contract")
+    if report.get("scene_contract_sha256") != scene_contract_sha256.upper():
+        raise ValueError("live contact report scene-contract SHA-256 drifted")
+    if report.get("master_sha256") != master_sha256.upper():
+        raise ValueError("live contact report master SHA-256 drifted")
+    if report.get("passed") is not True or report.get("tolerance") != FOOT_CONTACT_TOLERANCE:
+        raise ValueError("live contact report tolerance or pass status is invalid")
+    evidence = report.get("contact_evidence")
+    if not isinstance(evidence, Mapping) or set(evidence) != _FOOT_CONTACT_EVIDENCE_FIELDS:
+        raise ValueError("live contact report evidence has an invalid exact schema")
+    machine = evidence.get("machine")
+    stable_ids = evidence.get("stable_ids")
+    pad_bottoms = evidence.get("pad_bottoms")
+    outliers = evidence.get("outlier_stable_ids")
+    contact_z = evidence.get("contact_z")
+    if (
+        machine not in {"30G", "50G"}
+        or evidence.get("schema_version") != 1
+        or evidence.get("selection_basis") != "median_nylon_foot_pad_bottom"
+        or evidence.get("patch_path") != f"manifests/patches/PIMM-{machine}-foot-refresh.json"
+        or not isinstance(stable_ids, list)
+        or len(stable_ids) != 4
+        or len(set(stable_ids)) != 4
+        or not all(isinstance(value, str) and value for value in stable_ids)
+        or not isinstance(pad_bottoms, list)
+        or len(pad_bottoms) != 4
+        or not all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in pad_bottoms)
+        or not isinstance(outliers, list)
+        or not all(isinstance(value, str) and value in stable_ids for value in outliers)
+        or not isinstance(contact_z, (int, float))
+        or isinstance(contact_z, bool)
+    ):
+        raise ValueError("live contact report foot evidence is invalid")
+    _catcher, current_z = _live_shadow_catcher_plane(bpy)
+    if abs(current_z - float(contact_z)) > FOOT_CONTACT_TOLERANCE:
+        raise ValueError("live shadow-catcher plane does not match the authenticated contact report")
+    expected_embedded = json.dumps(
+        dict(evidence), ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    )
+    if bpy.context.scene.get("pimm_foot_contact_evidence") != expected_embedded:
+        raise ValueError("live scene embedded foot-contact evidence is missing or altered")
+    return {"contact_evidence": dict(evidence), "contact_plane_z": current_z}
 
 
 def validate_contact_plane(bpy: Any, config: ShotConfig) -> dict[str, object]:

@@ -21,6 +21,7 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(repository_root))
 
 from scripts.blender.pimm_production import blender_scene_validator
+from scripts.blender.pimm_production import blender_static_product_scene
 from scripts.blender.pimm_production import proof_contract as proof_module
 from scripts.blender.pimm_production.contact_sheet import build_contact_sheet
 from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
@@ -78,6 +79,38 @@ def _snapshot(paths: Mapping[str, Path]) -> dict[str, object]:
     if missing:
         raise ValueError("protected proof inputs are missing: " + "; ".join(missing))
     return {name: _fingerprint(path) for name, path in paths.items()}
+
+
+def _live_contact_authority_errors(
+    bpy: Any,
+    contract: ProofContract,
+    scene: SceneContract,
+    scene_contract_sha256: str,
+) -> list[str]:
+    """Bind campaign proof contact records to the actually opened Blender scene."""
+
+    campaign_shot, campaign_error = proof_module._campaign_policy_for_scene(scene)
+    if campaign_error:
+        return [campaign_error]
+    if campaign_shot is None:
+        return []
+    base_feet_detail = (
+        campaign_shot.purpose == "detail" and "--base-feet--" in campaign_shot.shot_id
+    )
+    if campaign_shot.purpose == "detail" and not base_feet_detail:
+        return []
+    try:
+        report = proof_module.load_authenticated_contact_report(contract, scene)
+        blender_static_product_scene.validate_live_foot_contact_report(
+            bpy,
+            report,
+            scene_id=scene.scene_id,
+            scene_contract_sha256=scene_contract_sha256,
+            master_sha256=scene.master_sha256,
+        )
+    except ValueError as error:
+        return [f"live contact authority failed: {error}"]
+    return []
 
 
 def _validate_tools(lock_path: Path) -> tuple[dict[str, object], Path]:
@@ -1913,7 +1946,10 @@ def finalize_proof(
         "product": output_root / f".{shot_id}--alpha-product.tmp.png",
         "shadow": output_root / f".{shot_id}--alpha-shadow.tmp.png",
     }
-    for kind, alpha in (("product", product_alpha), ("shadow", shadow_alpha)):
+    from PIL import ImageChops
+
+    alpha_safety_product = ImageChops.subtract(source.getchannel("A"), shadow_alpha)
+    for kind, alpha in (("product", alpha_safety_product), ("shadow", shadow_alpha)):
         alpha_rgba = source.copy()
         alpha_rgba.putalpha(alpha)
         _save_png_once(alpha_rgba, alpha_passes[kind], mode="RGBA")
@@ -2102,17 +2138,21 @@ def _run_one(
         scene = SceneContract.from_json(scene_contract_path)
         proof_module.ASSET_ROOT = asset_root
         blender_scene_validator.ASSET_ROOT = asset_root
+        scene_contract_sha256 = sha256_file(scene_contract_path)
         contract_errors = validate_proof_contract(contract, scene)
         scene_errors = blender_scene_validator.validate_open_render_scene(
             bpy,
             scene,
-            contract_snapshot_sha256=sha256_file(scene_contract_path),
+            contract_snapshot_sha256=scene_contract_sha256,
         )
-        if contract_errors or scene_errors:
+        live_contact_errors = _live_contact_authority_errors(
+            bpy, contract, scene, scene_contract_sha256
+        )
+        if contract_errors or scene_errors or live_contact_errors:
             return {
                 "status": "blocked_contract",
                 "generation_id": contract.generation_id,
-                "errors": contract_errors + scene_errors,
+                "errors": contract_errors + scene_errors + live_contact_errors,
             }
         scene_path = Path(str(bpy.data.filepath)).resolve()
         if sha256_file(scene_path) != contract.scene_sha256.upper():
