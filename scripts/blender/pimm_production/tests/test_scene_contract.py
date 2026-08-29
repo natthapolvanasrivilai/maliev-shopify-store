@@ -1,4 +1,5 @@
 import json
+import hashlib
 import math
 from pathlib import Path
 import subprocess
@@ -45,6 +46,50 @@ class ForwardMatrix:
         if tuple(value) == (0.0, 0.0, -1.0):
             return self.forward
         return value
+
+
+class IdentityMatrix:
+    def __matmul__(self, value):
+        return tuple(value)
+
+
+def _stable_box(stable_id, bounds_min, bounds_max):
+    minimum_x, minimum_y, minimum_z = bounds_min
+    maximum_x, maximum_y, maximum_z = bounds_max
+    properties = {"pimm_stable_id": stable_id}
+    return SimpleNamespace(
+        name=f"{stable_id}-object",
+        type="MESH",
+        bound_box=[
+            (x, y, z)
+            for x in (minimum_x, maximum_x)
+            for y in (minimum_y, maximum_y)
+            for z in (minimum_z, maximum_z)
+        ],
+        matrix_world=IdentityMatrix(),
+        get=lambda name, default=None: properties.get(name, default),
+    )
+
+
+def _write_target_manifest(asset_root: Path) -> Path:
+    shots = {
+        config.scene_id: {
+            "groups": {
+                name: list(identifiers)
+                for name, identifiers in composition_for(
+                    config.scene_id
+                ).target_groups.items()
+            }
+        }
+        for config in blender_static_product_scene.SHOT_CONFIGS.values()
+        if config.purpose == "detail"
+    }
+    path = asset_root / "manifests" / "PIMM-static-shot-targets-v1.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"schema_version": 1, "shots": shots}), encoding="utf-8"
+    )
+    return path
 
 
 def _run_blender(arguments: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -662,49 +707,259 @@ class SceneContractTests(unittest.TestCase):
             composition_for(config.scene_id),
             {machine: contact.z for machine, contact in contacts.items()},
         )
-        instances = []
-        for item in plan:
-            instance = RuntimeNamespace(
-                name=item.instance_name,
-                instance_type="COLLECTION",
-                location=(item.offset_x, item.offset_y, item.offset_z),
-                rotation_euler=(0.0, 0.0, 0.0),
-                scale=(1.0, 1.0, 1.0),
-            )
-            instance["pimm_comparison_machine"] = item.machine
-            instance["pimm_scene_transform_ownership"] = "scene-owned"
-            instance["pimm_source_contact_z"] = item.source_contact_z
-            instance["pimm_resolved_ground_z"] = item.resolved_ground_z
-            instances.append(instance)
-        scene = RuntimeNamespace()
-        scene["pimm_comparison_contact_evidence"] = json.dumps(
-            {
-                machine: blender_static_product_scene.foot_contact_evidence(
-                    machine, contact
+        with TemporaryDirectory() as root_text:
+            asset_root = Path(root_text)
+            collections = {
+                machine: RuntimeNamespace(
+                    name="PIMM_PUBLISHED",
+                    library=SimpleNamespace(
+                        filepath=str(
+                            asset_root / "masters" / f"PIMM-{machine}-MASTER.blend"
+                        ),
+                        parent=None,
+                    ),
                 )
-                for machine, contact in contacts.items()
-            },
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-        bpy = SimpleNamespace(
-            context=SimpleNamespace(scene=scene),
-            data=SimpleNamespace(objects=instances),
-        )
+                for machine in config.machines
+            }
+            instances = []
+            for item in plan:
+                instance = RuntimeNamespace(
+                    name=item.instance_name,
+                    instance_type="COLLECTION",
+                    instance_collection=collections[item.machine],
+                    location=(item.offset_x, item.offset_y, item.offset_z),
+                    rotation_euler=(0.0, 0.0, 0.0),
+                    scale=(1.0, 1.0, 1.0),
+                )
+                instance["pimm_comparison_machine"] = item.machine
+                instance["pimm_scene_transform_ownership"] = "scene-owned"
+                instance["pimm_source_contact_z"] = item.source_contact_z
+                instance["pimm_resolved_ground_z"] = item.resolved_ground_z
+                instances.append(instance)
+            scene = RuntimeNamespace()
+            scene["pimm_comparison_contact_evidence"] = json.dumps(
+                {
+                    machine: blender_static_product_scene.foot_contact_evidence(
+                        machine, contact
+                    )
+                    for machine, contact in contacts.items()
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            bpy = SimpleNamespace(
+                context=SimpleNamespace(scene=scene),
+                data=SimpleNamespace(
+                    filepath=str(asset_root / "scenes" / "comparison.blend"),
+                    objects=instances,
+                    collections=list(collections.values()),
+                ),
+            )
 
+            self.assertEqual(
+                blender_scene_validator._validate_comparison_runtime_state(
+                    bpy, config, contacts, asset_root
+                ),
+                [],
+            )
+
+            instances[0].instance_collection, instances[1].instance_collection = (
+                instances[1].instance_collection,
+                instances[0].instance_collection,
+            )
+            swap_errors = blender_scene_validator._validate_comparison_runtime_state(
+                bpy, config, contacts, asset_root
+            )
+            self.assertIn("expected linked PIMM_PUBLISHED", "\n".join(swap_errors))
+
+            instances[0].instance_collection = collections["30G"]
+            instances[1].instance_collection = None
+            missing_errors = blender_scene_validator._validate_comparison_runtime_state(
+                bpy, config, contacts, asset_root
+            )
+            self.assertIn("expected linked PIMM_PUBLISHED", "\n".join(missing_errors))
+
+            instances[1].instance_collection = collections["50G"]
+            duplicate = RuntimeNamespace(**instances[0].__dict__)
+            duplicate.update(instances[0])
+            bpy.data.objects.append(duplicate)
+            duplicate_errors = blender_scene_validator._validate_comparison_runtime_state(
+                bpy, config, contacts, asset_root
+            )
+            self.assertIn(
+                "exactly one named scene-owned instance",
+                "\n".join(duplicate_errors),
+            )
+
+    def test_workshop_reopen_requires_the_exact_manifest_asset_set(self) -> None:
+        """Catches deleted, duplicated, or unexpected props after a workshop reopen."""
+
+        shot_id = "pimm-50g--workshop--wide"
+        composition = composition_for(shot_id)
+
+        def provenance(asset_id):
+            return {
+                "asset_version_id": asset_id,
+                "local_relative_path": f"assets/props/{asset_id}.blend",
+                "sha256": ("A" if asset_id == "bench-v1" else "B") * 64,
+                "intended_shot_ids": [shot_id],
+            }
+
+        expected = {
+            asset_id: provenance(asset_id)
+            for asset_id in ("bench-v1", "tray-v1")
+        }
+
+        def support(asset_id):
+            record = expected[asset_id]
+            return {
+                "name": f"{asset_id}-object",
+                "ownership": "scene-support",
+                "asset_version_id": asset_id,
+                "local_relative_path": record["local_relative_path"],
+                "sha256": record["sha256"],
+            }
+
+        valid = [support("bench-v1"), support("tray-v1")]
         self.assertEqual(
-            blender_scene_validator._validate_comparison_runtime_state(
-                bpy, config, contacts
+            blender_scene_validator.validate_workshop_support_assets(
+                composition, valid, expected
             ),
             [],
         )
-        instances[0].scale = (0.9, 0.9, 0.9)
-        scene["pimm_comparison_contact_evidence"] = "{}"
-        errors = blender_scene_validator._validate_comparison_runtime_state(
-            bpy, config, contacts
+        for label, actual in {
+            "all-deleted": [],
+            "one-deleted": valid[:1],
+            "duplicate": [*valid, support("bench-v1")],
+        }.items():
+            with self.subTest(label=label):
+                self.assertIn(
+                    "exact expected asset set",
+                    "\n".join(
+                        blender_scene_validator.validate_workshop_support_assets(
+                            composition, actual, expected
+                        )
+                    ),
+                )
+
+        unexpected = support("bench-v1") | {
+            "name": "rogue-object",
+            "asset_version_id": "rogue-v1",
+        }
+        self.assertIn(
+            "exact expected asset set",
+            "\n".join(
+                blender_scene_validator.validate_workshop_support_assets(
+                    composition, [*valid, unexpected], expected
+                )
+            ),
         )
-        self.assertIn("identity-scale", "\n".join(errors))
-        self.assertIn("contact evidence", "\n".join(errors))
+        self.assertEqual(
+            blender_scene_validator.validate_workshop_support_assets(
+                composition, [], {}
+            ),
+            [],
+        )
+
+    def test_workshop_reopen_provenance_hashes_every_required_local_asset(self) -> None:
+        """Catches reopen validation trusting a recorded SHA without reading bytes."""
+
+        shot_id = "pimm-50g--workshop--wide"
+        with TemporaryDirectory() as root_text:
+            asset_root = Path(root_text)
+            manifests = asset_root / "manifests"
+            props = asset_root / "assets" / "props"
+            manifests.mkdir(parents=True)
+            props.mkdir(parents=True)
+            asset = props / "bench.blend"
+            asset.write_bytes(b"approved workshop support")
+            digest = hashlib.sha256(asset.read_bytes()).hexdigest().upper()
+            manifest = {
+                "schema": "maliev.pimm-external-assets/v1",
+                "assets": [
+                    {
+                        "source_url": "https://example.com/bench.blend",
+                        "asset_version_id": "bench-v1",
+                        "license": "CC0-1.0",
+                        "local_relative_path": "assets/props/bench.blend",
+                        "sha256": digest,
+                        "intended_shot_ids": [shot_id],
+                        "machine_master_modified": False,
+                    }
+                ],
+            }
+            (manifests / "external-assets-v1.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            original_asset_root = blender_scene_validator.ASSET_ROOT
+            blender_scene_validator.ASSET_ROOT = asset_root
+            self.addCleanup(
+                setattr,
+                blender_scene_validator,
+                "ASSET_ROOT",
+                original_asset_root,
+            )
+
+            _records, errors = blender_scene_validator._external_asset_provenance()
+            self.assertEqual(errors, [])
+            asset.write_bytes(b"drifted workshop support")
+            _records, errors = blender_scene_validator._external_asset_provenance()
+            self.assertIn("SHA-256 mismatch", "\n".join(errors))
+
+    def test_workshop_reopen_reads_manifest_when_no_support_object_exists(self) -> None:
+        """Catches the zero-object path skipping a manifest that requires a prop."""
+
+        shot_id = "pimm-50g--workshop--wide"
+        with TemporaryDirectory() as root_text:
+            asset_root = Path(root_text)
+            asset = asset_root / "assets" / "props" / "bench.blend"
+            asset.parent.mkdir(parents=True)
+            asset.write_bytes(b"approved workshop support")
+            digest = hashlib.sha256(asset.read_bytes()).hexdigest().upper()
+            manifest_path = asset_root / "manifests" / "external-assets-v1.json"
+            manifest_path.parent.mkdir(parents=True)
+            manifest = {
+                "schema": "maliev.pimm-external-assets/v1",
+                "assets": [
+                    {
+                        "source_url": "https://example.com/bench.blend",
+                        "asset_version_id": "bench-v1",
+                        "license": "CC0-1.0",
+                        "local_relative_path": "assets/props/bench.blend",
+                        "sha256": digest,
+                        "intended_shot_ids": [shot_id],
+                        "machine_master_modified": False,
+                    }
+                ],
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            scene = RuntimeNamespace()
+            scene["pimm_workshop_support_evidence"] = json.dumps(
+                [
+                    {
+                        "asset_version_id": "bench-v1",
+                        "local_relative_path": "assets/props/bench.blend",
+                        "sha256": digest,
+                    }
+                ],
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+
+            errors = blender_scene_validator._validate_workshop_runtime_state(
+                scene, shot_id, [], asset_root
+            )
+            self.assertIn("exact expected asset set", "\n".join(errors))
+
+            manifest["assets"] = []
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            scene["pimm_workshop_support_evidence"] = "[]"
+            self.assertEqual(
+                blender_scene_validator._validate_workshop_runtime_state(
+                    scene, shot_id, [], asset_root
+                ),
+                [],
+            )
 
     def test_campaign_reopen_runtime_requires_exact_camera_rig_render_and_output(self) -> None:
         """Catches a structurally valid scene reopening with mutable runtime drift."""
@@ -799,15 +1054,22 @@ class SceneContractTests(unittest.TestCase):
             )
         ]
         cards = [
-            SimpleNamespace(name=name, type="MESH", animation_data=None)
+            RuntimeNamespace(name=name, type="MESH", animation_data=None)
             for name in (
                 "PIMM_REFLECTION_CARD_LEFT",
                 "PIMM_REFLECTION_CARD_RIGHT",
                 "PIMM_REFLECTION_CARD_TOP",
             )
         ]
+        product = _stable_box(
+            target.stable_ids[0], target.bounds_min, target.bounds_max
+        )
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        asset_root = Path(temporary.name)
+        _write_target_manifest(asset_root)
         expected_output = (
-            Path("X:/asset-root")
+            asset_root
             / "renders"
             / "proofs"
             / "unapproved"
@@ -846,15 +1108,16 @@ class SceneContractTests(unittest.TestCase):
             separators=(",", ":"),
             sort_keys=True,
         )
+        scene.objects = [camera, *lights, *cards, product]
         bpy = SimpleNamespace(
             context=SimpleNamespace(scene=scene),
-            data=SimpleNamespace(objects=[camera, *lights, *cards], actions=[]),
+            data=SimpleNamespace(objects=scene.objects, actions=[]),
             path=SimpleNamespace(abspath=lambda value: value),
         )
 
         self.assertEqual(
             blender_scene_validator._validate_campaign_runtime_state(
-                bpy, contract, Path("X:/asset-root")
+                bpy, contract, asset_root
             ),
             [],
         )
@@ -867,7 +1130,7 @@ class SceneContractTests(unittest.TestCase):
         scene.render.engine = "BLENDER_EEVEE_NEXT"
         scene.render.filepath = "X:/escaped.png"
         errors = blender_scene_validator._validate_campaign_runtime_state(
-            bpy, contract, Path("X:/asset-root")
+            bpy, contract, asset_root
         )
         joined = "\n".join(errors)
         self.assertIn("exactly one managed camera", joined)
@@ -941,6 +1204,10 @@ class SceneContractTests(unittest.TestCase):
             for index in range(3)
         )
         placement = composition_for(contract.scene_id).subject_placement
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        asset_root = Path(temporary.name)
+        _write_target_manifest(asset_root)
 
         def runtime_state():
             camera = RuntimeNamespace(
@@ -964,15 +1231,18 @@ class SceneContractTests(unittest.TestCase):
                 for name in payload["static_render_setup"]["lighting"]["required_light_names"]
             ]
             cards = [
-                SimpleNamespace(name=name, type="MESH", animation_data=None)
+                RuntimeNamespace(name=name, type="MESH", animation_data=None)
                 for name in (
                     "PIMM_REFLECTION_CARD_LEFT",
                     "PIMM_REFLECTION_CARD_RIGHT",
                     "PIMM_REFLECTION_CARD_TOP",
                 )
             ]
+            product = _stable_box(
+                target.stable_ids[0], target.bounds_min, target.bounds_max
+            )
             expected_output = (
-                Path("X:/asset-root")
+                asset_root
                 / "renders"
                 / "proofs"
                 / "unapproved"
@@ -1010,12 +1280,21 @@ class SceneContractTests(unittest.TestCase):
                 separators=(",", ":"),
                 sort_keys=True,
             )
+            scene.objects = [camera, *lights, *cards, product]
             bpy = SimpleNamespace(
                 context=SimpleNamespace(scene=scene),
-                data=SimpleNamespace(objects=[camera, *lights, *cards], actions=[]),
+                data=SimpleNamespace(objects=scene.objects, actions=[]),
                 path=SimpleNamespace(abspath=lambda value: value),
             )
             return bpy, camera, scene
+
+        baseline_bpy, _baseline_camera, _baseline_scene = runtime_state()
+        self.assertEqual(
+            blender_scene_validator._validate_campaign_runtime_state(
+                baseline_bpy, contract, asset_root
+            ),
+            [],
+        )
 
         cases = {
             "focal": lambda camera, _scene: setattr(camera.data, "lens", 70.0),
@@ -1034,9 +1313,172 @@ class SceneContractTests(unittest.TestCase):
                 bpy, camera, scene = runtime_state()
                 mutate(camera, scene)
                 errors = blender_scene_validator._validate_campaign_runtime_state(
-                    bpy, contract, Path("X:/asset-root")
+                    bpy, contract, asset_root
                 )
                 self.assertTrue(errors, name)
+
+    def test_campaign_reopen_recomputes_camera_authority_from_linked_geometry(self) -> None:
+        """Catches coordinated camera/evidence drift that is self-consistent but false."""
+
+        payload = _base_payload("a" * 64, "b" * 64)
+        payload.update(
+            {
+                "scene_id": "pimm-30g--hero--desktop",
+                "purpose": "hero",
+                "output_contract": {"width": 2560, "height": 1440, "alpha": True},
+                "scene_path": "scenes/stills/pimm-30g--hero--desktop.blend",
+                "static_render_setup": {
+                    "camera": {
+                        "aperture_fstop": 11.0,
+                        "clip_end": 10000.0,
+                        "clip_start": 1.0,
+                        "focal_length_mm": 85.0,
+                        "sensor_width_mm": 36.0,
+                        "view": "hero-desktop",
+                    },
+                    "color_management": {
+                        "exposure": 0.0,
+                        "gamma": 1.0,
+                        "look": "AgX - Medium High Contrast",
+                        "view_transform": "AgX",
+                    },
+                    "lighting": {
+                        "lower_bounce_name": "BASE_BOUNCE",
+                        "required_light_names": [
+                            "KEY_SOFTBOX",
+                            "FILL_SOFTBOX",
+                            "BASE_BOUNCE",
+                            "STRIP_LEFT",
+                            "STRIP_RIGHT",
+                        ],
+                        "temperature_kelvin": 5500.0,
+                    },
+                    "physical_shadow": {
+                        "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                        "gate": "required",
+                    },
+                    "world": {
+                        "hdri_path": "assets/hdri/studio_kontrast_04_4k.exr",
+                        "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+                        "rotation_degrees": 0.0,
+                        "strength": 0.5,
+                    },
+                },
+            }
+        )
+        contract = SceneContract.from_mapping(payload)
+        config = blender_static_product_scene.SHOT_CONFIGS[contract.scene_id]
+        actual_target = blender_static_product_scene.TargetResolution(
+            (-200.0, -180.0, 0.0),
+            (220.0, 160.0, 900.0),
+            {"complete_product": ("30G-fixture-product",)},
+            ("30G-fixture-product",),
+        )
+        false_target = blender_static_product_scene.TargetResolution(
+            (300.0, -180.0, 0.0),
+            (720.0, 160.0, 900.0),
+            {"complete_product": ("30G-fixture-product",)},
+            ("30G-fixture-product",),
+        )
+        false_pose = blender_static_product_scene.camera_pose(
+            false_target.bounds_min, false_target.bounds_max, config
+        )
+        distance = math.dist(false_pose.location, false_pose.target)
+        forward = tuple(
+            (false_pose.target[index] - false_pose.location[index]) / distance
+            for index in range(3)
+        )
+        placement = composition_for(contract.scene_id).subject_placement
+        camera = RuntimeNamespace(
+            name=contract.camera_name,
+            type="CAMERA",
+            animation_data=None,
+            location=false_pose.location,
+            matrix_world=ForwardMatrix(forward),
+            data=SimpleNamespace(
+                lens=85.0,
+                sensor_width=36.0,
+                clip_start=1.0,
+                clip_end=10000.0,
+                shift_x=0.5 - placement.center_x,
+                shift_y=placement.center_y - 0.5,
+                dof=SimpleNamespace(aperture_fstop=11.0),
+            ),
+        )
+        lights = [
+            SimpleNamespace(name=name, type="LIGHT", animation_data=None)
+            for name in payload["static_render_setup"]["lighting"][
+                "required_light_names"
+            ]
+        ]
+        cards = [
+            RuntimeNamespace(name=name, type="MESH", animation_data=None)
+            for name in (
+                "PIMM_REFLECTION_CARD_LEFT",
+                "PIMM_REFLECTION_CARD_RIGHT",
+                "PIMM_REFLECTION_CARD_TOP",
+            )
+        ]
+        product = _stable_box(
+            actual_target.stable_ids[0],
+            actual_target.bounds_min,
+            actual_target.bounds_max,
+        )
+        with TemporaryDirectory() as root_text:
+            asset_root = Path(root_text)
+            _write_target_manifest(asset_root)
+            expected_output = (
+                asset_root
+                / "renders"
+                / "proofs"
+                / "unapproved"
+                / "pimm-responsive-product-photography-v1"
+                / contract.scene_id
+                / contract.scene_id
+            ).resolve()
+            scene = RuntimeNamespace(
+                camera=camera,
+                animation_data=None,
+                objects=[camera, *lights, *cards, product],
+                render=SimpleNamespace(
+                    engine="CYCLES",
+                    resolution_x=2560,
+                    resolution_y=1440,
+                    resolution_percentage=100,
+                    film_transparent=True,
+                    use_border=False,
+                    use_crop_to_border=False,
+                    filepath=str(expected_output),
+                ),
+                view_settings=SimpleNamespace(
+                    view_transform="AgX",
+                    look="AgX - Medium High Contrast",
+                    exposure=0.0,
+                    gamma=1.0,
+                ),
+            )
+            scene["pimm_static_target_evidence"] = json.dumps(
+                blender_static_product_scene._target_evidence(config, false_target),
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            scene["pimm_shot_composition"] = json.dumps(
+                blender_static_product_scene.composition_evidence(
+                    config, false_target, false_pose
+                ),
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            bpy = SimpleNamespace(
+                context=SimpleNamespace(scene=scene),
+                data=SimpleNamespace(objects=scene.objects, actions=[]),
+                path=SimpleNamespace(abspath=lambda value: value),
+            )
+
+            errors = blender_scene_validator._validate_campaign_runtime_state(
+                bpy, contract, asset_root
+            )
+            self.assertIn("reopened product geometry", "\n".join(errors))
 
     def test_campaign_scene_contract_requires_the_exact_shared_machine_scope(self) -> None:
         """Catches a comparison contract being represented as a single-machine scene."""

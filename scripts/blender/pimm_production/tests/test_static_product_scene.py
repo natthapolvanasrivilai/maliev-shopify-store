@@ -466,6 +466,7 @@ class StaticProductSceneTests(unittest.TestCase):
                     bpy.ops.wm.save_as_mainfile(filepath=str(template), check_existing=False)
 
                     authoring.ASSET_ROOT = root
+                    validator.ASSET_ROOT = root
                     shots = {}
                     for config in authoring.SHOT_CONFIGS.values():
                         if config.purpose != "detail":
@@ -500,7 +501,7 @@ class StaticProductSceneTests(unittest.TestCase):
                         result = authoring.author_scene(bpy, config, manifest)
                         contacts = authoring.load_foot_contact_planes(config)
                         comparison_errors = validator._validate_comparison_runtime_state(
-                            bpy, config, contacts
+                            bpy, config, contacts, root
                         )
                         instances = sorted(
                             (

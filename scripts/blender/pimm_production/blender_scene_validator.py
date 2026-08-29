@@ -26,7 +26,9 @@ try:
         composition_evidence,
         foot_contact_evidence,
         frame_coordinates,
+        load_target_manifest,
         load_foot_contact_planes,
+        resolve_target_bounds,
     )
     from .blender_scene_template import comparison_link_plan
     from .external_asset_manifest import validate_external_assets
@@ -68,7 +70,9 @@ except ImportError:  # Blender may execute this checked-in script directly.
         composition_evidence,
         foot_contact_evidence,
         frame_coordinates,
+        load_target_manifest,
         load_foot_contact_planes,
+        resolve_target_bounds,
     )
     from scripts.blender.pimm_production.blender_scene_template import (
         comparison_link_plan,
@@ -195,8 +199,11 @@ def _combined_master_sha256(authorities: Mapping[str, Path]) -> str:
     return hashlib.sha256(("\n".join(rows) + "\n").encode("ascii")).hexdigest().upper()
 
 
-def _external_asset_provenance() -> tuple[dict[str, Mapping[str, object]], list[str]]:
-    path = ASSET_ROOT / "manifests" / "external-assets-v1.json"
+def _external_asset_provenance(
+    asset_root: Path | None = None,
+) -> tuple[dict[str, Mapping[str, object]], list[str]]:
+    asset_root = ASSET_ROOT if asset_root is None else asset_root
+    path = asset_root / "manifests" / "external-assets-v1.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -204,13 +211,73 @@ def _external_asset_provenance() -> tuple[dict[str, Mapping[str, object]], list[
     campaign = load_campaign(CAMPAIGN_PATH)
     errors = validate_external_assets(payload, set(campaign.by_shot_id))
     assets = payload.get("assets", ()) if isinstance(payload, Mapping) else ()
-    provenance = {
-        record["asset_version_id"]: record
-        for record in assets
-        if isinstance(record, Mapping)
-        and isinstance(record.get("asset_version_id"), str)
-    }
+    provenance: dict[str, Mapping[str, object]] = {}
+    for record in assets:
+        if not isinstance(record, Mapping) or not isinstance(
+            record.get("asset_version_id"), str
+        ):
+            continue
+        asset_id = str(record["asset_version_id"])
+        if asset_id in provenance:
+            errors.append(f"external asset_version_id must be unique: {asset_id}")
+            continue
+        provenance[asset_id] = record
+        relative = record.get("local_relative_path")
+        expected_sha256 = record.get("sha256")
+        if not isinstance(relative, str) or not isinstance(expected_sha256, str):
+            continue
+        try:
+            local_path = require_within(asset_root / relative, asset_root / "assets")
+        except ValueError as error:
+            errors.append(f"external asset path is invalid: {asset_id}: {error}")
+            continue
+        if not local_path.is_file():
+            errors.append(f"external asset is missing: {asset_id}: {local_path}")
+            continue
+        actual_sha256 = sha256_file(local_path)
+        if actual_sha256 != expected_sha256.upper():
+            errors.append(
+                f"external asset SHA-256 mismatch: {asset_id}: "
+                f"expected {expected_sha256.upper()}, found {actual_sha256}"
+            )
     return provenance, errors
+
+
+def _validate_workshop_runtime_state(
+    scene: object,
+    shot_id: str,
+    workshop_support_records: Sequence[Mapping[str, object]],
+    asset_root: Path | None = None,
+) -> list[str]:
+    """Bind every reopened workshop prop to the exact current provenance set."""
+
+    asset_root = ASSET_ROOT if asset_root is None else asset_root
+    provenance, errors = _external_asset_provenance(asset_root)
+    errors.extend(
+        validate_workshop_support_assets(
+            composition_for(shot_id),
+            workshop_support_records,
+            provenance,
+        )
+    )
+    expected_evidence = json.dumps(
+        [
+            {
+                "asset_version_id": asset_id,
+                "local_relative_path": record["local_relative_path"],
+                "sha256": str(record["sha256"]).upper(),
+            }
+            for asset_id, record in provenance.items()
+            if shot_id in record.get("intended_shot_ids", ())
+        ],
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    if _property(scene, "pimm_workshop_support_evidence") != expected_evidence:
+        errors.append(
+            "workshop scene evidence must equal the exact expected provenance asset set"
+        )
+    return errors
 
 
 def _validate_complete_product(
@@ -381,6 +448,7 @@ def _validate_campaign_camera_and_composition(
     camera: object,
     scene: object,
     contract: SceneContract,
+    target: TargetResolution,
 ) -> list[str]:
     errors: list[str] = []
     config = SHOT_CONFIGS[contract.scene_id]
@@ -406,44 +474,21 @@ def _validate_campaign_camera_and_composition(
         target_payload = json.loads(raw_target) if isinstance(raw_target, str) else None
     except json.JSONDecodeError:
         target_payload = None
-    required_target_fields = {
-        "schema_version",
-        "scene_id",
-        "selection_basis",
-        "groups",
-        "stable_ids",
-        "bounds_min",
-        "bounds_max",
+    expected_target_payload = {
+        "schema_version": 1,
+        "scene_id": config.scene_id,
+        "selection_basis": "pimm_stable_id",
+        "groups": {name: list(values) for name, values in target.groups.items()},
+        "stable_ids": list(target.stable_ids),
+        "bounds_min": list(target.bounds_min),
+        "bounds_max": list(target.bounds_max),
     }
-    if not isinstance(target_payload, Mapping) or set(target_payload) != required_target_fields:
-        return [*errors, "campaign target evidence is missing or malformed"]
-    bounds_min = _numeric_triplet(target_payload.get("bounds_min"))
-    bounds_max = _numeric_triplet(target_payload.get("bounds_max"))
-    stable_ids = target_payload.get("stable_ids")
-    groups = target_payload.get("groups")
-    if (
-        target_payload.get("schema_version") != 1
-        or target_payload.get("scene_id") != contract.scene_id
-        or target_payload.get("selection_basis") != "pimm_stable_id"
-        or bounds_min is None
-        or bounds_max is None
-        or not all(bounds_min[index] < bounds_max[index] for index in range(3))
-        or not isinstance(stable_ids, list)
-        or not stable_ids
-        or not all(isinstance(value, str) and value for value in stable_ids)
-        or not isinstance(groups, Mapping)
-    ):
-        return [*errors, "campaign target evidence is missing or malformed"]
-    target = TargetResolution(
-        bounds_min=bounds_min,
-        bounds_max=bounds_max,
-        groups={
-            str(name): tuple(values)
-            for name, values in groups.items()
-            if isinstance(name, str) and isinstance(values, list)
-        },
-        stable_ids=tuple(stable_ids),
-    )
+    if target_payload != expected_target_payload:
+        errors.append(
+            "campaign target evidence does not match reopened product geometry"
+        )
+    bounds_min = target.bounds_min
+    bounds_max = target.bounds_max
     expected_pose = camera_pose(bounds_min, bounds_max, config)
     expected_evidence = composition_evidence(config, target, expected_pose)
     raw_composition = _property(scene, "pimm_shot_composition")
@@ -523,6 +568,7 @@ def _validate_comparison_runtime_state(
     bpy: Any,
     config: ShotConfig,
     contacts: Mapping[str, FootContactPlane],
+    asset_root: Path | None = None,
 ) -> list[str]:
     """Validate both immutable instances and their common physical floor."""
 
@@ -534,17 +580,52 @@ def _validate_comparison_runtime_state(
         )
     except ValueError as error:
         return [str(error)]
-    instances = {
-        str(getattr(obj, "name", "")): obj
+    asset_root = ASSET_ROOT if asset_root is None else asset_root
+    expected_masters = {
+        machine: (asset_root / "masters" / f"PIMM-{machine}-MASTER.blend").resolve()
+        for machine in config.machines
+    }
+    expected_collections: dict[str, object] = {}
+    for machine, master_path in expected_masters.items():
+        candidates = [
+            collection
+            for collection in getattr(bpy.data, "collections", ())
+            if str(getattr(collection, "name", "")).startswith("PIMM_PUBLISHED")
+            and _datablock_library_path(bpy, collection) == master_path
+        ]
+        if len(candidates) != 1:
+            errors.append(
+                f"comparison {machine} must resolve exactly one linked PIMM_PUBLISHED collection"
+            )
+            continue
+        expected_collections[machine] = candidates[0]
+
+    collection_instances = [
+        obj
         for obj in getattr(bpy.data, "objects", ())
         if getattr(obj, "instance_type", None) == "COLLECTION"
-    }
-    if set(instances) != {item.instance_name for item in plan}:
+    ]
+    expected_names = {item.instance_name for item in plan}
+    if {str(getattr(obj, "name", "")) for obj in collection_instances} != expected_names:
         errors.append("comparison scene must contain both unique managed instances")
     for item in plan:
-        instance = instances.get(item.instance_name)
-        if instance is None:
+        named_instances = [
+            instance
+            for instance in collection_instances
+            if str(getattr(instance, "name", "")) == item.instance_name
+        ]
+        if len(named_instances) != 1:
+            errors.append(
+                f"comparison {item.machine} must contain exactly one named scene-owned instance"
+            )
             continue
+        instance = named_instances[0]
+        if getattr(instance, "instance_collection", None) is not expected_collections.get(
+            item.machine
+        ):
+            errors.append(
+                f"comparison {item.machine} instance must use its expected linked PIMM_PUBLISHED collection"
+            )
         location = _numeric_triplet(getattr(instance, "location", None))
         rotation = _numeric_triplet(getattr(instance, "rotation_euler", None))
         scale = _numeric_triplet(getattr(instance, "scale", None))
@@ -596,6 +677,23 @@ def _validate_campaign_runtime_state(
         return []
 
     errors: list[str] = []
+    config = SHOT_CONFIGS[contract.scene_id]
+    try:
+        target_manifest = load_target_manifest(
+            asset_root / "manifests" / "PIMM-static-shot-targets-v1.json",
+            asset_root=asset_root,
+        )
+        reopened_target = resolve_target_bounds(
+            bpy,
+            config,
+            target_manifest,
+            asset_root=asset_root,
+        )
+    except (OSError, TypeError, ValueError) as error:
+        reopened_target = None
+        errors.append(
+            f"campaign target cannot be resolved from reopened product geometry: {error}"
+        )
     objects = list(getattr(bpy.data, "objects", ()))
     cameras = [obj for obj in objects if getattr(obj, "type", None) == "CAMERA"]
     if (
@@ -604,10 +702,10 @@ def _validate_campaign_runtime_state(
         or getattr(bpy.context.scene, "camera", None) is not cameras[0]
     ):
         errors.append("campaign scene must contain exactly one managed camera")
-    else:
+    elif reopened_target is not None:
         errors.extend(
             _validate_campaign_camera_and_composition(
-                cameras[0], bpy.context.scene, contract
+                cameras[0], bpy.context.scene, contract, reopened_target
             )
         )
 
@@ -647,13 +745,13 @@ def _validate_campaign_runtime_state(
         errors.append("campaign scene animation is forbidden")
     if policy.purpose == "comparison":
         try:
-            contacts = load_foot_contact_planes(SHOT_CONFIGS[contract.scene_id])
+            contacts = load_foot_contact_planes(config, asset_root=asset_root)
         except (OSError, TypeError, ValueError) as error:
             errors.append(f"comparison contact reports cannot be loaded: {error}")
         else:
             errors.extend(
                 _validate_comparison_runtime_state(
-                    bpy, SHOT_CONFIGS[contract.scene_id], contacts
+                    bpy, config, contacts, asset_root
                 )
             )
 
@@ -928,14 +1026,13 @@ def validate_open_render_scene(
         support_meshes.add(mesh)
         support_materials.update(materials)
 
-    if workshop_support_records:
-        provenance, provenance_errors = _external_asset_provenance()
-        errors.extend(provenance_errors)
+    if contract.purpose == "workshop":
         errors.extend(
-            validate_workshop_support_assets(
-                composition_for(contract.scene_id),
+            _validate_workshop_runtime_state(
+                bpy.context.scene,
+                contract.scene_id,
                 workshop_support_records,
-                provenance,
+                ASSET_ROOT,
             )
         )
 

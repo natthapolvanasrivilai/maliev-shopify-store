@@ -331,8 +331,9 @@ SHOT_CONFIGS = {
 _FRAME_MARGIN = 0.05
 
 
-def _target_manifest_path() -> Path:
-    return ASSET_ROOT / "manifests" / "PIMM-static-shot-targets-v1.json"
+def _target_manifest_path(asset_root: Path | None = None) -> Path:
+    root = ASSET_ROOT if asset_root is None else asset_root
+    return root / "manifests" / "PIMM-static-shot-targets-v1.json"
 
 
 def orbit_camera_pose(
@@ -429,15 +430,18 @@ def _validate_target_manifest_payload(payload: object) -> dict[str, object]:
     return payload
 
 
-def load_target_manifest(path: Path) -> ValidatedTargetManifest:
+def load_target_manifest(
+    path: Path, *, asset_root: Path | None = None
+) -> ValidatedTargetManifest:
     """Load only the canonical v1 stable-ID target manifest and validate every shot."""
 
-    canonical_root = ASSET_ROOT / "manifests"
+    root = ASSET_ROOT if asset_root is None else asset_root
+    canonical_root = root / "manifests"
     try:
         resolved = require_within(Path(path), canonical_root)
     except ValueError as error:
         raise ValueError(f"canonical target manifest path is required: {path}") from error
-    canonical = _target_manifest_path().resolve()
+    canonical = _target_manifest_path(root).resolve()
     if resolved != canonical:
         raise ValueError(f"canonical target manifest path is required: {canonical}")
     try:
@@ -461,10 +465,12 @@ def load_target_manifest(path: Path) -> ValidatedTargetManifest:
 
 def _validated_target_manifest_payload(
     manifest: ValidatedTargetManifest,
+    *,
+    asset_root: Path | None = None,
 ) -> dict[str, object]:
     if not isinstance(manifest, ValidatedTargetManifest):
         raise ValueError("authoring requires a validated canonical target manifest")
-    refreshed = load_target_manifest(manifest.path)
+    refreshed = load_target_manifest(manifest.path, asset_root=asset_root)
     if refreshed != manifest:
         raise ValueError("validated canonical target manifest changed after loading")
     payload = json.loads(manifest.canonical_json)
@@ -505,12 +511,18 @@ def _stable_product_objects(bpy: Any) -> dict[str, Any]:
 
 
 def resolve_target_bounds(
-    bpy: Any, config: ShotConfig, target_manifest: ValidatedTargetManifest
+    bpy: Any,
+    config: ShotConfig,
+    target_manifest: ValidatedTargetManifest,
+    *,
+    asset_root: Path | None = None,
 ) -> TargetResolution:
     """Resolve complete-product or semantic detail bounds without display names."""
 
     _validate_shot_config(config)
-    target_payload = _validated_target_manifest_payload(target_manifest)
+    target_payload = _validated_target_manifest_payload(
+        target_manifest, asset_root=asset_root
+    )
     by_stable_id = _stable_product_objects(bpy)
     composition = composition_for(config.scene_id)
     if composition.target_mode == COMPLETE_PRODUCT_BOUNDS:
@@ -827,12 +839,15 @@ def _foot_patch_path(config: ShotConfig) -> Path:
     )
 
 
-def _load_machine_foot_contact_plane(machine: str) -> FootContactPlane:
+def _load_machine_foot_contact_plane(
+    machine: str, *, asset_root: Path | None = None
+) -> FootContactPlane:
     if machine not in {"30G", "50G"}:
         raise ValueError(f"unsupported PIMM machine: {machine}")
+    root = ASSET_ROOT if asset_root is None else asset_root
     path = require_within(
-        ASSET_ROOT / "manifests" / "patches" / f"PIMM-{machine}-foot-refresh.json",
-        ASSET_ROOT / "manifests" / "patches",
+        root / "manifests" / "patches" / f"PIMM-{machine}-foot-refresh.json",
+        root / "manifests" / "patches",
     )
     if not path.is_file():
         raise FileNotFoundError(f"canonical foot patch is missing: {path}")
@@ -845,12 +860,14 @@ def _load_machine_foot_contact_plane(machine: str) -> FootContactPlane:
     return resolve_foot_contact_plane(payload, machine)
 
 
-def load_foot_contact_planes(config: ShotConfig) -> dict[str, FootContactPlane]:
+def load_foot_contact_planes(
+    config: ShotConfig, *, asset_root: Path | None = None
+) -> dict[str, FootContactPlane]:
     """Load exact physical contact evidence for every machine in one shot."""
 
     _validate_shot_config(config)
     return {
-        machine: _load_machine_foot_contact_plane(machine)
+        machine: _load_machine_foot_contact_plane(machine, asset_root=asset_root)
         for machine in config.machines
     }
 

@@ -387,6 +387,23 @@ def validate_workshop_support_assets(
     errors: list[str] = []
     if composition.studio_profile != "workshop" and local_supports:
         return [f"{composition.shot_id} does not permit workshop support assets"]
+    expected_asset_ids = {
+        asset_id
+        for asset_id, provenance in provenance_by_asset_id.items()
+        if composition.shot_id in provenance.get("intended_shot_ids", ())
+    }
+    actual_asset_ids = [
+        support.get("asset_version_id")
+        for support in local_supports
+        if isinstance(support, Mapping)
+    ]
+    if (
+        len(actual_asset_ids) != len(expected_asset_ids)
+        or set(actual_asset_ids) != expected_asset_ids
+    ):
+        errors.append(
+            f"{composition.shot_id} workshop supports must equal the exact expected asset set"
+        )
     required = {
         "name",
         "ownership",
