@@ -87,6 +87,28 @@ class StaticProductSceneTests(unittest.TestCase):
             self.assertIs(config.alpha, policy.alpha)
             self.assertIsNone(config.animation_contract)
 
+    def test_camera_optics_accept_blender_float_storage_precision_only(self):
+        """Catches exact-float comparisons rejecting authored camera shift values."""
+
+        module = self._module()
+        config = module.SHOT_CONFIGS["pimm-30g--hero--desktop"]
+        camera_data = SimpleNamespace(
+            lens=85.0,
+            sensor_width=36.0,
+            shift_x=-0.2199999988079071,
+            shift_y=0.0,
+            dof=SimpleNamespace(aperture_fstop=11.0),
+        )
+        self.assertTrue(module._camera_optics_match(camera_data, config))
+        camera_data.shift_x = -0.21
+        self.assertFalse(module._camera_optics_match(camera_data, config))
+        self.assertTrue(
+            module._numeric_values_match(
+                (250.0, 0.0, 0.0000034550001),
+                (250.0, 0.0, 0.000003455),
+            )
+        )
+
     def test_three_quarter_camera_is_level_and_uses_realistic_orbit(self):
         """Catches a three-quarter camera collapsing to a straight-on or tilted view."""
 

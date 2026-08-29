@@ -343,7 +343,7 @@ def _validate_materials(
     product: object,
     expected_master: Path,
     expected_material_library: Path,
-    material_registry: dict[str, object],
+    material_registry: dict[tuple[str, Path | None], object],
 ) -> list[str]:
     errors: list[str] = []
     name = str(getattr(product, "name", ""))
@@ -376,7 +376,10 @@ def _validate_materials(
                 f"product material requires exact pimm_material_id: {name}/{material_name}"
             )
         else:
-            prior = material_registry.setdefault(material_id, material)
+            # Machine-local artwork intentionally uses the same governed IDs in
+            # both masters. Uniqueness is per authoritative source library;
+            # shared-library materials still collapse to one exact key.
+            prior = material_registry.setdefault((material_id, origin), material)
             if prior is not material:
                 errors.append(
                     f"pimm_material_id must identify one exact material datablock: {material_id}"
@@ -439,9 +442,17 @@ def _numeric_triplet(value: object) -> tuple[float, float, float] | None:
 def _close_triplet(
     actual: tuple[float, float, float],
     expected: tuple[float, float, float],
-    tolerance: float = 1e-5,
+    tolerance: float = 1e-3,
 ) -> bool:
     return all(abs(left - right) <= tolerance for left, right in zip(actual, expected))
+
+
+def _close_number(actual: object, expected: float, tolerance: float = 1e-5) -> bool:
+    try:
+        value = float(actual)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(value) and abs(value - expected) <= tolerance
 
 
 def _validate_campaign_camera_and_composition(
@@ -459,13 +470,13 @@ def _validate_campaign_camera_and_composition(
         return ["campaign managed camera must contain exact camera data"]
     dof = getattr(camera_data, "dof", None)
     if (
-        getattr(camera_data, "lens", None) != config.focal_length_mm
-        or getattr(camera_data, "sensor_width", None) != 36.0
-        or getattr(dof, "aperture_fstop", None) != config.aperture_fstop
-        or getattr(camera_data, "clip_start", None) != 1.0
-        or getattr(camera_data, "clip_end", None) != 10000.0
-        or getattr(camera_data, "shift_x", None) != 0.5 - placement.center_x
-        or getattr(camera_data, "shift_y", None) != placement.center_y - 0.5
+        not _close_number(getattr(camera_data, "lens", None), config.focal_length_mm)
+        or not _close_number(getattr(camera_data, "sensor_width", None), 36.0)
+        or not _close_number(getattr(dof, "aperture_fstop", None), config.aperture_fstop)
+        or not _close_number(getattr(camera_data, "clip_start", None), 1.0)
+        or not _close_number(getattr(camera_data, "clip_end", None), 10000.0)
+        or not _close_number(getattr(camera_data, "shift_x", None), 0.5 - placement.center_x)
+        or not _close_number(getattr(camera_data, "shift_y", None), placement.center_y - 0.5)
     ):
         errors.append("campaign managed camera optics, clip, or shift drifted")
 
@@ -630,16 +641,21 @@ def _validate_comparison_runtime_state(
         rotation = _numeric_triplet(getattr(instance, "rotation_euler", None))
         scale = _numeric_triplet(getattr(instance, "scale", None))
         if (
-            location != (item.offset_x, item.offset_y, item.offset_z)
-            or rotation != (0.0, 0.0, 0.0)
-            or scale != (1.0, 1.0, 1.0)
+            location is None
+            or not _close_triplet(location, (item.offset_x, item.offset_y, item.offset_z))
+            or rotation is None
+            or not _close_triplet(rotation, (0.0, 0.0, 0.0))
+            or scale is None
+            or not _close_triplet(scale, (1.0, 1.0, 1.0))
             or _property(instance, "pimm_comparison_machine") != item.machine
             or _property(instance, "pimm_scene_transform_ownership")
             != "scene-owned"
-            or _property(instance, "pimm_source_contact_z")
-            != item.source_contact_z
-            or _property(instance, "pimm_resolved_ground_z")
-            != item.resolved_ground_z
+            or not _close_number(
+                _property(instance, "pimm_source_contact_z"), item.source_contact_z
+            )
+            or not _close_number(
+                _property(instance, "pimm_resolved_ground_z"), item.resolved_ground_z
+            )
         ):
             errors.append(
                 f"comparison {item.machine} instance must retain its exact identity-scale common-floor transform"
@@ -1081,7 +1097,7 @@ def validate_open_render_scene(
         for published in published_by_machine.values()
         for product in getattr(published, "all_objects", ())
     }
-    material_registry: dict[str, object] = {}
+    material_registry: dict[tuple[str, Path | None], object] = {}
     # Validate every used material datablock, not only object slots. Geometry
     # Nodes and node-socket pointers can contribute a material to rendering
     # without placing it in ``Object.material_slots``.
@@ -1102,12 +1118,12 @@ def validate_open_render_scene(
                 f"used material requires exact pimm_material_id: {material_name}"
             )
             continue
-        prior = material_registry.setdefault(material_id, material)
+        origin = _datablock_library_path(bpy, material)
+        prior = material_registry.setdefault((material_id, origin), material)
         if prior is not material:
             errors.append(
                 f"pimm_material_id must identify one exact material datablock: {material_id}"
             )
-        origin = _datablock_library_path(bpy, material)
         if origin == expected_material_library:
             if material_id not in _APPROVED_SHARED_MATERIAL_IDS:
                 errors.append(

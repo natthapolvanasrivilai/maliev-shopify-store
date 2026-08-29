@@ -1503,6 +1503,26 @@ class SceneContractTests(unittest.TestCase):
         ]
         self.assertEqual(comparison.machines, ("30G", "50G"))
 
+        generated = blender_static_product_scene.contract_payload(
+            blender_static_product_scene.SHOT_CONFIGS[
+                "pimm-30g-50g--comparison--desktop"
+            ]
+        )
+        self.assertEqual(generated["machines"], ["30G", "50G"])
+        self.assertEqual(validate_scene_contract(SceneContract.from_mapping(generated)), [])
+        generated_path = blender_static_product_scene._contract_path(
+            blender_static_product_scene.SHOT_CONFIGS[
+                "pimm-30g-50g--comparison--desktop"
+            ]
+        )
+        self.assertTrue(generated_path.is_file())
+        loaded, _loaded_bytes = blender_static_product_scene._load_authoring_contract(
+            blender_static_product_scene.SHOT_CONFIGS[
+                "pimm-30g-50g--comparison--desktop"
+            ]
+        )
+        self.assertEqual(loaded.machines, ("30G", "50G"))
+
         payload = _base_payload("a" * 64, "b" * 64)
         payload.pop("machine")
         payload["machines"] = ["30G", "50G"]
@@ -1516,6 +1536,23 @@ class SceneContractTests(unittest.TestCase):
 
     def test_campaign_scene_contract_derives_output_and_camera_policy(self) -> None:
         """Catches a scene contract that drifts from its immutable campaign camera policy."""
+
+        self.assertTrue(blender_scene_validator._close_number(-0.2199999988, -0.22))
+        self.assertTrue(
+            blender_scene_validator._close_triplet(
+                (2700.0002, -10.0001, 450.0001),
+                (2700.0, -10.0, 450.0),
+            )
+        )
+        self.assertFalse(blender_scene_validator._close_number(-0.21, -0.22))
+
+        detail_config = blender_static_product_scene.SHOT_CONFIGS[
+            "pimm-30g--controls--macro"
+        ]
+        detail_contract = SceneContract.from_mapping(
+            blender_static_product_scene.contract_payload(detail_config)
+        )
+        self.assertEqual(validate_scene_contract(detail_contract), [])
 
         payload = _base_payload("a" * 64, "b" * 64)
         payload.update(

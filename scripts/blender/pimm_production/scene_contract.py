@@ -373,7 +373,11 @@ def validate_scene_contract(contract: SceneContract) -> list[str]:
         errors.append("shared scene contract must refer to an approved campaign comparison shot")
     if not isinstance(contract.purpose, str) or _SLUG.fullmatch(contract.purpose) is None:
         errors.append("scene contract purpose must be a lowercase slug")
-    elif isinstance(contract.scene_id, str) and f"--{contract.purpose}" not in contract.scene_id:
+    elif (
+        isinstance(contract.scene_id, str)
+        and _campaign_policy(contract.scene_id) is None
+        and f"--{contract.purpose}" not in contract.scene_id
+    ):
         errors.append("scene contract purpose must be represented in scene_id")
 
     if contract.machine in {"30G", "50G"}:

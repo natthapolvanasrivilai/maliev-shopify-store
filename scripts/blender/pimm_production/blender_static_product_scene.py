@@ -1187,7 +1187,7 @@ def contract_payload(config: ShotConfig) -> dict[str, object]:
     if len(config.machines) == 1:
         payload["machine"] = config.machines[0]
     else:
-        payload["machines"] = config.machines
+        payload["machines"] = list(config.machines)
     return payload
 
 
@@ -1216,6 +1216,15 @@ def _resolved_library_path(bpy: Any, datablock: Any) -> Path | None:
     path_api = getattr(bpy, "path", None)
     absolute = path_api.abspath(raw_path) if path_api is not None else raw_path
     return Path(absolute).resolve()
+
+
+def _numeric_values_match(
+    actual: Sequence[float], expected: Sequence[float], *, tolerance: float = 1e-6
+) -> bool:
+    return len(actual) == len(expected) and all(
+        math.isclose(float(value), float(wanted), rel_tol=0.0, abs_tol=tolerance)
+        for value, wanted in zip(actual, expected, strict=True)
+    )
 
 
 def _install_comparison_master_instances(
@@ -1266,6 +1275,10 @@ def _install_comparison_master_instances(
         instance["pimm_source_contact_z"] = item.source_contact_z
         instance["pimm_resolved_ground_z"] = item.resolved_ground_z
         bpy.context.scene.collection.objects.link(instance)
+    # Blender does not immediately evaluate linked objects' world matrices after
+    # collection instances are added. Bounds queried before this update observe
+    # identity-scale matrices instead of the masters' authored transforms.
+    bpy.context.view_layer.update()
     return contacts
 
 
@@ -1326,15 +1339,25 @@ def _validate_open_template_authority(bpy: Any, config: ShotConfig) -> None:
             expected_collection = published_by_machine[item.machine]
             if (
                 getattr(instance, "instance_collection", None) is not expected_collection
-                or tuple(float(value) for value in instance.location)
-                != (item.offset_x, item.offset_y, item.offset_z)
-                or tuple(float(value) for value in instance.rotation_euler)
-                != (0.0, 0.0, 0.0)
-                or tuple(float(value) for value in instance.scale) != (1.0, 1.0, 1.0)
+                or not _numeric_values_match(
+                    instance.location, (item.offset_x, item.offset_y, item.offset_z)
+                )
+                or not _numeric_values_match(instance.rotation_euler, (0.0, 0.0, 0.0))
+                or not _numeric_values_match(instance.scale, (1.0, 1.0, 1.0))
                 or instance.get("pimm_comparison_machine") != item.machine
                 or instance.get("pimm_scene_transform_ownership") != "scene-owned"
-                or instance.get("pimm_source_contact_z") != item.source_contact_z
-                or instance.get("pimm_resolved_ground_z") != item.resolved_ground_z
+                or not math.isclose(
+                    float(instance.get("pimm_source_contact_z")),
+                    item.source_contact_z,
+                    rel_tol=0.0,
+                    abs_tol=1e-6,
+                )
+                or not math.isclose(
+                    float(instance.get("pimm_resolved_ground_z")),
+                    item.resolved_ground_z,
+                    rel_tol=0.0,
+                    abs_tol=1e-6,
+                )
             ):
                 raise ValueError(
                     f"comparison {item.machine} instance transform or contact evidence drifted"
@@ -1414,8 +1437,8 @@ def _load_authoring_contract(config: ShotConfig) -> tuple[SceneContract, bytes]:
     errors = validate_scene_contract(contract)
     if errors:
         raise ValueError("invalid static product scene contract: " + "; ".join(errors))
-    expected = contract_payload(config)
-    if contract.to_mapping() != expected:
+    expected = SceneContract.from_mapping(contract_payload(config))
+    if contract.to_mapping() != expected.to_mapping():
         raise ValueError("static product scene contract does not match exact current asset hashes")
     return contract, contract_bytes
 
@@ -1455,6 +1478,17 @@ def _ensure_product_camera(bpy: Any, contract: SceneContract) -> Any:
         camera_data = bpy.data.cameras.new(contract.camera_name)
         camera = bpy.data.objects.new(contract.camera_name, camera_data)
         bpy.context.scene.collection.objects.link(camera)
+    for other in list(bpy.data.objects):
+        if other is camera or getattr(other, "type", None) != "CAMERA":
+            continue
+        if _resolved_library_path(bpy, other) is not None or _resolved_library_path(
+            bpy, getattr(other, "data", None)
+        ) is not None:
+            raise ValueError("shared template contains an unmanaged linked camera")
+        other_data = getattr(other, "data", None)
+        bpy.data.objects.remove(other, do_unlink=True)
+        if other_data is not None and getattr(other_data, "users", 0) == 0:
+            bpy.data.cameras.remove(other_data)
     bpy.context.scene.camera = camera
     return camera
 
@@ -1584,12 +1618,8 @@ def _install_profile_supports(bpy: Any, specs: Sequence[SceneSupportSpec]) -> No
         mesh.from_pydata(vertices, [], faces)
         material = bpy.data.materials.new(f"{spec.name}_MATERIAL")
         material.use_nodes = True
-        material["pimm_material_id"] = (
-            "SCENE_SHADOW_CATCHER"
-            if spec.role == "shadow-catcher"
-            else spec.name.removeprefix("PIMM_")
-        )
         if spec.role == "shadow-catcher":
+            material["pimm_material_id"] = "SCENE_SHADOW_CATCHER"
             material["pimm_scene_environment_role"] = spec.role
         else:
             material["pimm_scene_support_ownership"] = "scene-support"
@@ -1884,6 +1914,30 @@ def correct_contact_plane(bpy: Any, config: ShotConfig) -> dict[str, object]:
     }
 
 
+def _camera_optics_match(camera_data: Any, config: ShotConfig) -> bool:
+    """Compare Blender float-backed camera values at storage precision."""
+
+    placement = composition_for(config.scene_id).subject_placement
+    expected = (
+        config.focal_length_mm,
+        DEFAULT_SENSOR_WIDTH_MM,
+        config.aperture_fstop,
+        0.5 - placement.center_x,
+        placement.center_y - 0.5,
+    )
+    actual = (
+        camera_data.lens,
+        camera_data.sensor_width,
+        camera_data.dof.aperture_fstop,
+        camera_data.shift_x,
+        camera_data.shift_y,
+    )
+    return all(
+        math.isclose(float(value), float(wanted), rel_tol=0.0, abs_tol=1e-6)
+        for value, wanted in zip(actual, expected, strict=True)
+    )
+
+
 def _validate_authored_scene_state(
     bpy: Any,
     config: ShotConfig,
@@ -1898,14 +1952,7 @@ def _validate_authored_scene_state(
         errors.append("contracted CAM_PRODUCT must be active")
     camera_data = getattr(camera, "data", None)
     placement = composition_for(config.scene_id).subject_placement
-    if (
-        camera_data is None
-        or camera_data.lens != config.focal_length_mm
-        or camera_data.sensor_width != DEFAULT_SENSOR_WIDTH_MM
-        or camera_data.dof.aperture_fstop != config.aperture_fstop
-        or camera_data.shift_x != 0.5 - placement.center_x
-        or camera_data.shift_y != placement.center_y - 0.5
-    ):
+    if camera_data is None or not _camera_optics_match(camera_data, config):
         errors.append("camera optics do not match the governed static shot")
     if camera_data is not None and camera_data.clip_start != STATIC_CAMERA_CLIP_START:
         errors.append("static product camera near clip must equal 1 scene unit")
@@ -1917,7 +1964,11 @@ def _validate_authored_scene_state(
             depth_min <= camera_data.clip_start or depth_max >= camera_data.clip_end
         ):
             errors.append(
-                "stable product geometry lies outside the governed camera clip range"
+                "stable product geometry lies outside the governed camera clip range "
+                f"(depth_min={depth_min}, depth_max={depth_max}, "
+                f"clip_start={camera_data.clip_start}, clip_end={camera_data.clip_end}, "
+                f"target_bounds_min={target.bounds_min}, target_bounds_max={target.bounds_max}, "
+                f"camera_location={pose.location})"
             )
     except ValueError as error:
         errors.append(str(error))
@@ -1981,6 +2032,9 @@ def author_scene(
         raise FileExistsError(f"static product scene already exists: {destination}")
     contract, contract_bytes = _load_authoring_contract(config)
     if config.purpose == "comparison":
+        bpy.context.scene.unit_settings.system = "METRIC"
+        bpy.context.scene.unit_settings.length_unit = "MILLIMETERS"
+        bpy.context.scene.unit_settings.scale_length = 0.001
         _install_comparison_master_instances(bpy, config)
     _validate_open_template_authority(bpy, config)
     world_environment = _require_pinned_hdri()
@@ -2108,6 +2162,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             target_manifest = load_target_manifest(arguments.target_manifest)
             result = author_scene(bpy, config, target_manifest)
     print(RESULT_MARKER + json.dumps(result, sort_keys=True), flush=True)
+    if not arguments.prepare_contract:
+        os._exit(0)
     return 0
 
 
