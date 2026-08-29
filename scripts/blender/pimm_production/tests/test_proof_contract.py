@@ -15,7 +15,7 @@ from PIL import Image
 
 import scripts.blender.pimm_production.blender_proof_render as render_module
 import scripts.blender.pimm_production.proof_contract as proof_module
-from scripts.blender.pimm_production.contact_sheet import build_contact_sheet
+from scripts.blender.pimm_production.contact_sheet import build_campaign_contact_sheets, build_contact_sheet
 from scripts.blender.pimm_production.image_safety import analyze_alpha_safety
 from scripts.blender.pimm_production.io_contract import sha256_file
 from scripts.blender.pimm_production.proof_contract import (
@@ -34,6 +34,43 @@ TOOL_LOCK = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\manifests\free-tools-lock.json"
 )
 RESULT_MARKER = "PIMM_PROOF_RENDER_JSON="
+
+
+class CampaignProofPipelineContractTests(unittest.TestCase):
+    def test_campaign_crop_library_covers_required_detail_evidence(self):
+        self.assertEqual(
+            render_module._campaign_crop_names("pimm-50g--pneumatics--macro"),
+            ("gauge", "regulator", "airtac"),
+        )
+        self.assertEqual(
+            render_module._campaign_crop_names("pimm-30g--base-feet--macro"),
+            ("feet", "black-material"),
+        )
+        self.assertEqual(
+            render_module._campaign_crop_names("pimm-30g--controls--macro"),
+            ("controller", "controller-segments"),
+        )
+
+    def test_campaign_cli_has_atomic_orchestrator_and_worker_modes(self):
+        args = render_module._arguments(["--render-campaign"])
+        self.assertTrue(args.render_campaign)
+        args = render_module._arguments([
+            "--campaign-shot-worker", "--asset-root", "M:/assets",
+            "--campaign-output-root", "M:/proofs/.pending", "--shot-id", "shot",
+        ])
+        self.assertTrue(args.campaign_shot_worker)
+
+    def test_campaign_contact_sheet_rejects_partial_campaign(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = root / "campaign-manifest.json"
+            manifest.write_text(json.dumps({
+                "schema": "maliev.pimm-campaign-proof/v1",
+                "generation_id": "proof-20260829T000000Z-abcdef0",
+                "status": "pass", "fingerprints_unchanged": True, "shots": [],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "exactly 22 shots"):
+                build_campaign_contact_sheets(manifest, root)
 
 
 def scene_contract_fixture() -> SceneContract:

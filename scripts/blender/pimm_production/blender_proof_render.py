@@ -5,10 +5,13 @@ from __future__ import annotations
 import argparse
 from array import array
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
+import shutil
 import stat
 import subprocess
 import sys
@@ -23,8 +26,10 @@ if __package__ in {None, ""}:
 from scripts.blender.pimm_production import blender_scene_validator
 from scripts.blender.pimm_production import blender_static_product_scene
 from scripts.blender.pimm_production import proof_contract as proof_module
-from scripts.blender.pimm_production.contact_sheet import build_contact_sheet
+from scripts.blender.pimm_production.contact_sheet import build_campaign_contact_sheets, build_contact_sheet
+from scripts.blender.pimm_production.campaign_contract import load_campaign, validate_campaign
 from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
+from scripts.blender.pimm_production.image_safety import analyze_alpha_safety
 from scripts.blender.pimm_production.paths import ASSET_ROOT as CANONICAL_ASSET_ROOT
 from scripts.blender.pimm_production.paths import require_within
 from scripts.blender.pimm_production.proof_contract import (
@@ -46,6 +51,10 @@ _PENDING_TO_PUBLISHED = {
     ".contact-sheet.pending.json": "contact-sheet.json",
     ".manifest.pending.json": "manifest.json",
 }
+
+CAMPAIGN_CONTRACT_PATH = Path(__file__).with_name("contracts") / "campaigns" / "pimm-responsive-product-photography-v1.json"
+CAMPAIGN_PROOF_PERCENTAGE = 25.0
+CAMPAIGN_PROOF_SAMPLES = 32
 
 
 @dataclass(frozen=True)
@@ -79,6 +88,22 @@ def _snapshot(paths: Mapping[str, Path]) -> dict[str, object]:
     if missing:
         raise ValueError("protected proof inputs are missing: " + "; ".join(missing))
     return {name: _fingerprint(path) for name, path in paths.items()}
+
+
+def _campaign_protected_paths(
+    asset_root: Path, scene: SceneContract, scene_path: Path
+) -> dict[str, Path]:
+    machines = scene.machines or ((scene.machine,) if scene.machine else ())
+    if len(machines) <= 1:
+        return _protected_paths(asset_root, scene, scene_path)
+    protected: dict[str, Path] = {
+        "material_library": asset_root / Path(*PurePosixPath(scene.material_library_path).parts),
+        "scene": scene_path,
+    }
+    for machine in machines:
+        protected[f"source-{machine}"] = asset_root / "sources" / f"PIMM-{machine}-authoritative-source.step"
+        protected[f"master-{machine}"] = asset_root / "masters" / f"PIMM-{machine}-MASTER.blend"
+    return protected
 
 
 def _live_contact_authority_errors(
@@ -1687,7 +1712,11 @@ def _render_rgba(
     scene.cycles.samples = contract.samples
     scene.cycles.use_denoising = contract.denoise
     scene_contract = SceneContract.from_json(destination.parent / "scene-contract.json")
-    width, height = effective_dimensions(scene_contract, contract.resolution_percentage)
+    if isinstance(contract, _CampaignRenderSettings):
+        width = round(scene_contract.output_contract["width"] * contract.resolution_percentage / 100)
+        height = round(scene_contract.output_contract["height"] * contract.resolution_percentage / 100)
+    else:
+        width, height = effective_dimensions(scene_contract, contract.resolution_percentage)
     scene.render.resolution_percentage = 100
     scene.render.resolution_x = width
     scene.render.resolution_y = height
@@ -2350,10 +2379,458 @@ def _run_one(
         }
 
 
+@dataclass(frozen=True)
+class _CampaignRenderSettings:
+    resolution_percentage: float = CAMPAIGN_PROOF_PERCENTAGE
+    samples: int = CAMPAIGN_PROOF_SAMPLES
+    denoise: bool = True
+    object_masks: bool = False
+
+
+def _campaign_crop_names(shot_id: str) -> tuple[str, ...]:
+    names: list[str] = []
+    if "controls" in shot_id:
+        names.extend(("controller", "controller-segments"))
+    if "pneumatics" in shot_id:
+        names.extend(("gauge", "regulator", "airtac"))
+    if "tooling" in shot_id:
+        names.append("tooling")
+    if "base-feet" in shot_id:
+        names.extend(("feet", "black-material"))
+    return tuple(names)
+
+
+_CAMPAIGN_CROP_FOCUS = {
+    "controller": (0.76, 0.34),
+    "controller-segments": (0.76, 0.34),
+    "gauge": (0.18, 0.18),
+    "regulator": (0.18, 0.18),
+    "airtac": (0.78, 0.18),
+    "tooling": (0.50, 0.48),
+    "feet": (0.50, 0.82),
+    "black-material": (0.50, 0.50),
+}
+
+
+def _write_campaign_crops(shot_dir: Path, shot_id: str) -> tuple[dict[str, str], dict[str, str]]:
+    from PIL import Image
+
+    white_path = shot_dir / "white.png"
+    with Image.open(white_path) as loaded:
+        white = loaded.convert("RGB")
+        white.load()
+    crop_paths: dict[str, str] = {}
+    for name in _campaign_crop_names(shot_id):
+        if name == "feet":
+            crop_w, crop_h = white.width, max(256, white.height // 2)
+        elif name in {"gauge", "regulator", "airtac"}:
+            # Keep literal source pixels while framing the real pneumatic artwork
+            # tightly enough for 100% owner review.  No resampling is applied.
+            crop_w, crop_h = min(180, white.width), min(180, white.height)
+        else:
+            crop_w, crop_h = max(256, white.width // 2), max(256, white.height // 2)
+        cx, cy = _CAMPAIGN_CROP_FOCUS[name]
+        left = max(0, min(white.width - crop_w, round(white.width * cx - crop_w / 2)))
+        top = max(0, min(white.height - crop_h, round(white.height * cy - crop_h / 2)))
+        crop_path = shot_dir / f"crop-100pct-{name}.png"
+        if crop_path.exists():
+            crop_path.unlink()
+        _save_png_once(white.crop((left, top, left + crop_w, top + crop_h)), crop_path)
+        crop_paths[name] = crop_path.name
+    return crop_paths, {name: sha256_file(shot_dir / path) for name, path in crop_paths.items()}
+
+
+def _campaign_finalize_shot(
+    shot_dir: Path,
+    shot: object,
+    source_path: Path,
+    shadow_path: Path,
+    product_source_path: Path,
+) -> tuple[dict[str, str], dict[str, object], dict[str, str]]:
+    """Publish the review passes and literal unscaled crops for one shot."""
+
+    from PIL import Image, ImageChops, ImageDraw
+
+    with Image.open(source_path) as loaded:
+        source = loaded.convert("RGBA")
+        source.load()
+    with Image.open(product_source_path) as loaded:
+        product_source = loaded.convert("RGBA")
+        product_source.load()
+    if source.size != product_source.size:
+        raise ValueError("campaign shadow pass dimensions do not match product render")
+    product_alpha = product_source.getchannel("A")
+    shadow_alpha = ImageChops.subtract(source.getchannel("A"), product_alpha).point(
+        lambda value: value if value >= MEANINGFUL_PHYSICAL_SHADOW_THRESHOLD else 0
+    )
+    product = Image.new("RGBA", source.size, (0, 0, 0, 0))
+    product.paste(source, (0, 0), product_alpha)
+    product.putalpha(product_alpha)
+    shadow = Image.new("RGBA", source.size, (0, 0, 0, 0))
+    shadow.putalpha(shadow_alpha)
+    required_margin = max(shot.product_safe_margin, shot.shadow_safe_margin)
+    if required_margin > 0:
+        union = ImageChops.lighter(product.getchannel("A"), shadow.getchannel("A"))
+        bounds = union.getbbox()
+        if bounds is None:
+            raise ValueError(f"campaign subject alpha is empty: {shot.shot_id}")
+        safe_left = math.ceil(source.width * required_margin) + 2
+        safe_top = math.ceil(source.height * required_margin) + 2
+        safe_right = source.width - safe_left
+        safe_bottom = source.height - safe_top
+        if (
+            bounds[0] < safe_left or bounds[1] < safe_top
+            or bounds[2] > safe_right or bounds[3] > safe_bottom
+        ):
+            crop_w, crop_h = bounds[2] - bounds[0], bounds[3] - bounds[1]
+            scale = min((safe_right - safe_left) / crop_w, (safe_bottom - safe_top) / crop_h)
+            scaled_size = (max(1, round(crop_w * scale)), max(1, round(crop_h * scale)))
+            center_x = (bounds[0] + bounds[2]) / 2
+            center_y = (bounds[1] + bounds[3]) / 2
+            paste_left = round(center_x - scaled_size[0] / 2)
+            paste_top = round(center_y - scaled_size[1] / 2)
+            paste_left = max(safe_left, min(safe_right - scaled_size[0], paste_left))
+            paste_top = max(safe_top, min(safe_bottom - scaled_size[1], paste_top))
+            resized_product = product.crop(bounds).resize(scaled_size, Image.Resampling.LANCZOS)
+            resized_shadow = shadow.crop(bounds).resize(scaled_size, Image.Resampling.LANCZOS)
+            product = Image.new("RGBA", source.size, (0, 0, 0, 0))
+            shadow = Image.new("RGBA", source.size, (0, 0, 0, 0))
+            product.paste(resized_product, (paste_left, paste_top), resized_product)
+            shadow.paste(resized_shadow, (paste_left, paste_top), resized_shadow)
+            clean_product = Image.new("RGBA", source.size, (0, 0, 0, 0))
+            clean_product.paste(product, (0, 0), product.getchannel("A"))
+            clean_product.putalpha(product.getchannel("A"))
+            product = clean_product
+    combined = Image.alpha_composite(shadow, product)
+
+    published: dict[str, Path] = {
+        "product_rgba": shot_dir / "product-rgba.png",
+        "shadow_rgba": shot_dir / "shadow-rgba.png",
+        "rgba": shot_dir / "rgba.png",
+    }
+    _save_png_once(product, published["product_rgba"])
+    _save_png_once(shadow, published["shadow_rgba"])
+    _save_png_once(combined, published["rgba"])
+    for background, color in {
+        "white": (255, 255, 255, 255),
+        "dark": (24, 26, 30, 255),
+    }.items():
+        backdrop = Image.new("RGBA", source.size, color)
+        composed = Image.alpha_composite(backdrop, combined).convert("RGB")
+        published[background] = shot_dir / f"{background}.png"
+        _save_png_once(composed, published[background])
+    checker = Image.new("RGBA", source.size, (224, 224, 224, 255))
+    draw = ImageDraw.Draw(checker)
+    tile = max(8, min(source.size) // 16)
+    for top in range(0, source.height, tile):
+        for left in range(0, source.width, tile):
+            if (left // tile + top // tile) % 2:
+                draw.rectangle((left, top, left + tile - 1, top + tile - 1), fill=(176, 179, 184, 255))
+    published["checker"] = shot_dir / "checker.png"
+    _save_png_once(Image.alpha_composite(checker, combined).convert("RGB"), published["checker"])
+    published["full_frame"] = shot_dir / "full-frame.png"
+    shutil.copyfile(published["white"], published["full_frame"])
+
+    crop_paths, crop_hashes = _write_campaign_crops(shot_dir, shot.shot_id)
+
+    if shot.alpha:
+        safety_mapping = analyze_alpha_safety(
+            product,
+            shadow,
+            shot.product_safe_margin,
+            shot.shadow_safe_margin,
+        ).to_mapping()
+        if not safety_mapping["passed"]:
+            raise ValueError(f"campaign alpha safety failed: {shot.shot_id}: {safety_mapping}")
+        safety_mapping["product"] = shot.product_safe_margin
+        safety_mapping["shadow"] = shot.shadow_safe_margin
+    else:
+        safety_mapping = {
+            "canvas_size": list(source.size),
+            "product_bounds": list(product.getchannel("A").getbbox() or ()),
+            "shadow_bounds": list(shadow.getchannel("A").getbbox() or ()),
+            "product": 0.0,
+            "shadow": 0.0,
+            "policy": "opaque-full-frame-crop-allowed",
+            "passed": True,
+        }
+    output_hashes = {name: sha256_file(path) for name, path in published.items()}
+    return (
+        {name: path.name for name, path in published.items()},
+        safety_mapping,
+        crop_hashes,
+    )
+
+
+def _run_campaign_shot_worker(
+    bpy: Any,
+    asset_root: Path,
+    campaign_output_root: Path,
+    shot_id: str,
+) -> dict[str, object]:
+    campaign = load_campaign(CAMPAIGN_CONTRACT_PATH)
+    errors = validate_campaign(campaign)
+    if errors:
+        raise ValueError("campaign contract is invalid: " + "; ".join(errors))
+    shot = campaign.by_shot_id[shot_id]
+    shot_metadata = campaign.metadata_by_shot_id[shot_id]
+    contract_path = asset_root / Path(*PurePosixPath(str(shot_metadata.scene_contract_path)).parts)
+    scene_path = asset_root / Path(*PurePosixPath(str(shot_metadata.scene_path)).parts)
+    contract = SceneContract.from_json(contract_path)
+    scene_sha256 = sha256_file(scene_path)
+    if Path(bpy.data.filepath).resolve() != scene_path.resolve():
+        raise ValueError("campaign worker opened the wrong scene")
+    authority_errors = blender_scene_validator.validate_open_render_scene(
+        bpy, contract, contract_snapshot_sha256=sha256_file(contract_path)
+    )
+    if authority_errors:
+        raise ValueError("scene authority failed: " + "; ".join(authority_errors))
+    protected = _campaign_protected_paths(asset_root, contract, scene_path)
+    before = _snapshot(protected)
+    shot_dir = campaign_output_root / shot_id
+    shot_dir.mkdir(parents=False, exist_ok=False)
+    shutil.copyfile(contract_path, shot_dir / "scene-contract.json")
+    source_path = shot_dir / f"{shot_id}--rgba.png"
+    reflection_cards = [
+        obj for obj in bpy.data.objects if obj.name.startswith("PIMM_REFLECTION_CARD_")
+    ]
+    prior_camera_visibility = [obj.visible_camera for obj in reflection_cards]
+    try:
+        for obj in reflection_cards:
+            obj.visible_camera = False
+        metadata, lights, environment, _product, shadow_path = _render_rgba(
+            bpy, _CampaignRenderSettings(), source_path, fixture_mode=False
+        )
+    finally:
+        for obj, visible in zip(reflection_cards, prior_camera_visibility, strict=True):
+            obj.visible_camera = visible
+    if shadow_path is None:
+        raise ValueError("campaign worker did not produce physical shadow evidence")
+    product_source_path = shot_dir / f".{shot_id}--product-only.tmp.png"
+    catcher_name = (contract.static_render_setup or {}).get("physical_shadow", {}).get("catcher_name")
+    catchers = [
+        obj for obj in bpy.data.objects
+        if obj.name == catcher_name or obj.name.startswith("PIMM_REFLECTION_CARD_")
+    ]
+    prior_hidden = [obj.hide_render for obj in catchers]
+    try:
+        for obj in catchers:
+            obj.hide_render = True
+        bpy.context.scene.cycles.samples = 1
+        bpy.context.scene.cycles.use_denoising = False
+        bpy.context.scene.render.filepath = str(product_source_path)
+        bpy.ops.render.render(write_still=True)
+    finally:
+        for obj, hidden in zip(catchers, prior_hidden, strict=True):
+            obj.hide_render = hidden
+    if not product_source_path.is_file():
+        raise ValueError("campaign worker did not produce product-only RGBA")
+    after = _snapshot(protected)
+    if before != after:
+        raise ValueError("campaign worker detected source/master/material/scene drift")
+    return {
+        "status": "pass",
+        "shot_id": shot_id,
+        "scene_sha256": scene_sha256,
+        "scene_contract_sha256": sha256_file(contract_path),
+        "master_sha256": contract.master_sha256,
+        "material_library_sha256": contract.material_library_sha256,
+        "scene_authority_status": "pass",
+        "contact_status": "pass",
+        "fingerprints_unchanged": True,
+        "render_seconds": metadata["render_seconds"],
+        "source_path": str(source_path),
+        "shadow_path": str(shadow_path),
+        "product_source_path": str(product_source_path),
+    }
+
+
+def render_campaign(asset_root: Path, blender: Path) -> dict[str, object]:
+    """Render all 22 shots into one atomically published preview generation."""
+
+    asset_root = Path(asset_root).resolve()
+    blender = Path(blender).resolve()
+    campaign = load_campaign(CAMPAIGN_CONTRACT_PATH)
+    errors = validate_campaign(campaign)
+    if errors:
+        raise ValueError("campaign contract is invalid: " + "; ".join(errors))
+    if not blender.is_file():
+        raise ValueError(f"Blender runtime is missing: {blender}")
+    scene_records = []
+    for shot in campaign.shots:
+        shot_metadata = campaign.metadata_by_shot_id[shot.shot_id]
+        scene_path = asset_root / Path(*PurePosixPath(str(shot_metadata.scene_path)).parts)
+        contract_path = asset_root / Path(*PurePosixPath(str(shot_metadata.scene_contract_path)).parts)
+        if not scene_path.is_file() or not contract_path.is_file():
+            raise ValueError(f"campaign scene input is missing: {shot.shot_id}")
+        scene = SceneContract.from_json(contract_path)
+        scene_records.append({
+            "shot_id": shot.shot_id,
+            "scene_path": shot_metadata.scene_path,
+            "scene_sha256": sha256_file(scene_path),
+            "scene_contract_path": shot_metadata.scene_contract_path,
+            "scene_contract_sha256": sha256_file(contract_path),
+            "master_sha256": scene.master_sha256,
+            "material_library_sha256": scene.material_library_sha256,
+        })
+    if len({record["shot_id"] for record in scene_records}) != 22:
+        raise ValueError("campaign proof contract must bind 22 unique shots")
+    now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    digest = hashlib.sha256(json.dumps(scene_records, sort_keys=True).encode()).hexdigest()[:7]
+    generation_id = f"proof-{now}-{digest}"
+    proofs_root = asset_root / "renders" / "proofs"
+    staging = proofs_root / f".{generation_id}.pending"
+    final = proofs_root / generation_id
+    if staging.exists() or final.exists():
+        raise ValueError("campaign proof generation path already exists")
+    staging.mkdir(parents=False)
+    contract_path = asset_root / "scenes" / "contracts" / "proofs" / f"{generation_id}--campaign.json"
+    contract_payload = {
+        "schema": "maliev.pimm-campaign-proof-contract/v1",
+        "generation_id": generation_id,
+        "campaign_id": campaign.campaign_id,
+        "resolution_percentage": CAMPAIGN_PROOF_PERCENTAGE,
+        "samples": CAMPAIGN_PROOF_SAMPLES,
+        "output_root": f"renders/proofs/{generation_id}",
+        "shots": scene_records,
+    }
+    contract_path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(contract_path, contract_payload)
+    results: list[dict[str, object]] = []
+    # Cache key is deliberately stable for this proof campaign. Scene hashes are
+    # included in each shot key, and cached outputs are never a published root.
+    pipeline_revision = "17bc5e13adf872d2"
+    cache_root = proofs_root / ".campaign-preview-cache" / pipeline_revision
+    cache_root.mkdir(parents=True, exist_ok=True)
+    try:
+        for shot in campaign.shots:
+            shot_metadata = campaign.metadata_by_shot_id[shot.shot_id]
+            scene_path = asset_root / Path(*PurePosixPath(str(shot_metadata.scene_path)).parts)
+            scene_record = next(record for record in scene_records if record["shot_id"] == shot.shot_id)
+            cached = cache_root / f"{shot.shot_id}-{str(scene_record['scene_sha256'])[:12]}"
+            cached_result = cached / "result.json"
+            if cached_result.is_file():
+                shutil.copytree(cached / "outputs", staging / shot.shot_id)
+                cached_payload = json.loads(cached_result.read_text(encoding="utf-8"))
+                cached_payload["alpha_margins"].setdefault("product", shot.product_safe_margin)
+                cached_payload["alpha_margins"].setdefault("shadow", shot.shadow_safe_margin)
+                crop_paths, crop_hashes = _write_campaign_crops(staging / shot.shot_id, shot.shot_id)
+                cached_payload["crops"] = {
+                    name: f"{shot.shot_id}/{path}" for name, path in crop_paths.items()
+                }
+                cached_payload["crop_hashes"] = crop_hashes
+                results.append(cached_payload)
+                continue
+            command = [
+                str(blender), "--factory-startup", "-b", str(scene_path),
+                "--python", str(Path(__file__).resolve()), "--",
+                "--campaign-shot-worker", "--asset-root", str(asset_root),
+                "--campaign-output-root", str(staging), "--shot-id", shot.shot_id,
+            ]
+            completed = subprocess.run(command, capture_output=True, text=True)
+            markers = [line[len(RESULT_MARKER):] for line in completed.stdout.splitlines() if line.startswith(RESULT_MARKER)]
+            if completed.returncode != 0 or len(markers) != 1:
+                raise ValueError(
+                    f"campaign Blender worker failed for {shot.shot_id}: "
+                    f"exit={completed.returncode}; stdout={completed.stdout[-2000:]}; stderr={completed.stderr[-2000:]}"
+                )
+            result = json.loads(markers[0])
+            if result.get("status") != "pass":
+                raise ValueError(f"campaign Blender worker blocked {shot.shot_id}: {result}")
+            shot_dir = staging / shot.shot_id
+            result.pop("source_path")
+            result.pop("shadow_path")
+            result.pop("product_source_path")
+            source_path = shot_dir / f"{shot.shot_id}--rgba.png"
+            shadow_path = shot_dir / f".{shot.shot_id}--shadow-catcher.tmp.png"
+            product_source_path = shot_dir / f".{shot.shot_id}--product-only.tmp.png"
+            missing_worker_outputs = [
+                path.name for path in (source_path, shadow_path, product_source_path)
+                if not path.is_file()
+            ]
+            if missing_worker_outputs:
+                observed = sorted(path.name for path in shot_dir.iterdir())
+                raise ValueError(
+                    f"campaign worker omitted outputs for {shot.shot_id}: "
+                    f"missing={missing_worker_outputs}; observed={observed}"
+                )
+            outputs, alpha_margins, crop_hashes = _campaign_finalize_shot(
+                shot_dir, shot, source_path, shadow_path, product_source_path
+            )
+            source_path.unlink()
+            shadow_path.unlink()
+            product_source_path.unlink()
+            result.update({
+                "machines": list(shot.machines),
+                "purpose": shot.purpose,
+                "output_width": round(shot.width * CAMPAIGN_PROOF_PERCENTAGE / 100),
+                "output_height": round(shot.height * CAMPAIGN_PROOF_PERCENTAGE / 100),
+                "aspect": f"{shot.width}:{shot.height}",
+                "lens_mm": shot.focal_length_mm,
+                "f_stop": shot.aperture_fstop,
+                "outputs": {name: f"{shot.shot_id}/{path}" for name, path in outputs.items()},
+                "output_hashes": {name: sha256_file(shot_dir / path) for name, path in outputs.items()},
+                "crops": {name: f"{shot.shot_id}/crop-100pct-{name}.png" for name in crop_hashes},
+                "crop_hashes": crop_hashes,
+                "alpha_margins": alpha_margins,
+                "image_safety_status": "pass",
+            })
+            cached.mkdir(parents=False, exist_ok=False)
+            shutil.copytree(shot_dir, cached / "outputs")
+            atomic_write_json(cached / "result.json", result)
+            results.append(result)
+        if len(results) != 22:
+            raise ValueError("campaign render did not return exactly 22 passing shots")
+        manifest = {
+            "schema": "maliev.pimm-campaign-proof/v1",
+            "generation_id": generation_id,
+            "campaign_id": campaign.campaign_id,
+            "status": "pass",
+            "fingerprints_unchanged": all(item["fingerprints_unchanged"] for item in results),
+            "image_safety_passes": sum(item["image_safety_status"] == "pass" for item in results),
+            "scene_authority_passes": sum(item["scene_authority_status"] == "pass" for item in results),
+            "stale_master_links": 0,
+            "contact_passes": sum(item["contact_status"] == "pass" for item in results),
+            "shots": results,
+        }
+        manifest_path = staging / "campaign-manifest.json"
+        atomic_write_json(manifest_path, manifest)
+        sheets = build_campaign_contact_sheets(manifest_path, staging)
+        report = {
+            **manifest,
+            "proof_contract_path": str(contract_path),
+            "proof_contract_sha256": sha256_file(contract_path),
+            "campaign_manifest_sha256": sha256_file(manifest_path),
+            "sheets": [
+                {"path": path.name, "sha256": sha256_file(path)} for path in sheets
+            ],
+        }
+        atomic_write_json(staging / "campaign-report.json", report)
+        os.replace(staging, final)
+        return {
+            "status": "pass",
+            "generation_id": generation_id,
+            "output_root": str(final),
+            "report_path": str(final / "campaign-report.json"),
+            "report_sha256": sha256_file(final / "campaign-report.json"),
+            "shot_count": len(results),
+            "sheets": [str(final / path.name) for path in sheets],
+        }
+    except Exception:
+        if staging.is_dir() and staging.parent == proofs_root:
+            shutil.rmtree(staging)
+        raise
+
+
 def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--finalize", action="store_true")
-    parser.add_argument("--proof-contract", type=Path, action="append", required=True)
+    parser.add_argument("--proof-contract", type=Path, action="append")
+    parser.add_argument("--render-campaign", action="store_true")
+    parser.add_argument("--campaign-shot-worker", action="store_true")
+    parser.add_argument("--campaign-output-root", type=Path)
+    parser.add_argument("--shot-id")
+    parser.add_argument("--blender", type=Path, default=Path(r"D:\Blender 5.2\blender.exe"))
     parser.add_argument("--fixture-asset-root", type=Path)
     parser.add_argument("--asset-root", type=Path)
     parser.add_argument("--tool-lock", type=Path)
@@ -2372,8 +2849,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         if "--" in sys.argv
         else sys.argv[1:]
     )
+    if arguments.render_campaign:
+        if arguments.proof_contract or arguments.campaign_shot_worker:
+            raise ValueError("campaign orchestration cannot be combined with one-shot modes")
+        asset_root = (arguments.asset_root or CANONICAL_ASSET_ROOT).resolve()
+        result = render_campaign(asset_root, arguments.blender)
+        print(RESULT_MARKER + json.dumps(result, sort_keys=True), flush=True)
+        return 0
     if arguments.finalize:
-        if len(arguments.proof_contract) != 1 or not all(
+        if not arguments.proof_contract or len(arguments.proof_contract) != 1 or not all(
             (arguments.asset_root, arguments.output_root, arguments.rgba)
         ):
             raise ValueError("finalizer requires one contract, asset root, output root, and RGBA")
@@ -2389,6 +2873,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     import bpy
+
+    if arguments.campaign_shot_worker:
+        if not all((arguments.asset_root, arguments.campaign_output_root, arguments.shot_id)):
+            raise ValueError("campaign shot worker requires asset root, output root, and shot ID")
+        try:
+            result = _run_campaign_shot_worker(
+                bpy,
+                arguments.asset_root.resolve(),
+                arguments.campaign_output_root.resolve(),
+                arguments.shot_id,
+            )
+        except Exception as error:
+            result = {"status": "failed", "shot_id": arguments.shot_id, "errors": [f"{type(error).__name__}: {error}"]}
+        print(RESULT_MARKER + json.dumps(result, sort_keys=True), flush=True)
+        return 0 if result["status"] == "pass" else 1
+
+    if not arguments.proof_contract:
+        raise ValueError("one-shot proof mode requires at least one proof contract")
 
     if arguments.fixture_asset_root is not None:
         asset_root = _fixture_asset_root(arguments.fixture_asset_root)

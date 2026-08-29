@@ -19,6 +19,89 @@ HEADER_HEIGHT = 92
 PADDING = 14
 
 
+def build_campaign_contact_sheets(
+    manifest_path: Path,
+    output_root: Path,
+) -> list[Path]:
+    """Build the immutable campaign index and review-family sheets."""
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    manifest_path = Path(manifest_path).resolve()
+    output_root = Path(output_root).resolve()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema") != "maliev.pimm-campaign-proof/v1":
+        raise ValueError("campaign contact sheets require a campaign proof manifest")
+    shots = manifest.get("shots")
+    if not isinstance(shots, list) or len(shots) != 22:
+        raise ValueError("campaign contact sheets require exactly 22 shots")
+
+    groups = {
+        "campaign": shots,
+        "model-30g": [shot for shot in shots if "30G" in shot["machines"]],
+        "model-50g": [shot for shot in shots if "50G" in shot["machines"]],
+        "hero": [shot for shot in shots if shot["purpose"] == "hero"],
+        "editorial": [shot for shot in shots if shot["purpose"] in {"editorial", "comparison"}],
+        "detail": [shot for shot in shots if shot["purpose"] == "detail"],
+        "workshop": [shot for shot in shots if shot["purpose"] == "workshop"],
+    }
+    font = ImageFont.load_default()
+    written: list[Path] = []
+    for name, members in groups.items():
+        if not members:
+            continue
+        review_items: list[tuple[Mapping[str, object], str | None]] = []
+        for shot in members:
+            crops = shot.get("crops", {})
+            if name == "detail" and isinstance(crops, Mapping) and crops:
+                review_items.extend((shot, crop_name) for crop_name in crops)
+            else:
+                review_items.append((shot, None))
+        columns = min(3, len(review_items))
+        rows = math.ceil(len(review_items) / columns)
+        cell_w, cell_h, header_h = 520, 430, 112
+        sheet = Image.new("RGB", (columns * cell_w, header_h + rows * cell_h), (235, 237, 240))
+        draw = ImageDraw.Draw(sheet)
+        draw.text((18, 18), f"PIMM proof campaign | {manifest['generation_id']} | {name}", fill=(12, 16, 22), font=font)
+        draw.text((18, 44), f"status={manifest['status']}  shots={len(members)}  fingerprints_unchanged={manifest['fingerprints_unchanged']}", fill=(45, 51, 60), font=font)
+        draw.text((18, 68), "Preview resolution only - inspect supplied 100% crops for artwork and contact", fill=(45, 51, 60), font=font)
+        for index, (shot, crop_name) in enumerate(review_items):
+            left = (index % columns) * cell_w
+            top = header_h + (index // columns) * cell_h
+            if crop_name is None:
+                relative_image = shot["outputs"]["white"]
+                expected_hash = shot["output_hashes"]["white"]
+            else:
+                relative_image = shot["crops"][crop_name]
+                expected_hash = shot["crop_hashes"][crop_name]
+            image_path = require_within(output_root / relative_image, output_root)
+            if sha256_file(image_path) != expected_hash:
+                raise ValueError(f"campaign sheet input hash mismatch: {shot['shot_id']}")
+            with Image.open(image_path) as loaded:
+                preview = loaded.convert("RGB")
+                preview.thumbnail((cell_w - 28, 315), Image.Resampling.LANCZOS)
+            x = left + (cell_w - preview.width) // 2
+            y = top + 10 + (315 - preview.height) // 2
+            sheet.paste(preview, (x, y))
+            margins = shot["alpha_margins"]
+            labels = [
+                shot["shot_id"] + (f" | 100% {crop_name}" if crop_name else ""),
+                f"{shot['output_width']}x{shot['output_height']} ({shot['aspect']})  {shot['lens_mm']}mm  f/{shot['f_stop']}",
+                f"gen={manifest['generation_id']}  scene={shot['scene_sha256'][:12]}",
+                f"product={margins['product']} shadow={margins['shadow']}  contact={shot['contact_status']}",
+            ]
+            for line, label in enumerate(labels):
+                draw.text((left + 14, top + 330 + line * 20), label, fill=(18, 22, 28), font=font)
+        path = output_root / f"sheet-{name}.png"
+        if path.exists():
+            raise ValueError(f"campaign contact sheet already exists: {path}")
+        temporary = path.with_suffix(".png.tmp")
+        sheet.save(temporary, format="PNG")
+        os.replace(temporary, path)
+        written.append(path)
+    return written
+
+
 def _short_hash(value: object) -> str:
     return str(value)[:12]
 

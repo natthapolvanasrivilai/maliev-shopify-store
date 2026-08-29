@@ -46,6 +46,13 @@ APPROVED_COMPONENT_MACHINE_FIXTURE = (
 )
 
 
+class CampaignProofApprovalBoundaryTests(unittest.TestCase):
+    def test_preview_campaign_does_not_authorize_native_finals(self):
+        source = Path(proof_fixtures.PROOF_RUNNER).read_text(encoding="utf-8")
+        self.assertIn('"--render-campaign"', source)
+        self.assertNotIn("run_authorized_final(", source)
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
