@@ -80,6 +80,31 @@ def _exclusive_json(path: Path, payload: Mapping[str, object]) -> None:
         os.close(descriptor)
 
 
+def _fsync_file(path: Path) -> None:
+    with Path(path).open("rb+") as stream:
+        os.fsync(stream.fileno())
+
+
+def _worker_phase_path(staging: Path, shot_id: str) -> Path:
+    return require_within(staging / f".worker-phase-{shot_id}.json", staging)
+
+
+def _write_worker_phase(
+    staging: Path, shot_id: str, phase: str, **evidence: object
+) -> Path:
+    """Durably replace one worker phase record; failures preserve the latest phase."""
+
+    path = _worker_phase_path(staging, shot_id)
+    temporary = require_within(staging / f".{path.name}.{uuid.uuid4().hex}.tmp", staging)
+    temporary.write_bytes(_json_bytes({
+        "schema": "maliev.pimm-editorial-worker-phase/v1",
+        "shot_id": shot_id, "phase": phase, "recorded_at": _utc_now(), **evidence,
+    }))
+    _fsync_file(temporary)
+    os.replace(temporary, path)
+    return path
+
+
 def _validate_ephemeral_render_delta(
     baseline: Mapping[str, object],
     final: Mapping[str, object],
@@ -516,6 +541,7 @@ def _render_worker(
     ]
     if errors:
         raise ValueError("fresh native final scene authority failed: " + "; ".join(errors))
+    _write_worker_phase(staging_root, shot_id, "scene-authority-pass")
 
     width, height = _shot_dimensions(contract, approved)
     png = require_within(staging_root / f"{shot_id}.png", staging_root)
@@ -535,19 +561,30 @@ def _render_worker(
     scene.render.image_settings.color_depth = "16"
     mutated = _state_record(bpy)
     _validate_ephemeral_render_delta(baseline, mutated, contract)
+    _write_worker_phase(staging_root, shot_id, "render-start")
     started_at = _utc_now()
     started = time.perf_counter()
     bpy.ops.render.render(write_still=True)
     seconds = time.perf_counter() - started
     _validate_worker_png(bpy, png, width, height)
+    _fsync_file(png)
+    _write_worker_phase(
+        staging_root, shot_id, "png-pass", png_sha256=sha256_file(png)
+    )
     scene.render.image_settings.file_format = "OPEN_EXR"
     scene.render.image_settings.color_mode = "RGB"
     scene.render.image_settings.color_depth = "32"
     bpy.data.images["Render Result"].save_render(filepath=str(exr), scene=scene)
     if not exr.is_file() or exr.stat().st_size <= 0:
         raise ValueError("native archive EXR was not produced")
-    if exr.read_bytes()[:4] != b"\x76\x2f\x31\x01":
+    _fsync_file(exr)
+    with exr.open("rb") as stream:
+        magic = stream.read(4)
+    if magic != b"\x76\x2f\x31\x01":
         raise ValueError("native archive EXR magic is invalid")
+    _write_worker_phase(
+        staging_root, shot_id, "exr-pass", exr_sha256=sha256_file(exr)
+    )
     final_state = _state_record(bpy)
     _validate_ephemeral_render_delta(baseline, final_state, contract)
     after_snapshot, after_collection_errors = blender_editorial_scene._collect_runtime_snapshot(
@@ -567,10 +604,12 @@ def _render_worker(
         key: value for key, value in snapshot.items() if key != "render"
     }:
         raise ValueError("post-render camera/light/world/product/material/decal/contact drift")
+    _write_worker_phase(staging_root, shot_id, "post-runtime-authority-pass")
     _load_worker_contract(
         contract_path, asset_root, expected_contract_sha256, expected_bindings
     )
-    return {
+    _write_worker_phase(staging_root, shot_id, "contract-recheck-pass")
+    result = {
         "shot_id": shot_id,
         "process_id": os.getpid(),
         "scene_sha256": authority.scene_sha256,
@@ -591,6 +630,33 @@ def _render_worker(
         "authority_status": "pass",
         "actual_pixel_review": "pending",
     }
+    result_sha256 = hashlib.sha256(_json_bytes(result)).hexdigest().upper()
+    _write_worker_phase(
+        staging_root, shot_id, "result-ready", result_sha256=result_sha256
+    )
+    return result
+
+
+def _consume_worker_phase(
+    staging: Path, shot_id: str, record: Mapping[str, object]
+) -> dict[str, object]:
+    path = _worker_phase_path(staging, shot_id)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    expected_hash = hashlib.sha256(_json_bytes(record)).hexdigest().upper()
+    if (
+        payload.get("schema") != "maliev.pimm-editorial-worker-phase/v1"
+        or payload.get("shot_id") != shot_id
+        or payload.get("phase") != "result-ready"
+        or payload.get("result_sha256") != expected_hash
+    ):
+        raise ValueError("native final worker did not durably reach result-ready")
+    evidence = {
+        "status": "pass", "phase": "result-ready",
+        "phase_sha256": sha256_file(path), "result_sha256": expected_hash,
+    }
+    path.chmod(0o644)
+    path.unlink()
+    return evidence
 
 
 def _worker_command(
@@ -693,6 +759,9 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
                 capture_output=True, text=True, timeout=WORKER_TIMEOUT_SECONDS, check=False,
             )
             record = _parse_worker(completed, str(shot["shot_id"]))
+            record["worker_phase_evidence"] = _consume_worker_phase(
+                staging, str(shot["shot_id"]), record
+            )
             width, height = _shot_dimensions(contract, shot)
             record["ffprobe_exr_decode"] = _ffprobe_decode_exr(
                 staging / str(record["exr"]), width, height
@@ -754,6 +823,11 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
     for approved, record in zip(contract["shots"], records, strict=True):
         width, height = _shot_dimensions(contract, approved)
         authority = approved["authority"]
+        phase_evidence = record.get("worker_phase_evidence")
+        worker_record = {
+            key: value for key, value in record.items()
+            if key not in {"worker_phase_evidence", "ffprobe_exr_decode"}
+        }
         if (
             record.get("dimensions") != [width, height]
             or record.get("samples") != 256
@@ -763,6 +837,11 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
             or record.get("scene_sha256") != authority.get("scene_sha256")
             or record.get("contract_sha256") != authority.get("contract_sha256")
             or record.get("completion_marker_sha256") != authority.get("completion_marker_sha256")
+            or not isinstance(phase_evidence, Mapping)
+            or phase_evidence.get("status") != "pass"
+            or phase_evidence.get("phase") != "result-ready"
+            or phase_evidence.get("result_sha256")
+            != hashlib.sha256(_json_bytes(worker_record)).hexdigest().upper()
         ):
             raise ValueError("native final dimensions, render, opacity, or authority evidence drift")
         for field in ("png", "exr"):
@@ -1097,6 +1176,15 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _emit_worker_success(result: Mapping[str, object]) -> None:
+    """Flush the signed result, then bypass Blender's nondeterministic teardown."""
+
+    sys.stdout.write(WORKER_MARKER + json.dumps(dict(result), sort_keys=True) + "\n")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _arguments(
         list(argv) if argv is not None else sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
@@ -1117,8 +1205,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         expected_contract_sha256=str(arguments.expected_contract_sha256),
         expected_bindings=json.loads(str(arguments.expected_bindings_json)),
     )
-    print(WORKER_MARKER + json.dumps(result, sort_keys=True), flush=True)
-    return 0
+    _emit_worker_success(result)
+    raise AssertionError("successful Blender worker returned after forced exit")
 
 
 if __name__ == "__main__":

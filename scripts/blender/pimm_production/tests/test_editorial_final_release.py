@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -128,7 +129,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             Image.new("RGB", (width, height), (80 + index, 90, 100)).save(png)
             exr.write_bytes(self._minimal_exr(width, height))
             authority = approved["authority"]
-            shots.append({
+            shot_record = {
                 "shot_id": approved["shot_id"], "process_id": 1000 + index,
                 "png": png.name, "png_sha256": sha256_file(png),
                 "exr": exr.name, "exr_sha256": sha256_file(exr), "dimensions": [width, height],
@@ -137,12 +138,20 @@ class EditorialFinalReleaseTests(unittest.TestCase):
                 "contract_sha256": authority["contract_sha256"],
                 "completion_marker_sha256": authority["completion_marker_sha256"],
                 "exr_validation": _parse_openexr(exr),
-                "ffprobe_exr_decode": {
-                    "status": "pass", "tool_sha256": final_module.FFPROBE_SHA256,
-                    "codec": "exr", "dimensions": [width, height],
-                    "pixel_format": "gbrpf32le", "decoded_frames": 1,
-                },
-            })
+            }
+            result_sha256 = hashlib.sha256(
+                final_module._json_bytes(shot_record)
+            ).hexdigest().upper()
+            shot_record["worker_phase_evidence"] = {
+                "status": "pass", "phase": "result-ready",
+                "phase_sha256": "A" * 64, "result_sha256": result_sha256,
+            }
+            shot_record["ffprobe_exr_decode"] = {
+                "status": "pass", "tool_sha256": final_module.FFPROBE_SHA256,
+                "codec": "exr", "dimensions": [width, height],
+                "pixel_format": "gbrpf32le", "decoded_frames": 1,
+            }
+            shots.append(shot_record)
         sheet = staging / "sheet-editorial-finals.png"
         Image.new("RGB", (2560, 1800), (30, 40, 50)).save(sheet)
         report = {
@@ -321,8 +330,19 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         report_path = staging / "native-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
         exr = staging / report["shots"][0]["exr"]
+
+        def rebind_phase() -> None:
+            worker_record = {
+                key: value for key, value in report["shots"][0].items()
+                if key not in {"worker_phase_evidence", "ffprobe_exr_decode"}
+            }
+            report["shots"][0]["worker_phase_evidence"]["result_sha256"] = (
+                hashlib.sha256(final_module._json_bytes(worker_record)).hexdigest().upper()
+            )
+
         exr.write_bytes(b"not an exr")
         report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        rebind_phase()
         disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
         report_path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "EXR|exr"):
@@ -330,6 +350,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
 
         exr.write_bytes(b"\x76\x2f\x31\x01truncated-junk")
         report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        rebind_phase()
         disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
         report_path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "EXR|exr"):
@@ -339,6 +360,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         exr.write_bytes(self._minimal_exr(width, height))
         report["shots"][0]["exr_sha256"] = sha256_file(exr)
         report["shots"][0].pop("authority_status")
+        rebind_phase()
         disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
         report_path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "authority|evidence"):
@@ -712,6 +734,76 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "signature drift"):
             final_module._parse_worker(completed, "shot-one")
+
+    def test_worker_success_flushes_result_before_forced_blender_exit(self) -> None:
+        """Catches forced teardown becoming reachable before the signed result is durable."""
+
+        events: list[str] = []
+
+        class Stream:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            def write(self, value: str) -> None:
+                self.value = value
+                events.append(f"{self.name}-write")
+
+            def flush(self) -> None:
+                events.append(f"{self.name}-flush")
+
+        stdout, stderr = Stream("stdout"), Stream("stderr")
+        with (
+            patch.object(final_module.sys, "stdout", stdout),
+            patch.object(final_module.sys, "stderr", stderr),
+            patch.object(
+                final_module.os, "_exit",
+                side_effect=lambda code: events.append(f"exit-{code}"),
+            ),
+        ):
+            final_module._emit_worker_success({"shot_id": "shot-one"})
+        self.assertTrue(stdout.value.startswith(final_module.WORKER_MARKER))
+        self.assertEqual(events, [
+            "stdout-write", "stdout-flush", "stderr-flush", "exit-0",
+        ])
+
+    def test_worker_error_path_never_forces_success_exit(self) -> None:
+        """Catches worker exceptions being converted into a successful hard exit."""
+
+        arguments = SimpleNamespace(
+            render_shot=True, asset_root=Path("root"), contract=Path("contract"),
+            staging_root=Path("staging"), shot_id="shot-one",
+            expected_contract_sha256="A" * 64, expected_bindings_json="{}",
+        )
+        with (
+            patch.object(final_module, "_arguments", return_value=arguments),
+            patch.dict(sys.modules, {"bpy": SimpleNamespace()}),
+            patch.object(final_module, "_render_worker", side_effect=ValueError("gate failed")),
+            patch.object(final_module.os, "_exit") as forced_exit,
+        ):
+            with self.assertRaisesRegex(ValueError, "gate failed"):
+                final_module.main([])
+        forced_exit.assert_not_called()
+
+    def test_worker_phase_must_be_hash_bound_result_ready_before_consumption(self) -> None:
+        """Catches controller acceptance of an early or differently hashed worker phase."""
+
+        with TemporaryDirectory() as root:
+            staging = Path(root)
+            record = {"shot_id": "shot-one", "status": "pending"}
+            final_module._write_worker_phase(staging, "shot-one", "exr-pass")
+            with self.assertRaisesRegex(ValueError, "result-ready"):
+                final_module._consume_worker_phase(staging, "shot-one", record)
+            result_sha256 = hashlib.sha256(
+                final_module._json_bytes(record)
+            ).hexdigest().upper()
+            final_module._write_worker_phase(
+                staging, "shot-one", "result-ready", result_sha256=result_sha256
+            )
+            evidence = final_module._consume_worker_phase(
+                staging, "shot-one", record
+            )
+            self.assertEqual(evidence["result_sha256"], result_sha256)
+            self.assertFalse(final_module._worker_phase_path(staging, "shot-one").exists())
 
     def test_blender_worker_import_does_not_require_pillow(self) -> None:
         """Catches fresh Blender exiting before render because its Python lacks Pillow."""
