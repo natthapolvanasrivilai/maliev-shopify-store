@@ -116,6 +116,19 @@ def _verified_inputs(
     return verified
 
 
+def _camera_number(value: object, label: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or float(value) <= 0
+    ):
+        raise ValueError(
+            f"contact sheet {label} numeric evidence must be a positive finite JSON number"
+        )
+    return float(value)
+
+
 def _label_values(record: Mapping[str, object]) -> dict[str, str]:
     render = record.get("render")
     authority = record.get("authority")
@@ -126,11 +139,13 @@ def _label_values(record: Mapping[str, object]) -> dict[str, str]:
     set_signature = str(set_record.get("geometry_signature", ""))
     if len(scene_hash) != 64 or len(set_signature) != 64:
         raise ValueError("contact sheet scene and set signatures must be complete SHA-256 values")
+    focal_length = _camera_number(record.get("focal_length_mm"), "focal length")
+    aperture = _camera_number(record.get("aperture_fstop"), "aperture")
     return {
         "shot_id": str(record["shot_id"]),
         "machine": str(record["machine"]),
-        "lens": f"{float(record['focal_length_mm']):g} mm",
-        "f_stop": f"f/{float(record['aperture_fstop']):g}",
+        "lens": f"{focal_length:g} mm",
+        "f_stop": f"f/{aperture:g}",
         "render_engine": str(render.get("engine", "")),
         "set_signature": set_signature,
         "scene_hash_prefix": scene_hash[:12],

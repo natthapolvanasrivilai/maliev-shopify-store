@@ -12,6 +12,7 @@ import math
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -68,6 +69,7 @@ SHOT_SCHEMA = "maliev.pimm-editorial-preview-shot/v1"
 REPORT_SCHEMA = "maliev.pimm-editorial-preview-report/v1"
 FAILURE_SCHEMA = "maliev.pimm-editorial-preview-failure/v1"
 VISUAL_DISPOSITION_SCHEMA = "maliev.pimm-editorial-visual-disposition/v1"
+DISPOSITION_CLAIM_SCHEMA = "maliev.pimm-editorial-disposition-claim/v1"
 PUBLICATION_SCHEMA = "maliev.pimm-editorial-publication/v1"
 SCENE_SCHEMA = "maliev.pimm-editorial-scene/v1"
 PROOF_LIBRARY_ID = "editorial-concepts-v1"
@@ -75,6 +77,7 @@ MANIFEST_NAME = "campaign-manifest.json"
 REPORT_NAME = "campaign-report.json"
 VISUAL_DISPOSITION_NAME = "visual-disposition.json"
 PENDING_REVIEW_DIRECTORY = "pending-review"
+DISPOSITION_CLAIMS_DIRECTORY = ".disposition-claims"
 EXPECTED_SAMPLES = 32
 EXPECTED_DENOISE = True
 EXPECTED_VIEW_TRANSFORM = "AgX"
@@ -121,6 +124,19 @@ _REQUIRED_EXTERNAL_ASSET_IDS = {
     "pimm-30g--concept-process-still-life": ("metal_toolbox",),
 }
 _SHA256_HEX = frozenset("0123456789ABCDEF")
+_QUOTED_NONFINITE = frozenset(
+    {
+        "nan",
+        "+nan",
+        "-nan",
+        "inf",
+        "+inf",
+        "-inf",
+        "infinity",
+        "+infinity",
+        "-infinity",
+    }
+)
 _PROVENANCE_FIELDS = (
     "source_url",
     "asset_version_id",
@@ -181,6 +197,16 @@ class EditorialPreviewResult:
     contact_sheet_path: Path
     contact_sheet_sha256: str
     shot_count: int
+    post_publication_errors: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class _DispositionClaim:
+    """Exclusive claim held for one generation through its atomic publication."""
+
+    path: Path
+    nonce: str
+    record: dict[str, object]
 
 
 class EditorialPreviewFailure(RuntimeError):
@@ -220,12 +246,48 @@ def _reject_nonfinite_numeric_evidence(
 ) -> None:
     if isinstance(value, float) and not math.isfinite(value):
         raise ValueError(f"{label} contains nonfinite numeric evidence at {path}")
+    if isinstance(value, str) and value.strip().casefold() in _QUOTED_NONFINITE:
+        raise ValueError(f"{label} contains quoted nonfinite numeric evidence at {path}")
     if isinstance(value, Mapping):
         for key, item in value.items():
             _reject_nonfinite_numeric_evidence(item, label, f"{path}.{key}")
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             _reject_nonfinite_numeric_evidence(item, label, f"{path}[{index}]")
+
+
+def _require_finite_number(
+    value: object,
+    label: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+    ):
+        raise ValueError(f"{label} numeric evidence must be an actual finite JSON number")
+    number = float(value)
+    if minimum is not None and number < minimum:
+        raise ValueError(f"{label} numeric evidence is below its allowed gate")
+    if maximum is not None and number > maximum:
+        raise ValueError(f"{label} numeric evidence is above its allowed gate")
+    return number
+
+
+def _require_json_integer(
+    value: object,
+    label: str,
+    *,
+    minimum: int | None = None,
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{label} numeric evidence must be an actual JSON integer")
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{label} numeric evidence is below its allowed gate")
+    return value
 
 
 def _load_json_bytes(path: Path, label: str) -> tuple[dict[str, object], bytes, str]:
@@ -649,20 +711,34 @@ def _validate_contact_evidence(contact: object) -> None:
         or len(feet) != 4
     ):
         raise ValueError("contact evidence must measure four unique feet")
-    tolerance = float(measurements.get("tolerance", math.inf))
+    tolerance = _require_finite_number(
+        measurements.get("tolerance"),
+        "contact tolerance",
+        minimum=0.0,
+    )
     if tolerance != 0.0002:
         raise ValueError("contact tolerance changed")
-    if (
-        measurements.get("outlier_stable_ids") not in ([], ())
-        or float(measurements.get("spread", math.inf)) > tolerance
-    ):
+    _require_finite_number(measurements.get("contact_z"), "contact plane")
+    for index, bottom in enumerate(bottoms):
+        _require_finite_number(bottom, f"contact pad_bottoms[{index}]")
+    spread = _require_finite_number(
+        measurements.get("spread"),
+        "contact spread",
+        minimum=0.0,
+        maximum=tolerance,
+    )
+    if measurements.get("outlier_stable_ids") not in ([], ()) or spread > tolerance:
         raise ValueError("contact spread or outlier evidence failed")
-    if any(
-        not isinstance(item, Mapping)
-        or abs(float(item.get("delta_to_plane", math.inf))) > tolerance
-        for item in feet
-    ):
-        raise ValueError("contact per-foot measurements failed")
+    for index, item in enumerate(feet):
+        if not isinstance(item, Mapping):
+            raise ValueError("contact per-foot measurements failed")
+        _require_finite_number(item.get("bottom_z"), f"contact feet[{index}].bottom_z")
+        delta = _require_finite_number(
+            item.get("delta_to_plane"),
+            f"contact feet[{index}].delta_to_plane",
+        )
+        if abs(delta) > tolerance:
+            raise ValueError("contact per-foot measurements failed")
 
 
 def _validate_worker_result(
@@ -680,8 +756,7 @@ def _validate_worker_result(
         raise ValueError("worker status or schema is not technical-pass")
     if result.get("shot_id") != shot.shot_id:
         raise ValueError("worker shot identity changed")
-    if not isinstance(result.get("process_id"), int) or int(result["process_id"]) <= 0:
-        raise ValueError("fresh Blender process identity is missing")
+    _require_json_integer(result.get("process_id"), "fresh Blender process ID", minimum=1)
     if result.get("cache_reuse") is not False:
         raise ValueError("cache reuse is forbidden")
     if Path(str(result.get("output_path"))).resolve() != output_path.resolve():
@@ -723,6 +798,10 @@ def _validate_worker_result(
         "color_depth": "8",
         "use_persistent_data": False,
     }
+    for key in ("samples", "width", "height", "resolution_percentage"):
+        _require_json_integer(render.get(key), f"render {key}", minimum=1)
+    _require_finite_number(render.get("exposure"), "render exposure")
+    _require_finite_number(render.get("gamma"), "render gamma", minimum=0.0)
     for key, expected in expected_render.items():
         if render.get(key) != expected:
             label = "samples" if key == "samples" else f"render {key}"
@@ -730,14 +809,17 @@ def _validate_worker_result(
     bounce_limits = render.get("bounce_limits")
     if not isinstance(bounce_limits, Mapping) or set(bounce_limits) != set(_BOUNCE_FIELDS):
         raise ValueError("render bounce limits are incomplete")
-    if any(not isinstance(bounce_limits[key], int) or bounce_limits[key] < 0 for key in _BOUNCE_FIELDS):
-        raise ValueError("render bounce limits are invalid")
+    for key in _BOUNCE_FIELDS:
+        _require_json_integer(
+            bounce_limits[key],
+            f"render bounce limit {key}",
+            minimum=0,
+        )
     if not str(render.get("blender_version", "")).startswith("5.2"):
         raise ValueError("render did not use Blender 5.2")
     if not all(isinstance(render.get(key), str) and render.get(key) for key in ("started_at", "finished_at")):
         raise ValueError("render timestamps are missing")
-    if not isinstance(render.get("seconds"), (int, float)) or float(render["seconds"]) < 0:
-        raise ValueError("render duration is invalid")
+    _require_finite_number(render.get("seconds"), "render duration", minimum=0.0)
     dimensions = render.get("dimension_evidence")
     if (
         not isinstance(dimensions, Mapping)
@@ -745,6 +827,18 @@ def _validate_worker_result(
         or dimensions.get("png_dimensions") != [shot.width, shot.height]
     ):
         raise ValueError("output dimensions lack written-PNG authority")
+    for index, value in enumerate(dimensions["png_dimensions"]):
+        _require_json_integer(value, f"PNG dimension[{index}]", minimum=1)
+    render_result_size = dimensions.get("render_result_size")
+    if render_result_size is not None:
+        if not isinstance(render_result_size, list) or len(render_result_size) != 2:
+            raise ValueError("render-result dimension numeric evidence is invalid")
+        for index, value in enumerate(render_result_size):
+            _require_json_integer(
+                value,
+                f"render-result dimension[{index}]",
+                minimum=0,
+            )
 
     worker_authority = result.get("authority")
     if not isinstance(worker_authority, Mapping):
@@ -783,9 +877,25 @@ def _validate_worker_result(
         or framing.get("status") != "pass"
         or framing.get("complete_machine_framed") is not True
         or framing.get("support_rectangle_framed") is not True
-        or float(framing.get("safe_margin_minimum", -math.inf)) < 0.02
     ):
         raise ValueError("framing evidence is not pass")
+    for field in (
+        "machine_frame_width_ratio",
+        "machine_frame_height_ratio",
+        "machine_frame_area_ratio",
+    ):
+        _require_finite_number(
+            framing.get(field),
+            f"framing {field}",
+            minimum=0.0,
+            maximum=1.0,
+        )
+    _require_finite_number(
+        framing.get("safe_margin_minimum"),
+        "framing safe margin",
+        minimum=0.02,
+        maximum=1.0,
+    )
     clipping = result.get("clipping")
     if (
         not isinstance(clipping, Mapping)
@@ -1029,8 +1139,42 @@ def _preserve_failed_staging(
     shots: Sequence[Mapping[str, object]],
     error: Exception,
 ) -> tuple[Path | None, tuple[str, ...]]:
-    if not staging.is_dir():
-        return None, ()
+    secondary_errors: list[str] = []
+
+    def record_secondary(stage: str, secondary: Exception) -> None:
+        secondary_errors.append(f"{stage}: {type(secondary).__name__}: {secondary}")
+
+    try:
+        staging_exists = staging.is_dir()
+    except Exception as secondary:
+        record_secondary("staging inspection failed", secondary)
+        return None, tuple(secondary_errors)
+    if not staging_exists:
+        return None, tuple(secondary_errors)
+
+    partial_output_hashes: dict[str, str] = {}
+    try:
+        partial_outputs = sorted(staging.glob("*.png"))
+    except Exception as secondary:
+        record_secondary("partial output enumeration failed", secondary)
+        partial_outputs = []
+    for path in partial_outputs:
+        try:
+            if path.is_file():
+                partial_output_hashes[path.name] = sha256_file(path)
+        except Exception as secondary:
+            record_secondary(f"partial output hash failed for {path.name}", secondary)
+
+    try:
+        completed_shot_ids = [str(item.get("shot_id")) for item in shots]
+    except Exception as secondary:
+        record_secondary("completed-shot evidence collection failed", secondary)
+        completed_shot_ids = []
+    try:
+        primary_error_text = str(error)
+    except Exception as secondary:
+        record_secondary("primary error text collection failed", secondary)
+        primary_error_text = "primary error text unavailable"
     failure = {
         "schema": FAILURE_SCHEMA,
         "status": "rejected",
@@ -1038,49 +1182,48 @@ def _preserve_failed_staging(
         "created_at": created_at,
         "failed_at": _utc_now(),
         "error_type": type(error).__name__,
-        "error": str(error),
+        "error": primary_error_text,
         "intended_final_path": str(final),
-        "completed_shot_ids": [str(item.get("shot_id")) for item in shots],
-        "partial_output_hashes": {
-            path.name: sha256_file(path)
-            for path in sorted(staging.glob("*.png"))
-            if path.is_file()
-        },
+        "completed_shot_ids": completed_shot_ids,
+        "partial_output_hashes": partial_output_hashes,
     }
     if isinstance(error, subprocess.TimeoutExpired):
-        stdout = (
-            error.output.decode("utf-8", errors="replace")
-            if isinstance(error.output, bytes)
-            else str(error.output or "")
-        )
-        stderr = (
-            error.stderr.decode("utf-8", errors="replace")
-            if isinstance(error.stderr, bytes)
-            else str(error.stderr or "")
-        )
-        failure.update(
-            {
-                "timed_out": True,
-                "timeout_seconds": error.timeout,
-                "command": (
-                    [str(item) for item in error.cmd]
-                    if isinstance(error.cmd, (list, tuple))
-                    else str(error.cmd)
-                ),
-                "stdout_tail": stdout[-3000:],
-                "stderr_tail": stderr[-3000:],
-            }
-        )
+        try:
+            stdout = (
+                error.output.decode("utf-8", errors="replace")
+                if isinstance(error.output, bytes)
+                else str(error.output or "")
+            )
+            stderr = (
+                error.stderr.decode("utf-8", errors="replace")
+                if isinstance(error.stderr, bytes)
+                else str(error.stderr or "")
+            )
+            failure.update(
+                {
+                    "timed_out": True,
+                    "timeout_seconds": error.timeout,
+                    "command": (
+                        [str(item) for item in error.cmd]
+                        if isinstance(error.cmd, (list, tuple))
+                        else str(error.cmd)
+                    ),
+                    "stdout_tail": stdout[-3000:],
+                    "stderr_tail": stderr[-3000:],
+                }
+            )
+        except Exception as secondary:
+            record_secondary("timeout evidence collection failed", secondary)
+            failure["timed_out"] = True
     else:
         failure["timed_out"] = False
-    secondary_errors: list[str] = []
-
-    def record_secondary(stage: str, secondary: Exception) -> None:
-        secondary_errors.append(f"{stage}: {type(secondary).__name__}: {secondary}")
 
     failure_path = staging / "campaign-failure.json"
     try:
-        atomic_write_json(failure_path, {**failure, "secondary_errors": []})
+        atomic_write_json(
+            failure_path,
+            {**failure, "secondary_errors": list(secondary_errors)},
+        )
     except Exception as secondary:
         record_secondary("initial failure evidence write failed", secondary)
     try:
@@ -1096,11 +1239,22 @@ def _preserve_failed_staging(
             record_secondary("secondary failure evidence write failed", write_secondary)
         return None, tuple(secondary_errors)
     rejected = rejected_parent / generation_id
-    if rejected.exists():
-        rejected = rejected_parent / f"{generation_id}-{uuid.uuid4().hex[:8]}"
+    try:
+        if rejected.exists():
+            rejected = rejected_parent / f"{generation_id}-{uuid.uuid4().hex[:8]}"
+    except Exception as secondary:
+        record_secondary("rejected destination inspection failed", secondary)
+        try:
+            atomic_write_json(
+                failure_path,
+                {**failure, "secondary_errors": list(secondary_errors)},
+            )
+        except Exception as write_secondary:
+            record_secondary("secondary failure evidence write failed", write_secondary)
+        return None, tuple(secondary_errors)
     try:
         os.rename(staging, rejected)
-    except OSError as secondary:
+    except Exception as secondary:
         record_secondary("rejected evidence move failed", secondary)
         try:
             atomic_write_json(
@@ -1719,6 +1873,272 @@ def _apply_visual_disposition(
     atomic_write_json(report_path, report)
 
 
+def _snapshot_visual_decision(decision: Mapping[str, object]) -> dict[str, object]:
+    """Freeze a caller-owned decision as ordinary strict JSON before claiming."""
+
+    try:
+        encoded = json.dumps(dict(decision), allow_nan=False)
+        snapshot = json.loads(encoded, object_pairs_hook=_reject_duplicate_keys)
+    except (TypeError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError(f"visual disposition is not strict JSON: {error}") from error
+    if not isinstance(snapshot, dict):
+        raise ValueError("visual disposition must be an object")
+    _reject_nonfinite_numeric_evidence(snapshot, "visual disposition")
+    return snapshot
+
+
+def _fail_if_generation_is_already_dispositioned(
+    proof_parent: Path,
+    generation_id: str,
+) -> None:
+    accepted = require_within(proof_parent / generation_id, proof_parent)
+    rejected_parent = require_within(proof_parent / "rejected", proof_parent)
+    rejected = require_within(rejected_parent / generation_id, rejected_parent)
+    existing = [
+        (accepted, "accepted"),
+        (rejected, "rejected"),
+    ]
+    observed = [(path, status) for path, status in existing if path.exists()]
+    if len(observed) > 1:
+        raise ValueError(
+            "generation has conflicting accepted and rejected canonical dispositions; "
+            "manual recovery is required"
+        )
+    if not observed:
+        return
+    path, status = observed[0]
+    if not path.is_dir():
+        raise ValueError(
+            f"generation canonical disposition path is not a directory: {path}; "
+            "manual recovery is required"
+        )
+    try:
+        _validate_generation_artifacts(
+            path,
+            expected_status=status,
+            require_disposition=True,
+        )
+    except Exception as error:
+        raise ValueError(
+            f"generation canonical {status} disposition is invalid; "
+            f"manual recovery is required: {error}"
+        ) from error
+    raise ValueError(f"generation is already {status} by its canonical visual disposition")
+
+
+def _exclusive_create_json(path: Path, payload: Mapping[str, object]) -> None:
+    """Create one claim with O_EXCL so no competing disposition can join it."""
+
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    descriptor: int | None = None
+    created = False
+    try:
+        descriptor = os.open(
+            str(path),
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+        created = True
+        with os.fdopen(descriptor, "wb") as stream:
+            descriptor = None
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except Exception as error:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError as cleanup_error:
+                error.add_note(
+                    "exclusive disposition claim descriptor cleanup failed: "
+                    f"{cleanup_error}"
+                )
+        if created:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as cleanup_error:
+                error.add_note(
+                    "exclusive disposition claim cleanup failed; stale claim must be "
+                    f"recovered manually: {cleanup_error}"
+                )
+        raise
+
+
+def _acquire_disposition_claim(
+    proof_parent: Path,
+    pending: Path,
+    target: Path,
+    generation_id: str,
+    decision: Mapping[str, object],
+) -> _DispositionClaim:
+    claims_root = require_within(
+        proof_parent / DISPOSITION_CLAIMS_DIRECTORY,
+        proof_parent,
+    )
+    claims_root.mkdir(parents=True, exist_ok=True)
+    claim_path = require_within(
+        claims_root / f"{generation_id}.claim.json",
+        claims_root,
+    )
+    nonce = uuid.uuid4().hex
+    record = {
+        "schema": DISPOSITION_CLAIM_SCHEMA,
+        "status": "active",
+        "generation_id": generation_id,
+        "decision": decision.get("decision"),
+        "nonce": nonce,
+        "process_id": os.getpid(),
+        "claimed_at": _utc_now(),
+        "pending_source_path": str(pending),
+        "target_path": str(target),
+        "decision_manifest_sha256": decision.get("campaign_manifest_sha256"),
+        "decision_report_sha256": decision.get("campaign_report_sha256"),
+        "stale_claim_policy": "fail-closed-manual-recovery-never-auto-steal",
+    }
+    try:
+        _exclusive_create_json(claim_path, record)
+    except FileExistsError as error:
+        raise ValueError(
+            f"disposition claim already exists for {generation_id}; "
+            "manual recovery is required and the claim will not be stolen"
+        ) from error
+    return _DispositionClaim(path=claim_path, nonce=nonce, record=record)
+
+
+def _assert_disposition_claim_owned(
+    claim: _DispositionClaim,
+    *,
+    expected_status: str,
+) -> dict[str, object]:
+    payload, _bytes, _sha = _load_json_bytes(claim.path, "disposition claim")
+    if (
+        payload.get("schema") != DISPOSITION_CLAIM_SCHEMA
+        or payload.get("generation_id") != claim.record["generation_id"]
+        or payload.get("decision") != claim.record["decision"]
+        or payload.get("nonce") != claim.nonce
+        or payload.get("status") != expected_status
+    ):
+        raise ValueError(
+            "exclusive disposition claim ownership changed; manual recovery is required"
+        )
+    return payload
+
+
+def _release_disposition_claim(claim: _DispositionClaim) -> None:
+    payload, _bytes, _sha = _load_json_bytes(claim.path, "disposition claim")
+    status = payload.get("status")
+    if status not in {"active", "publication-ready"}:
+        raise ValueError("disposition claim is not releasable without manual recovery")
+    _assert_disposition_claim_owned(claim, expected_status=str(status))
+    claim.path.unlink()
+    temporary = claim.path.with_suffix(claim.path.suffix + ".tmp")
+    if temporary.exists():
+        temporary.unlink()
+
+
+def _clean_failed_disposition_attempt(
+    staging: Path | None,
+    proof_parent: Path,
+    claim: _DispositionClaim,
+) -> tuple[str, ...]:
+    secondary_errors: list[str] = []
+    if staging is not None:
+        try:
+            resolved = require_within(staging, proof_parent)
+            if (
+                resolved.parent != proof_parent
+                or not resolved.name.startswith(".editorial-preview-")
+                or not resolved.name.endswith(".disposing")
+            ):
+                raise ValueError("disposition staging cleanup path is not exact")
+            if resolved.exists():
+                shutil.rmtree(resolved)
+        except Exception as error:
+            secondary_errors.append(
+                f"disposition staging cleanup failed: {type(error).__name__}: {error}"
+            )
+    try:
+        _release_disposition_claim(claim)
+    except Exception as error:
+        secondary_errors.append(
+            "disposition claim release failed; stale claim requires manual recovery: "
+            f"{type(error).__name__}: {error}"
+        )
+    return tuple(secondary_errors)
+
+
+def _attach_secondary_errors(error: Exception, secondary_errors: Sequence[str]) -> None:
+    if not secondary_errors:
+        return
+    setattr(error, "secondary_errors", tuple(secondary_errors))
+    for secondary in secondary_errors:
+        error.add_note(secondary)
+
+
+def _assert_decision_bound_technical_hashes(
+    pending: Path,
+    decision: Mapping[str, object],
+) -> tuple[str, str]:
+    _manifest, _manifest_bytes, manifest_sha = _load_json_bytes(
+        pending / MANIFEST_NAME,
+        "decision-bound technical campaign manifest",
+    )
+    _report, _report_bytes, report_sha = _load_json_bytes(
+        pending / REPORT_NAME,
+        "decision-bound technical campaign report",
+    )
+    if (
+        decision.get("campaign_manifest_sha256") != manifest_sha
+        or decision.get("campaign_report_sha256") != report_sha
+    ):
+        raise ValueError(
+            "decision-bound technical manifest/report hashes changed from current source bytes"
+        )
+    return manifest_sha, report_sha
+
+
+def _copy_pending_generation(pending: Path, staging: Path) -> None:
+    if any(staging.iterdir()):
+        raise ValueError("disposition staging directory must be empty before copy")
+    for source in sorted(pending.iterdir(), key=lambda item: item.name):
+        if source.is_symlink() or not source.is_file():
+            raise ValueError(f"pending generation contains a non-file source: {source.name}")
+        destination = require_within(staging / source.name, staging)
+        shutil.copy2(source, destination)
+
+
+def _publication_ready_claim(
+    claim: _DispositionClaim,
+    *,
+    source_manifest_sha256: str,
+    source_report_sha256: str,
+    target: Path,
+    candidate_manifest_sha256: str,
+    candidate_report_sha256: str,
+    candidate_manifest: Mapping[str, object],
+    candidate_report: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        **claim.record,
+        "status": "publication-ready",
+        "prepared_at": _utc_now(),
+        "source_manifest_sha256": source_manifest_sha256,
+        "source_report_sha256": source_report_sha256,
+        "target_path": str(target),
+        "candidate_manifest_sha256": candidate_manifest_sha256,
+        "candidate_report_sha256": candidate_report_sha256,
+        "candidate_contact_sheet_sha256": candidate_report["contact_sheet_sha256"],
+        "candidate_visual_disposition_sha256": candidate_manifest[
+            "visual_disposition"
+        ]["sha256"],
+        "candidate_shot_sha256": {
+            str(item["shot_id"]): str(item["output_sha256"])
+            for item in candidate_manifest["shots"]
+        },
+        "consumed_when_target_exists": True,
+    }
+
+
 def _dispose_editorial_preview_generation(
     asset_root: Path,
     generation_id: str,
@@ -1729,10 +2149,14 @@ def _dispose_editorial_preview_generation(
     asset_root = Path(asset_root).resolve()
     if not _GENERATION_ID_PATTERN.fullmatch(generation_id):
         raise ValueError("editorial preview generation ID is invalid")
+    if expected_decision not in {"accept", "reject"}:
+        raise ValueError("visual disposition operation is invalid")
+    decision = _snapshot_visual_decision(visual_decision)
     proof_parent = require_within(
         asset_root / "renders" / "proofs" / PROOF_LIBRARY_ID,
         asset_root,
     )
+    _fail_if_generation_is_already_dispositioned(proof_parent, generation_id)
     pending_parent = require_within(proof_parent / PENDING_REVIEW_DIRECTORY, proof_parent)
     pending = require_within(pending_parent / generation_id, pending_parent)
     if not pending.is_dir():
@@ -1745,57 +2169,190 @@ def _dispose_editorial_preview_generation(
     target = require_within(target_parent / generation_id, target_parent)
     if target.exists():
         raise ValueError(f"visual disposition target already exists: {target}")
-
-    for shot in _CAMPAIGN.shots:
-        _load_completion_authority(asset_root, shot)
-    manifest, report, manifest_sha, report_sha = _validate_generation_artifacts(
+    claim = _acquire_disposition_claim(
+        proof_parent,
         pending,
-        expected_status="pending-review",
-        require_disposition=False,
+        target,
+        generation_id,
+        decision,
     )
-    record = _validate_visual_decision(
-        visual_decision,
-        expected_decision=expected_decision,
-        generation_id=generation_id,
-        manifest=manifest,
-        report=report,
-        manifest_sha256=manifest_sha,
-        report_sha256=report_sha,
-    )
-    disposition_path = pending / VISUAL_DISPOSITION_NAME
-    if disposition_path.exists():
-        raise ValueError("pending-review generation already has a visual disposition")
-    atomic_write_json(disposition_path, record)
-    disposition_sha = sha256_file(disposition_path)
+    staging: Path | None = None
     status = "accepted" if expected_decision == "accept" else "rejected"
-    _apply_visual_disposition(
-        pending,
-        status=status,
-        decision_record=record,
-        disposition_sha256=disposition_sha,
-        technical_manifest_sha256=manifest_sha,
-        technical_report_sha256=report_sha,
-    )
-    for shot in _CAMPAIGN.shots:
-        _load_completion_authority(asset_root, shot)
-    target_parent.mkdir(parents=True, exist_ok=True)
-    _validate_generation_artifacts(
-        pending,
-        expected_status=status,
-        require_disposition=True,
-    )
-    os.rename(pending, target)
+    ready_claim: dict[str, object] | None = None
+    candidate_manifest: dict[str, object] | None = None
+    candidate_report: dict[str, object] | None = None
+    candidate_manifest_sha = ""
+    candidate_report_sha = ""
+    try:
+        if not pending.is_dir():
+            raise ValueError(f"pending-review generation is missing under claim: {generation_id}")
+        for shot in _CAMPAIGN.shots:
+            _load_completion_authority(asset_root, shot)
+
+        decision_manifest_sha, decision_report_sha = (
+            _assert_decision_bound_technical_hashes(pending, decision)
+        )
+        manifest, report, manifest_sha, report_sha = _validate_generation_artifacts(
+            pending,
+            expected_status="pending-review",
+            require_disposition=False,
+        )
+        if (
+            manifest_sha != decision_manifest_sha
+            or report_sha != decision_report_sha
+        ):
+            raise ValueError(
+                "decision-bound technical manifest/report hashes changed during validation"
+            )
+        record = _validate_visual_decision(
+            decision,
+            expected_decision=expected_decision,
+            generation_id=generation_id,
+            manifest=manifest,
+            report=report,
+            manifest_sha256=manifest_sha,
+            report_sha256=report_sha,
+        )
+        _assert_decision_bound_technical_hashes(pending, decision)
+
+        target_parent.mkdir(parents=True, exist_ok=True)
+        candidate_path = require_within(
+            proof_parent
+            / f".{generation_id}.{expected_decision}.{claim.nonce}.disposing",
+            proof_parent,
+        )
+        if candidate_path.exists():
+            raise ValueError(f"disposition staging path already exists: {candidate_path}")
+        candidate_path.mkdir()
+        staging = candidate_path
+        _copy_pending_generation(pending, staging)
+        (
+            _copied_manifest,
+            _copied_report,
+            copied_manifest_sha,
+            copied_report_sha,
+        ) = _validate_generation_artifacts(
+            staging,
+            expected_status="pending-review",
+            require_disposition=False,
+        )
+        if copied_manifest_sha != manifest_sha or copied_report_sha != report_sha:
+            raise ValueError("copied technical manifest/report bytes changed in staging")
+
+        disposition_path = staging / VISUAL_DISPOSITION_NAME
+        atomic_write_json(disposition_path, record)
+        disposition_sha = sha256_file(disposition_path)
+        _apply_visual_disposition(
+            staging,
+            status=status,
+            decision_record=record,
+            disposition_sha256=disposition_sha,
+            technical_manifest_sha256=manifest_sha,
+            technical_report_sha256=report_sha,
+        )
+        (
+            candidate_manifest,
+            candidate_report,
+            candidate_manifest_sha,
+            candidate_report_sha,
+        ) = _validate_generation_artifacts(
+            staging,
+            expected_status=status,
+            require_disposition=True,
+        )
+
+        for shot in _CAMPAIGN.shots:
+            _load_completion_authority(asset_root, shot)
+        _assert_decision_bound_technical_hashes(pending, decision)
+        (
+            _source_manifest,
+            _source_report,
+            final_source_manifest_sha,
+            final_source_report_sha,
+        ) = _validate_generation_artifacts(
+            pending,
+            expected_status="pending-review",
+            require_disposition=False,
+        )
+        _assert_decision_bound_technical_hashes(pending, decision)
+        if (
+            final_source_manifest_sha != manifest_sha
+            or final_source_report_sha != report_sha
+        ):
+            raise ValueError(
+                "decision-bound technical source changed before final publication"
+            )
+
+        ready_claim = _publication_ready_claim(
+            claim,
+            source_manifest_sha256=manifest_sha,
+            source_report_sha256=report_sha,
+            target=target,
+            candidate_manifest_sha256=candidate_manifest_sha,
+            candidate_report_sha256=candidate_report_sha,
+            candidate_manifest=candidate_manifest,
+            candidate_report=candidate_report,
+        )
+        atomic_write_json(claim.path, ready_claim)
+        _assert_disposition_claim_owned(claim, expected_status="publication-ready")
+        (
+            final_candidate_manifest,
+            final_candidate_report,
+            final_candidate_manifest_sha,
+            final_candidate_report_sha,
+        ) = _validate_generation_artifacts(
+            staging,
+            expected_status=status,
+            require_disposition=True,
+        )
+        if (
+            final_candidate_manifest != candidate_manifest
+            or final_candidate_report != candidate_report
+            or final_candidate_manifest_sha != candidate_manifest_sha
+            or final_candidate_report_sha != candidate_report_sha
+        ):
+            raise ValueError("disposition candidate changed before atomic publication")
+        if target.exists():
+            raise ValueError(f"visual disposition target appeared under claim: {target}")
+        os.rename(staging, target)
+        staging = None
+    except Exception as error:
+        secondary_errors = _clean_failed_disposition_attempt(
+            staging,
+            proof_parent,
+            claim,
+        )
+        _attach_secondary_errors(error, secondary_errors)
+        raise
+
+    assert ready_claim is not None
+    assert candidate_manifest is not None
+    assert candidate_report is not None
+    post_publication_errors: list[str] = []
+    try:
+        consumed_claim = {
+            **ready_claim,
+            "status": "consumed",
+            "published_at": _utc_now(),
+        }
+        atomic_write_json(claim.path, consumed_claim)
+        _assert_disposition_claim_owned(claim, expected_status="consumed")
+    except Exception as error:
+        post_publication_errors.append(
+            f"disposition claim finalize failed: {type(error).__name__}: {error}"
+        )
     return EditorialPreviewResult(
         status=status,
         generation_id=generation_id,
         output_root=target,
         manifest_path=target / MANIFEST_NAME,
-        manifest_sha256=sha256_file(target / MANIFEST_NAME),
+        manifest_sha256=candidate_manifest_sha,
         report_path=target / REPORT_NAME,
-        report_sha256=sha256_file(target / REPORT_NAME),
+        report_sha256=candidate_report_sha,
         contact_sheet_path=target / CONTACT_SHEET_NAME,
-        contact_sheet_sha256=sha256_file(target / CONTACT_SHEET_NAME),
+        contact_sheet_sha256=str(candidate_report["contact_sheet_sha256"]),
         shot_count=4,
+        post_publication_errors=tuple(post_publication_errors),
     )
 
 
@@ -2049,6 +2606,7 @@ def _emit_campaign_result(result: EditorialPreviewResult) -> None:
                 "contact_sheet_path": str(result.contact_sheet_path),
                 "contact_sheet_sha256": result.contact_sheet_sha256,
                 "shot_count": result.shot_count,
+                "post_publication_errors": list(result.post_publication_errors),
             },
             sort_keys=True,
         ),
