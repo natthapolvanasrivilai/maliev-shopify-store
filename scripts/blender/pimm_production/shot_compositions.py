@@ -103,6 +103,17 @@ _TARGETS = {
             "enclosure": ("30G-d49b1cfe3bdb231d", "30G-b76c8e63056742ec"),
         },
         "pneumatics": {
+            "air_cylinder": (
+                "30G-a346c4960c82485b",
+                "30G-01710571532bdd66",
+                "30G-2b602e332d5d2816",
+                "30G-ea4d84f9234f9e35",
+                "30G-678f1ef64a9db8f8",
+                "30G-dae70eb8d16aeb03",
+                "30G-c2cad5607757c67c",
+                "30G-fd3713c0793497ac",
+                "30G-d7889d7dc749a14f",
+            ),
             "regulator": (
                 "30G-17d7471e4d56f8a8",
                 "30G-7e1fa62c25dc41d3",
@@ -161,6 +172,17 @@ _TARGETS = {
             "enclosure": ("50G-de39a2df56bb26ce", "50G-09ae1d029ca4dc6f"),
         },
         "pneumatics": {
+            "air_cylinder": (
+                "50G-f5863566de699875",
+                "50G-7240cdc95d9a6eb4",
+                "50G-28eaf98ff78a0eac",
+                "50G-6f2227a948150a84",
+                "50G-817b30094d3fa693",
+                "50G-5ffc7830bfe95dcf",
+                "50G-c1e7ec628b39b2b7",
+                "50G-aa7c5a1b44ceeb87",
+                "50G-7a78ce314a111d73",
+            ),
             "regulator": (
                 "50G-8f9c7d4319d9a1ec",
                 "50G-2b2a97a424a4a7dd",

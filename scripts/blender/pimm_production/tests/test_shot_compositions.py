@@ -110,6 +110,7 @@ class ShotCompositionTests(unittest.TestCase):
         expected_groups = {
             "controls": {"controller_segments", "enclosure"},
             "pneumatics": {
+                "air_cylinder",
                 "regulator",
                 "gauge",
                 "valve_fittings_tubing",
@@ -131,6 +132,44 @@ class ShotCompositionTests(unittest.TestCase):
                             all(value.startswith(machine.upper()) for value in identifiers)
                         )
                     self.assertGreaterEqual(composition.minimum_working_distance_heights, 1.0)
+
+    def test_pneumatics_compositions_include_the_complete_air_cylinder(self) -> None:
+        """Catches pneumatic product frames regressing to an upper-control crop."""
+
+        expected = {
+            "30g": {
+                "30G-a346c4960c82485b",
+                "30G-01710571532bdd66",
+                "30G-2b602e332d5d2816",
+                "30G-ea4d84f9234f9e35",
+                "30G-678f1ef64a9db8f8",
+                "30G-dae70eb8d16aeb03",
+                "30G-c2cad5607757c67c",
+                "30G-fd3713c0793497ac",
+                "30G-d7889d7dc749a14f",
+            },
+            "50g": {
+                "50G-f5863566de699875",
+                "50G-7240cdc95d9a6eb4",
+                "50G-28eaf98ff78a0eac",
+                "50G-6f2227a948150a84",
+                "50G-817b30094d3fa693",
+                "50G-5ffc7830bfe95dcf",
+                "50G-c1e7ec628b39b2b7",
+                "50G-aa7c5a1b44ceeb87",
+                "50G-7a78ce314a111d73",
+            },
+        }
+        for machine, stable_ids in expected.items():
+            shot_id = f"pimm-{machine}--pneumatics--macro"
+            composition = composition_for(shot_id)
+            with self.subTest(shot_id=shot_id):
+                self.assertEqual(set(composition.target_groups["air_cylinder"]), stable_ids)
+                self.assertTrue(
+                    set(stable_ids).isdisjoint(
+                        composition.target_groups["valve_fittings_tubing"]
+                    )
+                )
 
     def test_comparison_places_each_linked_machine_once_on_one_ground_plane(self) -> None:
         """Catches duplicated collections, scale cheats, or independently tilted floors."""
