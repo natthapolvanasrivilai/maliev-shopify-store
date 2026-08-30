@@ -506,6 +506,8 @@ const pageProbe = `(() => {
   const payload = document.querySelector('[data-pimm-variant-data]');
   return {
     bentoCount: document.querySelectorAll('[data-pimm-engineering-bento]').length,
+    editorialCount: document.querySelectorAll('[data-pimm-editorial]').length,
+    editorialChapterCount: document.querySelectorAll('[data-pimm-editorial-chapter]').length,
     demoActionCount: machine?.querySelectorAll('[data-pimm-book-visit]').length ?? 0,
     h1Count: machine?.querySelectorAll('h1').length ?? 0,
     liveRegion: status && {
@@ -544,6 +546,45 @@ const pageProbe = `(() => {
     radioModels: radios.map((radio) => radio.dataset.model),
     radioNames: radios.map((radio) => radio.name),
     radioValues: radios.map((radio) => radio.value),
+  };
+})()`;
+
+const editorialGeometryProbe = `(async () => {
+  const editorial = document.querySelector('[data-pimm-editorial]');
+  editorial?.scrollIntoView({ block: 'start' });
+  const images = [...(editorial?.querySelectorAll('img') || [])];
+  await Promise.all(images.map((image) => image.decode?.().catch(() => undefined)));
+  const overlaps = (a, b) => Boolean(
+    a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+  );
+  return {
+    files: images.map((image) => new URL(image.currentSrc || image.src, location.href).pathname.split('/').pop()),
+    chapters: [...(editorial?.querySelectorAll('[data-pimm-editorial-chapter]') || [])].map((chapter) => {
+      const figure = chapter.querySelector('figure');
+      const image = chapter.querySelector('img');
+      const copy = chapter.querySelector('.pimm-machine__editorial-copy');
+      const caption = chapter.querySelector('figcaption');
+      const figureRect = figure?.getBoundingClientRect();
+      const imageRect = image?.getBoundingClientRect();
+      const copyRect = copy?.getBoundingClientRect();
+      return {
+        captionTruncated: Boolean(caption && (caption.scrollHeight > caption.clientHeight + 1 || caption.scrollWidth > caption.clientWidth + 1)),
+        chapter: chapter.dataset.pimmEditorialChapter,
+        imageContained: Boolean(figureRect && imageRect
+          && imageRect.left >= figureRect.left - 1
+          && imageRect.right <= figureRect.right + 1
+          && imageRect.top >= figureRect.top - 1
+          && imageRect.bottom <= figureRect.bottom + 1),
+        intrinsic: image ? [image.naturalWidth, image.naturalHeight] : null,
+        loaded: Boolean(image?.complete && image.naturalWidth > 0),
+        overlap: overlaps(imageRect, copyRect),
+        renderedRatio: imageRect ? imageRect.width / imageRect.height : null,
+      };
+    }),
+    overflowX: Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.documentElement.clientWidth,
+    ),
   };
 })()`;
 
@@ -730,6 +771,8 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
           })()`);
           const probe = await evaluate(session, pageProbe);
           assert.equal(probe.bentoCount, 1);
+          assert.equal(probe.editorialCount, 1);
+          assert.equal(probe.editorialChapterCount, 4);
           assert.equal(probe.h1Count, 1);
           assert.equal(
             probe.noOverflow,
@@ -840,6 +883,32 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               ].join(' × '),
               max_air_pressure_mpa: String(expectedModel.specifications.max_air_pressure_mpa),
             });
+
+            const editorialState = await evaluate(session, editorialGeometryProbe);
+            assert.deepEqual(editorialState.files, [
+              'pimm-editorial-30g-architectural-daylight.webp',
+              'pimm-editorial-50g-modern-workshop.webp',
+              'pimm-editorial-50g-dark-engineering.webp',
+              'pimm-editorial-30g-process-still-life.webp',
+            ]);
+            assert.equal(editorialState.overflowX <= 1, true, `${language} ${model} ${width}x${height} editorial overflow`);
+            assert.deepEqual(
+              editorialState.chapters.map(({ chapter, intrinsic }) => [chapter, intrinsic]),
+              [
+                ['architectural', [2560, 1440]],
+                ['workshop', [2560, 1440]],
+                ['engineering', [2560, 1440]],
+                ['process', [1800, 2250]],
+              ],
+            );
+            for (const chapter of editorialState.chapters) {
+              assert.equal(chapter.loaded, true, `${language} ${model} ${width}x${height} ${chapter.chapter} must load`);
+              assert.equal(chapter.imageContained, true, `${language} ${model} ${width}x${height} ${chapter.chapter} must not clip`);
+              assert.equal(chapter.overlap, false, `${language} ${model} ${width}x${height} ${chapter.chapter} image/copy overlap`);
+              assert.equal(chapter.captionTruncated, false, `${language} ${model} ${width}x${height} ${chapter.chapter} caption truncation`);
+              const [naturalWidth, naturalHeight] = chapter.intrinsic;
+              assert.ok(Math.abs(chapter.renderedRatio - (naturalWidth / naturalHeight)) < 0.01);
+            }
             assert.deepEqual(
               Object.fromEntries(Object.entries(state.record.media).map(([slot, media]) => [slot, {
                 alt: media.alt,
@@ -1129,6 +1198,14 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       });
       assert.ok(zoom.overflowX <= 1, `200% zoom flow ${JSON.stringify(zoom)}`);
       assert.ok(zoom.titleLineCount <= 5, `200% zoom title ${JSON.stringify(zoom)}`);
+      const editorialZoom = await evaluate(session, editorialGeometryProbe);
+      assert.ok(editorialZoom.overflowX <= 1, `200% editorial overflow ${JSON.stringify(editorialZoom)}`);
+      assert.equal(editorialZoom.chapters.length, 4);
+      for (const chapter of editorialZoom.chapters) {
+        assert.equal(chapter.imageContained, true, `200% ${chapter.chapter} image clipping`);
+        assert.equal(chapter.overlap, false, `200% ${chapter.chapter} image/copy overlap`);
+        assert.equal(chapter.captionTruncated, false, `200% ${chapter.chapter} caption truncation`);
+      }
       await evaluate(session, `(() => {
         document.querySelector('[data-pimm-machine-product]')?.scrollIntoView({ block: 'start' });
         return true;

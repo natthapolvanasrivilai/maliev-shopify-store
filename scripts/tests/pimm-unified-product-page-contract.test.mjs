@@ -7,12 +7,13 @@ const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.ur
 
 const stripShopifyComment = (source) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '');
 
-const [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership, templateSource, header, js, css, enLocaleSource, thLocaleSource, indexTemplateSource, thailandIndexTemplateSource] = await Promise.all([
+const [section, heroConsole, qualificationStrip, selector, bento, editorial, purchase, ownership, templateSource, header, js, css, enLocaleSource, thLocaleSource, indexTemplateSource, thailandIndexTemplateSource] = await Promise.all([
   readThemeFile('sections/maliev-pimm-machine-product.liquid'),
   readThemeFile('snippets/pimm-hero-console.liquid'),
   readThemeFile('snippets/pimm-qualification-strip.liquid'),
   readThemeFile('snippets/pimm-model-selector.liquid'),
   readThemeFile('snippets/pimm-engineering-bento.liquid'),
+  readThemeFile('snippets/pimm-editorial-chapters.liquid'),
   readThemeFile('snippets/pimm-purchase-qualification.liquid'),
   readThemeFile('snippets/pimm-ownership.liquid'),
   readThemeFile('templates/product.pimm-configurator.json'),
@@ -40,7 +41,7 @@ const storefrontLocales = await Promise.all(
 const schemaSource = section.match(/{% schema %}([\s\S]*?){% endschema %}/)?.[1];
 const schema = JSON.parse(schemaSource);
 const sectionRuntime = section.split('{% schema %}')[0];
-const renderedContract = [section, heroConsole, qualificationStrip, selector, bento, purchase, ownership].join('\n');
+const renderedContract = [section, heroConsole, qualificationStrip, selector, bento, editorial, purchase, ownership].join('\n');
 const variantPayloadSource = section.match(/<script[^>]*data-pimm-variant-data[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '';
 
 const flattenKeys = (value, prefix = '') =>
@@ -251,6 +252,48 @@ test('engineering console contains the first-screen qualification strip and lead
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
 });
 
+test('one fixed editorial landmark follows tooling and precedes ownership and demo conversion', () => {
+  const tooling = section.indexOf('pimm-machine__tooling');
+  const editorialRender = section.indexOf("render 'pimm-editorial-chapters'");
+  const ownershipRender = section.indexOf("render 'pimm-ownership'");
+  const purchaseRender = section.indexOf("render 'pimm-purchase-qualification'");
+
+  assert.ok(tooling >= 0 && editorialRender > tooling);
+  assert.ok(ownershipRender > editorialRender);
+  assert.ok(purchaseRender > ownershipRender);
+  assert.equal(editorial.match(/data-pimm-editorial(?:\s|>)/g)?.length, 1);
+  assert.equal(editorial.match(/<article\b/g)?.length, 4);
+  assert.deepEqual(
+    [...editorial.matchAll(/data-pimm-editorial-chapter="([^"]+)"/g)].map((match) => match[1]),
+    ['architectural', 'workshop', 'engineering', 'process'],
+  );
+  assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
+});
+
+test('editorial photography is intrinsic lazy localized and independent of selected-model state', () => {
+  const expected = [
+    ['pimm-editorial-30g-architectural-daylight.webp', '2560', '1440'],
+    ['pimm-editorial-50g-modern-workshop.webp', '2560', '1440'],
+    ['pimm-editorial-50g-dark-engineering.webp', '2560', '1440'],
+    ['pimm-editorial-30g-process-still-life.webp', '1800', '2250'],
+  ];
+
+  for (const [asset, width, height] of expected) {
+    const image = editorial.match(new RegExp(`<img[\\s\\S]*?${asset.replaceAll('.', '\\.') }[\\s\\S]*?>`))?.[0] ?? '';
+    assert.match(image, new RegExp(`width="${width}"`));
+    assert.match(image, new RegExp(`height="${height}"`));
+    assert.match(image, /loading="lazy"/);
+    assert.match(image, /decoding="async"/);
+    assert.match(image, /fetchpriority="low"/);
+    assert.match(image, /products\.pimm_machine\.editorial\.[^.]+\.alt/);
+  }
+
+  assert.doesNotMatch(editorial, /data-pimm-media-model|object-fit\s*:\s*cover|<carousel\b|<button\b/);
+  assert.doesNotMatch(editorial, /style\s*=|position\s*:\s*absolute|100vw/);
+  assert.match(css, /\.pimm-machine__editorial-figure img\s*\{[^}]*height:\s*auto[^}]*width:\s*100%/s);
+  assert.doesNotMatch(css.match(/\.pimm-machine__editorial[\s\S]*?(?=@media \(prefers-reduced-motion)/)?.[0] ?? '', /object-fit:\s*cover|position:\s*absolute|100vw/);
+});
+
 test('engineering console uses the approved open twelve-column product stage', () => {
   assert.match(section, /maliev-pimm-machine\.css[^]*stylesheet_tag/);
   assert.match(css, /\.pimm-machine\s*\{[^}]*max-width:\s*1440px[^}]*padding-inline:\s*48px/s);
@@ -368,6 +411,25 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
     'alt.50g.overview',
     'alt.50g.engineering',
     'alt.50g.tooling',
+    'editorial.heading',
+    'editorial.intro',
+    'editorial.architectural.heading',
+    'editorial.architectural.body',
+    'editorial.architectural.caption',
+    'editorial.architectural.alt',
+    'editorial.workshop.heading',
+    'editorial.workshop.body',
+    'editorial.workshop.caption',
+    'editorial.workshop.alt',
+    'editorial.engineering.heading',
+    'editorial.engineering.body',
+    'editorial.engineering.caption',
+    'editorial.engineering.alt',
+    'editorial.process.heading',
+    'editorial.process.body',
+    'editorial.process.caption',
+    'editorial.process.alt',
+    'editorial.props_disclaimer',
   ];
 
   for (const key of requiredKeys) {
@@ -376,7 +438,7 @@ test('unified machine copy has complete English and Thai pimm_machine parity', (
     assert.ok(getPath(en, key).trim(), `empty English ${key}`);
     assert.ok(getPath(th, key).trim(), `empty Thai ${key}`);
   }
-  for (const key of ['hero.fit_statement', 'hero.promise', 'hero.evidence_heading', 'hero.engineering_detail', 'qualification.heading', 'qualification.availability', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero']) {
+  for (const key of ['hero.fit_statement', 'hero.promise', 'hero.evidence_heading', 'hero.engineering_detail', 'qualification.heading', 'qualification.availability', 'fit.body', 'engineering.body', 'purchase.body', 'ownership.body', 'alt.30g.hero', 'alt.50g.hero', 'editorial.heading', 'editorial.intro', 'editorial.architectural.body', 'editorial.workshop.body', 'editorial.engineering.body', 'editorial.process.body', 'editorial.props_disclaimer']) {
     assert.match(getPath(th, key), /[\u0E00-\u0E7F]/, `${key} must contain native Thai copy`);
   }
 

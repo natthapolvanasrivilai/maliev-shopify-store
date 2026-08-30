@@ -21,11 +21,11 @@
   box-sizing: border-box;
 }
 
-.pimm-machine :is(h1, h2, p, figure, fieldset, dl, dd) {
+.pimm-machine :is(h1, h2, h3, p, figure, fieldset, dl, dd) {
   margin: 0;
 }
 
-.pimm-machine :is(h1, h2) {
+.pimm-machine :is(h1, h2, h3) {
   color: #111315;
   font-family: var(--maliev-font-sans, 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif);
   font-weight: 600;
@@ -43,6 +43,12 @@ body main .section-pimm-machine-product .pimm-machine h1 {
   font-size: clamp(2.8rem, 4vw, 5.2rem);
   letter-spacing: -0.025em;
   line-height: 1.04;
+}
+
+.pimm-machine h3 {
+  font-size: clamp(2.2rem, 2.8vw, 3.6rem);
+  letter-spacing: -0.02em;
+  line-height: 1.08;
 }
 
 .pimm-machine p {
@@ -507,6 +513,101 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   color: #FFFFFF;
 }
 
+.pimm-machine__editorial {
+  border-top: 1px solid #D9DDE1;
+  display: grid;
+  gap: clamp(64px, 9vw, 136px);
+  padding-block: clamp(56px, 7vw, 104px);
+}
+
+.pimm-machine__editorial-intro {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+}
+
+.pimm-machine__editorial-chapter {
+  align-items: center;
+  display: grid;
+  gap: clamp(24px, 4vw, 56px);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.pimm-machine__editorial-figure {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pimm-machine__editorial-figure img {
+  height: auto;
+  max-width: 100%;
+  width: 100%;
+}
+
+.pimm-machine__editorial-figure figcaption,
+.pimm-machine__editorial-disclaimer {
+  color: #626A73;
+  font-size: 1.3rem;
+  line-height: 1.45;
+}
+
+.pimm-machine__editorial-copy {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure,
+.pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure {
+  grid-column: 1 / -1;
+  margin-inline: -48px;
+}
+
+.pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure figcaption,
+.pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure figcaption {
+  padding-inline: 48px;
+}
+
+.pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-copy {
+  grid-column: 2 / 8;
+}
+
+.pimm-machine__editorial-chapter--workshop .pimm-machine__editorial-figure {
+  grid-column: 1 / 9;
+}
+
+.pimm-machine__editorial-chapter--workshop .pimm-machine__editorial-copy {
+  grid-column: 9 / -1;
+}
+
+.pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy {
+  background: #111315;
+  color: #FFFFFF;
+  grid-column: 1 / -1;
+  margin-inline: -48px;
+  padding: clamp(28px, 4vw, 48px) 48px;
+}
+
+.pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy :is(h3, p) {
+  color: #FFFFFF;
+}
+
+.pimm-machine__editorial-chapter--process .pimm-machine__editorial-figure {
+  grid-column: 1 / 6;
+}
+
+.pimm-machine__editorial-chapter--process .pimm-machine__editorial-copy {
+  grid-column: 7 / -1;
+}
+
+.pimm-machine__editorial-disclaimer {
+  border-top: 1px solid #D9DDE1;
+  max-width: 72ch;
+  padding-top: 16px;
+}
+
 .pimm-machine__ownership {
   align-items: end;
   display: flex;
@@ -721,6 +822,18 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
     margin-inline: -32px;
     padding-inline: 32px;
   }
+
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy {
+    margin-inline: -32px;
+  }
+
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure figcaption,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure figcaption,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy {
+    padding-inline: 32px;
+  }
 }
 
 @media (min-width: 990px) and (max-width: 1199px) and (max-height: 820px) {
@@ -860,6 +973,12 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
 
   .pimm-machine__purchase-action {
     grid-column: 1;
+  }
+
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-copy,
+  .pimm-machine__editorial-chapter--workshop .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--workshop .pimm-machine__editorial-copy {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1006,6 +1125,37 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   }
 
   .pimm-machine__app-integrations {
+    padding-inline: 20px;
+  }
+
+  .pimm-machine__editorial {
+    gap: 64px;
+  }
+
+  .pimm-machine__editorial-chapter {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-copy,
+  .pimm-machine__editorial-chapter--workshop .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--workshop .pimm-machine__editorial-copy,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy,
+  .pimm-machine__editorial-chapter--process .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--process .pimm-machine__editorial-copy {
+    grid-column: 1;
+  }
+
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy {
+    margin-inline: -20px;
+  }
+
+  .pimm-machine__editorial-chapter--architectural .pimm-machine__editorial-figure figcaption,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure figcaption,
+  .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy {
     padding-inline: 20px;
   }
 }

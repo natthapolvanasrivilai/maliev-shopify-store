@@ -230,6 +230,35 @@
       }
     },
     "pimm_machine": {
+      "editorial": {
+        "heading": "Built for the workshop floor",
+        "intro": "Four views connect the machine's structure, controls and production context. The selected specifications above remain the authority for choosing 30G or 50G.",
+        "architectural": {
+          "heading": "Workshop scale, engineered in Thailand",
+          "body": "The 30G combines a compact frame with direct pneumatic operation and independent temperature control, with the machine kept fully visible for installation planning.",
+          "caption": "30G shown in architectural daylight.",
+          "alt": "MALIEV 30G pneumatic injection molding machine grounded in an architectural daylight studio with window-frame shadows across the floor"
+        },
+        "workshop": {
+          "heading": "See how the machine fits the work",
+          "body": "The open frame keeps the pressure regulation, pneumatic valve, controllers, mold area and service access visible in a practical workshop setting.",
+          "caption": "50G shown in an illustrative workshop setting. Surrounding equipment is not included.",
+          "alt": "MALIEV 50G pneumatic injection molding machine grounded in a small-production workshop with a workbench and tool cart in the background"
+        },
+        "engineering": {
+          "heading": "Controls remain easy to inspect",
+          "body": "The 50G keeps pressure regulation, the pneumatic valve and both temperature controllers visible so utilities and operating access can be reviewed before installation.",
+          "caption": "50G shown under controlled engineering lighting.",
+          "alt": "MALIEV 50G pneumatic injection molding machine in a full front view under controlled graphite studio lighting"
+        },
+        "process": {
+          "heading": "Plan the process before production",
+          "body": "Bring your part, material, mold plan, compressor capacity and utility requirements to a demo session so the machine and tooling plan can be confirmed together.",
+          "caption": "30G shown in an illustrative process-planning setting. Surrounding props are not included.",
+          "alt": "MALIEV 30G pneumatic injection molding machine with process-planning and inspection props arranged around the machine"
+        },
+        "props_disclaimer": "Environmental equipment, molds, tools and process props shown in these images are illustrative and are not included with the machine."
+      },
       "hero": {
         "fit_statement": "Workshop-scale injection molding, built and supported in Thailand. Choose 30G or 50G capacity without changing the ownership path.",
         "promise": "Real injection molding capability, sized for your workshop.",
