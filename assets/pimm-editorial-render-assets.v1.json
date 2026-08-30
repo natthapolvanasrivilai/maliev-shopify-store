@@ -7,6 +7,7 @@
     {
       "scene": "architectural-daylight",
       "shot_id": "pimm-30g--concept-architectural-daylight",
+      "scene_sha256": "926621C03C2387744E3602C330A33A0EEDC2B3590EEA60F116399CC89932BF33",
       "name": "pimm-editorial-30g-architectural-daylight.webp",
       "dimensions": [2560, 1440],
       "native": {
@@ -19,6 +20,7 @@
     {
       "scene": "dark-engineering",
       "shot_id": "pimm-50g--concept-dark-engineering",
+      "scene_sha256": "CE85B57C34CB5F165FE62DC6B402963C3071F1CC20A89AA905F4248F23C212DB",
       "name": "pimm-editorial-50g-dark-engineering.webp",
       "dimensions": [2560, 1440],
       "native": {
@@ -31,6 +33,7 @@
     {
       "scene": "modern-workshop",
       "shot_id": "pimm-50g--concept-modern-workshop",
+      "scene_sha256": "73D5D5FEF042B602626CA0771EC666D575FF1A467E93F8B5CF20F91DC1680EB3",
       "name": "pimm-editorial-50g-modern-workshop.webp",
       "dimensions": [2560, 1440],
       "native": {
@@ -43,6 +46,7 @@
     {
       "scene": "process-still-life",
       "shot_id": "pimm-30g--concept-process-still-life",
+      "scene_sha256": "8483A0444A06BE6D80BEFAAC6B6E6EB18CE06E4E65ACE11C5065DB2476FFEFAD",
       "name": "pimm-editorial-30g-process-still-life.webp",
       "dimensions": [1800, 2250],
       "native": {
