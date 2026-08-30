@@ -9,8 +9,10 @@ import hashlib
 import json
 from io import StringIO
 from pathlib import Path
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
+import textwrap
 from types import SimpleNamespace
 from unittest.mock import patch
 import unittest
@@ -22,6 +24,241 @@ from scripts.blender.pimm_production.editorial_concept_contract import (
 from scripts.blender.pimm_production import blender_editorial_scene
 from scripts.blender.pimm_production import editorial_sets
 from scripts.blender.pimm_production.tests.test_editorial_sets import _FakeBpy
+
+
+BLENDER_52 = Path(r"D:\Blender 5.2\blender.exe")
+_REAL_SIGNATURE_MARKER = "PIMM_REAL_SIGNATURE_SMOKE_JSON="
+
+
+def _run_real_blender_signature_smoke(directory: Path) -> subprocess.CompletedProcess[str]:
+    """Exercise signature mutations against saved/reopened Blender datablocks."""
+
+    script_path = directory / "real_signature_smoke.py"
+    fixture_path = directory / "real_signature_fixture.blend"
+    script_path.write_text(
+        textwrap.dedent(
+            r'''
+            from __future__ import annotations
+
+            import json
+            from pathlib import Path
+            import sys
+
+            import bpy
+
+
+            arguments = sys.argv[sys.argv.index("--") + 1 :]
+            repository_root = Path(arguments[0]).resolve()
+            fixture_path = Path(arguments[1]).resolve()
+            sys.path.insert(0, str(repository_root))
+
+            from scripts.blender.pimm_production import blender_editorial_scene as production
+
+
+            SUPPORT_NAME = "SIG_SUPPORT"
+            ALLOWED_NAMES = {SUPPORT_NAME}
+
+
+            def add_nested_group(root_tree, prefix: str) -> None:
+                inner = bpy.data.node_groups.new(f"{prefix}_INNER", "ShaderNodeTree")
+                value = inner.nodes.new("ShaderNodeValue")
+                value.name = f"{prefix}_VALUE"
+                value.outputs[0].default_value = 0.25
+                outer = bpy.data.node_groups.new(f"{prefix}_OUTER", "ShaderNodeTree")
+                nested = outer.nodes.new("ShaderNodeGroup")
+                nested.name = f"{prefix}_NESTED"
+                nested.node_tree = inner
+                root = root_tree.nodes.new("ShaderNodeGroup")
+                root.name = f"{prefix}_ROOT"
+                root.node_tree = outer
+
+
+            def signatures() -> tuple[str, str]:
+                bpy.context.view_layer.update()
+                return (
+                    production._scene_geometry_signature(bpy, ALLOWED_NAMES),
+                    production._scene_light_signature(bpy),
+                )
+
+
+            def evaluated_mesh_record() -> dict[str, object]:
+                depsgraph = bpy.context.evaluated_depsgraph_get()
+                evaluated = bpy.data.objects[SUPPORT_NAME].evaluated_get(depsgraph)
+                mesh = evaluated.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
+                try:
+                    return production._mesh_signature_record(mesh)
+                finally:
+                    evaluated.to_mesh_clear()
+
+
+            def assert_rejected(before: tuple[str, str], after: tuple[str, str]) -> None:
+                contract = {
+                    "set": {
+                        "scene_geometry_signature": before[0],
+                        "scene_light_signature": before[1],
+                    }
+                }
+                snapshot = {
+                    "set": {
+                        "scene_geometry_signature": after[0],
+                        "scene_light_signature": after[1],
+                    },
+                    "publication": {
+                        "complete": True,
+                        "transaction_id_matches": True,
+                        "scene_sha256_matches": True,
+                        "contract_sha256_matches": True,
+                    },
+                }
+                errors = production._validate_editorial_runtime_snapshot(snapshot, contract)
+                assert "editorial set signatures do not match the contract" in errors, errors
+
+
+            def reopen() -> None:
+                bpy.ops.wm.open_mainfile(filepath=str(fixture_path), load_ui=False)
+
+
+            def run_geometry_case(name: str, mutate) -> None:
+                reopen()
+                before = signatures()
+                evaluated_before = evaluated_mesh_record()
+                mutate()
+                after = signatures()
+                evaluated_after = evaluated_mesh_record()
+                assert before[0] != after[0], f"geometry signature unchanged for {name}"
+                assert evaluated_before != evaluated_after, f"evaluated mesh unchanged for {name}"
+                assert_rejected(before, after)
+                results[name] = True
+
+
+            def run_node_case(name: str, node_group_name: str, channel: str) -> None:
+                reopen()
+                before = signatures()
+                inner = bpy.data.node_groups[node_group_name]
+                inner.nodes[0].outputs[0].default_value = 0.75
+                after = signatures()
+                index = 0 if channel == "geometry" else 1
+                assert before[index] != after[index], f"{channel} signature unchanged for {name}"
+                assert_rejected(before, after)
+                results[name] = True
+
+
+            bpy.ops.wm.read_factory_settings(use_empty=True)
+            scene = bpy.context.scene
+            mesh = bpy.data.meshes.new("SIG_MESH")
+            mesh.from_pydata(
+                [(-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (1.0, 1.0, 0.0), (-1.0, 1.0, 0.0)],
+                [],
+                [(0, 1, 2, 3)],
+            )
+            mesh.update()
+            support = bpy.data.objects.new(SUPPORT_NAME, mesh)
+            support["pimm_scene_support_ownership"] = "scene-support"
+            support["pimm_scene_support_role"] = "signature-fixture"
+            scene.collection.objects.link(support)
+            solidify = support.modifiers.new("SIG_SOLIDIFY", "SOLIDIFY")
+            solidify.thickness = 0.25
+
+            material = bpy.data.materials.new("SIG_MATERIAL")
+            material.use_nodes = True
+            add_nested_group(material.node_tree, "SIG_MATERIAL")
+            packed_image = bpy.data.images.new("SIG_PACKED_IMAGE", width=1, height=1)
+            packed_image.pack(data=b"AAAA", data_len=4)
+            image_node = material.node_tree.nodes.new("ShaderNodeTexImage")
+            image_node.name = "SIG_PACKED_TEXTURE"
+            image_node.image = packed_image
+            mesh.materials.append(material)
+
+            light_data = bpy.data.lights.new("SIG_LIGHT_DATA", "POINT")
+            light_data.use_nodes = True
+            add_nested_group(light_data.node_tree, "SIG_LIGHT")
+            light = bpy.data.objects.new("SIG_LIGHT", light_data)
+            light["pimm_editorial_light_role"] = "signature-fixture"
+            scene.collection.objects.link(light)
+
+            world = bpy.data.worlds.new("SIG_WORLD")
+            world.use_nodes = True
+            world["pimm_editorial_light_role"] = "signature-fixture"
+            add_nested_group(world.node_tree, "SIG_WORLD")
+            scene.world = world
+
+            bpy.ops.wm.save_as_mainfile(
+                filepath=str(fixture_path), check_existing=False, relative_remap=False
+            )
+
+            results: dict[str, bool] = {}
+
+            def mutate_vertex() -> None:
+                bpy.data.meshes["SIG_MESH"].vertices[0].co.x -= 0.5
+
+
+            run_geometry_case("evaluated_vertex", mutate_vertex)
+
+            def mutate_topology() -> None:
+                mesh = bpy.data.meshes["SIG_MESH"]
+                mesh.clear_geometry()
+                mesh.from_pydata(
+                    [
+                        (-1.0, -1.0, 0.0),
+                        (1.0, -1.0, 0.0),
+                        (1.0, 1.0, 0.0),
+                        (-1.0, 1.0, 0.0),
+                        (0.0, 0.0, 0.5),
+                    ],
+                    [],
+                    [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4)],
+                )
+                mesh.update()
+
+
+            run_geometry_case("evaluated_topology", mutate_topology)
+
+            def mutate_modifier_result() -> None:
+                bpy.data.objects[SUPPORT_NAME].modifiers["SIG_SOLIDIFY"].thickness = 0.75
+
+
+            run_geometry_case("modifier_result", mutate_modifier_result)
+            run_node_case("material_nested_group", "SIG_MATERIAL_INNER", "geometry")
+            run_node_case("light_nested_group", "SIG_LIGHT_INNER", "light")
+            run_node_case("world_nested_group", "SIG_WORLD_INNER", "light")
+
+            reopen()
+            packed_before = signatures()
+            image = bpy.data.images["SIG_PACKED_IMAGE"]
+            assert bytes(image.packed_file.data) == b"AAAA"
+            image.pack(data=b"BBBB", data_len=4)
+            assert image.packed_file.size == 4
+            assert bytes(image.packed_file.data) == b"BBBB"
+            packed_after = signatures()
+            assert packed_before[0] != packed_after[0], "same-size packed bytes were ignored"
+            assert_rejected(packed_before, packed_after)
+            results["packed_image_same_size_bytes"] = True
+
+            print("PIMM_REAL_SIGNATURE_SMOKE_JSON=" + json.dumps(results, sort_keys=True), flush=True)
+            '''
+        ),
+        encoding="utf-8",
+    )
+    repository_root = Path(__file__).resolve().parents[4]
+    return subprocess.run(
+        [
+            str(BLENDER_52),
+            "--factory-startup",
+            "-b",
+            "--python-exit-code",
+            "1",
+            "-P",
+            str(script_path),
+            "--",
+            str(repository_root),
+            str(fixture_path),
+        ],
+        cwd=repository_root,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
 
 
 def _snapshot(contract: dict[str, object]) -> dict[str, object]:
@@ -385,6 +622,38 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         light_snapshot["set"]["scene_light_signature"] = light_after
         self.assertIn("signatures do not match", "\n".join(self.errors(light_snapshot, governed)))
 
+    def test_blender_5_2_reopens_real_datablocks_and_rejects_signature_mutations(self) -> None:
+        """Catches fake-only coverage masking drift in Blender's actual RNA and depsgraph."""
+
+        self.assertTrue(BLENDER_52.is_file(), f"required Blender 5.2 executable is missing: {BLENDER_52}")
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            completed = _run_real_blender_signature_smoke(root)
+            self.assertEqual(
+                completed.returncode,
+                0,
+                f"Blender mutation smoke failed\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}",
+            )
+            emitted = [
+                line.removeprefix(_REAL_SIGNATURE_MARKER)
+                for line in completed.stdout.splitlines()
+                if line.startswith(_REAL_SIGNATURE_MARKER)
+            ]
+            self.assertEqual(len(emitted), 1, completed.stdout)
+            self.assertEqual(
+                json.loads(emitted[0]),
+                {
+                    "evaluated_topology": True,
+                    "evaluated_vertex": True,
+                    "light_nested_group": True,
+                    "material_nested_group": True,
+                    "modifier_result": True,
+                    "packed_image_same_size_bytes": True,
+                    "world_nested_group": True,
+                },
+            )
+            self.assertTrue((root / "real_signature_fixture.blend").is_file())
+
     def test_scene_signatures_cover_geometry_modifiers_material_images_and_world_nodes(self) -> None:
         """Catches datablock edits hidden behind unchanged transforms and light energy."""
 
@@ -722,6 +991,95 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         self.assertIn("product ownership", errors)
         self.assertIn("membership signature changed", errors)
 
+    def test_expected_external_instance_recurses_member_collection_instances(self) -> None:
+        """Catches nested EMPTY targets redirecting or hiding product identity outside child trees."""
+
+        class NestedCollection(dict):
+            def __init__(self, name: str, library: object, objects: list[object]) -> None:
+                super().__init__()
+                self.name = name
+                self.library = library
+                self.objects = objects
+                self.children: list[object] = []
+
+        shot = self.campaign.by_shot_id["pimm-50g--concept-modern-workshop"]
+        contract = blender_editorial_scene.prepare_editorial_contract(shot)
+        fake_bpy = _FakeBpy()
+        editorial_sets.build_editorial_set(fake_bpy, shot)
+        records = contract["set"]["support_allowlist"]
+        by_name = {record["name"]: record for record in records}
+        for obj in fake_bpy.context.scene.objects:
+            record = by_name.get(obj.name)
+            if record:
+                obj["pimm_editorial_framing_eligible"] = record["framing_eligible"]
+                obj["pimm_editorial_contact_plane"] = record["contact_plane"]
+        instance = next(
+            obj for obj in fake_bpy.context.scene.objects
+            if obj.name == "PIMM_SCENE_SUPPORT_EXTERNAL_TOOL_CART"
+        )
+        external = next(item for item in contract["external_assets"] if item["asset_id"] == "tool_cart")
+        root = instance.instance_collection
+        root.library = SimpleNamespace(
+            filepath=str(blender_editorial_scene.ASSET_ROOT / external["local_relative_path"])
+        )
+        root.objects = list(root.all_objects)
+        root.children = []
+        safe_mesh = fake_bpy.data.objects.new(
+            "NESTED_SAFE_MESH", fake_bpy.data.meshes.new("NESTED_SAFE_MESH_DATA")
+        )
+        nested = NestedCollection("NESTED_INSTANCE_TARGET", root.library, [safe_mesh])
+        nested["pimm_external_asset_version_id"] = "nested-safe-v1"
+        nested_instance = fake_bpy.data.objects.new("NESTED_COLLECTION_INSTANCE", None)
+        nested_instance.instance_type = "COLLECTION"
+        nested_instance.instance_collection = nested
+        nested_instance.library = root.library
+        root.objects.append(nested_instance)
+        cycle_instance = fake_bpy.data.objects.new("NESTED_CYCLE_INSTANCE", None)
+        cycle_instance.instance_type = "COLLECTION"
+        cycle_instance.instance_collection = root
+        cycle_instance.library = root.library
+        nested.objects.append(cycle_instance)
+
+        blender_editorial_scene._bind_external_instance_contract(fake_bpy, records)
+        record = by_name[instance.name]
+        baseline_signature = record["instance_membership_signature"]
+        baseline_errors = blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)
+        self.assertFalse(any("external instance" in error for error in baseline_errors), baseline_errors)
+
+        redirected = NestedCollection("REDIRECTED_TARGET", root.library, [safe_mesh])
+        nested_instance.instance_collection = redirected
+        redirected_errors = "\n".join(
+            blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)
+        )
+        self.assertIn("membership signature changed", redirected_errors)
+        nested_instance.instance_collection = nested
+
+        nested.library = SimpleNamespace(filepath=str(Path(root.library.filepath).with_name("redirected.blend")))
+        library_errors = "\n".join(
+            blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)
+        )
+        self.assertIn("membership signature changed", library_errors)
+        nested.library = root.library
+
+        nested["pimm_external_asset_version_id"] = "nested-safe-v2"
+        provenance_errors = "\n".join(
+            blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)
+        )
+        self.assertIn("membership signature changed", provenance_errors)
+        nested["pimm_external_asset_version_id"] = "nested-safe-v1"
+
+        product = fake_bpy.data.objects.new(
+            "NESTED_INSTANCE_PRODUCT", fake_bpy.data.meshes.new("NESTED_INSTANCE_PRODUCT_MESH")
+        )
+        product["pimm_stable_id"] = "50G-hidden-in-instance-target"
+        nested.objects.append(product)
+        product_errors = "\n".join(
+            blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)
+        )
+        self.assertIn("product ownership", product_errors)
+        self.assertIn("membership signature changed", product_errors)
+        self.assertEqual(len(baseline_signature), 64)
+
     def test_expected_external_instance_rejects_library_path_hash_and_each_provenance_field(self) -> None:
         """Catches external instance authority drifting after its author-time binding."""
 
@@ -1034,6 +1392,51 @@ class BlenderEditorialSceneTests(unittest.TestCase):
             self.assertEqual(
                 {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in protected},
                 before,
+            )
+
+    def test_recovery_leaves_non_nonce_marker_and_journal_prefix_files_untouched(self) -> None:
+        """Catches unrestricted prefix globs sweeping unrelated same-prefix files into rejection."""
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            scenes, contracts, rejected = root / "scenes", root / "contracts", root / "rejected"
+            scenes.mkdir()
+            contracts.mkdir()
+            scene = scenes / "shot.blend"
+            contract = contracts / "shot.json"
+            marker = contracts / "shot.complete.json"
+            journal = contracts / ".shot.transaction.json"
+            exact_marker_candidate = contracts / f".{marker.name}.{'a' * 32}.candidate"
+            exact_journal_candidate = contracts / f".{journal.name}.{'b' * 32}.candidate"
+            exact_marker_candidate.write_bytes(b"exact-marker-candidate")
+            exact_journal_candidate.write_bytes(b"exact-journal-candidate")
+            decoys = [
+                contracts / f".{marker.name}.not-a-nonce.candidate",
+                contracts / f".{marker.name}.{'c' * 31}.candidate",
+                contracts / f".{marker.name}.{'D' * 32}.candidate",
+                contracts / f".{marker.name}.{'e' * 32}.candidate.extra",
+                contracts / f".{journal.name}.not-a-nonce.candidate",
+                contracts / f".{journal.name}.{'f' * 33}.candidate",
+                contracts / f".{journal.name}.{'A' * 32}.candidate",
+                contracts / f".{journal.name}.{'0' * 32}.candidate.backup",
+            ]
+            for index, path in enumerate(decoys):
+                path.write_bytes(f"decoy-{index}".encode("ascii"))
+            decoy_hashes = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in decoys}
+
+            result = blender_editorial_scene._recover_incomplete_publication(
+                scene, contract, marker, journal, rejected
+            )
+
+            self.assertEqual(result["status"], "recovered_to_rejected")
+            self.assertTrue(result["archived_hashes_verified"])
+            self.assertEqual(
+                {path.name for path in rejected.rglob("*") if path.is_file()},
+                {exact_marker_candidate.name, exact_journal_candidate.name},
+            )
+            self.assertEqual(
+                {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in decoys},
+                decoy_hashes,
             )
 
     def test_nonzero_fresh_blender_exit_fails_even_with_an_empty_error_marker(self) -> None:

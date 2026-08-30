@@ -730,13 +730,14 @@ def _image_signature_record(bpy: Any, image: Any) -> dict[str, object]:
         packed_files = [packed]
     packed_records = []
     for item in packed_files:
-        raw_data = getattr(item, "data", b"")
+        packed_data = getattr(item, "packed_file", item)
+        raw_data = getattr(packed_data, "data", b"")
         try:
             data = bytes(raw_data)
         except (TypeError, ValueError):
             data = memoryview(raw_data).tobytes()
         packed_records.append({
-            "size": int(getattr(item, "size", len(data))),
+            "size": int(getattr(packed_data, "size", len(data))),
             "sha256": _sha256_bytes(data),
         })
     return {
@@ -765,6 +766,7 @@ def _node_tree_signature_record(
     nodes = []
     try:
         for node in sorted(_node_values(node_tree.nodes), key=lambda item: str(getattr(item, "name", ""))):
+            output_sockets = sorted(_socket_values(getattr(node, "outputs", ())))
             record = {
                 "name": str(getattr(node, "name", "")),
                 "type": str(getattr(node, "bl_idname", getattr(node, "type", ""))),
@@ -782,8 +784,18 @@ def _node_tree_signature_record(
                     }
                     for name, socket in sorted(_socket_values(getattr(node, "inputs", ())))
                 ],
-                "outputs": [name for name, _socket in sorted(_socket_values(getattr(node, "outputs", ())))],
+                "outputs": [name for name, _socket in output_sockets],
             }
+            output_defaults = [
+                {
+                    "name": name,
+                    "default": _signature_value(socket.default_value),
+                }
+                for name, socket in output_sockets
+                if hasattr(socket, "default_value")
+            ]
+            if output_defaults:
+                record["output_defaults"] = output_defaults
             image = getattr(node, "image", None)
             if image is not None:
                 record["image"] = _image_signature_record(bpy, image)
@@ -982,8 +994,15 @@ def _walk_collection_tree(collection: Any) -> list[tuple[Any, list[Any]]]:
         if identity in seen:
             continue
         seen.add(identity)
-        result.append((current, _collection_objects(current)))
+        members = _collection_objects(current)
+        result.append((current, members))
         pending.extend(getattr(current, "children", ()))
+        pending.extend(
+            nested
+            for member in members
+            for nested in (getattr(member, "instance_collection", None),)
+            if getattr(member, "instance_type", None) == "COLLECTION" and nested is not None
+        )
     return result
 
 
@@ -1018,16 +1037,22 @@ def _collection_membership_record(
     active = active if active is not None else set()
     identity = id(collection)
     if identity in active:
-        return {
+        cycle = {
             "name": str(getattr(collection, "name", "")),
+            "library": str(_library_path(bpy, getattr(collection, "library", None)) or ""),
+            "properties": _custom_properties(collection),
             "cycle_reference": True,
         }
+        provenance = _provenance_record(collection)
+        if provenance is not None:
+            cycle["provenance"] = provenance
+        return cycle
     active.add(identity)
     try:
         objects = []
         for member in sorted(_collection_objects(collection), key=lambda item: str(getattr(item, "name", ""))):
             data = getattr(member, "data", None)
-            objects.append({
+            record = {
                 "name": str(getattr(member, "name", "")),
                 "type": str(getattr(member, "type", "")),
                 "library": str(_library_path(bpy, getattr(member, "library", None)) or ""),
@@ -1039,7 +1064,14 @@ def _collection_membership_record(
                     str(getattr(material, "name", ""))
                     for material in getattr(data, "materials", ()) if material is not None
                 ) if data is not None else [],
-            })
+            }
+            provenance = _provenance_record(member)
+            if provenance is not None:
+                record["provenance"] = provenance
+            nested = getattr(member, "instance_collection", None)
+            if getattr(member, "instance_type", None) == "COLLECTION" and nested is not None:
+                record["instance_collection"] = _collection_membership_record(bpy, nested, active)
+            objects.append(record)
         children = [
             _collection_membership_record(bpy, child, active)
             for child in sorted(
@@ -1047,13 +1079,17 @@ def _collection_membership_record(
                 key=lambda item: str(getattr(item, "name", "")),
             )
         ]
-        return {
+        record = {
             "name": str(getattr(collection, "name", "")),
             "library": str(_library_path(bpy, getattr(collection, "library", None)) or ""),
             "properties": _custom_properties(collection),
             "objects": objects,
             "children": children,
         }
+        provenance = _provenance_record(collection)
+        if provenance is not None:
+            record["provenance"] = provenance
+        return record
     finally:
         active.remove(identity)
 
@@ -1236,24 +1272,27 @@ def _projected_occlusion(
 
 
 def _provenance_record(datablock: Any) -> dict[str, object] | None:
-    version = datablock.get("pimm_external_asset_version_id")
+    get = getattr(datablock, "get", None)
+    if not callable(get):
+        return None
+    version = get("pimm_external_asset_version_id")
     if not isinstance(version, str):
         return None
-    intended = datablock.get("pimm_external_intended_shot_ids")
+    intended = get("pimm_external_intended_shot_ids")
     try:
         intended_ids = json.loads(intended) if isinstance(intended, str) else None
     except json.JSONDecodeError:
         intended_ids = None
-    source = str(datablock.get("pimm_external_source_url", ""))
+    source = str(get("pimm_external_source_url", ""))
     return {
         "asset_id": source.rstrip("/").rsplit("/", 1)[-1],
         "source_url": source,
         "asset_version_id": version,
-        "license": datablock.get("pimm_external_license"),
-        "local_relative_path": datablock.get("pimm_external_local_relative_path"),
-        "sha256": datablock.get("pimm_external_sha256"),
+        "license": get("pimm_external_license"),
+        "local_relative_path": get("pimm_external_local_relative_path"),
+        "sha256": get("pimm_external_sha256"),
         "intended_shot_ids": intended_ids,
-        "machine_master_modified": datablock.get("pimm_external_machine_master_modified"),
+        "machine_master_modified": get("pimm_external_machine_master_modified"),
     }
 
 
@@ -1936,7 +1975,20 @@ def _nonce_candidates(path: Path) -> list[Path]:
     pattern = re.compile(
         rf"\.{re.escape(path.stem)}\.[0-9a-f]{{32}}\.candidate{re.escape(path.suffix)}"
     )
-    return [candidate for candidate in path.parent.iterdir() if pattern.fullmatch(candidate.name)]
+    return [
+        candidate for candidate in path.parent.iterdir()
+        if candidate.is_file() and pattern.fullmatch(candidate.name)
+    ]
+
+
+def _atomic_json_candidates(path: Path) -> list[Path]:
+    pattern = re.compile(
+        rf"\.{re.escape(path.name)}\.[0-9a-f]{{32}}\.candidate"
+    )
+    return [
+        candidate for candidate in path.parent.iterdir()
+        if candidate.is_file() and pattern.fullmatch(candidate.name)
+    ]
 
 
 def _recover_incomplete_publication(
@@ -1965,7 +2017,7 @@ def _recover_incomplete_publication(
     discovered.extend(_nonce_candidates(scene_path))
     discovered.extend(_nonce_candidates(contract_path))
     for authority_path in (marker_path, transaction_path):
-        discovered.extend(authority_path.parent.glob(f".{authority_path.name}.*.candidate"))
+        discovered.extend(_atomic_json_candidates(authority_path))
     existing = list(dict.fromkeys(path for path in discovered if path.exists()))
     incomplete_artifacts = [
         path for path in existing
