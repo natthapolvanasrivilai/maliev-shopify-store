@@ -6,10 +6,13 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 import json
+import ntpath
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
+import shutil
 import tempfile
 from typing import Mapping
+import unicodedata
 from urllib.error import HTTPError
 from urllib.parse import unquote, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -93,6 +96,15 @@ class DownloadedAsset:
     created: bool
 
 
+@dataclass(frozen=True)
+class _StagedFile:
+    """A verified temporary download awaiting an all-or-nothing commit."""
+
+    temporary_path: Path
+    destination: Path
+    sha256: str
+
+
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
@@ -131,6 +143,30 @@ def _safe_relative_path(value: object) -> PurePosixPath:
     return path
 
 
+def _safe_filename(value: object) -> str:
+    """Require one decoded filename component that is safe on POSIX and Windows."""
+
+    if not isinstance(value, str) or not value or value in {".", ".."}:
+        raise ValueError("download URL must contain one safe filename component")
+    if any(character in value for character in ("/", "\\", "<", ">", ":", '"', "|", "?", "*")) or value[-1] in {".", " "} or any(
+        unicodedata.category(character) == "Cc" for character in value
+    ):
+        raise ValueError("download URL must contain one safe filename component")
+    posix = PurePosixPath(value)
+    windows = PureWindowsPath(value)
+    if (
+        posix.name != value
+        or windows.name != value
+        or windows.drive
+        or windows.root
+        or posix.is_absolute()
+        or windows.is_absolute()
+        or ntpath.isreserved(value)
+    ):
+        raise ValueError("download URL must contain one safe filename component")
+    return value
+
+
 def _metadata_item(value: object, *, label: str) -> tuple[str, str, int, str]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} metadata must be an object")
@@ -153,9 +189,7 @@ def _metadata_item(value: object, *, label: str) -> tuple[str, str, int, str]:
         raise ValueError(f"{label} metadata must include an MD5 checksum")
     if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
         raise ValueError(f"{label} metadata must include a positive byte size")
-    filename = unquote(PurePosixPath(parsed.path).name)
-    if not filename:
-        raise ValueError(f"{label} URL must contain a filename")
+    filename = _safe_filename(unquote(PurePosixPath(parsed.path).name))
     return url, checksum.lower(), size, filename
 
 
@@ -256,13 +290,106 @@ def _stream_to_temp(url: str, expected_md5: str, expected_size: int, directory: 
 
 
 def _commit_temp(temp: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    """Atomically move one staged file after its parent has been transactionally prepared."""
+
     if destination.exists():
         raise FileExistsError(f"refusing to overwrite existing destination: {destination}")
     try:
         os.rename(temp, destination)
     except FileExistsError as error:
         raise FileExistsError(f"refusing to overwrite existing destination: {destination}") from error
+
+
+def _create_missing_directories(path: Path) -> list[Path]:
+    """Create a directory chain and return precisely the directories this call created."""
+
+    missing: list[Path] = []
+    current = path
+    while not current.exists():
+        missing.append(current)
+        current = current.parent
+    for directory in reversed(missing):
+        directory.mkdir()
+    return list(reversed(missing))
+
+
+def _restore_manifest_bytes(manifest_path: Path, original: bytes) -> None:
+    """Restore the exact pre-run manifest bytes with an atomic replacement."""
+
+    temporary = manifest_path.with_name(f".{manifest_path.name}.{uuid.uuid4().hex}.rollback")
+    try:
+        with temporary.open("xb") as target:
+            target.write(original)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, manifest_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+class _AssetTransaction:
+    """Stages public files and makes their governed state observable only on commit."""
+
+    def __init__(self, staging_parent: Path) -> None:
+        self._staging_parent_directories = _create_missing_directories(staging_parent)
+        try:
+            self.staging_directory = Path(tempfile.mkdtemp(prefix=".polyhaven-stage-", dir=staging_parent))
+        except Exception:
+            for directory in reversed(self._staging_parent_directories):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+            raise
+        self.staged: list[_StagedFile] = []
+        self.committed: list[Path] = []
+        self.created_directories: list[Path] = []
+
+    def stage(self, items: list[tuple[Path, str, str, int]]) -> list[str]:
+        sha256_values: list[str] = []
+        for destination, url, checksum, size in items:
+            temporary, sha256 = _stream_to_temp(url, checksum, size, self.staging_directory)
+            self.staged.append(_StagedFile(temporary, destination, sha256))
+            sha256_values.append(sha256)
+        return sha256_values
+
+    def commit(self) -> None:
+        try:
+            for staged in self.staged:
+                self.created_directories.extend(_create_missing_directories(staged.destination.parent))
+                try:
+                    _commit_temp(staged.temporary_path, staged.destination)
+                except Exception:
+                    if staged.destination.exists():
+                        self.committed.append(staged.destination)
+                    raise
+                self.committed.append(staged.destination)
+        except Exception:
+            self.rollback()
+            raise
+
+    def rollback(self) -> None:
+        for staged in self.staged:
+            staged.temporary_path.unlink(missing_ok=True)
+        for path in reversed(self.committed):
+            path.unlink(missing_ok=True)
+        self.committed.clear()
+        shutil.rmtree(self.staging_directory, ignore_errors=True)
+        for directory in reversed(self.created_directories):
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        self.created_directories.clear()
+        for directory in reversed(self._staging_parent_directories):
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        self._staging_parent_directories.clear()
+
+    def close(self) -> None:
+        shutil.rmtree(self.staging_directory, ignore_errors=True)
 
 
 def download_asset_once(spec: PolyHavenAssetSpec, destination: Path) -> DownloadedAsset:
@@ -277,17 +404,14 @@ def download_asset_once(spec: PolyHavenAssetSpec, destination: Path) -> Download
     items.extend((destination.parent / include.relative_path, include.url, include.md5, include.size) for include in resolved.includes)
     if any(path.exists() for path, _, _, _ in items):
         raise FileExistsError("refusing to overwrite an existing selected asset or dependency")
-    staged: list[tuple[Path, Path, str]] = []
+    transaction = _AssetTransaction(destination.parent)
     try:
-        for path, url, checksum, size in items:
-            temp, sha256 = _stream_to_temp(url, checksum, size, path.parent)
-            staged.append((temp, path, sha256))
-        for temp, path, _ in staged:
-            _commit_temp(temp, path)
-        return DownloadedAsset(resolved, destination, staged[0][2], True)
+        sha256_values = transaction.stage(items)
+        transaction.commit()
+        transaction.close()
+        return DownloadedAsset(resolved, destination, sha256_values[0], True)
     except Exception:
-        for temp, _, _ in staged:
-            temp.unlink(missing_ok=True)
+        transaction.rollback()
         raise
 
 
@@ -379,7 +503,10 @@ def acquire_approved_assets(asset_root: Path, asset_ids: list[str]) -> tuple[lis
             specs.append(APPROVED_POLYHAVEN[asset_id])
         except KeyError:
             raise ValueError(f"asset is not approved: {asset_id}") from None
+    manifest_path = asset_root / MANIFEST_RELATIVE_PATH
+    manifest_before = manifest_path.read_bytes()
     downloaded: list[DownloadedAsset] = []
+    pending: list[tuple[ResolvedDownload, Path, list[tuple[Path, str, str, int]]]] = []
     for spec in specs:
         resolved = resolve_public_download(spec)
         destination = _target_destination(asset_root, resolved)
@@ -396,9 +523,23 @@ def acquire_approved_assets(asset_root: Path, asset_ids: list[str]) -> tuple[lis
                     primary_sha256 = sha256
             downloaded.append(DownloadedAsset(resolved, destination, primary_sha256, False))
         else:
-            downloaded.append(download_asset_once(spec, destination))
-    manifest = update_external_manifest(asset_root, [_provenance_record(asset_root, item) for item in downloaded])
-    return downloaded, manifest
+            pending.append((resolved, destination, dependencies))
+    transaction = _AssetTransaction(asset_root / Path(ASSET_DIRECTORY))
+    try:
+        new_assets: list[DownloadedAsset] = []
+        for resolved, destination, dependencies in pending:
+            sha256_values = transaction.stage(dependencies)
+            new_assets.append(DownloadedAsset(resolved, destination, sha256_values[0], True))
+        transaction.commit()
+        downloaded.extend(new_assets)
+        manifest = update_external_manifest(asset_root, [_provenance_record(asset_root, item) for item in downloaded])
+        transaction.close()
+        return downloaded, manifest
+    except Exception:
+        transaction.rollback()
+        if manifest_path.read_bytes() != manifest_before:
+            _restore_manifest_bytes(manifest_path, manifest_before)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
