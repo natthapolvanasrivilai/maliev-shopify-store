@@ -36,6 +36,10 @@ class EditorialConceptContractTests(unittest.TestCase):
         self.assertEqual(set(campaign.by_shot_id), set(EXPECTED))
         self.assertEqual(len(campaign.shots), 4)
         self.assertEqual(validate_editorial_campaign(campaign), [])
+        self.assertEqual(campaign.master_30g_path, "masters/PIMM-30G-MASTER.blend")
+        self.assertEqual(campaign.master_50g_path, "masters/PIMM-50G-MASTER.blend")
+        self.assertEqual(campaign.material_library_path, "masters/PIMM-MATERIAL-LIBRARY.blend")
+        self.assertEqual(campaign.input_policy, "link-only-immutable")
         actual = {
             shot.shot_id: (shot.machine, shot.width, shot.height, shot.focal_length_mm)
             for shot in campaign.shots
@@ -66,15 +70,43 @@ class EditorialConceptContractTests(unittest.TestCase):
     def test_validation_rejects_missing_contact_gate_and_non_cycles_engine(self) -> None:
         payload = _payload()
         shot = payload["shots"][0]
-        shot["contact_gate"] = ""
+        shot.pop("contact_gate")
         shot["render_engine"] = "BLENDER_EEVEE_NEXT"
         with TemporaryDirectory() as root:
             path = Path(root) / "campaign.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing=.*contact_gate"):
+                load_editorial_campaign(path)
+            shot["contact_gate"] = "four-feet-common-plane"
+            path.write_text(json.dumps(payload), encoding="utf-8")
             errors = validate_editorial_campaign(load_editorial_campaign(path))
         joined = "\n".join(errors)
-        self.assertIn("contact_gate", joined)
         self.assertIn("render_engine", joined)
+
+    def test_validation_rejects_substituted_authoritative_inputs_and_policy(self) -> None:
+        payload = _payload()
+        payload["master_30g_path"] = "masters/PIMM-50G-MASTER.blend"
+        payload["material_library_path"] = "masters/substitute.blend"
+        payload["input_policy"] = "editable-local-copies"
+        campaign = EditorialConceptCampaign(
+            payload["schema"], payload["campaign_id"], payload["master_30g_path"],
+            payload["master_50g_path"], payload["material_library_path"],
+            payload["input_policy"], tuple(load_editorial_campaign(EDITORIAL_CAMPAIGN_PATH).shots),
+        )
+        errors = validate_editorial_campaign(campaign)
+        joined = "\n".join(errors)
+        self.assertIn("master_30g_path", joined)
+        self.assertIn("material_library_path", joined)
+        self.assertIn("input_policy", joined)
+
+    def test_loader_rejects_missing_authoritative_input_field(self) -> None:
+        payload = _payload()
+        payload.pop("master_50g_path")
+        with TemporaryDirectory() as root:
+            path = Path(root) / "campaign.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing=.*master_50g_path"):
+                load_editorial_campaign(path)
 
     def test_loader_rejects_duplicate_shot_ids_and_duplicate_json_keys(self) -> None:
         payload = _payload()

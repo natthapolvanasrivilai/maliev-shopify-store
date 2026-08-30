@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+from scripts.blender.master_assets.pimm_legacy_inventory import AUTHORITATIVE_PATHS
 
 EDITORIAL_CAMPAIGN_PATH = (
     Path(__file__).resolve().parent
@@ -16,7 +17,14 @@ EDITORIAL_CAMPAIGN_PATH = (
 )
 EDITORIAL_CAMPAIGN_SCHEMA = "maliev.pimm-editorial-concept-campaign/v1"
 EDITORIAL_CAMPAIGN_ID = "pimm-editorial-concepts-v1"
-_CAMPAIGN_FIELDS = {"schema", "campaign_id", "shots"}
+_MASTER_30G_PATH = "masters/PIMM-30G-MASTER.blend"
+_MASTER_50G_PATH = "masters/PIMM-50G-MASTER.blend"
+_MATERIAL_LIBRARY_PATH = "masters/PIMM-MATERIAL-LIBRARY.blend"
+_INPUT_POLICY = "link-only-immutable"
+_CAMPAIGN_FIELDS = {
+    "schema", "campaign_id", "master_30g_path", "master_50g_path",
+    "material_library_path", "input_policy", "shots",
+}
 _SHOT_FIELDS = {
     "shot_id", "machine", "concept", "width", "height", "focal_length_mm",
     "aperture_fstop", "render_engine", "color_management", "preview_samples",
@@ -55,6 +63,10 @@ class EditorialConceptCampaign:
 
     schema: object
     campaign_id: object
+    master_30g_path: object
+    master_50g_path: object
+    material_library_path: object
+    input_policy: object
     shots: tuple[EditorialConceptShot, ...]
 
     @property
@@ -105,7 +117,15 @@ def load_editorial_campaign(path: Path) -> EditorialConceptCampaign:
             raise ValueError(f"editorial campaign shot_id is duplicated: {shot_id}")
         seen.add(shot_id)
         shots.append(EditorialConceptShot(**shot))
-    return EditorialConceptCampaign(root["schema"], root["campaign_id"], tuple(shots))
+    return EditorialConceptCampaign(
+        root["schema"],
+        root["campaign_id"],
+        root["master_30g_path"],
+        root["master_50g_path"],
+        root["material_library_path"],
+        root["input_policy"],
+        tuple(shots),
+    )
 
 
 def validate_editorial_campaign(campaign: EditorialConceptCampaign) -> list[str]:
@@ -116,6 +136,19 @@ def validate_editorial_campaign(campaign: EditorialConceptCampaign) -> list[str]
         errors.append(f"campaign schema must equal {EDITORIAL_CAMPAIGN_SCHEMA}")
     if campaign.campaign_id != EDITORIAL_CAMPAIGN_ID:
         errors.append(f"campaign_id must equal {EDITORIAL_CAMPAIGN_ID}")
+    expected_authoritative_paths = {
+        _MASTER_30G_PATH, _MASTER_50G_PATH, _MATERIAL_LIBRARY_PATH,
+    }
+    if campaign.master_30g_path != _MASTER_30G_PATH or campaign.master_30g_path not in AUTHORITATIVE_PATHS:
+        errors.append(f"master_30g_path must equal {_MASTER_30G_PATH}")
+    if campaign.master_50g_path != _MASTER_50G_PATH or campaign.master_50g_path not in AUTHORITATIVE_PATHS:
+        errors.append(f"master_50g_path must equal {_MASTER_50G_PATH}")
+    if campaign.material_library_path != _MATERIAL_LIBRARY_PATH or campaign.material_library_path not in AUTHORITATIVE_PATHS:
+        errors.append(f"material_library_path must equal {_MATERIAL_LIBRARY_PATH}")
+    if campaign.input_policy != _INPUT_POLICY:
+        errors.append(f"input_policy must equal {_INPUT_POLICY}")
+    if {campaign.master_30g_path, campaign.master_50g_path, campaign.material_library_path} != expected_authoritative_paths:
+        errors.append("editorial campaign inputs must be the exact authoritative published paths")
     if len(campaign.shots) != 4:
         errors.append("campaign must contain exactly 4 shots")
     if len(campaign.by_shot_id) != len(campaign.shots):
