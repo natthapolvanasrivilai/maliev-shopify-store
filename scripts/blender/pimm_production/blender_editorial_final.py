@@ -53,6 +53,8 @@ REJECTED_DISPOSITION_NAME = "rejected-disposition.json"
 RELEASE_MANIFEST_NAME = "release-manifest.json"
 FINAL_LIBRARY = "editorial-concepts-v1"
 WORKER_TIMEOUT_SECONDS = 3600
+FFPROBE_TIMEOUT_SECONDS = 60
+FFPROBE_SHA256 = "55BB6C6289367AE2383EFA86B26BF2596F8ADB72AC747360EB13DF162354161C"
 _PASS_FIELDS = ("pixel_review", "grounding", "clipping", "props", "exposure", "detail", "decals")
 
 
@@ -237,28 +239,53 @@ def _parse_openexr(path: Path) -> dict[str, object]:
     }
 
 
-def _blender_decode_exr(bpy: Any, path: Path) -> dict[str, object]:
-    """Force Blender's native image stack to decode the complete archive image."""
+def _ffprobe_decode_exr(
+    path: Path, width: int, height: int, ffprobe: Path | None = None
+) -> dict[str, object]:
+    """Decode exactly one EXR frame through the pinned, bounded FFprobe authority."""
 
-    image = bpy.data.images.load(str(path), check_existing=False)
+    resolved = Path(ffprobe or shutil.which("ffprobe") or "").resolve()
+    if not resolved.is_file() or sha256_file(resolved) != FFPROBE_SHA256:
+        raise ValueError("pinned FFprobe authority is missing or hash-drifted")
+    command = [
+        str(resolved), "-v", "error", "-select_streams", "v:0",
+        "-show_entries",
+        "stream=codec_name,width,height,pix_fmt:frame=media_type,width,height,pix_fmt,pkt_size",
+        "-show_frames", "-read_intervals", "%+#1", "-of", "json", str(path),
+    ]
     try:
-        dimensions = [int(image.size[0]), int(image.size[1])]
-        channels = int(image.channels)
-        pixel_count = len(image.pixels)
-        if dimensions[0] <= 0 or dimensions[1] <= 0 or channels < 3:
-            raise ValueError("Blender decoded invalid EXR dimensions or channels")
-        if pixel_count != dimensions[0] * dimensions[1] * channels:
-            raise ValueError("Blender decoded incomplete EXR pixel data")
-        # Indexing both ends forces lazy decoders to materialize the full buffer.
-        _ = float(image.pixels[0]), float(image.pixels[pixel_count - 1])
-        return {
-            "status": "pass",
-            "dimensions": dimensions,
-            "channels": channels,
-            "pixel_count": pixel_count,
-        }
-    finally:
-        bpy.data.images.remove(image)
+        completed = subprocess.run(
+            command, capture_output=True, text=True,
+            timeout=FFPROBE_TIMEOUT_SECONDS, check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("FFprobe EXR decode timed out") from error
+    if completed.returncode != 0:
+        raise ValueError(f"FFprobe EXR decode failed: {completed.stderr[-2000:]}")
+    if len(completed.stdout) > 65536 or len(completed.stderr) > 8192:
+        raise ValueError("FFprobe EXR decode output exceeded the bounded evidence limit")
+    try:
+        payload = json.loads(completed.stdout)
+        streams, frames = payload["streams"], payload["frames"]
+    except (KeyError, TypeError, json.JSONDecodeError) as error:
+        raise ValueError("FFprobe EXR decode evidence is malformed") from error
+    if len(streams) != 1 or len(frames) != 1:
+        raise ValueError("FFprobe EXR decode did not produce exactly one image frame")
+    stream, frame = streams[0], frames[0]
+    if (
+        stream.get("codec_name") != "exr"
+        or [stream.get("width"), stream.get("height")] != [width, height]
+        or [frame.get("width"), frame.get("height")] != [width, height]
+        or stream.get("pix_fmt") != "gbrpf32le"
+        or frame.get("pix_fmt") != "gbrpf32le"
+        or frame.get("media_type") != "video"
+    ):
+        raise ValueError("FFprobe EXR codec, dimensions, or float RGB format drift")
+    return {
+        "status": "pass", "tool_sha256": FFPROBE_SHA256,
+        "codec": "exr", "dimensions": [width, height],
+        "pixel_format": "gbrpf32le", "decoded_frames": 1,
+    }
 
 
 def _validate_worker_png(
@@ -466,7 +493,6 @@ def _render_worker(
         "exr": exr.name,
         "exr_sha256": sha256_file(exr),
         "exr_validation": _parse_openexr(exr),
-        "blender_exr_decode": _blender_decode_exr(bpy, exr),
         "dimensions": [width, height],
         "samples": int(contract["samples"]),
         "denoise": bool(contract["denoise"]),
@@ -578,7 +604,12 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
                 ),
                 capture_output=True, text=True, timeout=WORKER_TIMEOUT_SECONDS, check=False,
             )
-            records.append(_parse_worker(completed, str(shot["shot_id"])))
+            record = _parse_worker(completed, str(shot["shot_id"]))
+            width, height = _shot_dimensions(contract, shot)
+            record["ffprobe_exr_decode"] = _ffprobe_decode_exr(
+                staging / str(record["exr"]), width, height
+            )
+            records.append(record)
             _assert_controller_authority_snapshot(contract_path, asset_root, held)
         if len({record["process_id"] for record in records}) != 4:
             raise ValueError("native final campaign did not use four fresh Blender processes")
@@ -656,20 +687,12 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
             expected.add(relative)
         exr_path = staging / str(record["exr"])
         exr_validation = _parse_openexr(exr_path)
-        blender_decode = record.get("blender_exr_decode")
-        decode_channels = (
-            blender_decode.get("channels") if isinstance(blender_decode, Mapping) else None
-        )
+        ffprobe_decode = _ffprobe_decode_exr(exr_path, width, height)
         if (
             record.get("exr_validation") != exr_validation
             or exr_validation.get("dimensions") != [width, height]
             or not {"R", "G", "B"}.issubset(set(exr_validation.get("channels", [])))
-            or not isinstance(blender_decode, Mapping)
-            or blender_decode.get("status") != "pass"
-            or blender_decode.get("dimensions") != [width, height]
-            or not isinstance(decode_channels, int)
-            or decode_channels < 3
-            or blender_decode.get("pixel_count") != width * height * decode_channels
+            or record.get("ffprobe_exr_decode") != ffprobe_decode
         ):
             raise ValueError("native final EXR dimensions/channels/decode evidence drift")
         with Image.open(staging / str(record["png"])) as image:

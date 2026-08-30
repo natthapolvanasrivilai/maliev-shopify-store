@@ -87,8 +87,19 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         contract_module.EXPECTED_ACCEPTED_HASHES = {
             field: accepted[field] for field in contract_module.EXPECTED_ACCEPTED_HASHES
         }
+        self._real_ffprobe_decode = final_module._ffprobe_decode_exr
+        self._ffprobe_patch = patch.object(
+            final_module, "_ffprobe_decode_exr",
+            side_effect=lambda _path, width, height, _ffprobe=None: {
+                "status": "pass", "tool_sha256": final_module.FFPROBE_SHA256,
+                "codec": "exr", "dimensions": [width, height],
+                "pixel_format": "gbrpf32le", "decoded_frames": 1,
+            },
+        )
+        self._ffprobe_patch.start()
 
     def tearDown(self) -> None:
+        self._ffprobe_patch.stop()
         contract_module.APPROVED_GENERATION_ID = self._original_generation
         contract_module.EXPECTED_ACCEPTED_HASHES = self._original_hashes
         self.preview.tearDown()
@@ -125,9 +136,10 @@ class EditorialFinalReleaseTests(unittest.TestCase):
                 "contract_sha256": authority["contract_sha256"],
                 "completion_marker_sha256": authority["completion_marker_sha256"],
                 "exr_validation": _parse_openexr(exr),
-                "blender_exr_decode": {
-                    "status": "pass", "dimensions": [width, height],
-                    "channels": 4, "pixel_count": width * height * 4,
+                "ffprobe_exr_decode": {
+                    "status": "pass", "tool_sha256": final_module.FFPROBE_SHA256,
+                    "codec": "exr", "dimensions": [width, height],
+                    "pixel_format": "gbrpf32le", "decoded_frames": 1,
                 },
             })
         sheet = staging / "sheet-editorial-finals.png"
@@ -331,8 +343,8 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "authority|evidence"):
             publish_editorial_native_release(staging, contract_path, disposition)
 
-    def test_staging_rejects_missing_blender_bound_exr_decode_evidence(self) -> None:
-        """Catches structurally framed EXRs that were never decoded by the native worker."""
+    def test_staging_rejects_missing_ffprobe_exr_decode_evidence(self) -> None:
+        """Catches structurally framed EXRs that were never decoded by the controller."""
 
         contract_path = authorize_editorial_final_release(
             self._approval(), self.asset_root, RELEASE_ID
@@ -340,10 +352,66 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         staging, disposition = self._staging_fixture(contract_path)
         report_path = staging / "native-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        report["shots"][0].pop("blender_exr_decode")
+        report["shots"][0].pop("ffprobe_exr_decode")
         report_path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "EXR|decode"):
             publish_editorial_native_release(staging, contract_path, disposition)
+
+    def test_ffprobe_exr_decode_is_pinned_bounded_and_exact(self) -> None:
+        """Catches 4K EXR validation hanging or trusting wrong decode metadata."""
+
+        success = json.dumps({
+            "streams": [{"codec_name": "exr", "width": 3840, "height": 2160,
+                         "pix_fmt": "gbrpf32le"}],
+            "frames": [{"media_type": "video", "width": 3840, "height": 2160,
+                        "pix_fmt": "gbrpf32le", "pkt_size": "100"}],
+        })
+        with TemporaryDirectory() as root:
+            tool = Path(root) / "ffprobe.exe"
+            tool.write_bytes(b"pinned tool")
+            with (
+                patch.object(final_module, "sha256_file", return_value=final_module.FFPROBE_SHA256),
+                patch.object(
+                    final_module.subprocess, "run",
+                    return_value=subprocess.CompletedProcess([], 0, success, ""),
+                ) as run,
+            ):
+                evidence = self._real_ffprobe_decode(
+                    Path("archive.exr"), 3840, 2160, tool
+                )
+            self.assertEqual(evidence["dimensions"], [3840, 2160])
+            self.assertEqual(evidence["pixel_format"], "gbrpf32le")
+            self.assertEqual(run.call_args.kwargs["timeout"], 60)
+
+    def test_ffprobe_exr_decode_rejects_timeout_malformed_and_wrong_dimensions(self) -> None:
+        """Catches decode hangs, invalid files, or metadata substitution passing authority."""
+
+        with TemporaryDirectory() as root:
+            tool = Path(root) / "ffprobe.exe"
+            tool.write_bytes(b"pinned tool")
+            cases = (
+                (subprocess.TimeoutExpired(["ffprobe"], 60), "timed out"),
+                (subprocess.CompletedProcess([], 0, "not-json", ""), "malformed"),
+                (subprocess.CompletedProcess([], 0, json.dumps({
+                    "streams": [{"codec_name": "exr", "width": 1, "height": 1,
+                                 "pix_fmt": "gbrpf32le"}],
+                    "frames": [{"media_type": "video", "width": 1, "height": 1,
+                                "pix_fmt": "gbrpf32le"}],
+                }), ""), "dimensions"),
+            )
+            for outcome, message in cases:
+                run_options = (
+                    {"side_effect": outcome}
+                    if isinstance(outcome, BaseException)
+                    else {"return_value": outcome}
+                )
+                with self.subTest(message=message), patch.object(
+                    final_module, "sha256_file", return_value=final_module.FFPROBE_SHA256
+                ), patch.object(final_module.subprocess, "run", **run_options):
+                    with self.assertRaisesRegex(ValueError, message):
+                        self._real_ffprobe_decode(
+                            Path("archive.exr"), 3840, 2160, tool
+                        )
 
     def test_openexr_parser_reads_real_data_window_channels_and_chunks(self) -> None:
         """Catches magic-only acceptance without a decodable OpenEXR structure."""
