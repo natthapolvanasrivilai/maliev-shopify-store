@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import struct
 import sys
-import tempfile
+import threading
 import time
 from typing import Any, Mapping, Sequence
 import uuid
@@ -312,42 +312,68 @@ def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
 def _run_bounded_process(
     command: Sequence[str], timeout: float, stdout_cap: int, stderr_cap: int
 ) -> subprocess.CompletedProcess[str]:
-    """Spool both streams independently, terminate on cap/timeout, retain capped text."""
+    """Drain both pipes concurrently while retaining no more than either hard cap."""
 
+    options: dict[str, object] = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    process = subprocess.Popen(list(command), **options)
+    overflow = threading.Event()
+    stdout_buffer, stderr_buffer = bytearray(), bytearray()
+
+    def drain(stream: Any, retained: bytearray, cap: int) -> None:
+        while True:
+            chunk = stream.read(4096)
+            if not chunk:
+                return
+            remaining = cap - len(retained)
+            if remaining > 0:
+                retained.extend(chunk[:remaining])
+            if len(chunk) > remaining:
+                overflow.set()
+
+    threads = [
+        threading.Thread(target=drain, args=(process.stdout, stdout_buffer, stdout_cap), daemon=True),
+        threading.Thread(target=drain, args=(process.stderr, stderr_buffer, stderr_cap), daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
     started = time.monotonic()
-    with tempfile.TemporaryDirectory(prefix="pimm-ffprobe-") as root:
-        stdout_path, stderr_path = Path(root) / "stdout", Path(root) / "stderr"
-        with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
-            options: dict[str, object] = {
-                "stdout": stdout_file, "stderr": stderr_file,
-            }
-            if os.name == "nt":
-                options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-            else:
-                options["start_new_session"] = True
-            process = subprocess.Popen(list(command), **options)
-            reason: str | None = None
-            while process.poll() is None:
-                stdout_size = stdout_path.stat().st_size
-                stderr_size = stderr_path.stat().st_size
-                if stdout_size > stdout_cap or stderr_size > stderr_cap:
-                    reason = "output exceeded the bounded evidence limit"
-                    break
-                if time.monotonic() - started > timeout:
-                    reason = "timed out"
-                    break
-                time.sleep(0.02)
-            if reason is not None:
-                _terminate_process_tree(process)
-            returncode = process.wait(timeout=5)
-        stdout = stdout_path.read_bytes()[:stdout_cap].decode("utf-8", errors="replace")
-        stderr = stderr_path.read_bytes()[:stderr_cap].decode("utf-8", errors="replace")
-        if reason is not None:
-            raise ValueError(
-                f"FFprobe EXR decode {reason}; stdout_tail={stdout[-2000:]}; "
-                f"stderr_tail={stderr[-2000:]}"
-            )
-        return subprocess.CompletedProcess(list(command), returncode, stdout, stderr)
+    reason: str | None = None
+    while process.poll() is None:
+        if overflow.is_set():
+            reason = "output exceeded the bounded evidence limit"
+            break
+        if time.monotonic() - started > timeout:
+            reason = "timed out"
+            break
+        time.sleep(0.01)
+    if reason is not None:
+        _terminate_process_tree(process)
+    returncode = process.wait(timeout=5)
+    for thread in threads:
+        thread.join(timeout=5)
+    if any(thread.is_alive() for thread in threads):
+        _terminate_process_tree(process)
+        for stream in (process.stdout, process.stderr):
+            stream.close()
+        for thread in threads:
+            thread.join(timeout=1)
+        raise ValueError("FFprobe EXR decode stream-drain cleanup failed")
+    for stream in (process.stdout, process.stderr):
+        stream.close()
+    if overflow.is_set():
+        reason = "output exceeded the bounded evidence limit"
+    stdout = bytes(stdout_buffer).decode("utf-8", errors="replace")
+    stderr = bytes(stderr_buffer).decode("utf-8", errors="replace")
+    if reason is not None:
+        raise ValueError(
+            f"FFprobe EXR decode {reason}; stdout_tail={stdout[-2000:]}; "
+            f"stderr_tail={stderr[-2000:]}"
+        )
+    return subprocess.CompletedProcess(list(command), returncode, stdout, stderr)
 
 
 def _validate_worker_png(

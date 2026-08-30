@@ -418,8 +418,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         """Catches pipe deadlock or full output materialization before cap enforcement."""
 
         script = (
-            "import os,time;"
-            "os.write(1,b'x'*100000);os.write(2,b'y'*100000);time.sleep(30)"
+            "import os;os.write(1,b'x'*100000);os.write(2,b'y'*100000)"
         )
         started = time.monotonic()
         with self.assertRaisesRegex(ValueError, "bounded evidence limit") as raised:
@@ -428,6 +427,17 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             )
         self.assertLess(time.monotonic() - started, 5)
         self.assertLess(len(str(raised.exception)), 5000)
+
+    def test_bounded_process_timeout_terminates_and_joins_stream_drains(self) -> None:
+        """Catches timeout returning while the decoder or pipe readers remain alive."""
+
+        started = time.monotonic()
+        with self.assertRaisesRegex(ValueError, "timed out"):
+            final_module._run_bounded_process(
+                [sys.executable, "-c", "import time;time.sleep(30)"],
+                0.1, 4096, 4096,
+            )
+        self.assertLess(time.monotonic() - started, 5)
 
     def test_openexr_parser_reads_real_data_window_channels_and_chunks(self) -> None:
         """Catches magic-only acceptance without a decodable OpenEXR structure."""
