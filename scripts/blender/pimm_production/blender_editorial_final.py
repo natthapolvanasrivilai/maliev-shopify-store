@@ -704,6 +704,72 @@ def _discard_candidate(candidate: Path) -> None:
         shutil.rmtree(candidate)
 
 
+def _disposition_claim_paths(
+    staging: Path, asset_root: Path
+) -> tuple[Path, Path, Path]:
+    claim_root = asset_root / "renders" / "final-transactions" / FINAL_LIBRARY / ".claims"
+    key = hashlib.sha256(str(staging.resolve()).encode()).hexdigest()
+    return (
+        claim_root / f"{key}.claim",
+        claim_root / f"{key}.accept",
+        claim_root / f"{key}.reject",
+    )
+
+
+def _acquire_disposition_claim(
+    staging: Path,
+    asset_root: Path,
+    release_id: str,
+    decision: str,
+    source_fingerprint: tuple[tuple[str, str], ...],
+) -> Path:
+    """Exclusively claim one pending tree for exactly one accept/reject decision."""
+
+    if decision not in {"accept", "reject"}:
+        raise ValueError("native final disposition decision is invalid")
+    active, accepted, rejected = _disposition_claim_paths(staging, asset_root)
+    active.parent.mkdir(parents=True, exist_ok=True)
+    if accepted.exists() or rejected.exists():
+        raise ValueError("native final pending tree already has a terminal disposition claim")
+    try:
+        active.mkdir(exist_ok=False)
+    except FileExistsError as error:
+        raise ValueError("native final pending tree already has an active disposition") from error
+    try:
+        if accepted.exists() or rejected.exists():
+            raise ValueError("native final pending tree already has a terminal disposition claim")
+        _exclusive_json(active / "decision.json", {
+            "schema": "maliev.pimm-editorial-disposition-claim/v1",
+            "release_id": release_id,
+            "decision": decision,
+            "pending_path": str(staging),
+            "pending_fingerprint": list(source_fingerprint),
+        })
+        return active
+    except Exception:
+        _discard_candidate(active)
+        raise
+
+
+def _terminalize_disposition_claim(
+    active: Path, decision: str, result: Mapping[str, object]
+) -> Path:
+    """Bind the terminal output then atomically rename the exclusive claim."""
+
+    accepted = active.with_suffix(".accept")
+    rejected = active.with_suffix(".reject")
+    terminal = accepted if decision == "accept" else rejected
+    if accepted.exists() or rejected.exists():
+        raise ValueError("native final terminal disposition already exists")
+    _exclusive_json(active / "result.json", {
+        "schema": "maliev.pimm-editorial-disposition-result/v1",
+        "decision": decision,
+        **dict(result),
+    })
+    os.rename(active, terminal)
+    return terminal
+
+
 def reject_editorial_native_release(
     staging: Path, contract_path: Path, disposition: Mapping[str, object]
 ) -> Path:
@@ -742,31 +808,33 @@ def reject_editorial_native_release(
         any_failure = any_failure or "fail" in states
     if not any_failure:
         raise ValueError("actual-pixel rejection must identify at least one failed field")
+    target = parent / str(contract["release_id"])
+    if target.exists():
+        raise ValueError("native final release already has an accepted terminal output")
     source_fingerprint = _tree_fingerprint(staging)
-    candidate = _copy_transaction_candidate(
-        staging, asset_root, str(contract["release_id"])
+    claim = _acquire_disposition_claim(
+        staging, asset_root, str(contract["release_id"]), "reject", source_fingerprint
     )
+    candidate: Path | None = None
     failure_parent = asset_root / "renders" / "final-failures" / FINAL_LIBRARY
     failure_parent.mkdir(parents=True, exist_ok=True)
     rejected = failure_parent / f"{contract['release_id']}-rejected-{uuid.uuid4().hex[:8]}"
-    claim_parent = asset_root / "renders" / "final-transactions" / FINAL_LIBRARY / ".claims"
-    claim_parent.mkdir(parents=True, exist_ok=True)
-    claim = claim_parent / f"{hashlib.sha256(str(staging).encode()).hexdigest()}.reject.json"
-    claim_owned = False
     try:
-        _exclusive_json(claim, {
-            "schema": "maliev.pimm-editorial-reject-claim/v1",
-            "release_id": contract["release_id"],
-            "pending_fingerprint": list(source_fingerprint),
-        })
-        claim_owned = True
+        candidate = _copy_transaction_candidate(
+            staging, asset_root, str(contract["release_id"])
+        )
         _exclusive_json(candidate / REJECTED_DISPOSITION_NAME, dict(disposition))
         os.rename(candidate, rejected)
+        candidate = None
+        _terminalize_disposition_claim(claim, "reject", {
+            "output_path": str(rejected),
+            "output_fingerprint": list(_tree_fingerprint(rejected)),
+        })
     except Exception as error:
-        _discard_candidate(candidate)
-        if claim_owned:
-            claim.chmod(0o644)
-            claim.unlink(missing_ok=True)
+        if candidate is not None and candidate.exists():
+            _discard_candidate(candidate)
+        if not rejected.exists() and claim.exists():
+            _discard_candidate(claim)
         if _tree_fingerprint(staging) != source_fingerprint:
             raise ValueError("reject rollback failed: pending source bytes changed") from error
         raise ValueError(f"native final rejection transaction failed: {error}") from error
@@ -813,10 +881,15 @@ def publish_editorial_native_release(
             raise ValueError("actual-pixel shot disposition requires every field to pass")
     source_staging = staging
     source_fingerprint = _tree_fingerprint(source_staging)
-    staging = _copy_transaction_candidate(
-        source_staging, asset_root, str(contract["release_id"])
+    claim = _acquire_disposition_claim(
+        source_staging, asset_root, str(contract["release_id"]), "accept",
+        source_fingerprint,
     )
+    staging: Path | None = None
     try:
+        staging = _copy_transaction_candidate(
+            source_staging, asset_root, str(contract["release_id"])
+        )
         report, expected = _validate_staging(staging, contract)
         # Web derivatives are intentionally created only after acceptance is complete.
         for record in report["shots"]:
@@ -865,9 +938,16 @@ def publish_editorial_native_release(
         marker = staging / RELEASE_MANIFEST_NAME
         _exclusive_json(marker, manifest)
         os.rename(staging, target)  # marker is immediately followed by atomic rename
+        staging = None
+        _terminalize_disposition_claim(claim, "accept", {
+            "output_path": str(target),
+            "release_manifest_sha256": sha256_file(target / RELEASE_MANIFEST_NAME),
+        })
     except Exception as error:
-        if staging.exists():
+        if staging is not None and staging.exists():
             _discard_candidate(staging)
+        if not target.exists() and claim.exists():
+            _discard_candidate(claim)
         if _tree_fingerprint(source_staging) != source_fingerprint:
             raise ValueError("publication rollback failed: pending source bytes changed") from error
         raise ValueError(f"native final publication transaction failed: {error}") from error

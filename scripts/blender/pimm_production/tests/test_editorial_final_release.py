@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import subprocess
@@ -369,6 +370,96 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         self.assertFalse((staging.parent / RELEASE_ID).exists())
         with self.assertRaisesRegex(ValueError, "staging|claim|missing"):
             reject_editorial_native_release(staging, contract_path, disposition)
+
+    def test_accept_then_reject_is_blocked_by_shared_terminal_claim(self) -> None:
+        """Catches one pending tree being accepted and then separately rejected."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        published = publish_editorial_native_release(staging, contract_path, disposition)
+        rejected_disposition = deepcopy(disposition)
+        rejected_disposition["decision"] = "reject"
+        rejected_disposition["shots"][0]["pixel_review"] = "fail"
+        with self.assertRaisesRegex(ValueError, "accepted|terminal|claim"):
+            reject_editorial_native_release(
+                staging, contract_path, rejected_disposition
+            )
+        self.assertTrue(published.is_dir())
+
+    def test_reject_then_accept_is_blocked_by_shared_terminal_claim(self) -> None:
+        """Catches one pending tree being rejected and then separately accepted."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        rejected_disposition = deepcopy(disposition)
+        rejected_disposition["decision"] = "reject"
+        rejected_disposition["shots"][0]["pixel_review"] = "fail"
+        rejected = reject_editorial_native_release(
+            staging, contract_path, rejected_disposition
+        )
+        with self.assertRaisesRegex(ValueError, "terminal|claim"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertTrue(rejected.is_dir())
+        self.assertFalse((staging.parent / RELEASE_ID).exists())
+
+    def test_shared_claim_excludes_concurrent_opposing_decisions(self) -> None:
+        """Catches accept and reject acquiring different locks for the same pending bytes."""
+
+        staging = self.asset_root / "renders" / "final" / "editorial-concepts-v1" / ".race"
+        staging.mkdir(parents=True)
+        (staging / "evidence.bin").write_bytes(b"immutable")
+        fingerprint = final_module._tree_fingerprint(staging)
+
+        def acquire(decision: str) -> object:
+            try:
+                return final_module._acquire_disposition_claim(
+                    staging, self.asset_root, RELEASE_ID, decision, fingerprint
+                )
+            except ValueError as error:
+                return error
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(acquire, ("accept", "reject")))
+        claims = [outcome for outcome in outcomes if isinstance(outcome, Path)]
+        errors = [outcome for outcome in outcomes if isinstance(outcome, ValueError)]
+        self.assertEqual(len(claims), 1)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("active disposition", str(errors[0]))
+
+    def test_partial_claim_write_is_cleaned_and_retryable(self) -> None:
+        """Catches write-after-create faults leaving an ownerless partial external claim."""
+
+        staging = self.asset_root / "renders" / "final" / "editorial-concepts-v1" / ".partial"
+        staging.mkdir(parents=True)
+        (staging / "evidence.bin").write_bytes(b"immutable")
+        fingerprint = final_module._tree_fingerprint(staging)
+        real_json = final_module._exclusive_json
+
+        def partial_then_fail(path: Path, payload: Mapping[str, object]) -> None:
+            if path.name == "decision.json":
+                path.write_bytes(b"{")
+                raise OSError("injected write-after-create fault")
+            real_json(path, payload)
+
+        with patch.object(final_module, "_exclusive_json", side_effect=partial_then_fail):
+            with self.assertRaisesRegex(OSError, "write-after-create"):
+                final_module._acquire_disposition_claim(
+                    staging, self.asset_root, RELEASE_ID, "accept", fingerprint
+                )
+        active, accepted, rejected = final_module._disposition_claim_paths(
+            staging, self.asset_root
+        )
+        self.assertFalse(active.exists())
+        self.assertFalse(accepted.exists())
+        self.assertFalse(rejected.exists())
+        retry = final_module._acquire_disposition_claim(
+            staging, self.asset_root, RELEASE_ID, "reject", fingerprint
+        )
+        self.assertTrue((retry / "decision.json").is_file())
 
     def test_accept_collision_preserves_reviewed_staging_without_release_marker(self) -> None:
         """Catches target races leaving a marker-certified hidden tree or deleting evidence."""
