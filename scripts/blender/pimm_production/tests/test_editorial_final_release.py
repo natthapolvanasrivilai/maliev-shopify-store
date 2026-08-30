@@ -10,6 +10,7 @@ import subprocess
 import struct
 import sys
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from typing import Mapping
 import unittest
 from unittest.mock import patch
@@ -579,6 +580,32 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("--render-shot", completed.stdout)
+
+    def test_worker_png_validation_passes_headless_render_result_size(self) -> None:
+        """Catches drift when the shared PNG validator adds required Blender evidence."""
+
+        with TemporaryDirectory() as root:
+            png = Path(root) / "shot.png"
+            Image.new("RGB", (40, 30), (1, 2, 3)).save(png)
+            bpy = SimpleNamespace(
+                data=SimpleNamespace(
+                    images={"Render Result": SimpleNamespace(size=(0, 0))}
+                )
+            )
+            evidence = final_module._validate_worker_png(bpy, png, 40, 30)
+        self.assertEqual(evidence["png_dimensions"], [40, 30])
+        self.assertEqual(evidence["render_result_size"], [0, 0])
+
+    def test_missing_worker_marker_preserves_blender_traceback_tail(self) -> None:
+        """Catches subprocess diagnostics being discarded from immutable failure evidence."""
+
+        completed = subprocess.CompletedProcess(
+            args=["blender"], returncode=0,
+            stdout="Blender output\nTraceback: signature drift",
+            stderr="worker stderr",
+        )
+        with self.assertRaisesRegex(ValueError, "signature drift"):
+            final_module._parse_worker(completed, "shot-one")
 
     def test_blender_worker_import_does_not_require_pillow(self) -> None:
         """Catches fresh Blender exiting before render because its Python lacks Pillow."""

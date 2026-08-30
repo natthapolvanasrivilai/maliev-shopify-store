@@ -259,6 +259,18 @@ def _blender_decode_exr(bpy: Any, path: Path) -> dict[str, object]:
         bpy.data.images.remove(image)
 
 
+def _validate_worker_png(
+    bpy: Any, path: Path, width: int, height: int
+) -> dict[str, object]:
+    """Validate written dimensions while tolerating Blender's headless 0x0 image API."""
+
+    render_result = bpy.data.images.get("Render Result")
+    observed = tuple(render_result.size) if render_result is not None else None
+    return _validate_rendered_png_dimensions(
+        path, width, height, render_result_size=observed
+    )
+
+
 def _load_worker_contract(
     contract_path: Path,
     asset_root: Path,
@@ -410,7 +422,7 @@ def _render_worker(
     started = time.perf_counter()
     bpy.ops.render.render(write_still=True)
     seconds = time.perf_counter() - started
-    _validate_rendered_png_dimensions(png, width, height)
+    _validate_worker_png(bpy, png, width, height)
     scene.render.image_settings.file_format = "OPEN_EXR"
     scene.render.image_settings.color_mode = "RGB"
     scene.render.image_settings.color_depth = "32"
@@ -484,7 +496,13 @@ def _parse_worker(completed: subprocess.CompletedProcess[str], shot_id: str) -> 
         raise ValueError(f"native final Blender worker failed for {shot_id}: {completed.stderr[-2000:]}")
     lines = [line for line in completed.stdout.splitlines() if line.startswith(WORKER_MARKER)]
     if len(lines) != 1:
-        raise ValueError(f"native final Blender worker result is missing for {shot_id}")
+        diagnostic = "\n".join(
+            part[-2000:] for part in (completed.stdout, completed.stderr) if part
+        )
+        raise ValueError(
+            f"native final Blender worker result is missing for {shot_id}; "
+            f"worker_tail={diagnostic}"
+        )
     payload = json.loads(lines[0][len(WORKER_MARKER):])
     if payload.get("shot_id") != shot_id:
         raise ValueError("native final Blender worker shot identity drift")
