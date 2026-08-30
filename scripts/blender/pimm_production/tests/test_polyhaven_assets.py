@@ -235,6 +235,47 @@ class PolyHavenAssetTests(unittest.TestCase):
             self.assertEqual(manifest.read_bytes(), before)
             self.assertFalse((asset_root / "assets").exists())
 
+    def test_batch_preserves_a_destination_created_between_preflight_and_commit(self) -> None:
+        first = polyhaven_assets.APPROVED_POLYHAVEN["university_workshop"]
+        second = polyhaven_assets.APPROVED_POLYHAVEN["tool_cart"]
+        first_payload = b"first"
+        second_payload = b"second"
+        raced_payload = b"outside transaction"
+        first_resolved = polyhaven_assets.ResolvedDownload(
+            first, "https://dl.polyhaven.org/file/ph-assets/university_workshop_4k.exr",
+            hashlib.md5(first_payload).hexdigest(), len(first_payload), "university_workshop_4k.exr", (),
+        )
+        second_resolved = polyhaven_assets.ResolvedDownload(
+            second, "https://dl.polyhaven.org/file/ph-assets/tool_cart_1k.blend",
+            hashlib.md5(second_payload).hexdigest(), len(second_payload), "tool_cart_1k.blend", (),
+        )
+        resolutions = {first.asset_id: first_resolved, second.asset_id: second_resolved}
+        payloads = {first_resolved.url: first_payload, second_resolved.url: second_payload}
+        original_commit = polyhaven_assets._commit_temp
+        with tempfile.TemporaryDirectory() as directory:
+            asset_root = Path(directory)
+            manifest = asset_root / "manifests" / "external-assets-v1.json"
+            manifest.parent.mkdir()
+            before = b'{\n  "schema": "maliev.pimm-external-assets/v1",\n  "assets": []\n}\n'
+            manifest.write_bytes(before)
+            first_destination = polyhaven_assets._target_destination(asset_root, first_resolved)
+            raced_destination = polyhaven_assets._target_destination(asset_root, second_resolved)
+
+            def create_raced_destination(temp: Path, destination: Path) -> None:
+                if destination == raced_destination:
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(raced_payload)
+                original_commit(temp, destination)
+
+            with patch.object(polyhaven_assets, "resolve_public_download", side_effect=lambda spec: resolutions[spec.asset_id]), patch.object(
+                polyhaven_assets, "_open_no_redirect", side_effect=lambda url, host: _Response(payloads[url], url)
+            ), patch.object(polyhaven_assets, "_commit_temp", side_effect=create_raced_destination):
+                with self.assertRaises(FileExistsError):
+                    polyhaven_assets.acquire_approved_assets(asset_root, [first.asset_id, second.asset_id])
+            self.assertFalse(first_destination.exists())
+            self.assertEqual(raced_destination.read_bytes(), raced_payload)
+            self.assertEqual(manifest.read_bytes(), before)
+
 
 if __name__ == "__main__":
     unittest.main()

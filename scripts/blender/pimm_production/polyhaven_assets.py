@@ -308,9 +308,24 @@ def _create_missing_directories(path: Path) -> list[Path]:
     while not current.exists():
         missing.append(current)
         current = current.parent
-    for directory in reversed(missing):
-        directory.mkdir()
-    return list(reversed(missing))
+    created: list[Path] = []
+    try:
+        for directory in reversed(missing):
+            try:
+                directory.mkdir()
+            except FileExistsError:
+                if not directory.is_dir():
+                    raise
+            else:
+                created.append(directory)
+        return created
+    except Exception:
+        for directory in reversed(created):
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        raise
 
 
 def _restore_manifest_bytes(manifest_path: Path, original: bytes) -> None:
@@ -357,12 +372,7 @@ class _AssetTransaction:
         try:
             for staged in self.staged:
                 self.created_directories.extend(_create_missing_directories(staged.destination.parent))
-                try:
-                    _commit_temp(staged.temporary_path, staged.destination)
-                except Exception:
-                    if staged.destination.exists():
-                        self.committed.append(staged.destination)
-                    raise
+                _commit_temp(staged.temporary_path, staged.destination)
                 self.committed.append(staged.destination)
         except Exception:
             self.rollback()
