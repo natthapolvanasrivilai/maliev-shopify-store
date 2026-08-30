@@ -10,6 +10,7 @@ import subprocess
 import struct
 import sys
 from tempfile import TemporaryDirectory
+import time
 from types import SimpleNamespace
 from typing import Mapping
 import unittest
@@ -372,7 +373,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             with (
                 patch.object(final_module, "sha256_file", return_value=final_module.FFPROBE_SHA256),
                 patch.object(
-                    final_module.subprocess, "run",
+                    final_module, "_run_bounded_process",
                     return_value=subprocess.CompletedProcess([], 0, success, ""),
                 ) as run,
             ):
@@ -381,7 +382,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
                 )
             self.assertEqual(evidence["dimensions"], [3840, 2160])
             self.assertEqual(evidence["pixel_format"], "gbrpf32le")
-            self.assertEqual(run.call_args.kwargs["timeout"], 60)
+            self.assertEqual(run.call_args.args[1:], (60, 65536, 8192))
 
     def test_ffprobe_exr_decode_rejects_timeout_malformed_and_wrong_dimensions(self) -> None:
         """Catches decode hangs, invalid files, or metadata substitution passing authority."""
@@ -390,7 +391,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             tool = Path(root) / "ffprobe.exe"
             tool.write_bytes(b"pinned tool")
             cases = (
-                (subprocess.TimeoutExpired(["ffprobe"], 60), "timed out"),
+                (ValueError("FFprobe EXR decode timed out"), "timed out"),
                 (subprocess.CompletedProcess([], 0, "not-json", ""), "malformed"),
                 (subprocess.CompletedProcess([], 0, json.dumps({
                     "streams": [{"codec_name": "exr", "width": 1, "height": 1,
@@ -407,11 +408,26 @@ class EditorialFinalReleaseTests(unittest.TestCase):
                 )
                 with self.subTest(message=message), patch.object(
                     final_module, "sha256_file", return_value=final_module.FFPROBE_SHA256
-                ), patch.object(final_module.subprocess, "run", **run_options):
+                ), patch.object(final_module, "_run_bounded_process", **run_options):
                     with self.assertRaisesRegex(ValueError, message):
                         self._real_ffprobe_decode(
                             Path("archive.exr"), 3840, 2160, tool
                         )
+
+    def test_bounded_process_terminates_dual_stream_overflow_without_full_retention(self) -> None:
+        """Catches pipe deadlock or full output materialization before cap enforcement."""
+
+        script = (
+            "import os,time;"
+            "os.write(1,b'x'*100000);os.write(2,b'y'*100000);time.sleep(30)"
+        )
+        started = time.monotonic()
+        with self.assertRaisesRegex(ValueError, "bounded evidence limit") as raised:
+            final_module._run_bounded_process(
+                [sys.executable, "-c", script], 10, 4096, 4096
+            )
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertLess(len(str(raised.exception)), 5000)
 
     def test_openexr_parser_reads_real_data_window_channels_and_chunks(self) -> None:
         """Catches magic-only acceptance without a decodable OpenEXR structure."""

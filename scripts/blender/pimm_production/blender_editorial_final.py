@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import struct
 import sys
+import tempfile
 import time
 from typing import Any, Mapping, Sequence
 import uuid
@@ -55,6 +56,8 @@ FINAL_LIBRARY = "editorial-concepts-v1"
 WORKER_TIMEOUT_SECONDS = 3600
 FFPROBE_TIMEOUT_SECONDS = 60
 FFPROBE_SHA256 = "55BB6C6289367AE2383EFA86B26BF2596F8ADB72AC747360EB13DF162354161C"
+FFPROBE_STDOUT_CAP = 65536
+FFPROBE_STDERR_CAP = 8192
 _PASS_FIELDS = ("pixel_review", "grounding", "clipping", "props", "exposure", "detail", "decals")
 
 
@@ -253,17 +256,11 @@ def _ffprobe_decode_exr(
         "stream=codec_name,width,height,pix_fmt:frame=media_type,width,height,pix_fmt,pkt_size",
         "-show_frames", "-read_intervals", "%+#1", "-of", "json", str(path),
     ]
-    try:
-        completed = subprocess.run(
-            command, capture_output=True, text=True,
-            timeout=FFPROBE_TIMEOUT_SECONDS, check=False,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise ValueError("FFprobe EXR decode timed out") from error
+    completed = _run_bounded_process(
+        command, FFPROBE_TIMEOUT_SECONDS, FFPROBE_STDOUT_CAP, FFPROBE_STDERR_CAP
+    )
     if completed.returncode != 0:
         raise ValueError(f"FFprobe EXR decode failed: {completed.stderr[-2000:]}")
-    if len(completed.stdout) > 65536 or len(completed.stderr) > 8192:
-        raise ValueError("FFprobe EXR decode output exceeded the bounded evidence limit")
     try:
         payload = json.loads(completed.stdout)
         streams, frames = payload["streams"], payload["frames"]
@@ -286,6 +283,71 @@ def _ffprobe_decode_exr(
         "codec": "exr", "dimensions": [width, height],
         "pixel_format": "gbrpf32le", "decoded_frames": 1,
     }
+
+
+def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
+    """Best-effort termination of the bounded decoder and any descendants."""
+
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=5, check=False,
+        )
+    else:
+        try:
+            os.killpg(process.pid, 9)
+        except ProcessLookupError:
+            pass
+    if process.poll() is None:
+        process.kill()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+
+
+def _run_bounded_process(
+    command: Sequence[str], timeout: float, stdout_cap: int, stderr_cap: int
+) -> subprocess.CompletedProcess[str]:
+    """Spool both streams independently, terminate on cap/timeout, retain capped text."""
+
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="pimm-ffprobe-") as root:
+        stdout_path, stderr_path = Path(root) / "stdout", Path(root) / "stderr"
+        with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+            options: dict[str, object] = {
+                "stdout": stdout_file, "stderr": stderr_file,
+            }
+            if os.name == "nt":
+                options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                options["start_new_session"] = True
+            process = subprocess.Popen(list(command), **options)
+            reason: str | None = None
+            while process.poll() is None:
+                stdout_size = stdout_path.stat().st_size
+                stderr_size = stderr_path.stat().st_size
+                if stdout_size > stdout_cap or stderr_size > stderr_cap:
+                    reason = "output exceeded the bounded evidence limit"
+                    break
+                if time.monotonic() - started > timeout:
+                    reason = "timed out"
+                    break
+                time.sleep(0.02)
+            if reason is not None:
+                _terminate_process_tree(process)
+            returncode = process.wait(timeout=5)
+        stdout = stdout_path.read_bytes()[:stdout_cap].decode("utf-8", errors="replace")
+        stderr = stderr_path.read_bytes()[:stderr_cap].decode("utf-8", errors="replace")
+        if reason is not None:
+            raise ValueError(
+                f"FFprobe EXR decode {reason}; stdout_tail={stdout[-2000:]}; "
+                f"stderr_tail={stderr[-2000:]}"
+            )
+        return subprocess.CompletedProcess(list(command), returncode, stdout, stderr)
 
 
 def _validate_worker_png(
