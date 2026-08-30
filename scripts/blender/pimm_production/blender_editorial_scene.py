@@ -155,13 +155,64 @@ def _set_contract(
         "warm-grey-floor", "warm-grey-wall", "window-gobo", "accent-slab",
         "graphite-floor", "graphite-wall", "black-flag-left", "black-flag-right",
     }
+    composition_policy = {
+        "architectural-daylight": {
+            "procedural_scale": 1.0,
+            "procedural_minimum_y_gap_mm": 0.0,
+            "gobo_maximum_x_offset_mm": -300.0,
+            "camera_safety_multiplier": 1.08,
+            "external_instances": [],
+        },
+        "dark-engineering": {
+            "procedural_scale": 1.0,
+            "procedural_minimum_y_gap_mm": 0.0,
+            "gobo_maximum_x_offset_mm": None,
+            "camera_safety_multiplier": 1.08,
+            "external_instances": [],
+        },
+        "modern-workshop": {
+            "procedural_scale": 0.35,
+            "procedural_minimum_y_gap_mm": 220.0,
+            "gobo_maximum_x_offset_mm": None,
+            "camera_safety_multiplier": 1.05,
+            "external_instances": [{
+                "asset_id": "tool_cart",
+                "framing_eligible": False,
+                "center_x_offset_mm": 1700.0,
+                "y_anchor": "minimum-behind",
+                "y_gap_mm": 1800.0,
+                "grounded": True,
+            }],
+        },
+        "process-still-life": {
+            "procedural_scale": 0.36,
+            "procedural_minimum_y_gap_mm": 220.0,
+            "gobo_maximum_x_offset_mm": None,
+            "camera_safety_multiplier": 1.08,
+            "external_instances": [{
+                "asset_id": "metal_toolbox",
+                "framing_eligible": False,
+                "center_x_offset_mm": -700.0,
+                "y_anchor": "minimum-behind",
+                "y_gap_mm": 800.0,
+                "grounded": True,
+            }],
+        },
+    }[shot.concept]
+    external_policies = {
+        str(record["asset_id"]): record
+        for record in composition_policy["external_instances"]
+    }
     support_allowlist = [
         {
             "name": item.name,
             "role": item.role,
             "object_type": "MESH",
             "source": "task-3-procedural",
-            "framing_eligible": item.role not in background_roles,
+            "framing_eligible": (
+                item.role not in background_roles
+                and shot.concept != "process-still-life"
+            ),
             "contact_plane": "floor" in item.role,
         }
         for item in spec.geometry
@@ -178,6 +229,7 @@ def _set_contract(
     for record in external_assets:
         asset_id = str(record["asset_id"])
         is_hdri = asset_id == "university_workshop"
+        external_policy = external_policies.get(asset_id)
         support_allowlist.append({
             "name": (
                 "PIMM_SCENE_SUPPORT_WORKSHOP_HDRI_ENVIRONMENT"
@@ -191,7 +243,10 @@ def _set_contract(
             ),
             "object_type": "EMPTY",
             "source": "task-3-external",
-            "framing_eligible": not is_hdri,
+            "framing_eligible": (
+                bool(external_policy["framing_eligible"])
+                if external_policy is not None else False
+            ),
             "contact_plane": False,
             **({} if is_hdri else {
                 "instance_object_name": f"PIMM_SCENE_SUPPORT_EXTERNAL_{asset_id.upper()}",
@@ -205,8 +260,8 @@ def _set_contract(
     coverage = {
         "architectural-daylight": (0.22, 0.75, 0.18),
         "dark-engineering": (0.20, 0.75, 0.18),
-        "modern-workshop": (0.16, 0.65, 0.10),
-        "process-still-life": (0.22, 0.35, 0.08),
+        "modern-workshop": (0.20, 0.75, 0.20),
+        "process-still-life": (0.20, 0.62, 0.16),
     }[shot.concept]
     return {
         "concept": shot.concept,
@@ -218,6 +273,7 @@ def _set_contract(
         "shadow_intent": spec.shadow_intent,
         "feature_counts": [[name, count] for name, count in editorial_sets._feature_counts(spec.geometry)],
         "support_allowlist": support_allowlist,
+        "composition_policy": composition_policy,
         "coverage_policy": {
             "minimum_machine_width_ratio": coverage[0],
             "minimum_machine_height_ratio": coverage[1],
@@ -1508,17 +1564,18 @@ def validate_open_editorial_scene(bpy: Any, contract: Mapping[str, object]) -> l
 
 
 def _flatten_contact_plane(obj: Any, contact_z: float, machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]]) -> None:
-    for vertex in obj.data.vertices:
-        vertex.co.z = 0.0
     width = machine_bounds[1][0] - machine_bounds[0][0] + 20_000.0
     depth = machine_bounds[1][1] - machine_bounds[0][1] + 20_000.0
-    current = _object_bounds(obj)
-    if current is None:
-        raise ValueError("editorial contact plane has no bounds")
-    current_width = current[1][0] - current[0][0]
-    current_depth = current[1][1] - current[0][1]
-    obj.scale.x *= width / current_width
-    obj.scale.y *= depth / current_depth
+    obj.data.clear_geometry()
+    obj.data.from_pydata(
+        [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)],
+        [],
+        [(0, 1, 2, 3)],
+    )
+    obj.data.update()
+    obj.scale.x = width
+    obj.scale.y = depth
+    obj.scale.z = 1.0
     obj.location.x = (machine_bounds[0][0] + machine_bounds[1][0]) / 2.0
     obj.location.y = (machine_bounds[0][1] + machine_bounds[1][1]) / 2.0
     obj.location.z = contact_z
@@ -1570,6 +1627,7 @@ def _solve_camera_layout(
     shot: EditorialConceptShot,
     machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
     support_bounds: Sequence[tuple[tuple[float, float, float], tuple[float, float, float]]],
+    safety_multiplier: float = 1.08,
 ) -> dict[str, object]:
     support_rectangle = (
         (
@@ -1591,7 +1649,7 @@ def _solve_camera_layout(
     tan_vertical = tan_horizontal / (shot.width / shot.height)
     horizontal = max(abs(combined[0][0] - target[0]), abs(combined[1][0] - target[0]))
     vertical = max(abs(combined[0][2] - target[2]), abs(combined[1][2] - target[2]))
-    near_distance = max(horizontal / tan_horizontal, vertical / tan_vertical) * 1.08
+    near_distance = max(horizontal / tan_horizontal, vertical / tan_vertical) * safety_multiplier
     return {
         "combined_bounds": combined,
         "support_rectangle": support_rectangle,
@@ -1608,6 +1666,7 @@ def _place_supports(
     machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
     contact_z: float,
     allowlist: Sequence[Mapping[str, object]],
+    composition_policy: Mapping[str, object],
 ) -> None:
     expected = {str(record["name"]): record for record in allowlist}
     for obj in _support_objects(bpy):
@@ -1639,7 +1698,7 @@ def _place_supports(
             0.72,
         )
         plane = editorial_sets._install_geometry(bpy, spec)
-        plane["pimm_editorial_contact_plane"] = True
+        _flatten_contact_plane(plane, contact_z, machine_bounds)
         plane["pimm_editorial_framing_eligible"] = False
 
     left_edge = machine_bounds[0][0] - 2_500.0
@@ -1649,29 +1708,58 @@ def _place_supports(
         machine_center_x = (machine_bounds[0][0] + machine_bounds[1][0]) / 2.0
         _scale_and_place_group(
             procedural,
-            0.35 if shot.concept == "modern-workshop" else 0.40,
+            float(composition_policy["procedural_scale"]),
             machine_center_x,
-            machine_bounds[1][1] + 220.0,
+            machine_bounds[1][1] + float(composition_policy["procedural_minimum_y_gap_mm"]),
         )
         bpy.context.view_layer.update()
         external = [obj for obj in _support_objects(bpy) if getattr(obj, "instance_type", None) == "COLLECTION"]
+        external_policies = {
+            str(record["asset_id"]): record
+            for record in composition_policy["external_instances"]
+        }
         for obj in external:
+            role = str(obj.get("pimm_scene_support_role", ""))
+            asset_id = role.removeprefix("external-").replace("-", "_")
+            policy = external_policies.get(asset_id)
+            if policy is None:
+                raise ValueError(f"external editorial support has no composition policy: {asset_id}")
             bounds = _object_bounds(obj)
             if bounds is None:
                 raise ValueError("external editorial support has no bounds")
-            obj.location.x += machine_center_x - ((bounds[0][0] + bounds[1][0]) / 2.0)
-            obj.location.y += machine_bounds[1][1] + 420.0 - bounds[0][1]
+            obj.location.x += (
+                machine_center_x + float(policy["center_x_offset_mm"])
+                - ((bounds[0][0] + bounds[1][0]) / 2.0)
+            )
+            anchor = str(policy["y_anchor"])
+            if anchor == "minimum-behind":
+                obj.location.y += machine_bounds[1][1] + float(policy["y_gap_mm"]) - bounds[0][1]
+            elif anchor == "maximum-front":
+                obj.location.y += machine_bounds[0][1] - float(policy["y_gap_mm"]) - bounds[1][1]
+            else:
+                raise ValueError(f"unsupported external editorial y anchor: {anchor}")
+            if policy["grounded"] is True:
+                obj.location.z += contact_z - bounds[0][2]
     else:
         walls = [obj for obj in geometry if "wall" in str(obj.get("pimm_scene_support_role", ""))]
         for wall in walls:
             bounds = _object_bounds(wall)
             wall.location.y += machine_bounds[1][1] + 5_000.0 - bounds[0][1]
             wall.location.z = (machine_bounds[0][2] + machine_bounds[1][2]) / 2.0
+        gobos = [
+            obj for obj in geometry
+            if str(obj.get("pimm_scene_support_role", "")) == "window-gobo"
+        ]
+        gobo_offset = composition_policy["gobo_maximum_x_offset_mm"]
+        if gobos and gobo_offset is not None:
+            bounds = _group_bounds(gobos)
+            machine_center_x = (machine_bounds[0][0] + machine_bounds[1][0]) / 2.0
+            _translate_group(gobos, machine_center_x + float(gobo_offset) - bounds[1][0])
         left = [
-            obj for obj in geometry if obj not in floors + walls
+            obj for obj in geometry if obj not in floors + walls + gobos
             and ("left" in str(obj.get("pimm_scene_support_role", "")) or float(obj.location.x) < 0.0)
         ]
-        right = [obj for obj in geometry if obj not in floors + walls + left]
+        right = [obj for obj in geometry if obj not in floors + walls + gobos + left]
         if left:
             bounds = _group_bounds(left)
             _translate_group(left, left_edge - bounds[1][0])
@@ -1685,11 +1773,17 @@ def _configure_camera(
     bpy: Any,
     shot: EditorialConceptShot,
     machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
+    composition_policy: Mapping[str, object],
 ) -> tuple[Any, tuple[float, float, float], dict[str, object]]:
     from mathutils import Vector
 
     support_bounds = _framing_support_bounds(bpy)
-    layout = _solve_camera_layout(shot, machine_bounds, support_bounds)
+    layout = _solve_camera_layout(
+        shot,
+        machine_bounds,
+        support_bounds,
+        float(composition_policy["camera_safety_multiplier"]),
+    )
     combined = layout["combined_bounds"]
     target = layout["target"]
     near_distance = layout["near_distance"]
@@ -1751,8 +1845,11 @@ def author_editorial_scene(
     _place_supports(
         bpy, shot, set_evidence, machine_bounds, contact.z,
         set_contract["support_allowlist"],
+        set_contract["composition_policy"],
     )
-    camera, target, framing = _configure_camera(bpy, shot, machine_bounds)
+    camera, target, framing = _configure_camera(
+        bpy, shot, machine_bounds, set_contract["composition_policy"]
+    )
     scene = bpy.context.scene
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.length_unit = "MILLIMETERS"

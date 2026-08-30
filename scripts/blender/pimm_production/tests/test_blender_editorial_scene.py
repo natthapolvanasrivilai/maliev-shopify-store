@@ -380,6 +380,140 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         self.assertEqual(len(contract["material_library"]["sha256"]), 64)
         self.assertFalse(contract["final_authorized"])
 
+    def test_corrective_composition_contract_keeps_context_from_shrinking_or_engulfing_the_machine(self) -> None:
+        """Catches centered full-scale externals or wide props controlling hero framing."""
+
+        architectural = blender_editorial_scene.prepare_editorial_contract(
+            self.campaign.by_shot_id["pimm-30g--concept-architectural-daylight"]
+        )
+        workshop = blender_editorial_scene.prepare_editorial_contract(
+            self.campaign.by_shot_id["pimm-50g--concept-modern-workshop"]
+        )
+        process = blender_editorial_scene.prepare_editorial_contract(
+            self.campaign.by_shot_id["pimm-30g--concept-process-still-life"]
+        )
+
+        self.assertEqual(architectural["set"].get("composition_policy"), {
+            "procedural_scale": 1.0,
+            "procedural_minimum_y_gap_mm": 0.0,
+            "gobo_maximum_x_offset_mm": -300.0,
+            "camera_safety_multiplier": 1.08,
+            "external_instances": [],
+        })
+        self.assertEqual(workshop["set"].get("composition_policy"), {
+            "procedural_scale": 0.35,
+            "procedural_minimum_y_gap_mm": 220.0,
+            "gobo_maximum_x_offset_mm": None,
+            "camera_safety_multiplier": 1.05,
+            "external_instances": [{
+                "asset_id": "tool_cart",
+                "framing_eligible": False,
+                "center_x_offset_mm": 1700.0,
+                "y_anchor": "minimum-behind",
+                "y_gap_mm": 1800.0,
+                "grounded": True,
+            }],
+        })
+        self.assertEqual(process["set"].get("composition_policy"), {
+            "procedural_scale": 0.36,
+            "procedural_minimum_y_gap_mm": 220.0,
+            "gobo_maximum_x_offset_mm": None,
+            "camera_safety_multiplier": 1.08,
+            "external_instances": [{
+                "asset_id": "metal_toolbox",
+                "framing_eligible": False,
+                "center_x_offset_mm": -700.0,
+                "y_anchor": "minimum-behind",
+                "y_gap_mm": 800.0,
+                "grounded": True,
+            }],
+        })
+        for contract, role in (
+            (workshop, "external-tool-cart"),
+            (process, "external-metal-toolbox"),
+        ):
+            record = next(
+                item for item in contract["set"]["support_allowlist"]
+                if item["role"] == role
+            )
+            self.assertFalse(record["framing_eligible"])
+        process_procedural = [
+            record for record in process["set"]["support_allowlist"]
+            if record["source"] == "task-3-procedural"
+        ]
+        self.assertTrue(process_procedural)
+        self.assertFalse(any(record["framing_eligible"] for record in process_procedural))
+
+    def test_contact_receiver_is_one_upward_facing_quad_instead_of_a_collapsed_box(self) -> None:
+        """Catches coincident cube faces rendering the nominal floor as a black field."""
+
+        class Mesh:
+            def __init__(self) -> None:
+                self.vertices = [SimpleNamespace(co=SimpleNamespace(z=-1.0))]
+                self.cleared = False
+                self.payload = None
+                self.updated = False
+
+            def clear_geometry(self) -> None:
+                self.cleared = True
+
+            def from_pydata(self, vertices, edges, faces) -> None:
+                self.payload = (vertices, edges, faces)
+
+            def update(self) -> None:
+                self.updated = True
+
+        class Support(dict):
+            def __init__(self) -> None:
+                super().__init__()
+                self.data = Mesh()
+                self.scale = SimpleNamespace(x=2.0, y=3.0, z=4.0)
+                self.location = SimpleNamespace(x=0.0, y=0.0, z=0.0)
+
+        support = Support()
+        with patch.object(
+            blender_editorial_scene,
+            "_object_bounds",
+            return_value=((-10.0, -20.0, -5.0), (10.0, 20.0, 5.0)),
+        ):
+            blender_editorial_scene._flatten_contact_plane(
+                support,
+                7.5,
+                ((-100.0, -200.0, 7.5), (300.0, 400.0, 900.0)),
+            )
+        self.assertTrue(support.data.cleared)
+        self.assertEqual(support.data.payload, (
+            [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)],
+            [],
+            [(0, 1, 2, 3)],
+        ))
+        self.assertTrue(support.data.updated)
+        self.assertEqual((support.scale.x, support.scale.y, support.scale.z), (20_400.0, 20_600.0, 1.0))
+        self.assertEqual((support.location.x, support.location.y, support.location.z), (100.0, 100.0, 7.5))
+
+    def test_corrective_coverage_policy_enforces_workshop_and_portrait_product_dominance(self) -> None:
+        """Catches a technically framed workshop or still life whose machine is too small."""
+
+        workshop = blender_editorial_scene.prepare_editorial_contract(
+            self.campaign.by_shot_id["pimm-50g--concept-modern-workshop"]
+        )["set"]["coverage_policy"]
+        process = blender_editorial_scene.prepare_editorial_contract(
+            self.campaign.by_shot_id["pimm-30g--concept-process-still-life"]
+        )["set"]["coverage_policy"]
+
+        self.assertEqual(workshop, {
+            "minimum_machine_width_ratio": 0.20,
+            "minimum_machine_height_ratio": 0.75,
+            "minimum_machine_area_ratio": 0.20,
+            "minimum_safe_margin": 0.02,
+        })
+        self.assertEqual(process, {
+            "minimum_machine_width_ratio": 0.20,
+            "minimum_machine_height_ratio": 0.62,
+            "minimum_machine_area_ratio": 0.16,
+            "minimum_safe_margin": 0.02,
+        })
+
     def test_rejects_a_local_product_copy(self) -> None:
         """Catches scene-local meshes carrying product identity outside the linked master."""
 

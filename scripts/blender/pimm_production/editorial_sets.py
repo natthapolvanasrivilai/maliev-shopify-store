@@ -160,7 +160,7 @@ def _light(
 
 
 _WARM_GREY = (0.46, 0.43, 0.39, 1.0)
-_GRAPHITE = (0.028, 0.032, 0.038, 1.0)
+_GRAPHITE = (0.080, 0.095, 0.120, 1.0)
 _BLACK = (0.006, 0.007, 0.009, 1.0)
 _STEEL = (0.31, 0.34, 0.37, 1.0)
 _PAPER = (0.80, 0.79, 0.74, 1.0)
@@ -270,14 +270,20 @@ _SETS = {
         (
             _geometry("ARCH_FLOOR", "warm-grey-floor", "box", (0, 0, -40), (7000, 6000, 80), _WARM_GREY, 0.82),
             _geometry("ARCH_WALL", "warm-grey-wall", "box", (0, 2650, 2000), (7000, 120, 4000), (0.50, 0.47, 0.43, 1), 0.88),
-            _geometry("ARCH_GOBO_VERTICAL", "window-gobo", "box", (-3150, -1350, 2300), (90, 120, 3100), _BLACK, 1.0),
-            _geometry("ARCH_GOBO_HORIZONTAL", "window-gobo", "box", (-3150, -1350, 2300), (1800, 120, 90), _BLACK, 1.0),
+            _geometry("ARCH_GOBO_VERTICAL_LEFT", "window-gobo", "box", (-1500, -500, 1800), (70, 1600, 40), _BLACK, 1.0),
+            _geometry("ARCH_GOBO_VERTICAL_CENTER", "window-gobo", "box", (-1100, -500, 1800), (70, 1600, 40), _BLACK, 1.0),
+            _geometry("ARCH_GOBO_VERTICAL_RIGHT", "window-gobo", "box", (-700, -500, 1800), (70, 1600, 40), _BLACK, 1.0),
+            _geometry("ARCH_GOBO_HORIZONTAL_LOW", "window-gobo", "box", (-1100, -900, 1800), (1600, 70, 40), _BLACK, 1.0),
+            _geometry("ARCH_GOBO_HORIZONTAL_MID", "window-gobo", "box", (-1100, -500, 1800), (1600, 70, 40), _BLACK, 1.0),
+            _geometry("ARCH_GOBO_HORIZONTAL_HIGH", "window-gobo", "box", (-1100, -100, 1800), (1600, 70, 40), _BLACK, 1.0),
             _geometry("ARCH_ACCENT_SLAB", "accent-slab", "box", (1450, 1900, 1450), (850, 180, 2900), (0.30, 0.28, 0.25, 1), 0.72),
         ),
         (
+            _light("AMBIENT_WARM", "WORLD", 0.40, (0.35, 0.31, 0.27), (0, 0, 0), (0, 0, 0)),
             _light("SUN_Gobo", "SUN", 4.0, (1.0, 0.82, 0.64), (-3600, -3000, 4800), (math.radians(28), 0, math.radians(-38)), angle=math.radians(1.3)),
-            _light("FILL_WALL", "AREA", 950.0, (1.0, 0.91, 0.80), (3000, 500, 2200), (math.radians(76), 0, math.radians(115)), size=2600, size_y=1800),
-            _light("EDGE_STRIP", "AREA", 1200.0, (1.0, 0.94, 0.85), (-2100, 1300, 2300), (math.radians(90), 0, math.radians(-65)), size=1700, size_y=180),
+            _light("FILL_WALL", "AREA", 600_000.0, (1.0, 0.91, 0.80), (2800, -1400, 2200), (1.150261998177, 0.0, 1.107148766518), size=2800, size_y=1800),
+            _light("FRONT_LOWER_FILL", "AREA", 700_000.0, (1.0, 0.94, 0.86), (0, -2200, 650), (1.395346283913, 0.0, 0.0), size=2600, size_y=900),
+            _light("EDGE_STRIP", "AREA", 350_000.0, (1.0, 0.94, 0.85), (-1800, 1200, 2200), (1.029696822166, 0.0, -2.158798933029), size=1800, size_y=220),
         ),
         "crisp-window-grid-clear-of-product-evidence",
     ),
@@ -285,16 +291,19 @@ _SETS = {
         "dark-engineering",
         (
             _geometry("DARK_FLOOR", "graphite-floor", "box", (0, 0, -45), (7200, 6200, 90), _GRAPHITE, 0.46),
-            _geometry("DARK_WALL", "graphite-wall", "box", (0, 2800, 1900), (7200, 140, 3800), (0.016, 0.019, 0.025, 1), 0.58),
+            _geometry("DARK_WALL", "graphite-wall", "box", (0, 2800, 1900), (7200, 140, 3800), (0.09, 0.11, 0.14, 1), 0.58),
             _geometry("DARK_FLAG_LEFT", "black-flag-left", "box", (-2550, -250, 1850), (45, 1600, 3000), _BLACK, 0.98, rotation=(0, 0, math.radians(-11))),
             _geometry("DARK_FLAG_RIGHT", "black-flag-right", "box", (2500, 300, 1700), (45, 1400, 2800), _BLACK, 0.98, rotation=(0, 0, math.radians(14))),
         ),
         (
-            _light("KEY_SLASH", "AREA", 2100.0, (1.0, 0.86, 0.70), (-2900, -2500, 4100), (math.radians(42), 0, math.radians(-38)), size=1100, size_y=180),
-            _light("RIM_LEFT", "AREA", 1500.0, (0.84, 0.91, 1.0), (-2300, 1500, 2300), (math.radians(90), 0, math.radians(-72)), size=2100, size_y=130),
-            _light("RIM_RIGHT", "AREA", 1350.0, (0.91, 0.95, 1.0), (2400, 1700, 2100), (math.radians(90), 0, math.radians(70)), size=1900, size_y=120),
-            _light("BASE_LIFT", "AREA", 420.0, (0.76, 0.82, 0.90), (0, -1100, 450), (math.radians(18), 0, math.radians(180)), size=1900, size_y=700),
-            _light("BLUE_ACCENT", "AREA", 560.0, (0.035, 0.20, 0.82), (1350, 900, 1650), (math.radians(85), 0, math.radians(120)), size=900, size_y=90),
+            _light("AMBIENT_COOL", "WORLD", 1.50, (0.22, 0.25, 0.30), (0, 0, 0), (0, 0, 0)),
+            _light("KEY_SLASH", "AREA", 5_000_000.0, (1.0, 0.86, 0.70), (-2900, -2500, 4100), (0.859445214272, 0.0, -0.859337091446), size=1100, size_y=260),
+            _light("RIM_LEFT", "AREA", 3_000_000.0, (0.84, 0.91, 1.0), (-2300, 1500, 2300), (1.099300026894, 0.0, -2.148698329926), size=2100, size_y=180),
+            _light("RIM_RIGHT", "AREA", 2_800_000.0, (0.91, 0.95, 1.0), (2400, 1700, 2100), (1.183402061462, 0.0, 2.187093496323), size=1900, size_y=180),
+            _light("FRONT_FILL", "AREA", 4_000_000.0, (0.64, 0.72, 0.84), (0, -2300, 1650), (1.201584696770, 0.0, 0.0), size=2800, size_y=2000),
+            _light("BASE_LIFT", "AREA", 5_000_000.0, (0.76, 0.82, 0.90), (0, -1600, 500), (1.421906232834, 0.0, 0.0), size=2200, size_y=800),
+            _light("BLUE_ACCENT", "AREA", 700_000.0, (0.035, 0.20, 0.82), (1350, 900, 1650), (1.088225126266, 0.0, 2.158799171448), size=900, size_y=120),
+            _light("BACKDROP_WASH", "AREA", 8_000_000.0, (0.34, 0.40, 0.52), (0, 1500, 1900), (1.516794800758, 0.0, 0.0), size=3200, size_y=2200),
         ),
         "elongated-diagonal-readable-underside",
     ),
@@ -319,9 +328,10 @@ _SETS = {
         ),
         (
             _light("WORKSHOP_HDRI", "WORLD", 0.42, (1.0, 1.0, 1.0), (0, 0, 0), (0, 0, 0)),
-            _light("WINDOW_KEY", "AREA", 1700.0, (0.82, 0.91, 1.0), (-3200, -1700, 3600), (math.radians(48), 0, math.radians(-48)), size=2400, size_y=1400),
-            _light("MACHINE_FILL", "AREA", 780.0, (0.93, 0.96, 1.0), (2200, -800, 1500), (math.radians(72), 0, math.radians(118)), size=1800, size_y=1000),
-            _light("PRACTICAL_WARM", "POINT", 520.0, (1.0, 0.54, 0.24), (-1700, 1650, 2600), (0, 0, 0), size=180),
+            _light("WINDOW_KEY", "AREA", 300_000.0, (0.82, 0.91, 1.0), (-3200, -1700, 3600), (0.912908554077, 0.0, -1.082462549210), size=2400, size_y=1400),
+            _light("MACHINE_FILL", "AREA", 550_000.0, (0.93, 0.96, 1.0), (2200, -800, 1500), (1.264624118805, 0.0, 1.222025394440), size=1800, size_y=1000),
+            _light("BASE_FILL", "AREA", 500_000.0, (0.82, 0.88, 0.96), (0, -1800, 500), (1.438244938850, 0.0, 0.0), size=2200, size_y=800),
+            _light("PRACTICAL_WARM", "POINT", 250_000.0, (1.0, 0.54, 0.24), (-1700, 1650, 2600), (0, 0, 0), size=180),
         ),
         "soft-window-cast-with-contact-depth",
     ),
@@ -346,15 +356,14 @@ _SETS = {
             _geometry("PROCESS_CALIPER_DIAL", "inspection-caliper", "cylinder", (-175, -1380, 112), (105, 105, 24), (0.74, 0.75, 0.76, 1), 0.16, rotation=(0, 0, math.radians(12)), metallic=0.90),
             _geometry("PROCESS_DRAWING", "technical-drawing", "box", (-1250, 450, 18), (1050, 780, 10), _PAPER, 0.76, rotation=(0, 0, math.radians(-7))),
             *_drawing_linework("PROCESS_DRAWING", (-1250, 450, 25), width_mm=1050, depth_mm=780, rotation_z=math.radians(-7), count=12),
-            _geometry("PROCESS_FOREGROUND_LOW", "foreground-block", "box", (-1650, -1650, 160), (720, 600, 320), (0.12, 0.13, 0.15, 1), 0.58),
-            _geometry("PROCESS_FOREGROUND_HIGH", "foreground-block", "box", (1580, -1650, 310), (620, 580, 620), (0.28, 0.27, 0.24, 1), 0.62),
-            _geometry("PROCESS_FOREGROUND_STEP", "foreground-block", "box", (1850, -900, 135), (500, 420, 270), (0.42, 0.39, 0.34, 1), 0.66),
         ),
         (
-            _light("KEY_TOP_SIDE", "AREA", 1900.0, (1.0, 0.86, 0.69), (-2200, -1700, 3900), (math.radians(32), 0, math.radians(-35)), size=1500, size_y=900),
-            _light("EDGE_CARD", "AREA", 1050.0, (0.82, 0.90, 1.0), (2100, 400, 2200), (math.radians(88), 0, math.radians(72)), size=1700, size_y=160),
-            _light("FOREGROUND_KICK", "AREA", 720.0, (1.0, 0.66, 0.39), (-900, -2500, 700), (math.radians(68), 0, math.radians(-12)), size=950, size_y=260),
-            _light("BASE_LIFT", "AREA", 500.0, (0.78, 0.84, 0.92), (600, -900, 500), (math.radians(28), 0, math.radians(160)), size=1500, size_y=650),
+            _light("AMBIENT_SOFT", "WORLD", 0.45, (0.28, 0.30, 0.34), (0, 0, 0), (0, 0, 0)),
+            _light("KEY_TOP_SIDE", "AREA", 1_200_000.0, (1.0, 0.86, 0.69), (-2200, -1700, 3900), (0.731081366539, 0.0, -0.912907600403), size=1500, size_y=900),
+            _light("EDGE_CARD", "AREA", 600_000.0, (0.82, 0.90, 1.0), (2100, 400, 2200), (1.007534265518, 0.0, 1.759017944336), size=1700, size_y=200),
+            _light("FOREGROUND_KICK", "AREA", 450_000.0, (1.0, 0.66, 0.39), (-900, -2500, 700), (1.403028488159, 0.0, -0.345555514097), size=1100, size_y=320),
+            _light("FRONT_FILL", "AREA", 650_000.0, (0.82, 0.87, 0.94), (0, -2200, 1500), (1.222025156021, 0.0, 0.0), size=2600, size_y=1800),
+            _light("BASE_LIFT", "AREA", 750_000.0, (0.78, 0.84, 0.92), (600, -1200, 500), (1.393783211708, 0.0, 0.463647603989), size=1800, size_y=750),
         ),
         "layered-foreground-edge-defined",
     ),
@@ -499,6 +508,13 @@ def _install_geometry(bpy: Any, spec: EditorialSetGeometry) -> Any:
 
 def _install_light(bpy: Any, spec: EditorialLight) -> Any | None:
     if spec.light_type == "WORLD":
+        world = _scene_world(bpy)
+        background = world.node_tree.nodes.get("Background")
+        if background is None:
+            background = world.node_tree.nodes.new("ShaderNodeBackground")
+        background.inputs["Color"].default_value = (*spec.color, 1.0)
+        background.inputs["Strength"].default_value = spec.energy
+        world["pimm_editorial_light_role"] = spec.role
         return None
     light_data = bpy.data.lights.new(f"PIMM_EDITORIAL_{spec.role}", spec.light_type)
     light_data.energy = spec.energy

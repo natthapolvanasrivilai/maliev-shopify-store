@@ -20,10 +20,20 @@ from scripts.blender.pimm_production import editorial_sets
 
 
 EXPECTED_LIGHTS = {
-    "architectural-daylight": {"SUN_Gobo", "FILL_WALL", "EDGE_STRIP"},
-    "dark-engineering": {"KEY_SLASH", "RIM_LEFT", "RIM_RIGHT", "BASE_LIFT", "BLUE_ACCENT"},
-    "modern-workshop": {"WORKSHOP_HDRI", "WINDOW_KEY", "MACHINE_FILL", "PRACTICAL_WARM"},
-    "process-still-life": {"KEY_TOP_SIDE", "EDGE_CARD", "FOREGROUND_KICK", "BASE_LIFT"},
+    "architectural-daylight": {
+        "AMBIENT_WARM", "SUN_Gobo", "FILL_WALL", "FRONT_LOWER_FILL", "EDGE_STRIP",
+    },
+    "dark-engineering": {
+        "AMBIENT_COOL", "KEY_SLASH", "RIM_LEFT", "RIM_RIGHT", "FRONT_FILL",
+        "BASE_LIFT", "BLUE_ACCENT", "BACKDROP_WASH",
+    },
+    "modern-workshop": {
+        "WORKSHOP_HDRI", "WINDOW_KEY", "MACHINE_FILL", "BASE_FILL", "PRACTICAL_WARM",
+    },
+    "process-still-life": {
+        "AMBIENT_SOFT", "KEY_TOP_SIDE", "EDGE_CARD", "FOREGROUND_KICK",
+        "FRONT_FILL", "BASE_LIFT",
+    },
 }
 
 EXPECTED_SHADOWS = {
@@ -35,28 +45,36 @@ EXPECTED_SHADOWS = {
 
 EXPECTED_LIGHT_PARAMETERS = {
     "architectural-daylight": {
+        "AMBIENT_WARM": ("WORLD", 0.40, (0.35, 0.31, 0.27), (0, 0, 0), (0, 0, 0), 0.0, 0.0, 0.0),
         "SUN_Gobo": ("SUN", 4.0, (1.0, 0.82, 0.64), (-3600, -3000, 4800), (math.radians(28), 0, math.radians(-38)), 0.0, 0.0, math.radians(1.3)),
-        "FILL_WALL": ("AREA", 950.0, (1.0, 0.91, 0.80), (3000, 500, 2200), (math.radians(76), 0, math.radians(115)), 2600, 1800, 0.0),
-        "EDGE_STRIP": ("AREA", 1200.0, (1.0, 0.94, 0.85), (-2100, 1300, 2300), (math.radians(90), 0, math.radians(-65)), 1700, 180, 0.0),
+        "FILL_WALL": ("AREA", 600_000.0, (1.0, 0.91, 0.80), (2800, -1400, 2200), (1.150261998177, 0.0, 1.107148766518), 2800, 1800, 0.0),
+        "FRONT_LOWER_FILL": ("AREA", 700_000.0, (1.0, 0.94, 0.86), (0, -2200, 650), (1.395346283913, 0.0, 0.0), 2600, 900, 0.0),
+        "EDGE_STRIP": ("AREA", 350_000.0, (1.0, 0.94, 0.85), (-1800, 1200, 2200), (1.029696822166, 0.0, -2.158798933029), 1800, 220, 0.0),
     },
     "dark-engineering": {
-        "KEY_SLASH": ("AREA", 2100.0, (1.0, 0.86, 0.70), (-2900, -2500, 4100), (math.radians(42), 0, math.radians(-38)), 1100, 180, 0.0),
-        "RIM_LEFT": ("AREA", 1500.0, (0.84, 0.91, 1.0), (-2300, 1500, 2300), (math.radians(90), 0, math.radians(-72)), 2100, 130, 0.0),
-        "RIM_RIGHT": ("AREA", 1350.0, (0.91, 0.95, 1.0), (2400, 1700, 2100), (math.radians(90), 0, math.radians(70)), 1900, 120, 0.0),
-        "BASE_LIFT": ("AREA", 420.0, (0.76, 0.82, 0.90), (0, -1100, 450), (math.radians(18), 0, math.radians(180)), 1900, 700, 0.0),
-        "BLUE_ACCENT": ("AREA", 560.0, (0.035, 0.20, 0.82), (1350, 900, 1650), (math.radians(85), 0, math.radians(120)), 900, 90, 0.0),
+        "AMBIENT_COOL": ("WORLD", 1.50, (0.22, 0.25, 0.30), (0, 0, 0), (0, 0, 0), 0.0, 0.0, 0.0),
+        "KEY_SLASH": ("AREA", 5_000_000.0, (1.0, 0.86, 0.70), (-2900, -2500, 4100), (0.859445214272, 0.0, -0.859337091446), 1100, 260, 0.0),
+        "RIM_LEFT": ("AREA", 3_000_000.0, (0.84, 0.91, 1.0), (-2300, 1500, 2300), (1.099300026894, 0.0, -2.148698329926), 2100, 180, 0.0),
+        "RIM_RIGHT": ("AREA", 2_800_000.0, (0.91, 0.95, 1.0), (2400, 1700, 2100), (1.183402061462, 0.0, 2.187093496323), 1900, 180, 0.0),
+        "FRONT_FILL": ("AREA", 4_000_000.0, (0.64, 0.72, 0.84), (0, -2300, 1650), (1.201584696770, 0.0, 0.0), 2800, 2000, 0.0),
+        "BASE_LIFT": ("AREA", 5_000_000.0, (0.76, 0.82, 0.90), (0, -1600, 500), (1.421906232834, 0.0, 0.0), 2200, 800, 0.0),
+        "BLUE_ACCENT": ("AREA", 700_000.0, (0.035, 0.20, 0.82), (1350, 900, 1650), (1.088225126266, 0.0, 2.158799171448), 900, 120, 0.0),
+        "BACKDROP_WASH": ("AREA", 8_000_000.0, (0.34, 0.40, 0.52), (0, 1500, 1900), (1.516794800758, 0.0, 0.0), 3200, 2200, 0.0),
     },
     "modern-workshop": {
         "WORKSHOP_HDRI": ("WORLD", 0.42, (1.0, 1.0, 1.0), (0, 0, 0), (0, 0, 0), 0.0, 0.0, 0.0),
-        "WINDOW_KEY": ("AREA", 1700.0, (0.82, 0.91, 1.0), (-3200, -1700, 3600), (math.radians(48), 0, math.radians(-48)), 2400, 1400, 0.0),
-        "MACHINE_FILL": ("AREA", 780.0, (0.93, 0.96, 1.0), (2200, -800, 1500), (math.radians(72), 0, math.radians(118)), 1800, 1000, 0.0),
-        "PRACTICAL_WARM": ("POINT", 520.0, (1.0, 0.54, 0.24), (-1700, 1650, 2600), (0, 0, 0), 180, 0.0, 0.0),
+        "WINDOW_KEY": ("AREA", 300_000.0, (0.82, 0.91, 1.0), (-3200, -1700, 3600), (0.912908554077, 0.0, -1.082462549210), 2400, 1400, 0.0),
+        "MACHINE_FILL": ("AREA", 550_000.0, (0.93, 0.96, 1.0), (2200, -800, 1500), (1.264624118805, 0.0, 1.222025394440), 1800, 1000, 0.0),
+        "BASE_FILL": ("AREA", 500_000.0, (0.82, 0.88, 0.96), (0, -1800, 500), (1.438244938850, 0.0, 0.0), 2200, 800, 0.0),
+        "PRACTICAL_WARM": ("POINT", 250_000.0, (1.0, 0.54, 0.24), (-1700, 1650, 2600), (0, 0, 0), 180, 0.0, 0.0),
     },
     "process-still-life": {
-        "KEY_TOP_SIDE": ("AREA", 1900.0, (1.0, 0.86, 0.69), (-2200, -1700, 3900), (math.radians(32), 0, math.radians(-35)), 1500, 900, 0.0),
-        "EDGE_CARD": ("AREA", 1050.0, (0.82, 0.90, 1.0), (2100, 400, 2200), (math.radians(88), 0, math.radians(72)), 1700, 160, 0.0),
-        "FOREGROUND_KICK": ("AREA", 720.0, (1.0, 0.66, 0.39), (-900, -2500, 700), (math.radians(68), 0, math.radians(-12)), 950, 260, 0.0),
-        "BASE_LIFT": ("AREA", 500.0, (0.78, 0.84, 0.92), (600, -900, 500), (math.radians(28), 0, math.radians(160)), 1500, 650, 0.0),
+        "AMBIENT_SOFT": ("WORLD", 0.45, (0.28, 0.30, 0.34), (0, 0, 0), (0, 0, 0), 0.0, 0.0, 0.0),
+        "KEY_TOP_SIDE": ("AREA", 1_200_000.0, (1.0, 0.86, 0.69), (-2200, -1700, 3900), (0.731081366539, 0.0, -0.912907600403), 1500, 900, 0.0),
+        "EDGE_CARD": ("AREA", 600_000.0, (0.82, 0.90, 1.0), (2100, 400, 2200), (1.007534265518, 0.0, 1.759017944336), 1700, 200, 0.0),
+        "FOREGROUND_KICK": ("AREA", 450_000.0, (1.0, 0.66, 0.39), (-900, -2500, 700), (1.403028488159, 0.0, -0.345555514097), 1100, 320, 0.0),
+        "FRONT_FILL": ("AREA", 650_000.0, (0.82, 0.87, 0.94), (0, -2200, 1500), (1.222025156021, 0.0, 0.0), 2600, 1800, 0.0),
+        "BASE_LIFT": ("AREA", 750_000.0, (0.78, 0.84, 0.92), (600, -1200, 500), (1.393783211708, 0.0, 0.463647603989), 1800, 750, 0.0),
     },
 }
 
@@ -66,7 +84,7 @@ EXPECTED_GEOMETRY_ROLES = {
     "modern-workshop": {"steel-workbench", "pellet-jar", "mold-block", "technical-drawing"},
     "process-still-life": {
         "mold-half", "peek-pellets", "black-pellets", "neutral-pellets",
-        "molded-sample", "inspection-caliper", "technical-drawing", "foreground-block",
+        "molded-sample", "inspection-caliper", "technical-drawing",
     },
 }
 
@@ -385,6 +403,78 @@ class EditorialSetTests(unittest.TestCase):
             }
             with self.subTest(concept=shot.concept):
                 self.assertEqual(actual, EXPECTED_LIGHT_PARAMETERS[shot.concept])
+
+    def test_corrective_rigs_install_world_lift_and_aim_broad_base_fills_at_the_product(self) -> None:
+        """Catches a nominal fill role that leaves the lower machine black or faces away."""
+
+        expected_world = {
+            "architectural-daylight": ("AMBIENT_WARM", 0.40, (0.35, 0.31, 0.27, 1.0)),
+            "dark-engineering": ("AMBIENT_COOL", 1.50, (0.22, 0.25, 0.30, 1.0)),
+            "process-still-life": ("AMBIENT_SOFT", 0.45, (0.28, 0.30, 0.34, 1.0)),
+        }
+        fill_targets = {
+            "architectural-daylight": ("FRONT_LOWER_FILL", (0.0, 0.0, 260.0)),
+            "dark-engineering": ("BASE_LIFT", (0.0, 0.0, 260.0)),
+            "modern-workshop": ("BASE_FILL", (0.0, 0.0, 260.0)),
+            "process-still-life": ("BASE_LIFT", (0.0, 0.0, 260.0)),
+        }
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _asset_manifest(root)
+            with patch.object(editorial_sets, "ASSET_ROOT", root):
+                for shot in self.campaign.shots:
+                    fake_bpy = _FakeBpy()
+                    evidence = editorial_sets.build_editorial_set(fake_bpy, shot)
+                    role, target = fill_targets[shot.concept]
+                    lights_by_role = {item.role: item for item in evidence.lights}
+                    self.assertIn(role, lights_by_role)
+                    fill = lights_by_role[role]
+                    direction = self._light_forward(fill.rotation_euler)
+                    to_target = tuple(target[index] - fill.location_mm[index] for index in range(3))
+                    dot = sum(left * right for left, right in zip(direction, self._normalize(to_target)))
+                    with self.subTest(concept=shot.concept, behavior="base-fill-aim"):
+                        self.assertGreater(dot, 0.95)
+                        self.assertGreaterEqual(fill.size_mm, 1800.0)
+                        self.assertGreaterEqual(fill.size_y_mm, 750.0)
+                    if shot.concept in expected_world:
+                        world_role, strength, color = expected_world[shot.concept]
+                        background = fake_bpy.context.scene.world.node_tree.nodes.get("Background")
+                        with self.subTest(concept=shot.concept, behavior="world-lift"):
+                            self.assertEqual(fake_bpy.context.scene.world["pimm_editorial_light_role"], world_role)
+                            self.assertEqual(background.inputs["Strength"].default_value, strength)
+                            self.assertEqual(background.inputs["Color"].default_value, color)
+
+    def test_architectural_gobo_is_a_grid_and_process_has_no_camera_dominating_blocks(self) -> None:
+        """Catches the rejected single-cross shadow and wide portrait framing blocks."""
+
+        architectural = editorial_sets._SETS["architectural-daylight"].geometry
+        gobos = [item for item in architectural if item.role == "window-gobo"]
+        self.assertGreaterEqual(len(gobos), 6)
+        self.assertGreaterEqual(sum(item.dimensions_mm[0] < item.dimensions_mm[1] for item in gobos), 3)
+        self.assertGreaterEqual(sum(item.dimensions_mm[0] > item.dimensions_mm[1] for item in gobos), 3)
+        self.assertTrue(all(item.dimensions_mm[2] <= 40.0 for item in gobos))
+        self.assertEqual({item.center_mm[2] for item in gobos}, {1800})
+
+        process = editorial_sets._SETS["process-still-life"].geometry
+        self.assertNotIn("foreground-block", {item.role for item in process})
+
+    @staticmethod
+    def _normalize(vector: tuple[float, float, float]) -> tuple[float, float, float]:
+        length = math.sqrt(sum(value * value for value in vector))
+        return tuple(value / length for value in vector)
+
+    @staticmethod
+    def _light_forward(rotation: tuple[float, float, float]) -> tuple[float, float, float]:
+        x_angle, y_angle, z_angle = rotation
+        if abs(y_angle) > 1e-12:
+            raise AssertionError("test helper expects the authored zero-Y light rotations")
+        sin_x = math.sin(x_angle)
+        return (
+            -math.sin(z_angle) * sin_x,
+            math.cos(z_angle) * sin_x,
+            -math.cos(x_angle),
+        )
 
     def test_external_model_instances_convert_real_meter_bounds_to_credible_millimetres(self) -> None:
         """Catches linked metre-authored props left 1,000 times too small in the mm scene."""
