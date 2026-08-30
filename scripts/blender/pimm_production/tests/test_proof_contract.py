@@ -15,7 +15,12 @@ from PIL import Image
 
 import scripts.blender.pimm_production.blender_proof_render as render_module
 import scripts.blender.pimm_production.proof_contract as proof_module
-from scripts.blender.pimm_production.contact_sheet import build_campaign_contact_sheets, build_contact_sheet
+from scripts.blender.pimm_production.contact_sheet import (
+    _campaign_review_items,
+    build_campaign_component_detail_sheet,
+    build_campaign_contact_sheets,
+    build_contact_sheet,
+)
 from scripts.blender.pimm_production.image_safety import analyze_alpha_safety
 from scripts.blender.pimm_production.io_contract import sha256_file
 from scripts.blender.pimm_production.proof_contract import (
@@ -37,6 +42,46 @@ RESULT_MARKER = "PIMM_PROOF_RENDER_JSON="
 
 
 class CampaignProofPipelineContractTests(unittest.TestCase):
+    def test_detail_contact_sheet_uses_complete_component_frames(self):
+        members = [
+            {
+                "shot_id": "pimm-30g--controls--macro",
+                "outputs": {"white": "controls/white.png"},
+                "crops": {
+                    "controller": "controls/crop-100pct-controller.png",
+                    "controller-segments": "controls/crop-100pct-controller-segments.png",
+                },
+            },
+            {
+                "shot_id": "pimm-30g--pneumatics--macro",
+                "outputs": {"white": "pneumatics/white.png"},
+                "crops": {
+                    "gauge": "pneumatics/crop-100pct-gauge.png",
+                    "regulator": "pneumatics/crop-100pct-regulator.png",
+                    "airtac": "pneumatics/crop-100pct-airtac.png",
+                },
+            },
+        ]
+
+        items = _campaign_review_items("detail", members)
+
+        self.assertEqual(items, [(members[0], None), (members[1], None)])
+
+    def test_component_detail_sheet_requires_complete_campaign(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = root / "campaign-manifest.json"
+            manifest.write_text(json.dumps({
+                "schema": "maliev.pimm-campaign-proof/v1",
+                "generation_id": "proof-20260829T000000Z-abcdef0",
+                "status": "pass", "fingerprints_unchanged": True, "shots": [],
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "exactly 22 shots"):
+                build_campaign_component_detail_sheet(
+                    manifest, root / "sheet-detail-components.png"
+                )
+
     def test_owner_campaign_disables_preview_cache_reuse(self):
         source = PROOF_RUNNER.read_text(encoding="utf-8")
         self.assertNotIn(".campaign-preview-cache", source)
