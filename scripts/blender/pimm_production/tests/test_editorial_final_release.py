@@ -42,7 +42,7 @@ from scripts.blender.pimm_production.tests import test_editorial_preview as _pre
 
 class EditorialFinalReleaseTests(unittest.TestCase):
     @staticmethod
-    def _minimal_exr(width: int, height: int) -> bytes:
+    def _minimal_exr(width: int, height: int, *, version_word: int = 2) -> bytes:
         def attr(name: str, kind: str, value: bytes) -> bytes:
             return name.encode() + b"\0" + kind.encode() + b"\0" + struct.pack("<I", len(value)) + value
         channel = lambda name: name.encode() + b"\0" + struct.pack("<iB3xii", 1, 0, 1, 1)
@@ -56,7 +56,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             attr("screenWindowCenter", "v2f", struct.pack("<ff", 0.0, 0.0)),
             attr("screenWindowWidth", "float", struct.pack("<f", 1.0)), b"\0",
         ))
-        prefix = b"\x76\x2f\x31\x01" + struct.pack("<I", 2) + header
+        prefix = b"\x76\x2f\x31\x01" + struct.pack("<I", version_word) + header
         chunks = []
         offset = len(prefix) + height * 8
         offsets = []
@@ -355,6 +355,18 @@ class EditorialFinalReleaseTests(unittest.TestCase):
                 "dimensions": [4, 3], "channels": ["B", "G", "R"],
                 "compression": 0, "chunk_count": 3,
             })
+
+    def test_openexr_parser_allows_blender_long_names_but_rejects_other_layouts(self) -> None:
+        """Catches Blender 5.2's real 0x402 version word being mistaken for multipart."""
+
+        with TemporaryDirectory() as root:
+            path = Path(root) / "fixture.exr"
+            path.write_bytes(self._minimal_exr(4, 3, version_word=0x402))
+            self.assertEqual(_parse_openexr(path)["dimensions"], [4, 3])
+            for unsupported in (0x202, 0x802, 0x1002):
+                path.write_bytes(self._minimal_exr(4, 3, version_word=unsupported))
+                with self.assertRaisesRegex(ValueError, "single-part scanline"):
+                    _parse_openexr(path)
 
     def test_reject_flow_is_hash_bound_exclusive_and_never_publishes(self) -> None:
         """Catches visual rejection being deleted, overwritten, or moved into final release."""

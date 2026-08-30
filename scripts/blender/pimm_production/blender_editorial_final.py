@@ -145,7 +145,9 @@ def _parse_openexr(path: Path) -> dict[str, object]:
     if len(data) < 16 or data[:4] != b"\x76\x2f\x31\x01":
         raise ValueError("native final EXR magic is invalid")
     version = struct.unpack_from("<I", data, 4)[0]
-    if (version & 0xFF) not in {1, 2} or version & 0x00001E00:
+    # Blender 5.2 writes v2 scanline files with LONG_NAMES (0x400). Reject
+    # tiled, deep/non-image, and multipart flags, but accept that valid flag.
+    if (version & 0xFF) not in {1, 2} or version & 0x00001A00:
         raise ValueError("native final EXR must be a single-part scanline image")
     cursor = 8
     attributes: dict[str, tuple[str, bytes]] = {}
