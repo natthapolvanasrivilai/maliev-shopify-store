@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 import os
 from pathlib import Path
 from typing import Mapping
@@ -20,6 +21,7 @@ CELL_HEIGHT = SHEET_HEIGHT // 2
 IMAGE_BOX_HEIGHT = 610
 PADDING = 28
 MANIFEST_SCHEMA = "maliev.pimm-editorial-preview-campaign/v1"
+CONTACT_SHEET_NAME = "sheet-editorial-concepts.png"
 
 _CAMPAIGN = load_editorial_campaign(EDITORIAL_CAMPAIGN_PATH)
 
@@ -53,10 +55,31 @@ def _font(size: int, *, bold: bool = False):
 
 
 def _load_manifest(path: Path) -> Mapping[str, object]:
+    def reject_nonfinite(value: str) -> object:
+        raise ValueError(f"contact sheet manifest contains nonfinite numeric evidence: {value}")
+
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=reject_nonfinite,
+        )
     except json.JSONDecodeError as error:
         raise ValueError(f"editorial preview manifest JSON is invalid: {error}") from error
+
+    def reject_decoded_nonfinite(value: object, evidence_path: str = "$") -> None:
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError(
+                "contact sheet manifest contains nonfinite numeric evidence "
+                f"at {evidence_path}"
+            )
+        if isinstance(value, Mapping):
+            for key, item in value.items():
+                reject_decoded_nonfinite(item, f"{evidence_path}.{key}")
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                reject_decoded_nonfinite(item, f"{evidence_path}[{index}]")
+
+    reject_decoded_nonfinite(payload)
     if not isinstance(payload, Mapping) or payload.get("schema") != MANIFEST_SCHEMA:
         raise ValueError("contact sheet requires an editorial preview campaign manifest")
     shots = payload.get("shots")
@@ -127,7 +150,10 @@ def _assert_text_fits(draw: object, cell_left: int, cell_top: int, lines: list[t
 
 
 def build_editorial_contact_sheet(
-    manifest_path: Path, output_path: Path
+    manifest_path: Path,
+    output_path: Path,
+    *,
+    private_staging_root: Path | None = None,
 ) -> EditorialContactSheetResult:
     """Verify all four PNGs, label every decision field, and save once."""
 
@@ -140,7 +166,20 @@ def build_editorial_contact_sheet(
     output_path = require_within(Path(output_path), output_root)
     if output_path.exists():
         raise ValueError(f"editorial contact sheet already exists: {output_path}")
+    if output_path.name != CONTACT_SHEET_NAME:
+        raise ValueError("editorial contact sheet output filename is not canonical")
     manifest = _load_manifest(manifest_path)
+    if private_staging_root is None:
+        if isinstance(manifest.get("generation_id"), str):
+            raise ValueError("contact-sheet writes are forbidden after generation authority exists")
+    else:
+        private_root = Path(private_staging_root).resolve()
+        if (
+            private_root != output_root
+            or not private_root.name.startswith(".editorial-preview-")
+            or not private_root.name.endswith(".pending")
+        ):
+            raise ValueError("contact sheet private staging context is invalid")
     verified = _verified_inputs(manifest, output_root)
 
     sheet = Image.new("RGB", (SHEET_WIDTH, SHEET_HEIGHT), (231, 233, 236))
@@ -215,11 +254,14 @@ def build_editorial_contact_sheet(
                 "height": CELL_HEIGHT,
                 "source_relative_path": record["output_relative_path"],
                 "source_sha256": record["output_sha256"],
+                "source_dimensions": [record["output_width"], record["output_height"]],
                 "labels": labels,
             }
         )
 
     temporary = output_path.with_name(f".{output_path.name}.tmp")
+    if temporary.exists():
+        raise ValueError(f"editorial contact sheet temporary output already exists: {temporary}")
     try:
         sheet.save(temporary, format="PNG", optimize=False)
         os.rename(temporary, output_path)

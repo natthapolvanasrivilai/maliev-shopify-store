@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
-import hashlib
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 from pathlib import Path
-from subprocess import CompletedProcess
+from subprocess import CompletedProcess, TimeoutExpired
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
@@ -20,6 +21,7 @@ from scripts.blender.pimm_production.editorial_concept_contract import (
 from scripts.blender.pimm_production.editorial_contact_sheet import (
     build_editorial_contact_sheet,
 )
+from scripts.blender.pimm_production import editorial_contact_sheet as contact_sheet_module
 from scripts.blender.pimm_production import blender_editorial_preview as preview_module
 from scripts.blender.pimm_production.blender_editorial_preview import (
     EditorialPreviewFailure,
@@ -113,12 +115,23 @@ class EditorialPreviewTests(unittest.TestCase):
         return records
 
     def _contract_external_assets(self, shot_id: str) -> list[dict[str, object]]:
+        required = {
+            "pimm-30g--concept-architectural-daylight": (),
+            "pimm-50g--concept-dark-engineering": (),
+            "pimm-50g--concept-modern-workshop": (
+                "university_workshop",
+                "tool_cart",
+            ),
+            "pimm-30g--concept-process-still-life": ("metal_toolbox",),
+        }[shot_id]
         result = []
         for record in self.external_records:
-            if shot_id in record["intended_shot_ids"]:
-                asset = dict(record)
-                asset["asset_id"] = str(record["source_url"]).rsplit("/", 1)[-1]
-                result.append(asset)
+            asset_id = str(record["source_url"]).rsplit("/", 1)[-1]
+            if asset_id not in required:
+                continue
+            asset = dict(record)
+            asset["asset_id"] = asset_id
+            result.append(asset)
         return result
 
     def _write_completion_authorities(self) -> None:
@@ -254,7 +267,7 @@ class EditorialPreviewTests(unittest.TestCase):
         }
         return {
             "schema": "maliev.pimm-editorial-preview-shot/v1",
-            "status": "pass",
+            "status": "technical-pass",
             "shot_id": shot_id,
             "process_id": 1000 + call_index,
             "cache_reuse": False,
@@ -331,9 +344,9 @@ class EditorialPreviewTests(unittest.TestCase):
                 "safe_margin_minimum": 0.05,
             },
             "clipping": {
-                "status": "pass",
+                "status": "pending-visual-review",
                 "machine": "pass",
-                "designed_shadow": "pass",
+                "designed_shadow": "pending-visual-review",
                 "props": "pass",
                 "support_intersections": [],
                 "hidden_foot_stable_ids": [],
@@ -376,25 +389,84 @@ class EditorialPreviewTests(unittest.TestCase):
         ), patch.object(preview_module.subprocess, "run", side_effect=self._successful_worker):
             return render_editorial_preview_campaign(self.asset_root, self.blender)
 
-    def test_success_publishes_exactly_four_fresh_completion_authorities_atomically(self) -> None:
-        """Catches cache reuse, omitted shots, or publication before all four workers pass."""
+    def _visual_decision(
+        self,
+        result: object,
+        *,
+        decision: str = "accept",
+        failures: dict[tuple[str, str], str] | None = None,
+    ) -> dict[str, object]:
+        manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+        report = json.loads(result.report_path.read_text(encoding="utf-8"))
+        failures = failures or {}
+        shots = []
+        for record in manifest["shots"]:
+            shot_id = record["shot_id"]
+            review = {
+                field: failures.get((shot_id, field), "pass")
+                for field in (
+                    "machine",
+                    "props",
+                    "designed_shadow",
+                    "grounding",
+                    "exposure",
+                    "detail",
+                    "pixel_review",
+                )
+            }
+            shots.append(
+                {
+                    "shot_id": shot_id,
+                    "output_sha256": record["output_sha256"],
+                    "dimensions": [record["output_width"], record["output_height"]],
+                    **review,
+                    "notes": "fixture 100 percent actual-pixel review",
+                }
+            )
+        return {
+            "schema": "maliev.pimm-editorial-visual-disposition/v1",
+            "generation_id": result.generation_id,
+            "decision": decision,
+            "reviewer": "fixture-reviewer",
+            "reviewed_at": "2026-08-30T09:00:00Z",
+            "campaign_manifest_sha256": sha256_file(result.manifest_path),
+            "campaign_report_sha256": sha256_file(result.report_path),
+            "contact_sheet": {
+                "path": result.contact_sheet_path.name,
+                "sha256": report["contact_sheet_sha256"],
+                "dimensions": report["contact_sheet_dimensions"],
+                "pixel_review": "pass",
+            },
+            "shots": shots,
+        }
+
+    def test_technical_success_stays_pending_review_and_is_not_a_consumer_generation(self) -> None:
+        """Catches technical success becoming observable at the canonical final path."""
 
         result = self._render()
 
-        self.assertEqual(result.status, "pass")
+        self.assertEqual(result.status, "pending-review")
         self.assertEqual(self.worker_calls, [shot.shot_id for shot in CAMPAIGN.shots])
         self.assertEqual(result.shot_count, 4)
         self.assertTrue(result.output_root.is_dir())
-        self.assertFalse(any(result.output_root.parent.glob(".*.pending")))
+        self.assertEqual(result.output_root.parent.name, "pending-review")
+        canonical = result.output_root.parent.parent / result.generation_id
+        self.assertFalse(canonical.exists())
+        self.assertFalse(any(result.output_root.parent.parent.glob(".*.pending")))
         manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+        report = json.loads(result.report_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["status"], "pending-review")
+        self.assertEqual(report["status"], "pending-review")
+        self.assertEqual(manifest["manual_visual_inspection"]["status"], "pending")
         self.assertEqual(manifest["cache_reuse"], False)
         self.assertEqual(manifest["fresh_blender_processes"], 4)
         self.assertEqual(manifest["contact_passes"], 4)
         self.assertEqual(manifest["framing_passes"], 4)
-        self.assertEqual(manifest["clipping_passes"], 4)
         self.assertEqual(len(manifest["shots"]), 4)
         self.assertEqual(len({shot["process_id"] for shot in manifest["shots"]}), 4)
         for shot, record in zip(CAMPAIGN.shots, manifest["shots"], strict=True):
+            self.assertEqual(record["status"], "pending-review")
+            self.assertEqual(record["clipping"]["designed_shadow"], "pending-visual-review")
             self.assertEqual(record["shot_id"], shot.shot_id)
             self.assertEqual(record["render"]["samples"], 32)
             self.assertIs(record["render"]["denoise"], True)
@@ -407,6 +479,210 @@ class EditorialPreviewTests(unittest.TestCase):
             self.assertEqual(record["authority"]["master"]["sha256"], self.master_hashes[shot.machine])
             self.assertEqual(record["authority"]["material_library"]["sha256"], self.material_hash)
             self.assertTrue((result.output_root / record["output_relative_path"]).is_file())
+
+    def test_accept_with_complete_all_pass_visual_decision_promotes_atomically(self) -> None:
+        """Catches canonical publication without a complete hash-bound all-pass review."""
+
+        pending = self._render()
+        decision = self._visual_decision(pending)
+
+        accepted = preview_module.accept_editorial_preview_generation(
+            self.asset_root,
+            pending.generation_id,
+            decision,
+        )
+
+        self.assertEqual(accepted.status, "accepted")
+        self.assertEqual(accepted.output_root.parent.name, "editorial-concepts-v1")
+        self.assertFalse(pending.output_root.exists())
+        self.assertTrue((accepted.output_root / "visual-disposition.json").is_file())
+        manifest = json.loads(accepted.manifest_path.read_text(encoding="utf-8"))
+        report = json.loads(accepted.report_path.read_text(encoding="utf-8"))
+        disposition = json.loads(
+            (accepted.output_root / "visual-disposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["status"], "accepted")
+        self.assertEqual(report["status"], "accepted")
+        self.assertEqual(disposition["decision"], "accept")
+        self.assertTrue(all(record["status"] == "accepted" for record in manifest["shots"]))
+        self.assertTrue(
+            all(record["clipping"]["designed_shadow"] == "pass" for record in manifest["shots"])
+        )
+
+    def test_reject_with_complete_visual_decision_moves_atomically_to_rejected(self) -> None:
+        """Catches rejected pixels remaining pending or appearing at the canonical path."""
+
+        pending = self._render()
+        failed_shot = CAMPAIGN.shots[1].shot_id
+        decision = self._visual_decision(
+            pending,
+            decision="reject",
+            failures={(failed_shot, "exposure"): "fail"},
+        )
+
+        rejected = preview_module.reject_editorial_preview_generation(
+            self.asset_root,
+            pending.generation_id,
+            decision,
+        )
+
+        self.assertEqual(rejected.status, "rejected")
+        self.assertEqual(rejected.output_root.parent.name, "rejected")
+        self.assertFalse(pending.output_root.exists())
+        self.assertFalse((rejected.output_root.parent.parent / rejected.generation_id).exists())
+        disposition_path = rejected.output_root / "visual-disposition.json"
+        disposition_hash = sha256_file(disposition_path)
+        with self.assertRaisesRegex(ValueError, "pending-review"):
+            preview_module.reject_editorial_preview_generation(
+                self.asset_root,
+                pending.generation_id,
+                decision,
+            )
+        self.assertEqual(sha256_file(disposition_path), disposition_hash)
+
+    def test_accept_rejects_incomplete_or_hash_tampered_visual_decision(self) -> None:
+        """Catches a partial review or a decision bound to different pixels being accepted."""
+
+        for mutation in ("missing-grounding", "wrong-image-hash", "failed-accept"):
+            with self.subTest(mutation=mutation):
+                pending = self._render()
+                decision = self._visual_decision(pending)
+                if mutation == "missing-grounding":
+                    del decision["shots"][0]["grounding"]
+                elif mutation == "wrong-image-hash":
+                    decision["shots"][0]["output_sha256"] = "0" * 64
+                else:
+                    decision["shots"][0]["detail"] = "fail"
+
+                with self.assertRaises(ValueError):
+                    preview_module.accept_editorial_preview_generation(
+                        self.asset_root,
+                        pending.generation_id,
+                        decision,
+                    )
+
+                self.assertTrue(pending.output_root.is_dir())
+                self.assertFalse(
+                    (pending.output_root.parent.parent / pending.generation_id).exists()
+                )
+
+    def test_png_mutation_after_sheet_before_disposition_blocks_acceptance(self) -> None:
+        """Catches a reviewer decision being applied to bytes changed after sheet creation."""
+
+        pending = self._render()
+        decision = self._visual_decision(pending)
+        first = pending.output_root / CAMPAIGN.shots[0].shot_id
+        first = first.with_suffix(".png")
+        Image.new("RGB", (1280, 720), (255, 0, 255)).save(first, format="PNG")
+
+        with self.assertRaisesRegex(ValueError, "PNG bytes"):
+            preview_module.accept_editorial_preview_generation(
+                self.asset_root,
+                pending.generation_id,
+                decision,
+            )
+
+        self.assertTrue(pending.output_root.is_dir())
+        self.assertFalse(
+            (pending.output_root.parent.parent / pending.generation_id).exists()
+        )
+        self.assertFalse((pending.output_root / "visual-disposition.json").exists())
+
+    def test_png_or_disposition_mutation_before_final_move_blocks_publication(self) -> None:
+        """Catches a post-decision race between verification and canonical promotion."""
+
+        for mutation in ("png", "disposition"):
+            with self.subTest(mutation=mutation):
+                pending = self._render()
+                decision = self._visual_decision(pending)
+                real_validate = preview_module._validate_generation_artifacts
+                validation_calls = 0
+
+                def mutate_before_final_validation(
+                    generation_root: Path,
+                    *,
+                    expected_status: str,
+                    require_disposition: bool,
+                ) -> object:
+                    nonlocal validation_calls
+                    validation_calls += 1
+                    if validation_calls == 2:
+                        if mutation == "png":
+                            image_path = generation_root / f"{CAMPAIGN.shots[0].shot_id}.png"
+                            Image.new("RGB", (1280, 720), (0, 255, 255)).save(
+                                image_path,
+                                format="PNG",
+                            )
+                        else:
+                            (generation_root / "visual-disposition.json").write_text(
+                                "{}\n",
+                                encoding="utf-8",
+                            )
+                    return real_validate(
+                        generation_root,
+                        expected_status=expected_status,
+                        require_disposition=require_disposition,
+                    )
+
+                with patch.object(
+                    preview_module,
+                    "_validate_generation_artifacts",
+                    side_effect=mutate_before_final_validation,
+                ):
+                    with self.assertRaises(ValueError):
+                        preview_module.accept_editorial_preview_generation(
+                            self.asset_root,
+                            pending.generation_id,
+                            decision,
+                        )
+
+                self.assertEqual(validation_calls, 2)
+                self.assertTrue(pending.output_root.is_dir())
+                self.assertFalse(
+                    (pending.output_root.parent.parent / pending.generation_id).exists()
+                )
+
+    def test_cli_accept_and_reject_require_visual_decision_files(self) -> None:
+        """Catches disposition APIs existing without controller-usable CLI operations."""
+
+        for operation in ("accept", "reject"):
+            with self.subTest(operation=operation):
+                pending = self._render()
+                failures = (
+                    {}
+                    if operation == "accept"
+                    else {(CAMPAIGN.shots[0].shot_id, "detail"): "fail"}
+                )
+                decision = self._visual_decision(
+                    pending,
+                    decision=operation,
+                    failures=failures,
+                )
+                decision_path = self.asset_root / f"{operation}-decision.json"
+                _json(decision_path, decision)
+                stdout = StringIO()
+
+                with redirect_stdout(stdout):
+                    exit_code = preview_module.main(
+                        [
+                            f"--{operation}-generation",
+                            "--asset-root",
+                            str(self.asset_root),
+                            "--generation-id",
+                            pending.generation_id,
+                            "--visual-decision",
+                            str(decision_path),
+                        ]
+                    )
+
+                self.assertEqual(exit_code, 0)
+                emitted = stdout.getvalue().strip()
+                self.assertTrue(emitted.startswith(preview_module.RESULT_MARKER))
+                payload = json.loads(emitted.removeprefix(preview_module.RESULT_MARKER))
+                self.assertEqual(
+                    payload["status"],
+                    "accepted" if operation == "accept" else "rejected",
+                )
 
     def test_any_worker_failure_preserves_staging_under_rejected_and_leaves_no_final(self) -> None:
         """Catches deletion of failed evidence or a partially published final generation."""
@@ -443,6 +719,100 @@ class EditorialPreviewTests(unittest.TestCase):
         self.assertFalse(any(generation_parent.glob(".*.pending")))
         self.assertEqual(len(list(error.rejected_root.glob("*.png"))), 2)
 
+    def test_blender_worker_timeout_is_bounded_and_preserved_fail_closed(self) -> None:
+        """Catches an unbounded render hang or a timeout with no durable failure evidence."""
+
+        def time_out(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+            self.assertEqual(kwargs["timeout"], 900)
+            raise TimeoutExpired(
+                command,
+                kwargs["timeout"],
+                output="fixture partial Blender stdout",
+                stderr="fixture Blender timeout stderr",
+            )
+
+        with patch.object(
+            preview_module,
+            "_validate_blender_authority",
+            return_value={
+                "status": "pass",
+                "path": str(self.blender),
+                "sha256": sha256_file(self.blender),
+                "version": "5.2.0",
+                "lock_path": "fixture",
+                "lock_sha256": "A" * 64,
+            },
+        ), patch.object(preview_module.subprocess, "run", side_effect=time_out):
+            with self.assertRaises(EditorialPreviewFailure) as caught:
+                render_editorial_preview_campaign(self.asset_root, self.blender)
+
+        rejected = caught.exception.rejected_root
+        self.assertIsNotNone(rejected)
+        assert rejected is not None
+        failure = json.loads((rejected / "campaign-failure.json").read_text(encoding="utf-8"))
+        self.assertIs(failure["timed_out"], True)
+        self.assertEqual(failure["timeout_seconds"], 900)
+        self.assertIn("partial Blender stdout", failure["stdout_tail"])
+        self.assertIn("timeout stderr", failure["stderr_tail"])
+        self.assertFalse(
+            (
+                rejected.parent.parent
+                / preview_module.PENDING_REVIEW_DIRECTORY
+                / caught.exception.generation_id
+            ).exists()
+        )
+        self.assertFalse((rejected.parent.parent / caught.exception.generation_id).exists())
+
+    def test_failure_preservation_records_secondary_errors_without_masking_primary(self) -> None:
+        """Catches swallowed evidence-write errors or replacement of the render failure."""
+
+        real_atomic_write = preview_module.atomic_write_json
+        failure_writes = 0
+
+        def fail_first_failure_write(path: Path, payload: object) -> None:
+            nonlocal failure_writes
+            if Path(path).name == "campaign-failure.json":
+                failure_writes += 1
+                if failure_writes == 1:
+                    raise OSError("fixture failure evidence write blocked")
+            real_atomic_write(path, payload)
+
+        def fail_worker(command: list[str], **_: object) -> CompletedProcess[str]:
+            return CompletedProcess(
+                command,
+                1,
+                stdout="fixture primary stdout",
+                stderr="fixture primary render failure",
+            )
+
+        with patch.object(
+            preview_module,
+            "_validate_blender_authority",
+            return_value={
+                "status": "pass",
+                "path": str(self.blender),
+                "sha256": sha256_file(self.blender),
+                "version": "5.2.0",
+                "lock_path": "fixture",
+                "lock_sha256": "A" * 64,
+            },
+        ), patch.object(preview_module.subprocess, "run", side_effect=fail_worker), patch.object(
+            preview_module,
+            "atomic_write_json",
+            side_effect=fail_first_failure_write,
+        ):
+            with self.assertRaises(EditorialPreviewFailure) as caught:
+                render_editorial_preview_campaign(self.asset_root, self.blender)
+
+        self.assertIn("fixture primary render failure", str(caught.exception))
+        self.assertTrue(caught.exception.preservation_errors)
+        rejected = caught.exception.rejected_root
+        self.assertIsNotNone(rejected)
+        assert rejected is not None
+        failure = json.loads((rejected / "campaign-failure.json").read_text(encoding="utf-8"))
+        self.assertEqual(failure["secondary_errors"], list(caught.exception.preservation_errors))
+        self.assertIn("fixture failure evidence write blocked", failure["secondary_errors"][0])
+
     def test_authority_hash_drift_before_a_shot_blocks_that_blender_process(self) -> None:
         """Catches a renderer that trusts Task 4 hashes captured only at campaign start."""
 
@@ -470,6 +840,56 @@ class EditorialPreviewTests(unittest.TestCase):
                 render_editorial_preview_campaign(self.asset_root, self.blender)
 
         self.assertEqual(self.worker_calls, [CAMPAIGN.shots[0].shot_id])
+
+    def test_completion_authority_enforces_exact_concept_required_external_assets(self) -> None:
+        """Catches treating the provenance intended-shot list as the required scene asset set."""
+
+        expected = {
+            "pimm-30g--concept-architectural-daylight": [],
+            "pimm-50g--concept-dark-engineering": [],
+            "pimm-50g--concept-modern-workshop": ["university_workshop", "tool_cart"],
+            "pimm-30g--concept-process-still-life": ["metal_toolbox"],
+        }
+        for shot in CAMPAIGN.shots:
+            authority = preview_module._load_completion_authority(self.asset_root, shot)
+            self.assertEqual(
+                [record["asset_id"] for record in authority.external_assets],
+                expected[shot.shot_id],
+            )
+
+        modern = CAMPAIGN.by_shot_id["pimm-50g--concept-modern-workshop"]
+        contract_path = self.paths[modern.shot_id]["contract"]
+        marker_path = self.paths[modern.shot_id]["marker"]
+        original_contract = contract_path.read_bytes()
+        original_marker = marker_path.read_bytes()
+        mutations = {
+            "missing tool cart": [self.contracts[modern.shot_id]["external_assets"][0]],
+            "authorized but not required metal toolbox": [
+                *self.contracts[modern.shot_id]["external_assets"],
+                {
+                    **next(
+                        record
+                        for record in self.external_records
+                        if str(record["source_url"]).endswith("/metal_toolbox")
+                    ),
+                    "asset_id": "metal_toolbox",
+                },
+            ],
+        }
+        for label, external_assets in mutations.items():
+            with self.subTest(label=label):
+                contract = deepcopy(self.contracts[modern.shot_id])
+                contract["external_assets"] = external_assets
+                _json(contract_path, contract)
+                marker = json.loads(original_marker)
+                marker["contract_sha256"] = sha256_file(contract_path)
+                _json(marker_path, marker)
+                try:
+                    with self.assertRaisesRegex(ValueError, "required external asset IDs"):
+                        preview_module._load_completion_authority(self.asset_root, modern)
+                finally:
+                    contract_path.write_bytes(original_contract)
+                    marker_path.write_bytes(original_marker)
 
     def test_final_authority_recheck_blocks_publication_after_last_render_drift(self) -> None:
         """Catches a renderer that publishes after a protected scene changes mid-campaign."""
@@ -518,7 +938,7 @@ class EditorialPreviewTests(unittest.TestCase):
             "samples": lambda item: item["render"].__setitem__("samples", 16),
             "contact": lambda item: item["contact"].__setitem__("status", "fail"),
             "framing": lambda item: item["framing"].__setitem__("complete_machine_framed", False),
-            "shadow clipping": lambda item: item["clipping"].__setitem__("designed_shadow", "fail"),
+            "shadow clipping": lambda item: item["clipping"].__setitem__("designed_shadow", "pass"),
             "provenance": lambda item: item.__setitem__("asset_provenance_status", "fail"),
         }
         for label, mutate in mutations.items():
@@ -526,6 +946,78 @@ class EditorialPreviewTests(unittest.TestCase):
                 payload = deepcopy(baseline)
                 mutate(payload)
                 with self.assertRaisesRegex(ValueError, label):
+                    preview_module._validate_worker_result(shot, authority, payload, output)
+
+    def test_worker_requires_designed_shadow_to_remain_pending_visual_review(self) -> None:
+        """Catches fresh Blender hardcoding an aesthetic shadow pass before pixel review."""
+
+        shot = CAMPAIGN.shots[0]
+        authority = preview_module._load_completion_authority(self.asset_root, shot)
+        output = self.asset_root / "pending-shadow-output.png"
+        command = [
+            str(self.blender), "--shot-id", shot.shot_id,
+            "--output", str(output),
+            "--contract", str(self.paths[shot.shot_id]["contract"]),
+            "--completion-marker", str(self.paths[shot.shot_id]["marker"]),
+        ]
+        pending = self._worker_result(command, 0)
+
+        preview_module._validate_worker_result(shot, authority, pending, output)
+        pending["clipping"]["designed_shadow"] = "pass"
+
+        with self.assertRaisesRegex(ValueError, "shadow clipping"):
+            preview_module._validate_worker_result(shot, authority, pending, output)
+
+    def test_nonfinite_numeric_evidence_is_rejected_at_json_and_worker_boundaries(self) -> None:
+        """Catches NaN/Inf bypassing comparisons in contact, framing, or render evidence."""
+
+        nonfinite_json = self.asset_root / "nonfinite.json"
+        nonfinite_json.write_text('{"value": NaN}\n', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            preview_module._load_json_bytes(nonfinite_json, "fixture evidence")
+        for token in ("Infinity", "1e400"):
+            with self.subTest(contact_sheet_token=token):
+                nonfinite_sheet_manifest = (
+                    self.asset_root / f"nonfinite-sheet-manifest-{token}.json"
+                )
+                nonfinite_sheet_manifest.write_text(
+                    '{"schema":"maliev.pimm-editorial-preview-campaign/v1",'
+                    f'"shots":[],"value":{token}}}\n',
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(ValueError, "nonfinite"):
+                    contact_sheet_module._load_manifest(nonfinite_sheet_manifest)
+
+        shot = CAMPAIGN.shots[0]
+        authority = preview_module._load_completion_authority(self.asset_root, shot)
+        output = self.asset_root / "nonfinite-worker-output.png"
+        command = [
+            str(self.blender), "--shot-id", shot.shot_id,
+            "--output", str(output),
+            "--contract", str(self.paths[shot.shot_id]["contract"]),
+            "--completion-marker", str(self.paths[shot.shot_id]["marker"]),
+        ]
+        baseline = self._worker_result(command, 0)
+        mutations = {
+            "render seconds NaN": lambda item: item["render"].__setitem__("seconds", float("nan")),
+            "contact spread NaN": lambda item: item["contact"]["measurements"].__setitem__(
+                "spread", float("nan")
+            ),
+            "foot delta NaN": lambda item: item["contact"]["measurements"]["feet"][0].__setitem__(
+                "delta_to_plane", float("nan")
+            ),
+            "framing margin NaN": lambda item: item["framing"].__setitem__(
+                "safe_margin_minimum", float("nan")
+            ),
+            "framing ratio Inf": lambda item: item["framing"].__setitem__(
+                "machine_frame_area_ratio", float("inf")
+            ),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                payload = deepcopy(baseline)
+                mutate(payload)
+                with self.assertRaisesRegex(ValueError, "nonfinite"):
                     preview_module._validate_worker_result(shot, authority, payload, output)
 
     def test_wrong_output_dimensions_are_rejected_before_manifest_publication(self) -> None:
@@ -581,13 +1073,13 @@ class EditorialPreviewTests(unittest.TestCase):
 
         result = self._render()
         manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
-        second = result.output_root / "sheet-second.png"
-        sheet = build_editorial_contact_sheet(result.manifest_path, second)
+        report = json.loads(result.report_path.read_text(encoding="utf-8"))
+        cells = report["contact_sheet_cells"]
 
-        self.assertEqual((sheet.width, sheet.height), (2560, 1800))
-        self.assertEqual(len(sheet.cells), 4)
+        self.assertEqual(report["contact_sheet_dimensions"], [2560, 1800])
+        self.assertEqual(len(cells), 4)
         self.assertEqual(
-            {(cell["width"], cell["height"]) for cell in sheet.cells},
+            {(cell["width"], cell["height"]) for cell in cells},
             {(1280, 900)},
         )
         required = {
@@ -595,10 +1087,14 @@ class EditorialPreviewTests(unittest.TestCase):
             "set_signature", "scene_hash_prefix", "contact_state",
             "master_fingerprint_state", "asset_provenance_state",
         }
-        for cell, shot in zip(sheet.cells, manifest["shots"], strict=True):
+        for cell, shot in zip(cells, manifest["shots"], strict=True):
             self.assertEqual(set(cell["labels"]), required)
             self.assertEqual(cell["labels"]["shot_id"], shot["shot_id"])
-        with Image.open(second) as image:
+            self.assertEqual(
+                cell["source_dimensions"],
+                [shot["output_width"], shot["output_height"]],
+            )
+        with Image.open(result.contact_sheet_path) as image:
             self.assertEqual(image.size, (2560, 1800))
 
     def test_contact_sheet_refuses_an_existing_output_instead_of_reusing_it(self) -> None:
@@ -608,6 +1104,34 @@ class EditorialPreviewTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "already exists"):
             build_editorial_contact_sheet(result.manifest_path, result.contact_sheet_path)
+
+    def test_contact_sheet_rejects_alternate_write_inside_any_authoritative_generation(self) -> None:
+        """Catches adding an unbound sheet to pending, accepted, or rejected evidence."""
+
+        pending = self._render()
+        accepted_pending = self._render()
+        accepted = preview_module.accept_editorial_preview_generation(
+            self.asset_root,
+            accepted_pending.generation_id,
+            self._visual_decision(accepted_pending),
+        )
+        rejected_pending = self._render()
+        rejected = preview_module.reject_editorial_preview_generation(
+            self.asset_root,
+            rejected_pending.generation_id,
+            self._visual_decision(
+                rejected_pending,
+                decision="reject",
+                failures={(CAMPAIGN.shots[0].shot_id, "detail"): "fail"},
+            ),
+        )
+
+        for result in (pending, accepted, rejected):
+            with self.subTest(status=result.status):
+                alternate = result.output_root / "alternate-review-sheet.png"
+                with self.assertRaisesRegex(ValueError, "canonical|generation authority"):
+                    build_editorial_contact_sheet(result.manifest_path, alternate)
+                self.assertFalse(alternate.exists())
 
 
 if __name__ == "__main__":

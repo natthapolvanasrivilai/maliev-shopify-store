@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path, PurePosixPath
+import re
 import subprocess
 import sys
 import time
@@ -27,6 +28,7 @@ try:
         validate_editorial_campaign,
     )
     from .editorial_contact_sheet import (
+        CONTACT_SHEET_NAME,
         MANIFEST_SCHEMA,
         SHEET_HEIGHT,
         SHEET_WIDTH,
@@ -49,6 +51,7 @@ except ImportError:  # Blender executes this checked-in file outside package mod
         validate_editorial_campaign,
     )
     from scripts.blender.pimm_production.editorial_contact_sheet import (
+        CONTACT_SHEET_NAME,
         MANIFEST_SCHEMA,
         SHEET_HEIGHT,
         SHEET_WIDTH,
@@ -64,17 +67,59 @@ RESULT_MARKER = "PIMM_EDITORIAL_PREVIEW_JSON="
 SHOT_SCHEMA = "maliev.pimm-editorial-preview-shot/v1"
 REPORT_SCHEMA = "maliev.pimm-editorial-preview-report/v1"
 FAILURE_SCHEMA = "maliev.pimm-editorial-preview-failure/v1"
+VISUAL_DISPOSITION_SCHEMA = "maliev.pimm-editorial-visual-disposition/v1"
 PUBLICATION_SCHEMA = "maliev.pimm-editorial-publication/v1"
 SCENE_SCHEMA = "maliev.pimm-editorial-scene/v1"
 PROOF_LIBRARY_ID = "editorial-concepts-v1"
-CONTACT_SHEET_NAME = "sheet-editorial-concepts.png"
 MANIFEST_NAME = "campaign-manifest.json"
 REPORT_NAME = "campaign-report.json"
+VISUAL_DISPOSITION_NAME = "visual-disposition.json"
+PENDING_REVIEW_DIRECTORY = "pending-review"
 EXPECTED_SAMPLES = 32
 EXPECTED_DENOISE = True
 EXPECTED_VIEW_TRANSFORM = "AgX"
 EXPECTED_LOOK = "AgX - Medium High Contrast"
 EXPECTED_PILLOW_VERSION = "12.2.0"
+BLENDER_RENDER_TIMEOUT_SECONDS = 900
+_GENERATION_ID_PATTERN = re.compile(
+    r"^editorial-preview-\d{8}T\d{6}\.\d{6}Z-[0-9a-f]{8}-[0-9a-f]{8}$"
+)
+_VISUAL_REVIEW_FIELDS = (
+    "machine",
+    "props",
+    "designed_shadow",
+    "grounding",
+    "exposure",
+    "detail",
+    "pixel_review",
+)
+_VISUAL_DECISION_INPUT_FIELDS = frozenset(
+    {
+        "schema",
+        "generation_id",
+        "decision",
+        "reviewer",
+        "reviewed_at",
+        "campaign_manifest_sha256",
+        "campaign_report_sha256",
+        "contact_sheet",
+        "shots",
+    }
+)
+_VISUAL_DISPOSITION_RECORD_FIELDS = _VISUAL_DECISION_INPUT_FIELDS | {
+    "recorded_at",
+    "status",
+    "failed_fields",
+}
+_REQUIRED_EXTERNAL_ASSET_IDS = {
+    "pimm-30g--concept-architectural-daylight": (),
+    "pimm-50g--concept-dark-engineering": (),
+    "pimm-50g--concept-modern-workshop": (
+        "university_workshop",
+        "tool_cart",
+    ),
+    "pimm-30g--concept-process-still-life": ("metal_toolbox",),
+}
 _SHA256_HEX = frozenset("0123456789ABCDEF")
 _PROVENANCE_FIELDS = (
     "source_url",
@@ -147,10 +192,12 @@ class EditorialPreviewFailure(RuntimeError):
         *,
         generation_id: str,
         rejected_root: Path | None,
+        preservation_errors: Sequence[str] = (),
     ) -> None:
         super().__init__(message)
         self.generation_id = generation_id
         self.rejected_root = rejected_root
+        self.preservation_errors = tuple(preservation_errors)
 
 
 def _utc_now() -> str:
@@ -166,6 +213,21 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
     return result
 
 
+def _reject_nonfinite_numeric_evidence(
+    value: object,
+    label: str,
+    path: str = "$",
+) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(f"{label} contains nonfinite numeric evidence at {path}")
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _reject_nonfinite_numeric_evidence(item, label, f"{path}.{key}")
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _reject_nonfinite_numeric_evidence(item, label, f"{path}[{index}]")
+
+
 def _load_json_bytes(path: Path, label: str) -> tuple[dict[str, object], bytes, str]:
     try:
         payload_bytes = path.read_bytes()
@@ -177,6 +239,7 @@ def _load_json_bytes(path: Path, label: str) -> tuple[dict[str, object], bytes, 
         raise ValueError(f"{label} JSON is invalid: {path}: {error}") from error
     if not isinstance(payload, dict):
         raise ValueError(f"{label} root must be an object: {path}")
+    _reject_nonfinite_numeric_evidence(payload, label)
     return payload, payload_bytes, hashlib.sha256(payload_bytes).hexdigest().upper()
 
 
@@ -398,6 +461,7 @@ def _load_completion_authority(
         contract_external = []
     external_records: list[dict[str, object]] = []
     observed_ids: set[str] = set()
+    observed_id_order: list[str] = []
     for index, item in enumerate(contract_external):
         if not isinstance(item, Mapping):
             errors.append(f"scene external_assets[{index}] must be an object")
@@ -407,6 +471,7 @@ def _load_completion_authority(
             errors.append(f"scene external_assets[{index}] asset_id is missing or duplicated")
             continue
         observed_ids.add(asset_id)
+        observed_id_order.append(asset_id)
         provenance = _provenance_without_asset_id(item)
         if provenance not in manifest_assets:
             errors.append(f"external provenance record is not exact for {asset_id}")
@@ -434,6 +499,12 @@ def _load_completion_authority(
                 "actual_sha256": actual_sha,
                 "status": "pass" if actual_sha == provenance.get("sha256") else "fail",
             }
+        )
+    required_ids = _REQUIRED_EXTERNAL_ASSET_IDS[shot.shot_id]
+    if tuple(observed_id_order) != required_ids:
+        errors.append(
+            f"required external asset IDs changed for {shot.shot_id}: "
+            f"expected={list(required_ids)}, observed={observed_id_order}"
         )
     if errors:
         raise ValueError("; ".join(dict.fromkeys(errors)))
@@ -604,8 +675,9 @@ def _validate_worker_result(
 
     from PIL import Image
 
-    if result.get("schema") != SHOT_SCHEMA or result.get("status") != "pass":
-        raise ValueError("worker status or schema is not pass")
+    _reject_nonfinite_numeric_evidence(result, "worker result")
+    if result.get("schema") != SHOT_SCHEMA or result.get("status") != "technical-pass":
+        raise ValueError("worker status or schema is not technical-pass")
     if result.get("shot_id") != shot.shot_id:
         raise ValueError("worker shot identity changed")
     if not isinstance(result.get("process_id"), int) or int(result["process_id"]) <= 0:
@@ -715,12 +787,15 @@ def _validate_worker_result(
     ):
         raise ValueError("framing evidence is not pass")
     clipping = result.get("clipping")
-    if not isinstance(clipping, Mapping) or clipping.get("status") != "pass":
-        raise ValueError("clipping evidence is not pass")
+    if (
+        not isinstance(clipping, Mapping)
+        or clipping.get("status") != "pending-visual-review"
+    ):
+        raise ValueError("clipping evidence is not pending visual review")
     if clipping.get("machine") != "pass":
         raise ValueError("machine clipping status is not pass")
-    if clipping.get("designed_shadow") != "pass":
-        raise ValueError("shadow clipping status is not pass")
+    if clipping.get("designed_shadow") != "pending-visual-review":
+        raise ValueError("shadow clipping status is not pending visual review")
     if (
         clipping.get("props") != "pass"
         or clipping.get("support_intersections") not in ([], ())
@@ -869,8 +944,13 @@ def _normalized_shot_record(
     worker: Mapping[str, object],
     output_path: Path,
 ) -> dict[str, object]:
+    clipping = dict(worker["clipping"])
+    clipping["status"] = "pending-visual-review"
+    clipping["designed_shadow"] = "pending-visual-review"
     return {
         **worker,
+        "technical_status": worker["status"],
+        "status": "pending-review",
         "machine": shot.machine,
         "concept": shot.concept,
         "focal_length_mm": shot.focal_length_mm,
@@ -882,7 +962,8 @@ def _normalized_shot_record(
         "render_source": "fresh-blender",
         "contact_status": "pass",
         "framing_status": "pass",
-        "clipping_status": "pass",
+        "clipping": clipping,
+        "clipping_status": "pending-visual-review",
         "master_fingerprint_status": "pass",
         "asset_provenance_status": "pass",
         "pixel_metrics": _image_metrics(output_path),
@@ -947,9 +1028,9 @@ def _preserve_failed_staging(
     created_at: str,
     shots: Sequence[Mapping[str, object]],
     error: Exception,
-) -> Path | None:
+) -> tuple[Path | None, tuple[str, ...]]:
     if not staging.is_dir():
-        return None
+        return None, ()
     failure = {
         "schema": FAILURE_SCHEMA,
         "status": "rejected",
@@ -966,19 +1047,235 @@ def _preserve_failed_staging(
             if path.is_file()
         },
     }
+    if isinstance(error, subprocess.TimeoutExpired):
+        stdout = (
+            error.output.decode("utf-8", errors="replace")
+            if isinstance(error.output, bytes)
+            else str(error.output or "")
+        )
+        stderr = (
+            error.stderr.decode("utf-8", errors="replace")
+            if isinstance(error.stderr, bytes)
+            else str(error.stderr or "")
+        )
+        failure.update(
+            {
+                "timed_out": True,
+                "timeout_seconds": error.timeout,
+                "command": (
+                    [str(item) for item in error.cmd]
+                    if isinstance(error.cmd, (list, tuple))
+                    else str(error.cmd)
+                ),
+                "stdout_tail": stdout[-3000:],
+                "stderr_tail": stderr[-3000:],
+            }
+        )
+    else:
+        failure["timed_out"] = False
+    secondary_errors: list[str] = []
+
+    def record_secondary(stage: str, secondary: Exception) -> None:
+        secondary_errors.append(f"{stage}: {type(secondary).__name__}: {secondary}")
+
+    failure_path = staging / "campaign-failure.json"
     try:
-        atomic_write_json(staging / "campaign-failure.json", failure)
-    except Exception:
-        pass
-    rejected_parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(failure_path, {**failure, "secondary_errors": []})
+    except Exception as secondary:
+        record_secondary("initial failure evidence write failed", secondary)
+    try:
+        rejected_parent.mkdir(parents=True, exist_ok=True)
+    except Exception as secondary:
+        record_secondary("rejected directory creation failed", secondary)
+        try:
+            atomic_write_json(
+                failure_path,
+                {**failure, "secondary_errors": list(secondary_errors)},
+            )
+        except Exception as write_secondary:
+            record_secondary("secondary failure evidence write failed", write_secondary)
+        return None, tuple(secondary_errors)
     rejected = rejected_parent / generation_id
     if rejected.exists():
         rejected = rejected_parent / f"{generation_id}-{uuid.uuid4().hex[:8]}"
     try:
         os.rename(staging, rejected)
-    except OSError:
-        return None
-    return rejected
+    except OSError as secondary:
+        record_secondary("rejected evidence move failed", secondary)
+        try:
+            atomic_write_json(
+                failure_path,
+                {**failure, "secondary_errors": list(secondary_errors)},
+            )
+        except Exception as write_secondary:
+            record_secondary("secondary failure evidence write failed", write_secondary)
+        return None, tuple(secondary_errors)
+    rejected_failure_path = rejected / "campaign-failure.json"
+    if secondary_errors:
+        try:
+            atomic_write_json(
+                rejected_failure_path,
+                {**failure, "secondary_errors": list(secondary_errors)},
+            )
+        except Exception as secondary:
+            record_secondary("rejected failure evidence update failed", secondary)
+    return rejected, tuple(secondary_errors)
+
+
+def _validate_generation_artifacts(
+    generation_root: Path,
+    *,
+    expected_status: str,
+    require_disposition: bool,
+) -> tuple[dict[str, object], dict[str, object], str, str]:
+    """Reopen and hash every generation artifact against both source records."""
+
+    from PIL import Image
+
+    generation_root = Path(generation_root).resolve()
+    manifest_path = generation_root / MANIFEST_NAME
+    report_path = generation_root / REPORT_NAME
+    contact_sheet_path = generation_root / CONTACT_SHEET_NAME
+    manifest, _bytes, manifest_sha = _load_json_bytes(manifest_path, "campaign manifest")
+    report, _report_bytes, report_sha = _load_json_bytes(report_path, "campaign report")
+    if manifest.get("schema") != MANIFEST_SCHEMA or manifest.get("status") != expected_status:
+        raise ValueError(f"campaign manifest status is not {expected_status}")
+    if report.get("schema") != REPORT_SCHEMA or report.get("status") != expected_status:
+        raise ValueError(f"campaign report status is not {expected_status}")
+    if report.get("campaign_manifest_sha256") != manifest_sha:
+        raise ValueError("campaign report does not bind the current manifest bytes")
+
+    shots = manifest.get("shots")
+    report_shots = report.get("shots")
+    if (
+        not isinstance(shots, list)
+        or len(shots) != 4
+        or report_shots != shots
+        or [item.get("shot_id") if isinstance(item, Mapping) else None for item in shots]
+        != [shot.shot_id for shot in _CAMPAIGN.shots]
+    ):
+        raise ValueError("generation does not contain the exact four matching shot records")
+    expected_names = {
+        *(str(item["output_relative_path"]) for item in shots),
+        MANIFEST_NAME,
+        REPORT_NAME,
+        CONTACT_SHEET_NAME,
+    }
+    if require_disposition:
+        expected_names.add(VISUAL_DISPOSITION_NAME)
+    observed_names = {path.name for path in generation_root.iterdir() if path.is_file()}
+    if observed_names != expected_names:
+        raise ValueError(
+            f"generation file set is not exact: missing={sorted(expected_names - observed_names)}, "
+            f"extra={sorted(observed_names - expected_names)}"
+        )
+    if any(path.is_dir() for path in generation_root.iterdir()):
+        raise ValueError("editorial generation must not contain cache directories")
+
+    for item in shots:
+        if not isinstance(item, Mapping):
+            raise ValueError("generation shot record must be an object")
+        relative = item.get("output_relative_path")
+        if not isinstance(relative, str) or Path(relative).name != relative:
+            raise ValueError("generation shot output must be one local filename")
+        image_path = require_within(generation_root / relative, generation_root)
+        if not image_path.is_file() or sha256_file(image_path) != item.get("output_sha256"):
+            raise ValueError(f"generation PNG bytes do not match the manifest: {relative}")
+        expected_dimensions = (item.get("output_width"), item.get("output_height"))
+        with Image.open(image_path) as image:
+            if image.format != "PNG" or image.size != expected_dimensions:
+                raise ValueError(f"generation PNG dimensions do not match the manifest: {relative}")
+            image.verify()
+    cells = report.get("contact_sheet_cells")
+    if not isinstance(cells, list) or len(cells) != 4:
+        raise ValueError("campaign report contact-sheet source records are incomplete")
+    for cell, shot in zip(cells, shots, strict=True):
+        if not isinstance(cell, Mapping):
+            raise ValueError("campaign report contact-sheet source record is invalid")
+        relative = shot["output_relative_path"]
+        if (
+            cell.get("source_relative_path") != relative
+            or cell.get("source_sha256") != shot.get("output_sha256")
+            or cell.get("source_dimensions")
+            != [shot.get("output_width"), shot.get("output_height")]
+        ):
+            raise ValueError(f"contact-sheet source record does not bind the PNG: {relative}")
+    if report.get("contact_sheet_sha256") != sha256_file(contact_sheet_path):
+        raise ValueError("campaign report does not bind the current contact-sheet bytes")
+    with Image.open(contact_sheet_path) as image:
+        if image.format != "PNG" or image.size != (SHEET_WIDTH, SHEET_HEIGHT):
+            raise ValueError("campaign contact sheet dimensions are invalid")
+        image.verify()
+    if len({str(item["set"]["light_signature"]) for item in shots}) != 4:
+        raise ValueError("editorial concepts collapse to the same lighting signature")
+
+    disposition_path = generation_root / VISUAL_DISPOSITION_NAME
+    if require_disposition:
+        disposition, _disposition_bytes, disposition_sha = _load_json_bytes(
+            disposition_path, "visual disposition"
+        )
+        expected_decision = "accept" if expected_status == "accepted" else "reject"
+        if set(disposition) != _VISUAL_DISPOSITION_RECORD_FIELDS:
+            raise ValueError("immutable visual disposition fields are incomplete or unexpected")
+        if (
+            disposition.get("schema") != VISUAL_DISPOSITION_SCHEMA
+            or disposition.get("decision") != expected_decision
+            or disposition.get("status") != "verified"
+        ):
+            raise ValueError("visual disposition does not authorize the generation status")
+        technical_manifest_sha = manifest.get("technical_manifest_sha256")
+        technical_report_sha = report.get("technical_report_sha256")
+        if (
+            not _is_sha256(technical_manifest_sha)
+            or technical_manifest_sha != report.get("technical_manifest_sha256")
+            or not _is_sha256(technical_report_sha)
+            or technical_report_sha != manifest.get("technical_report_sha256")
+        ):
+            raise ValueError("generation does not retain its technical manifest/report authority")
+        disposition_input = {
+            key: disposition[key] for key in _VISUAL_DECISION_INPUT_FIELDS
+        }
+        verified = _validate_visual_decision(
+            disposition_input,
+            expected_decision=expected_decision,
+            generation_id=str(manifest.get("generation_id")),
+            manifest=manifest,
+            report=report,
+            manifest_sha256=str(technical_manifest_sha),
+            report_sha256=str(technical_report_sha),
+        )
+        if disposition.get("failed_fields") != verified.get("failed_fields"):
+            raise ValueError("visual disposition failed-field evidence changed")
+        recorded_at = disposition.get("recorded_at")
+        if not isinstance(recorded_at, str) or not recorded_at.endswith("Z"):
+            raise ValueError("visual disposition recorded_at is invalid")
+        try:
+            datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError("visual disposition recorded_at is invalid") from error
+        reviews = {
+            str(item["shot_id"]): item
+            for item in disposition["shots"]
+            if isinstance(item, Mapping)
+        }
+        if any(
+            shot.get("status") != expected_status
+            or shot.get("visual_review") != reviews.get(str(shot.get("shot_id")))
+            for shot in shots
+        ):
+            raise ValueError("generation shots do not bind their verified visual reviews")
+        for payload in (manifest, report):
+            binding = payload.get("visual_disposition")
+            if (
+                not isinstance(binding, Mapping)
+                or binding.get("path") != VISUAL_DISPOSITION_NAME
+                or binding.get("sha256") != disposition_sha
+                or binding.get("decision") != expected_decision
+            ):
+                raise ValueError("generation does not bind the immutable visual disposition")
+    elif disposition_path.exists():
+        raise ValueError("pending-review generation already contains a visual disposition")
+    return manifest, report, manifest_sha, report_sha
 
 
 def _validate_generation_files(
@@ -988,44 +1285,25 @@ def _validate_generation_files(
     contact_sheet_path: Path,
     shots: Sequence[Mapping[str, object]],
 ) -> None:
-    from PIL import Image
-
-    expected_names = {
-        *(str(item["output_relative_path"]) for item in shots),
-        MANIFEST_NAME,
-        REPORT_NAME,
-        CONTACT_SHEET_NAME,
-    }
-    observed_names = {path.name for path in staging.iterdir() if path.is_file()}
-    if observed_names != expected_names:
-        raise ValueError(
-            f"staged generation file set is not exact: missing={sorted(expected_names - observed_names)}, "
-            f"extra={sorted(observed_names - expected_names)}"
-        )
-    if any(path.is_dir() for path in staging.iterdir()):
-        raise ValueError("staged editorial generation must not contain hidden cache directories")
-    manifest, _bytes, manifest_sha = _load_json_bytes(manifest_path, "campaign manifest")
-    report, _report_bytes, _report_sha = _load_json_bytes(report_path, "campaign report")
-    if manifest.get("schema") != MANIFEST_SCHEMA or manifest.get("status") != "pass":
-        raise ValueError("staged campaign manifest is not passing")
-    if report.get("schema") != REPORT_SCHEMA or report.get("status") != "pass":
-        raise ValueError("staged campaign report is not passing")
-    if report.get("campaign_manifest_sha256") != manifest_sha:
-        raise ValueError("campaign report does not bind the staged manifest")
-    if report.get("contact_sheet_sha256") != sha256_file(contact_sheet_path):
-        raise ValueError("campaign report does not bind the staged contact sheet")
-    with Image.open(contact_sheet_path) as image:
-        if image.size != (SHEET_WIDTH, SHEET_HEIGHT):
-            raise ValueError("campaign contact sheet dimensions are invalid")
-        image.verify()
-    if len({str(item["set"]["light_signature"]) for item in shots}) != 4:
-        raise ValueError("editorial concepts collapse to the same lighting signature")
+    if (
+        manifest_path != staging / MANIFEST_NAME
+        or report_path != staging / REPORT_NAME
+        or contact_sheet_path != staging / CONTACT_SHEET_NAME
+    ):
+        raise ValueError("staged generation paths are not canonical")
+    manifest, _report, _manifest_sha, _report_sha = _validate_generation_artifacts(
+        staging,
+        expected_status="pending-review",
+        require_disposition=False,
+    )
+    if manifest.get("shots") != list(shots):
+        raise ValueError("staged shot records changed before pending-review publication")
 
 
 def render_editorial_preview_campaign(
     asset_root: Path, blender: Path
 ) -> EditorialPreviewResult:
-    """Render and atomically publish exactly four fresh marker-authoritative previews."""
+    """Render exactly four fresh previews into a non-consumer review namespace."""
 
     asset_root = Path(asset_root).resolve()
     blender = Path(blender).resolve()
@@ -1040,10 +1318,13 @@ def render_editorial_preview_campaign(
     proof_parent = asset_root / "renders" / "proofs" / PROOF_LIBRARY_ID
     proof_parent.mkdir(parents=True, exist_ok=True)
     staging = require_within(proof_parent / f".{generation_id}.pending", proof_parent)
+    pending_parent = require_within(proof_parent / PENDING_REVIEW_DIRECTORY, proof_parent)
+    pending = require_within(pending_parent / generation_id, pending_parent)
     final = require_within(proof_parent / generation_id, proof_parent)
     rejected_parent = require_within(proof_parent / "rejected", proof_parent)
-    if staging.exists() or final.exists():
+    if staging.exists() or pending.exists() or final.exists() or (rejected_parent / generation_id).exists():
         raise ValueError("fresh editorial preview generation path already exists")
+    pending_parent.mkdir(parents=True, exist_ok=True)
     staging.mkdir()
     created_at = _utc_now()
     shot_records: list[dict[str, object]] = []
@@ -1070,6 +1351,7 @@ def render_editorial_preview_campaign(
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=BLENDER_RENDER_TIMEOUT_SECONDS,
             )
             worker = _parse_worker(completed, shot.shot_id)
             _validate_worker_result(shot, current, worker, output_path)
@@ -1090,14 +1372,16 @@ def render_editorial_preview_campaign(
         assert campaign_blender_authority is not None
         manifest = {
             "schema": MANIFEST_SCHEMA,
-            "status": "pass",
+            "status": "pending-review",
             "generation_id": generation_id,
             "campaign_id": EDITORIAL_CAMPAIGN_ID,
             "created_at": created_at,
             "completed_at": _utc_now(),
             "preview_only": True,
             "final_authorized": False,
-            "output_root": f"renders/proofs/{PROOF_LIBRARY_ID}/{generation_id}",
+            "output_root": (
+                f"renders/proofs/{PROOF_LIBRARY_ID}/{PENDING_REVIEW_DIRECTORY}/{generation_id}"
+            ),
             "cache_reuse": False,
             "fresh_blender_processes": len(process_ids),
             "render_source": "fresh-blender",
@@ -1105,7 +1389,8 @@ def render_editorial_preview_campaign(
             "completion_authority_passes": 4,
             "contact_passes": sum(item["contact_status"] == "pass" for item in shot_records),
             "framing_passes": sum(item["framing_status"] == "pass" for item in shot_records),
-            "clipping_passes": sum(item["clipping_status"] == "pass" for item in shot_records),
+            "technical_machine_prop_clipping_passes": 4,
+            "designed_shadow_review_status": "pending",
             "master_fingerprint_passes": sum(
                 item["master_fingerprint_status"] == "pass" for item in shot_records
             ),
@@ -1115,7 +1400,7 @@ def render_editorial_preview_campaign(
             "blender_authority": campaign_blender_authority,
             "contact_sheet_path": CONTACT_SHEET_NAME,
             "manual_visual_inspection": {
-                "status": "required",
+                "status": "pending",
                 "scope": "each preview and the contact sheet at actual pixels",
                 "automated_pass_is_aesthetic_approval": False,
             },
@@ -1124,11 +1409,13 @@ def render_editorial_preview_campaign(
         manifest_path = staging / MANIFEST_NAME
         atomic_write_json(manifest_path, manifest)
         sheet = build_editorial_contact_sheet(
-            manifest_path, staging / CONTACT_SHEET_NAME
+            manifest_path,
+            staging / CONTACT_SHEET_NAME,
+            private_staging_root=staging,
         )
         report = {
             "schema": REPORT_SCHEMA,
-            "status": "pass",
+            "status": "pending-review",
             "generation_id": generation_id,
             "campaign_id": EDITORIAL_CAMPAIGN_ID,
             "created_at": created_at,
@@ -1152,7 +1439,8 @@ def render_editorial_preview_campaign(
                 "scene_authority_passes": 4,
                 "contact_passes": 4,
                 "framing_passes": 4,
-                "clipping_passes": 4,
+                "technical_machine_prop_clipping_passes": 4,
+                "designed_shadow_review_status": "pending",
                 "master_fingerprint_passes": 4,
                 "asset_provenance_passes": 4,
                 "distinct_light_signatures": 4,
@@ -1177,21 +1465,21 @@ def render_editorial_preview_campaign(
             shot_records,
         )
         result = EditorialPreviewResult(
-            status="pass",
+            status="pending-review",
             generation_id=generation_id,
-            output_root=final,
-            manifest_path=final / MANIFEST_NAME,
+            output_root=pending,
+            manifest_path=pending / MANIFEST_NAME,
             manifest_sha256=sha256_file(manifest_path),
-            report_path=final / REPORT_NAME,
+            report_path=pending / REPORT_NAME,
             report_sha256=sha256_file(report_path),
-            contact_sheet_path=final / CONTACT_SHEET_NAME,
+            contact_sheet_path=pending / CONTACT_SHEET_NAME,
             contact_sheet_sha256=sha256_file(staging / CONTACT_SHEET_NAME),
             shot_count=4,
         )
-        os.rename(staging, final)
+        os.rename(staging, pending)
         return result
     except Exception as error:
-        rejected = _preserve_failed_staging(
+        rejected, preservation_errors = _preserve_failed_staging(
             staging,
             rejected_parent,
             generation_id,
@@ -1201,8 +1489,344 @@ def render_editorial_preview_campaign(
             error,
         )
         raise EditorialPreviewFailure(
-            str(error), generation_id=generation_id, rejected_root=rejected
+            str(error),
+            generation_id=generation_id,
+            rejected_root=rejected,
+            preservation_errors=preservation_errors,
         ) from error
+
+
+def _validate_visual_decision(
+    decision: Mapping[str, object],
+    *,
+    expected_decision: str,
+    generation_id: str,
+    manifest: Mapping[str, object],
+    report: Mapping[str, object],
+    manifest_sha256: str,
+    report_sha256: str,
+) -> dict[str, object]:
+    if not isinstance(decision, Mapping):
+        raise ValueError("visual disposition must be an object")
+    _reject_nonfinite_numeric_evidence(decision, "visual disposition")
+    if set(decision) != _VISUAL_DECISION_INPUT_FIELDS:
+        raise ValueError("visual disposition fields are incomplete or unexpected")
+    if decision.get("schema") != VISUAL_DISPOSITION_SCHEMA:
+        raise ValueError("visual disposition schema is invalid")
+    if decision.get("generation_id") != generation_id:
+        raise ValueError("visual disposition generation identity changed")
+    if decision.get("decision") != expected_decision:
+        raise ValueError(f"visual disposition is not an {expected_decision} decision")
+    reviewer = decision.get("reviewer")
+    reviewed_at = decision.get("reviewed_at")
+    if not isinstance(reviewer, str) or not reviewer.strip():
+        raise ValueError("visual disposition reviewer is missing")
+    if not isinstance(reviewed_at, str) or not reviewed_at.endswith("Z"):
+        raise ValueError("visual disposition reviewed_at must be UTC")
+    try:
+        parsed_reviewed_at = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError("visual disposition reviewed_at is invalid") from error
+    if parsed_reviewed_at.tzinfo is None:
+        raise ValueError("visual disposition reviewed_at must include a timezone")
+    if decision.get("campaign_manifest_sha256") != manifest_sha256:
+        raise ValueError("visual disposition does not bind the pending manifest bytes")
+    if decision.get("campaign_report_sha256") != report_sha256:
+        raise ValueError("visual disposition does not bind the pending report bytes")
+
+    contact_sheet = decision.get("contact_sheet")
+    if not isinstance(contact_sheet, Mapping) or set(contact_sheet) != {
+        "path",
+        "sha256",
+        "dimensions",
+        "pixel_review",
+    }:
+        raise ValueError("visual disposition contact-sheet review is incomplete")
+    if (
+        contact_sheet.get("path") != CONTACT_SHEET_NAME
+        or contact_sheet.get("sha256") != report.get("contact_sheet_sha256")
+        or contact_sheet.get("dimensions") != report.get("contact_sheet_dimensions")
+        or contact_sheet.get("pixel_review") not in {"pass", "fail"}
+    ):
+        raise ValueError("visual disposition contact-sheet evidence is invalid")
+
+    manifest_shots = manifest.get("shots")
+    review_shots = decision.get("shots")
+    if not isinstance(manifest_shots, list) or not isinstance(review_shots, list):
+        raise ValueError("visual disposition shot reviews are missing")
+    if len(review_shots) != 4:
+        raise ValueError("visual disposition requires exactly four shot reviews")
+    expected_shot_fields = {
+        "shot_id",
+        "output_sha256",
+        "dimensions",
+        *_VISUAL_REVIEW_FIELDS,
+        "notes",
+    }
+    normalized_shots: list[dict[str, object]] = []
+    failing_fields: list[str] = []
+    for rendered, reviewed in zip(manifest_shots, review_shots, strict=True):
+        if not isinstance(rendered, Mapping) or not isinstance(reviewed, Mapping):
+            raise ValueError("visual disposition shot review must be an object")
+        if set(reviewed) != expected_shot_fields:
+            raise ValueError("visual disposition per-shot review is incomplete or unexpected")
+        shot_id = rendered.get("shot_id")
+        if reviewed.get("shot_id") != shot_id:
+            raise ValueError("visual disposition shot order or identity changed")
+        if reviewed.get("output_sha256") != rendered.get("output_sha256"):
+            raise ValueError(f"visual disposition image hash changed: {shot_id}")
+        if reviewed.get("dimensions") != [
+            rendered.get("output_width"),
+            rendered.get("output_height"),
+        ]:
+            raise ValueError(f"visual disposition image dimensions changed: {shot_id}")
+        notes = reviewed.get("notes")
+        if not isinstance(notes, str) or not notes.strip():
+            raise ValueError(f"visual disposition notes are missing: {shot_id}")
+        for field in _VISUAL_REVIEW_FIELDS:
+            value = reviewed.get(field)
+            if value not in {"pass", "fail"}:
+                raise ValueError(f"visual disposition {field} result is invalid: {shot_id}")
+            if value == "fail":
+                failing_fields.append(f"{shot_id}:{field}")
+        normalized_shots.append(dict(reviewed))
+    if contact_sheet.get("pixel_review") == "fail":
+        failing_fields.append("contact-sheet:pixel_review")
+    if expected_decision == "accept" and failing_fields:
+        raise ValueError("visual accept decision contains failed review fields")
+    if expected_decision == "reject" and not failing_fields:
+        raise ValueError("visual reject decision must identify at least one failed review field")
+
+    return {
+        **dict(decision),
+        "contact_sheet": dict(contact_sheet),
+        "shots": normalized_shots,
+        "recorded_at": _utc_now(),
+        "status": "verified",
+        "failed_fields": failing_fields,
+    }
+
+
+def _apply_visual_disposition(
+    generation_root: Path,
+    *,
+    status: str,
+    decision_record: Mapping[str, object],
+    disposition_sha256: str,
+    technical_manifest_sha256: str,
+    technical_report_sha256: str,
+) -> None:
+    manifest_path = generation_root / MANIFEST_NAME
+    report_path = generation_root / REPORT_NAME
+    manifest, _manifest_bytes, _old_manifest_sha = _load_json_bytes(
+        manifest_path, "pending campaign manifest"
+    )
+    report, _report_bytes, _old_report_sha = _load_json_bytes(
+        report_path, "pending campaign report"
+    )
+    reviews = {
+        str(item["shot_id"]): item
+        for item in decision_record["shots"]
+        if isinstance(item, Mapping)
+    }
+    updated_shots: list[dict[str, object]] = []
+    for source in manifest["shots"]:
+        shot = dict(source)
+        review = dict(reviews[str(shot["shot_id"])])
+        clipping = dict(shot["clipping"])
+        clipping.update(
+            {
+                "status": (
+                    "pass"
+                    if all(review[field] == "pass" for field in (
+                        "machine",
+                        "props",
+                        "designed_shadow",
+                        "grounding",
+                    ))
+                    else "fail"
+                ),
+                "machine": review["machine"],
+                "props": review["props"],
+                "designed_shadow": review["designed_shadow"],
+                "grounding": review["grounding"],
+            }
+        )
+        shot.update(
+            {
+                "status": status,
+                "clipping": clipping,
+                "clipping_status": clipping["status"],
+                "visual_review": review,
+            }
+        )
+        updated_shots.append(shot)
+
+    decision = str(decision_record["decision"])
+    disposition_binding = {
+        "path": VISUAL_DISPOSITION_NAME,
+        "sha256": disposition_sha256,
+        "decision": decision,
+        "status": "verified",
+    }
+    manifest.update(
+        {
+            "status": status,
+            "disposed_at": decision_record["recorded_at"],
+            "output_root": (
+                f"renders/proofs/{PROOF_LIBRARY_ID}/{decision_record['generation_id']}"
+                if status == "accepted"
+                else (
+                    f"renders/proofs/{PROOF_LIBRARY_ID}/rejected/"
+                    f"{decision_record['generation_id']}"
+                )
+            ),
+            "technical_manifest_sha256": technical_manifest_sha256,
+            "technical_report_sha256": technical_report_sha256,
+            "manual_visual_inspection": {
+                "status": status,
+                "scope": "each preview and the contact sheet at actual pixels",
+                "automated_pass_is_aesthetic_approval": False,
+                "reviewer": decision_record["reviewer"],
+                "reviewed_at": decision_record["reviewed_at"],
+            },
+            "visual_disposition": disposition_binding,
+            "shots": updated_shots,
+        }
+    )
+    atomic_write_json(manifest_path, manifest)
+
+    report.update(
+        {
+            "status": status,
+            "disposed_at": decision_record["recorded_at"],
+            "campaign_manifest_sha256": sha256_file(manifest_path),
+            "technical_manifest_sha256": technical_manifest_sha256,
+            "technical_report_sha256": technical_report_sha256,
+            "visual_disposition": disposition_binding,
+            "shots": updated_shots,
+        }
+    )
+    validation = report.get("validation")
+    if isinstance(validation, dict):
+        validation.update(
+            {
+                "manual_visual_inspection_required": False,
+                "visual_disposition_status": status,
+                "aesthetic_acceptance": "pass" if status == "accepted" else "fail",
+            }
+        )
+    atomic_write_json(report_path, report)
+
+
+def _dispose_editorial_preview_generation(
+    asset_root: Path,
+    generation_id: str,
+    visual_decision: Mapping[str, object],
+    *,
+    expected_decision: str,
+) -> EditorialPreviewResult:
+    asset_root = Path(asset_root).resolve()
+    if not _GENERATION_ID_PATTERN.fullmatch(generation_id):
+        raise ValueError("editorial preview generation ID is invalid")
+    proof_parent = require_within(
+        asset_root / "renders" / "proofs" / PROOF_LIBRARY_ID,
+        asset_root,
+    )
+    pending_parent = require_within(proof_parent / PENDING_REVIEW_DIRECTORY, proof_parent)
+    pending = require_within(pending_parent / generation_id, pending_parent)
+    if not pending.is_dir():
+        raise ValueError(f"pending-review generation is missing: {generation_id}")
+    target_parent = (
+        proof_parent
+        if expected_decision == "accept"
+        else require_within(proof_parent / "rejected", proof_parent)
+    )
+    target = require_within(target_parent / generation_id, target_parent)
+    if target.exists():
+        raise ValueError(f"visual disposition target already exists: {target}")
+
+    for shot in _CAMPAIGN.shots:
+        _load_completion_authority(asset_root, shot)
+    manifest, report, manifest_sha, report_sha = _validate_generation_artifacts(
+        pending,
+        expected_status="pending-review",
+        require_disposition=False,
+    )
+    record = _validate_visual_decision(
+        visual_decision,
+        expected_decision=expected_decision,
+        generation_id=generation_id,
+        manifest=manifest,
+        report=report,
+        manifest_sha256=manifest_sha,
+        report_sha256=report_sha,
+    )
+    disposition_path = pending / VISUAL_DISPOSITION_NAME
+    if disposition_path.exists():
+        raise ValueError("pending-review generation already has a visual disposition")
+    atomic_write_json(disposition_path, record)
+    disposition_sha = sha256_file(disposition_path)
+    status = "accepted" if expected_decision == "accept" else "rejected"
+    _apply_visual_disposition(
+        pending,
+        status=status,
+        decision_record=record,
+        disposition_sha256=disposition_sha,
+        technical_manifest_sha256=manifest_sha,
+        technical_report_sha256=report_sha,
+    )
+    for shot in _CAMPAIGN.shots:
+        _load_completion_authority(asset_root, shot)
+    target_parent.mkdir(parents=True, exist_ok=True)
+    _validate_generation_artifacts(
+        pending,
+        expected_status=status,
+        require_disposition=True,
+    )
+    os.rename(pending, target)
+    return EditorialPreviewResult(
+        status=status,
+        generation_id=generation_id,
+        output_root=target,
+        manifest_path=target / MANIFEST_NAME,
+        manifest_sha256=sha256_file(target / MANIFEST_NAME),
+        report_path=target / REPORT_NAME,
+        report_sha256=sha256_file(target / REPORT_NAME),
+        contact_sheet_path=target / CONTACT_SHEET_NAME,
+        contact_sheet_sha256=sha256_file(target / CONTACT_SHEET_NAME),
+        shot_count=4,
+    )
+
+
+def accept_editorial_preview_generation(
+    asset_root: Path,
+    generation_id: str,
+    visual_decision: Mapping[str, object],
+) -> EditorialPreviewResult:
+    """Promote one pending generation only after a complete all-pass visual review."""
+
+    return _dispose_editorial_preview_generation(
+        asset_root,
+        generation_id,
+        visual_decision,
+        expected_decision="accept",
+    )
+
+
+def reject_editorial_preview_generation(
+    asset_root: Path,
+    generation_id: str,
+    visual_decision: Mapping[str, object],
+) -> EditorialPreviewResult:
+    """Move one reviewed failing pending generation atomically into rejected evidence."""
+
+    return _dispose_editorial_preview_generation(
+        asset_root,
+        generation_id,
+        visual_decision,
+        expected_decision="reject",
+    )
 
 
 def _render_shot_worker(
@@ -1330,7 +1954,7 @@ def _render_shot_worker(
     set_contract = authority.contract["set"]
     return {
         "schema": SHOT_SCHEMA,
-        "status": "pass",
+        "status": "technical-pass",
         "shot_id": shot.shot_id,
         "process_id": os.getpid(),
         "cache_reuse": False,
@@ -1365,9 +1989,9 @@ def _render_shot_worker(
         "contact": {"status": "pass", "measurements": contact},
         "framing": {"status": "pass", **framing},
         "clipping": {
-            "status": "pass",
+            "status": "pending-visual-review",
             "machine": "pass",
-            "designed_shadow": "pass",
+            "designed_shadow": "pending-visual-review",
             "props": "pass",
             "support_intersections": intersections,
             "hidden_foot_stable_ids": hidden_feet,
@@ -1393,6 +2017,8 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--render-campaign", action="store_true")
     mode.add_argument("--render-shot", action="store_true")
+    mode.add_argument("--accept-generation", action="store_true")
+    mode.add_argument("--reject-generation", action="store_true")
     parser.add_argument("--asset-root", type=Path)
     parser.add_argument("--blender", type=Path, default=Path(r"D:\Blender 5.2\blender.exe"))
     parser.add_argument("--staging-root", type=Path)
@@ -1403,7 +2029,31 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--expected-scene-sha256")
     parser.add_argument("--expected-contract-sha256")
     parser.add_argument("--expected-marker-sha256")
+    parser.add_argument("--generation-id")
+    parser.add_argument("--visual-decision", type=Path)
     return parser.parse_args(argv)
+
+
+def _emit_campaign_result(result: EditorialPreviewResult) -> None:
+    print(
+        RESULT_MARKER
+        + json.dumps(
+            {
+                "status": result.status,
+                "generation_id": result.generation_id,
+                "output_root": str(result.output_root),
+                "manifest_path": str(result.manifest_path),
+                "manifest_sha256": result.manifest_sha256,
+                "report_path": str(result.report_path),
+                "report_sha256": result.report_sha256,
+                "contact_sheet_path": str(result.contact_sheet_path),
+                "contact_sheet_sha256": result.contact_sheet_sha256,
+                "shot_count": result.shot_count,
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1418,25 +2068,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         if arguments.asset_root is None:
             raise ValueError("--render-campaign requires --asset-root")
         result = render_editorial_preview_campaign(arguments.asset_root, arguments.blender)
-        print(
-            RESULT_MARKER
-            + json.dumps(
-                {
-                    "status": result.status,
-                    "generation_id": result.generation_id,
-                    "output_root": str(result.output_root),
-                    "manifest_path": str(result.manifest_path),
-                    "manifest_sha256": result.manifest_sha256,
-                    "report_path": str(result.report_path),
-                    "report_sha256": result.report_sha256,
-                    "contact_sheet_path": str(result.contact_sheet_path),
-                    "contact_sheet_sha256": result.contact_sheet_sha256,
-                    "shot_count": result.shot_count,
-                },
-                sort_keys=True,
-            ),
-            flush=True,
+        _emit_campaign_result(result)
+        return 0
+
+    if arguments.accept_generation or arguments.reject_generation:
+        if (
+            arguments.asset_root is None
+            or arguments.generation_id is None
+            or arguments.visual_decision is None
+        ):
+            raise ValueError(
+                "visual disposition requires --asset-root, --generation-id, and --visual-decision"
+            )
+        decision, _decision_bytes, _decision_sha = _load_json_bytes(
+            arguments.visual_decision.resolve(),
+            "visual disposition input",
         )
+        operation = (
+            accept_editorial_preview_generation
+            if arguments.accept_generation
+            else reject_editorial_preview_generation
+        )
+        result = operation(arguments.asset_root, str(arguments.generation_id), decision)
+        _emit_campaign_result(result)
         return 0
 
     required = (
