@@ -226,6 +226,24 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("--render-shot", completed.stdout)
 
+    def test_blender_worker_import_does_not_require_pillow(self) -> None:
+        """Catches fresh Blender exiting before render because its Python lacks Pillow."""
+
+        script = Path(__file__).parents[1] / "blender_editorial_final.py"
+        probe = (
+            "import builtins,runpy,sys;"
+            "real=builtins.__import__;"
+            "builtins.__import__=lambda name,*a,**k: "
+            "(_ for _ in ()).throw(ModuleNotFoundError('blocked Pillow')) "
+            "if name=='PIL' or name.startswith('PIL.') else real(name,*a,**k);"
+            f"sys.argv=[{str(script)!r},'--help'];"
+            f"runpy.run_path({str(script)!r},run_name='__main__')"
+        )
+        completed = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

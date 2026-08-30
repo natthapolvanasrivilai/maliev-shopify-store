@@ -14,8 +14,6 @@ import time
 from typing import Any, Mapping, Sequence
 import uuid
 
-from PIL import Image, ImageDraw, ImageFont
-
 try:
     from . import blender_editorial_scene
     from .blender_editorial_preview import (
@@ -229,6 +227,8 @@ def _parse_worker(completed: subprocess.CompletedProcess[str], shot_id: str) -> 
 
 
 def _build_contact_sheet(staging: Path, shots: Sequence[Mapping[str, object]]) -> Path:
+    from PIL import Image, ImageDraw, ImageFont
+
     output = staging / CONTACT_SHEET_NAME
     canvas = Image.new("RGB", (2560, 1800), (238, 238, 236))
     draw = ImageDraw.Draw(canvas)
@@ -316,6 +316,8 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
 
 
 def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[dict[str, object], set[str]]:
+    from PIL import Image
+
     report_path = staging / REPORT_NAME
     report = json.loads(report_path.read_text(encoding="utf-8"))
     if report.get("release_id") != contract["release_id"] or report.get("contract_sha256") != sha256_file(Path(str(report["contract_path"]))):
@@ -362,6 +364,8 @@ def publish_editorial_native_release(
     if not staging.name.startswith(f".{contract['release_id']}") or ".pending" not in staging.name:
         raise ValueError("native final staging claim is invalid")
     report, expected = _validate_staging(staging, contract)
+    from PIL import Image
+
     if disposition.get("decision") != "accept" or not str(disposition.get("reviewer", "")).strip():
         raise ValueError("actual-pixel disposition is not an identified acceptance")
     reviewed_at = disposition.get("reviewed_at")
