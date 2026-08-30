@@ -13,7 +13,7 @@ from pathlib import Path
 import stat
 import subprocess
 import sys
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 import uuid
 
 try:
@@ -68,6 +68,7 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
 RESULT_MARKER = "PIMM_EDITORIAL_SCENE_JSON="
 VALIDATION_MARKER = "PIMM_EDITORIAL_VALIDATION_JSON="
 SCHEMA = "maliev.pimm-editorial-scene/v1"
+PUBLICATION_SCHEMA = "maliev.pimm-editorial-publication/v1"
 SCENE_LIBRARY_ID = "editorial-concepts-v1"
 CAMERA_NAME = "CAM_EDITORIAL"
 MASTER_COLLECTION = "PIMM_PUBLISHED"
@@ -77,6 +78,7 @@ _CONTRACT_FIELDS = {
     "schema", "campaign_id", "scene_id", "machine", "concept", "scene_path",
     "master", "material_library", "contact", "camera", "render", "set",
     "external_assets", "input_policy", "preview_only", "final_authorized",
+    "publication",
 }
 
 
@@ -102,6 +104,10 @@ def _contract_path(shot: EditorialConceptShot) -> Path:
         / SCENE_LIBRARY_ID
         / f"{shot.shot_id}.json"
     )
+
+
+def _completion_path(shot: EditorialConceptShot) -> Path:
+    return _contract_path(shot).with_name(f"{shot.shot_id}.complete.json")
 
 
 def _master_relative_path(machine: str) -> str:
@@ -137,10 +143,62 @@ def _light_signature(lights: Sequence[object]) -> str:
     return _sha256_bytes(_canonical_json({"lights": payload}).encode("utf-8"))
 
 
-def _set_contract(shot: EditorialConceptShot) -> dict[str, object]:
+def _set_contract(
+    shot: EditorialConceptShot,
+    external_assets: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
     # Task 3 exposes only the construction entrypoint. Its immutable internal spec is
     # the safe preparation-time authority; authoring still calls the public builder.
     spec = editorial_sets._SETS[shot.concept]
+    background_roles = {
+        "warm-grey-floor", "warm-grey-wall", "window-gobo", "accent-slab",
+        "graphite-floor", "graphite-wall", "black-flag-left", "black-flag-right",
+    }
+    support_allowlist = [
+        {
+            "name": item.name,
+            "role": item.role,
+            "object_type": "MESH",
+            "source": "task-3-procedural",
+            "framing_eligible": item.role not in background_roles,
+            "contact_plane": "floor" in item.role,
+        }
+        for item in spec.geometry
+    ]
+    if not any(item["contact_plane"] for item in support_allowlist):
+        support_allowlist.append({
+            "name": "PIMM_SCENE_SUPPORT_EDITORIAL_CONTACT_PLANE",
+            "role": "contact-plane",
+            "object_type": "MESH",
+            "source": "authoring-contact",
+            "framing_eligible": False,
+            "contact_plane": True,
+        })
+    for record in external_assets:
+        asset_id = str(record["asset_id"])
+        is_hdri = asset_id == "university_workshop"
+        support_allowlist.append({
+            "name": (
+                "PIMM_SCENE_SUPPORT_WORKSHOP_HDRI_ENVIRONMENT"
+                if is_hdri
+                else f"PIMM_SCENE_SUPPORT_EXTERNAL_{asset_id.upper()}"
+            ),
+            "role": (
+                "workshop-environment"
+                if is_hdri
+                else f"external-{asset_id.replace('_', '-')}"
+            ),
+            "object_type": "EMPTY",
+            "source": "task-3-external",
+            "framing_eligible": not is_hdri,
+            "contact_plane": False,
+        })
+    coverage = {
+        "architectural-daylight": (0.22, 0.75, 0.18),
+        "dark-engineering": (0.20, 0.75, 0.18),
+        "modern-workshop": (0.16, 0.65, 0.10),
+        "process-still-life": (0.22, 0.35, 0.08),
+    }[shot.concept]
     return {
         "concept": shot.concept,
         "geometry_signature": editorial_sets._geometry_signature(spec.geometry),
@@ -150,6 +208,15 @@ def _set_contract(shot: EditorialConceptShot) -> dict[str, object]:
         "light_roles": [item.role for item in spec.lights],
         "shadow_intent": spec.shadow_intent,
         "feature_counts": [[name, count] for name, count in editorial_sets._feature_counts(spec.geometry)],
+        "support_allowlist": support_allowlist,
+        "coverage_policy": {
+            "minimum_machine_width_ratio": coverage[0],
+            "minimum_machine_height_ratio": coverage[1],
+            "minimum_machine_area_ratio": coverage[2],
+            "minimum_safe_margin": 0.02,
+        },
+        "scene_geometry_signature": None,
+        "scene_light_signature": None,
     }
 
 
@@ -185,6 +252,8 @@ def prepare_editorial_contract(shot: EditorialConceptShot) -> dict[str, object]:
     for label, path in (("master", master), ("material library", material), ("foot patch", patch)):
         if not path.is_file():
             raise FileNotFoundError(f"editorial {label} is missing: {path}")
+    external_assets = _external_contract(shot)
+    transaction_id = uuid.uuid4().hex
     return {
         "schema": SCHEMA,
         "campaign_id": EDITORIAL_CAMPAIGN_ID,
@@ -230,11 +299,19 @@ def prepare_editorial_contract(shot: EditorialConceptShot) -> dict[str, object]:
             "look": shot.color_management,
             "alpha": False,
         },
-        "set": _set_contract(shot),
-        "external_assets": _external_contract(shot),
+        "set": _set_contract(shot, external_assets),
+        "external_assets": external_assets,
         "input_policy": _CAMPAIGN.input_policy,
         "preview_only": True,
         "final_authorized": False,
+        "publication": {
+            "schema": PUBLICATION_SCHEMA,
+            "transaction_id": transaction_id,
+            "completion_marker_path": (
+                f"scenes/contracts/{SCENE_LIBRARY_ID}/{shot.shot_id}.complete.json"
+            ),
+            "authority": "marker-last-sha256-pair",
+        },
     }
 
 
@@ -262,10 +339,47 @@ def _contract_errors(contract: Mapping[str, object]) -> list[str]:
     actual_material = contract.get("material_library")
     if not isinstance(actual_material, Mapping) or actual_material.get("sha256") != expected["material_library"]["sha256"]:
         errors.append("material-library SHA-256 does not match the current protected input")
-    for key in _CONTRACT_FIELDS - {"master", "material_library", "final_authorized", "preview_only"}:
+    publication = contract.get("publication")
+    expected_publication = expected["publication"]
+    if not isinstance(publication, Mapping):
+        errors.append("editorial publication metadata is missing")
+    else:
+        transaction_id = publication.get("transaction_id")
+        if (
+            publication.get("schema") != PUBLICATION_SCHEMA
+            or publication.get("authority") != expected_publication["authority"]
+            or publication.get("completion_marker_path") != expected_publication["completion_marker_path"]
+            or not isinstance(transaction_id, str)
+            or len(transaction_id) != 32
+            or any(character not in "0123456789abcdef" for character in transaction_id)
+        ):
+            errors.append("editorial publication metadata is invalid")
+    actual_set = contract.get("set")
+    expected_set = expected["set"]
+    if not isinstance(actual_set, Mapping):
+        errors.append("editorial set contract is missing")
+    else:
+        for key, value in expected_set.items():
+            if key in {"scene_geometry_signature", "scene_light_signature"}:
+                signature = actual_set.get(key)
+                if signature is not None and (
+                    not isinstance(signature, str)
+                    or len(signature) != 64
+                    or any(character not in "0123456789ABCDEF" for character in signature)
+                ):
+                    errors.append(f"editorial set {key} is invalid")
+            elif actual_set.get(key) != value:
+                errors.append("editorial contract set does not match the exact approved shot")
+                break
+        if set(actual_set) != set(expected_set):
+            errors.append("editorial contract set has unexpected fields")
+    for key in _CONTRACT_FIELDS - {
+        "master", "material_library", "final_authorized", "preview_only",
+        "publication", "set",
+    }:
         if contract.get(key) != expected.get(key):
             errors.append(f"editorial contract {key} does not match the exact approved shot")
-    return errors
+    return list(dict.fromkeys(errors))
 
 
 def _validate_editorial_runtime_snapshot(
@@ -310,6 +424,20 @@ def _validate_editorial_runtime_snapshot(
             errors.append("complete linked machine is not inside the camera frame")
         if camera.get("support_rectangle_framed") is not True:
             errors.append("prop-safe support framing rectangle is not inside the camera frame")
+        set_contract = contract.get("set")
+        coverage = set_contract.get("coverage_policy") if isinstance(set_contract, Mapping) else None
+        if isinstance(coverage, Mapping):
+            if (
+                float(camera.get("machine_frame_width_ratio", -math.inf))
+                < float(coverage["minimum_machine_width_ratio"])
+                or float(camera.get("machine_frame_height_ratio", -math.inf))
+                < float(coverage["minimum_machine_height_ratio"])
+                or float(camera.get("machine_frame_area_ratio", -math.inf))
+                < float(coverage["minimum_machine_area_ratio"])
+            ):
+                errors.append("linked machine is not visually dominant in the projected frame")
+            if float(camera.get("safe_margin_minimum", -math.inf)) < float(coverage["minimum_safe_margin"]):
+                errors.append("machine and framing-eligible props violate the projected safe margin")
 
     render = snapshot.get("render")
     expected_render = contract.get("render")
@@ -358,12 +486,23 @@ def _validate_editorial_runtime_snapshot(
                 errors.append(f"prop/support hides linked machine feet: {support.get('name')}")
 
     actual_set = snapshot.get("set")
-    if not isinstance(actual_set, Mapping) or not actual_set.get("geometry_signature") or not actual_set.get("light_signature"):
+    if (
+        not isinstance(actual_set, Mapping)
+        or not actual_set.get("scene_geometry_signature")
+        or not actual_set.get("scene_light_signature")
+    ):
         errors.append("editorial set signature evidence is missing")
     elif actual_set != contract.get("set"):
         errors.append("editorial set signatures do not match the contract")
     if snapshot.get("external_provenance") != contract.get("external_assets"):
         errors.append("exact external provenance is missing or changed")
+    publication = snapshot.get("publication")
+    if not isinstance(publication, Mapping) or publication.get("complete") is not True:
+        errors.append("completed scene/contract publication marker is missing")
+    elif not all(publication.get(key) is True for key in (
+        "transaction_id_matches", "scene_sha256_matches", "contract_sha256_matches",
+    )):
+        errors.append("completed scene/contract publication marker does not match the pair")
     return list(dict.fromkeys(errors))
 
 
@@ -456,6 +595,195 @@ def _support_bounds(bpy: Any) -> list[tuple[Any, tuple[tuple[float, float, float
     return result
 
 
+def _numeric_sequence(value: Any) -> list[float] | None:
+    if value is None:
+        return None
+    try:
+        return [round(float(item), 9) for item in value]
+    except (TypeError, ValueError):
+        return None
+
+
+def _matrix_sequence(value: Any) -> list[list[float]] | None:
+    if value is None:
+        return None
+    try:
+        return [[round(float(item), 9) for item in row] for row in value]
+    except (TypeError, ValueError):
+        return None
+
+
+def _material_signature_record(material: Any) -> dict[str, object]:
+    record: dict[str, object] = {
+        "name": str(getattr(material, "name", "")),
+        "library": str(getattr(getattr(material, "library", None), "filepath", "")),
+        "diffuse_color": _numeric_sequence(getattr(material, "diffuse_color", None)),
+        "properties": sorted(
+            (str(key), str(value)) for key, value in getattr(material, "items", lambda: ())()
+            if str(key).startswith("pimm_")
+        ),
+    }
+    node_tree = getattr(material, "node_tree", None)
+    shader = node_tree.nodes.get("Principled BSDF") if node_tree else None
+    if shader is not None:
+        record["principled"] = {
+            key: _numeric_sequence(socket.default_value)
+            if hasattr(socket.default_value, "__iter__")
+            else round(float(socket.default_value), 9)
+            if socket.default_value is not None
+            else None
+            for key, socket in sorted(shader.inputs.items())
+            if key in {"Base Color", "Roughness", "Metallic", "Transmission Weight", "Alpha"}
+        }
+    return record
+
+
+def _scene_geometry_signature(bpy: Any, allowed_names: set[str]) -> str:
+    """Fingerprint reopened support datablocks, transforms, and identifying materials."""
+
+    records: list[dict[str, object]] = []
+    for obj in sorted(
+        (item for item in bpy.context.scene.objects if str(getattr(item, "name", "")) in allowed_names),
+        key=lambda item: str(item.name),
+    ):
+        data = getattr(obj, "data", None)
+        materials = list(getattr(data, "materials", ())) if data is not None else []
+        instance = getattr(obj, "instance_collection", None)
+        records.append({
+            "name": str(obj.name),
+            "type": str(getattr(obj, "type", "")),
+            "role": obj.get("pimm_scene_support_role"),
+            "ownership": obj.get("pimm_scene_support_ownership"),
+            "framing_eligible": obj.get("pimm_editorial_framing_eligible"),
+            "contact_plane": obj.get("pimm_editorial_contact_plane"),
+            "location": _numeric_sequence(getattr(obj, "location", None)),
+            "rotation_euler": _numeric_sequence(getattr(obj, "rotation_euler", None)),
+            "scale": _numeric_sequence(getattr(obj, "scale", None)),
+            "matrix_world": _matrix_sequence(getattr(obj, "matrix_world", None)),
+            "data_name": str(getattr(data, "name", "")),
+            "vertex_count": len(getattr(data, "vertices", ())) if data is not None else 0,
+            "polygon_count": len(getattr(data, "polygons", getattr(data, "faces", ()))) if data is not None else 0,
+            "materials": [_material_signature_record(material) for material in materials if material is not None],
+            "instance_type": str(getattr(obj, "instance_type", "")),
+            "instance_collection": str(getattr(instance, "name", "")),
+            "instance_library": str(_library_path(bpy, getattr(instance, "library", None)) or ""),
+        })
+    return _sha256_bytes(_canonical_json({"objects": records}).encode("utf-8"))
+
+
+def _scene_light_signature(bpy: Any) -> str:
+    """Fingerprint full reopened light/world data rather than embedded signature text."""
+
+    records: list[dict[str, object]] = []
+    for obj in sorted(
+        (item for item in bpy.context.scene.objects if getattr(item, "type", None) == "LIGHT"),
+        key=lambda item: str(item.name),
+    ):
+        data = obj.data
+        records.append({
+            "name": str(obj.name),
+            "role": obj.get("pimm_editorial_light_role"),
+            "type": str(getattr(data, "type", "")),
+            "energy": round(float(getattr(data, "energy", 0.0)), 9),
+            "color": _numeric_sequence(getattr(data, "color", None)),
+            "shape": str(getattr(data, "shape", "")),
+            "size": round(float(getattr(data, "size", 0.0)), 9),
+            "size_y": round(float(getattr(data, "size_y", 0.0)), 9),
+            "angle": round(float(getattr(data, "angle", 0.0)), 9),
+            "shadow_soft_size": round(float(getattr(data, "shadow_soft_size", 0.0)), 9),
+            "location": _numeric_sequence(getattr(obj, "location", None)),
+            "rotation_euler": _numeric_sequence(getattr(obj, "rotation_euler", None)),
+            "scale": _numeric_sequence(getattr(obj, "scale", None)),
+            "matrix_world": _matrix_sequence(getattr(obj, "matrix_world", None)),
+        })
+    world = bpy.context.scene.world
+    if world is not None:
+        node_tree = getattr(world, "node_tree", None)
+        background = node_tree.nodes.get("Background") if node_tree else None
+        strength_socket = background.inputs.get("Strength") if background else None
+        node_values = getattr(getattr(node_tree, "nodes", None), "_items", {}).values() if node_tree else ()
+        try:
+            node_values = list(node_tree.nodes) if node_tree else []
+        except TypeError:
+            pass
+        environment_images = sorted(
+            str(getattr(getattr(node, "image", None), "filepath", ""))
+            for node in node_values
+            if getattr(node, "image", None) is not None
+        ) if node_tree else []
+        records.append({
+            "name": str(getattr(world, "name", "")),
+            "role": world.get("pimm_editorial_light_role"),
+            "external_version": world.get("pimm_external_asset_version_id"),
+            "external_sha256": world.get("pimm_external_sha256"),
+            "strength": round(float(strength_socket.default_value), 9) if strength_socket and strength_socket.default_value is not None else None,
+            "environment_images": environment_images,
+        })
+    return _sha256_bytes(_canonical_json({"lights": records}).encode("utf-8"))
+
+
+_LOCAL_RENDERABLE_TYPES = {"MESH", "CURVE", "SURFACE", "FONT", "VOLUME"}
+_PRODUCT_PROPERTIES = {
+    "pimm_stable_id", "pimm_artwork_id", "pimm_machine", "pimm_asset_role",
+    "pimm_product_material_override",
+}
+
+
+def _has_product_identity(obj: Any) -> bool:
+    datablocks = [obj, getattr(obj, "data", None)]
+    data = getattr(obj, "data", None)
+    datablocks.extend(getattr(data, "materials", ()) if data is not None else ())
+    instance = getattr(obj, "instance_collection", None)
+    instance_objects = list(getattr(instance, "all_objects", ())) if instance is not None else []
+    datablocks.extend(instance_objects)
+    for member in instance_objects:
+        member_data = getattr(member, "data", None)
+        datablocks.append(member_data)
+        datablocks.extend(getattr(member_data, "materials", ()) if member_data is not None else ())
+    return any(
+        datablock is not None and any(datablock.get(key) is not None for key in _PRODUCT_PROPERTIES)
+        for datablock in datablocks
+    )
+
+
+def _scene_object_allowlist_errors(
+    bpy: Any, allowlist: Sequence[Mapping[str, object]]
+) -> list[str]:
+    expected = {str(record["name"]): record for record in allowlist}
+    actual_supports = {
+        str(obj.name): obj for obj in bpy.context.scene.objects
+        if obj.get("pimm_scene_support_ownership") == "scene-support"
+    }
+    errors: list[str] = []
+    for name, record in expected.items():
+        obj = actual_supports.get(name)
+        if obj is None:
+            errors.append(f"expected scene-support object is missing: {name}")
+            continue
+        if getattr(obj, "type", None) != record["object_type"]:
+            errors.append(f"scene-support object type changed: {name}")
+        if obj.get("pimm_scene_support_role") != record["role"]:
+            errors.append(f"scene-support role changed: {name}")
+        if obj.get("pimm_editorial_framing_eligible") is not record["framing_eligible"]:
+            errors.append(f"scene-support framing eligibility changed: {name}")
+        if obj.get("pimm_editorial_contact_plane") is not record["contact_plane"]:
+            errors.append(f"scene-support contact-plane authority changed: {name}")
+        if _has_product_identity(obj):
+            errors.append(f"scene-support carries forbidden product ownership or stable ID: {name}")
+    for name in sorted(set(actual_supports) - set(expected)):
+        errors.append(f"unexpected scene-support object: {name}")
+    for obj in bpy.context.scene.objects:
+        if (
+            getattr(obj, "type", None) in _LOCAL_RENDERABLE_TYPES
+            and _library_path(bpy, getattr(obj, "library", None)) is None
+            and str(obj.name) not in expected
+        ):
+            errors.append(f"unexpected local renderable object: {obj.name}")
+            if _has_product_identity(obj):
+                errors.append(f"unexpected local renderable has product ownership or stable ID: {obj.name}")
+    return errors
+
+
 def _collection_reachable(scene_collection: Any, target: Any) -> bool:
     pending = list(getattr(scene_collection, "children", ()))
     seen: set[int] = set()
@@ -482,6 +810,51 @@ def _frame_contains_bounds(bpy: Any, camera: Any, bounds: tuple[tuple[float, flo
                 if coordinate.z <= 0.0 or not (0.01 <= coordinate.x <= 0.99 and 0.01 <= coordinate.y <= 0.99):
                     return False
     return True
+
+
+def _project_bounds(
+    bpy: Any,
+    camera: Any,
+    bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
+) -> dict[str, object]:
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils import Vector
+
+    projected = [
+        world_to_camera_view(bpy.context.scene, camera, Vector((x, y, z)))
+        for x in (bounds[0][0], bounds[1][0])
+        for y in (bounds[0][1], bounds[1][1])
+        for z in (bounds[0][2], bounds[1][2])
+    ]
+    minimum = [min(float(point[axis]) for point in projected) for axis in (0, 1)]
+    maximum = [max(float(point[axis]) for point in projected) for axis in (0, 1)]
+    width = maximum[0] - minimum[0]
+    height = maximum[1] - minimum[1]
+    return {
+        "minimum": minimum,
+        "maximum": maximum,
+        "depth_min": min(float(point.z) for point in projected),
+        "depth_max": max(float(point.z) for point in projected),
+        "width_ratio": width,
+        "height_ratio": height,
+        "area_ratio": width * height,
+        "safe_margin_minimum": min(minimum[0], minimum[1], 1.0 - maximum[0], 1.0 - maximum[1]),
+    }
+
+
+def _projected_occlusion(
+    support: Mapping[str, object], foot: Mapping[str, object], tolerance: float = 1e-6
+) -> bool:
+    support_min = support["minimum"]
+    support_max = support["maximum"]
+    foot_min = foot["minimum"]
+    foot_max = foot["maximum"]
+    overlaps = all(
+        min(float(support_max[axis]), float(foot_max[axis]))
+        - max(float(support_min[axis]), float(foot_min[axis])) > tolerance
+        for axis in (0, 1)
+    )
+    return overlaps and float(support["depth_min"]) < float(foot["depth_min"]) - tolerance
 
 
 def _provenance_record(datablock: Any) -> dict[str, object] | None:
@@ -535,10 +908,13 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
         for item in group
         if getattr(item, "override_library", None) is not None
     ]
+    allowlist = contract["set"]["support_allowlist"]
+    errors.extend(_scene_object_allowlist_errors(bpy, allowlist))
+    expected_support_names = {str(record["name"]) for record in allowlist}
     local_product = [
         str(obj.name) for obj in bpy.data.objects
-        if getattr(obj, "type", None) == "MESH"
-        and obj.get("pimm_scene_support_ownership") != "scene-support"
+        if getattr(obj, "type", None) in _LOCAL_RENDERABLE_TYPES
+        and str(obj.name) not in expected_support_names
         and _library_path(bpy, getattr(obj, "library", None)) is None
     ]
     products = _stable_product_objects(bpy)
@@ -550,16 +926,19 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
         stable_id: bounds_for_objects([products[stable_id]])
         for stable_id in contact["stable_ids"]
     }
+    camera = bpy.data.objects.get(str(contract["camera"]["name"]))
     support_records = []
     for obj, bounds in _support_bounds(bpy):
         hidden = []
         for stable_id, foot_bounds in feet_by_id.items():
-            overlaps_xz = all(
-                min(bounds[1][axis], foot_bounds[1][axis]) - max(bounds[0][axis], foot_bounds[0][axis]) > 1e-6
-                for axis in (0, 2)
-            )
-            support_nearer = bounds[0][1] < foot_bounds[0][1]
-            if overlaps_xz and support_nearer and obj.get("pimm_editorial_contact_plane") is not True:
+            projected_support = _project_bounds(bpy, camera, bounds) if camera is not None else None
+            projected_foot = _project_bounds(bpy, camera, foot_bounds) if camera is not None else None
+            if (
+                projected_support is not None
+                and projected_foot is not None
+                and _projected_occlusion(projected_support, projected_foot)
+                and obj.get("pimm_editorial_contact_plane") is not True
+            ):
                 hidden.append(stable_id)
         support_records.append({
             "name": str(obj.name),
@@ -576,7 +955,6 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
         for foot in contact["feet"]
     )
 
-    camera = bpy.data.objects.get(str(contract["camera"]["name"]))
     camera_data = getattr(camera, "data", None)
     target_raw = scene.get("pimm_editorial_camera_target")
     try:
@@ -585,7 +963,10 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
         target = (math.inf, math.inf, math.inf)
     vertical = camera.matrix_world.to_quaternion() @ __import__("mathutils").Vector((0.0, 1.0, 0.0)) if camera else None
     forward = camera.matrix_world.to_quaternion() @ __import__("mathutils").Vector((0.0, 0.0, -1.0)) if camera else None
-    supports_with_bounds = [bounds for _obj, bounds in _support_bounds(bpy)]
+    supports_with_bounds = [
+        bounds for obj, bounds in _support_bounds(bpy)
+        if obj.get("pimm_editorial_framing_eligible") is True
+    ]
     support_rectangle = (
         (
             tuple(min(bounds[0][axis] for bounds in supports_with_bounds) for axis in range(3)),
@@ -600,31 +981,44 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
             prior = actual_provenance.setdefault(str(record["asset_version_id"]), record)
             if prior != record:
                 errors.append("conflicting external provenance records in open scene")
-    set_raw = scene.get("pimm_editorial_set_evidence")
-    try:
-        set_payload = json.loads(set_raw) if isinstance(set_raw, str) else None
-    except json.JSONDecodeError:
-        set_payload = None
-    expected_geometry_names = set(contract["set"]["geometry_names"])
-    actual_geometry_names = {
-        str(obj.name) for obj in _support_objects(bpy)
-        if str(obj.name) in expected_geometry_names
-    }
-    if actual_geometry_names != expected_geometry_names:
-        errors.append("contracted editorial set geometry is missing")
-    actual_light_roles = [
-        obj.get("pimm_editorial_light_role") for obj in scene.objects
-        if getattr(obj, "type", None) == "LIGHT" and obj.get("pimm_editorial_light_role")
-    ]
-    world_role = scene.world.get("pimm_editorial_light_role") if scene.world else None
-    if world_role:
-        actual_light_roles.append(world_role)
-    if len(actual_light_roles) != len(contract["set"]["light_roles"]) or set(actual_light_roles) != set(contract["set"]["light_roles"]):
-        errors.append("contracted editorial light signature is missing")
+    set_payload = dict(contract["set"])
+    set_payload["scene_geometry_signature"] = _scene_geometry_signature(
+        bpy, expected_support_names
+    )
+    set_payload["scene_light_signature"] = _scene_light_signature(bpy)
     opened = Path(str(bpy.data.filepath)).resolve()
     final_path = (ASSET_ROOT / Path(str(contract["scene_path"]))).resolve()
     candidate_ok = opened.parent == final_path.parent and opened.name.startswith(f".{final_path.stem}.") and opened.suffix == ".blend"
     expected_contract_sha = _sha256_bytes(_contract_bytes(contract))
+    machine_projection = _project_bounds(bpy, camera, machine_bounds) if camera is not None else {}
+    framing_projection = _project_bounds(bpy, camera, support_rectangle) if camera is not None else {}
+    transaction_id = contract["publication"]["transaction_id"]
+    publication = {
+        "complete": False,
+        "transaction_id_matches": scene.get("pimm_publication_transaction_id") == transaction_id,
+        "scene_sha256_matches": False,
+        "contract_sha256_matches": False,
+    }
+    if candidate_ok:
+        publication.update({
+            "complete": True,
+            "scene_sha256_matches": True,
+            "contract_sha256_matches": True,
+        })
+    elif opened == final_path:
+        marker_path = (ASSET_ROOT / Path(str(contract["publication"]["completion_marker_path"]))).resolve()
+        contract_path = _contract_path(_CAMPAIGN.by_shot_id[str(contract["scene_id"])]).resolve()
+        try:
+            marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            marker = None
+        if isinstance(marker, Mapping):
+            publication.update({
+                "complete": marker.get("schema") == PUBLICATION_SCHEMA and marker.get("scene_id") == contract["scene_id"],
+                "transaction_id_matches": marker.get("transaction_id") == transaction_id and publication["transaction_id_matches"],
+                "scene_sha256_matches": marker.get("scene_sha256") == sha256_file(opened),
+                "contract_sha256_matches": contract_path.is_file() and marker.get("contract_sha256") == sha256_file(contract_path),
+            })
     snapshot = {
         "scene_id": scene.get("pimm_editorial_scene_id"),
         "scene_path_matches": opened == final_path or candidate_ok,
@@ -650,6 +1044,13 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
             "eye_level_midline": camera is not None and abs(float(camera.location.z) - target[2]) <= 1e-5 and abs(target[2] - ((machine_bounds[0][2] + machine_bounds[1][2]) / 2.0)) <= 1e-5,
             "complete_machine_framed": camera is not None and _frame_contains_bounds(bpy, camera, machine_bounds),
             "support_rectangle_framed": camera is not None and _frame_contains_bounds(bpy, camera, support_rectangle),
+            "machine_frame_width_ratio": machine_projection.get("width_ratio"),
+            "machine_frame_height_ratio": machine_projection.get("height_ratio"),
+            "machine_frame_area_ratio": machine_projection.get("area_ratio"),
+            "safe_margin_minimum": min(
+                float(machine_projection.get("safe_margin_minimum", -math.inf)),
+                float(framing_projection.get("safe_margin_minimum", -math.inf)),
+            ),
         },
         "render": {
             "engine": scene.render.engine,
@@ -677,6 +1078,7 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
             record for version, record in actual_provenance.items()
             if version not in {str(item["asset_version_id"]) for item in contract["external_assets"]}
         ],
+        "publication": publication,
     }
     return snapshot, errors
 
@@ -714,6 +1116,20 @@ def _translate_group(objects: Sequence[Any], delta_x: float) -> None:
         obj.location.x += delta_x
 
 
+def _scale_and_place_group(
+    objects: Sequence[Any], scale: float, center_x: float, minimum_y: float
+) -> None:
+    bounds = _group_bounds(objects)
+    source_center = tuple((bounds[0][axis] + bounds[1][axis]) / 2.0 for axis in range(3))
+    source_min_y = bounds[0][1]
+    delta_y = minimum_y - (source_center[1] + (source_min_y - source_center[1]) * scale)
+    for obj in objects:
+        obj.location.x = center_x + (float(obj.location.x) - source_center[0]) * scale
+        obj.location.y = float(obj.location.y) + delta_y + (float(obj.location.y) - source_center[1]) * (scale - 1.0)
+        obj.location.z = source_center[2] + (float(obj.location.z) - source_center[2]) * scale
+        obj.scale = tuple(float(value) * scale for value in obj.scale)
+
+
 def _group_bounds(objects: Sequence[Any]) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     measured = [bounds for obj in objects if (bounds := _object_bounds(obj)) is not None]
     if not measured:
@@ -730,7 +1146,15 @@ def _place_supports(
     evidence: object,
     machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
     contact_z: float,
+    allowlist: Sequence[Mapping[str, object]],
 ) -> None:
+    expected = {str(record["name"]): record for record in allowlist}
+    for obj in _support_objects(bpy):
+        record = expected.get(str(obj.name))
+        if record is not None:
+            obj["pimm_editorial_framing_eligible"] = bool(record["framing_eligible"])
+            obj["pimm_editorial_contact_plane"] = bool(record["contact_plane"])
+    bpy.context.view_layer.update()
     geometry = [bpy.data.objects.get(item.name) for item in evidence.geometry]
     if any(obj is None for obj in geometry):
         raise ValueError("editorial set builder did not create every contracted support")
@@ -755,19 +1179,27 @@ def _place_supports(
         )
         plane = editorial_sets._install_geometry(bpy, spec)
         plane["pimm_editorial_contact_plane"] = True
+        plane["pimm_editorial_framing_eligible"] = False
 
     left_edge = machine_bounds[0][0] - 2_500.0
     right_edge = machine_bounds[1][0] + 2_500.0
     if shot.concept in {"modern-workshop", "process-still-life"}:
         procedural = [obj for obj in geometry if obj not in floors]
-        bounds = _group_bounds(procedural)
-        _translate_group(procedural, left_edge - bounds[1][0])
+        machine_center_x = (machine_bounds[0][0] + machine_bounds[1][0]) / 2.0
+        _scale_and_place_group(
+            procedural,
+            0.35 if shot.concept == "modern-workshop" else 0.40,
+            machine_center_x,
+            machine_bounds[1][1] + 220.0,
+        )
+        bpy.context.view_layer.update()
         external = [obj for obj in _support_objects(bpy) if getattr(obj, "instance_type", None) == "COLLECTION"]
         for obj in external:
             bounds = _object_bounds(obj)
             if bounds is None:
                 raise ValueError("external editorial support has no bounds")
-            obj.location.x += right_edge - bounds[0][0]
+            obj.location.x += machine_center_x - ((bounds[0][0] + bounds[1][0]) / 2.0)
+            obj.location.y += machine_bounds[1][1] + 420.0 - bounds[0][1]
     else:
         walls = [obj for obj in geometry if "wall" in str(obj.get("pimm_scene_support_role", ""))]
         for wall in walls:
@@ -795,7 +1227,10 @@ def _configure_camera(
 ) -> tuple[Any, tuple[float, float, float], dict[str, object]]:
     from mathutils import Vector
 
-    support_bounds = [bounds for _obj, bounds in _support_bounds(bpy)]
+    support_bounds = [
+        bounds for obj, bounds in _support_bounds(bpy)
+        if obj.get("pimm_editorial_framing_eligible") is True
+    ]
     combined = (
         tuple(min([machine_bounds[0][axis], *[bounds[0][axis] for bounds in support_bounds]]) for axis in range(3)),
         tuple(max([machine_bounds[1][axis], *[bounds[1][axis] for bounds in support_bounds]]) for axis in range(3)),
@@ -826,12 +1261,16 @@ def _configure_camera(
     data.dof.focus_distance = math.dist(location, target)
     bpy.context.scene.camera = camera
     bpy.context.view_layer.update()
-    return camera, target, {
-        "machine_bounds": _bounds_mapping(machine_bounds),
-        "support_rectangle": _bounds_mapping((
+    support_rectangle = (
+        (
             tuple(min(bounds[0][axis] for bounds in support_bounds) for axis in range(3)),
             tuple(max(bounds[1][axis] for bounds in support_bounds) for axis in range(3)),
-        )),
+        )
+        if support_bounds else machine_bounds
+    )
+    return camera, target, {
+        "machine_bounds": _bounds_mapping(machine_bounds),
+        "support_rectangle": _bounds_mapping(support_rectangle),
         "combined_bounds": _bounds_mapping(combined),
         "location": list(location),
         "target": list(target),
@@ -863,7 +1302,13 @@ def author_editorial_scene(
     machine_products = {key: value for key, value in products.items() if key.startswith(f"{shot.machine}-")}
     machine_bounds = bounds_for_objects(machine_products.values())
     set_evidence = editorial_sets.build_editorial_set(bpy, shot)
-    _place_supports(bpy, shot, set_evidence, machine_bounds, contact.z)
+    set_contract = contract["set"]
+    if not isinstance(set_contract, dict):
+        raise ValueError("editorial set contract must be mutable during authoring")
+    _place_supports(
+        bpy, shot, set_evidence, machine_bounds, contact.z,
+        set_contract["support_allowlist"],
+    )
     camera, target, framing = _configure_camera(bpy, shot, machine_bounds)
     scene = bpy.context.scene
     scene.unit_settings.system = "METRIC"
@@ -887,10 +1332,14 @@ def author_editorial_scene(
     scene.view_settings.gamma = 1.0
     if scene.world is None:
         scene.world = bpy.data.worlds.new("PIMM_EDITORIAL_WORLD")
-    set_payload = dict(contract["set"])
+    allowed_names = {str(record["name"]) for record in set_contract["support_allowlist"]}
+    set_contract["scene_geometry_signature"] = _scene_geometry_signature(bpy, allowed_names)
+    set_contract["scene_light_signature"] = _scene_light_signature(bpy)
+    set_payload = dict(set_contract)
     scene["pimm_editorial_scene_id"] = shot.shot_id
     scene["pimm_editorial_contract_payload"] = _canonical_json(contract)
     scene["pimm_editorial_contract_sha256"] = _sha256_bytes(_contract_bytes(contract))
+    scene["pimm_publication_transaction_id"] = contract["publication"]["transaction_id"]
     scene["pimm_editorial_set_evidence"] = _canonical_json(set_payload)
     scene["pimm_editorial_camera_target"] = json.dumps(list(target), separators=(",", ":"))
     scene["pimm_editorial_framing_evidence"] = _canonical_json(framing)
@@ -925,6 +1374,114 @@ def _preserve_rejected(paths: Sequence[Path], shot_id: str) -> list[str]:
     return preserved
 
 
+def _atomic_json_write(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    candidate = path.with_name(f".{path.name}.{uuid.uuid4().hex}.candidate")
+    with candidate.open("xb") as stream:
+        stream.write(_contract_bytes(payload))
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(candidate, path)
+
+
+def _commit_publication_pair(
+    *,
+    scene_candidate: Path,
+    contract_candidate: Path,
+    transaction_candidate: Path,
+    scene_destination: Path,
+    contract_destination: Path,
+    marker_destination: Path,
+    marker_payload: Mapping[str, object],
+    interrupt: Callable[[str], None] | None = None,
+) -> None:
+    """Publish the pair, then its sole consumer authority marker last."""
+
+    callback = interrupt or (lambda _stage: None)
+    if any(path.exists() for path in (scene_destination, contract_destination, marker_destination)):
+        raise FileExistsError("editorial publication destination already exists")
+    os.rename(contract_candidate, contract_destination)
+    callback("contract-published")
+    os.rename(scene_candidate, scene_destination)
+    callback("scene-published")
+    _atomic_json_write(marker_destination, marker_payload)
+    callback("marker-published")
+
+
+def _completion_marker_matches(
+    scene_path: Path, contract_path: Path, marker_path: Path
+) -> bool:
+    if not (scene_path.is_file() and contract_path.is_file() and marker_path.is_file()):
+        return False
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        isinstance(marker, Mapping)
+        and isinstance(contract, Mapping)
+        and marker.get("schema") == PUBLICATION_SCHEMA
+        and marker.get("scene_id") == contract.get("scene_id")
+        and marker.get("transaction_id") == contract.get("publication", {}).get("transaction_id")
+        and marker.get("scene_sha256") == sha256_file(scene_path)
+        and marker.get("contract_sha256") == sha256_file(contract_path)
+    )
+
+
+def _recover_incomplete_publication(
+    scene_path: Path,
+    contract_path: Path,
+    marker_path: Path,
+    transaction_path: Path,
+    rejected_root: Path,
+) -> dict[str, object]:
+    """Archive, never delete, any pair that lacks a matching marker-last commit."""
+
+    if _completion_marker_matches(scene_path, contract_path, marker_path):
+        return {"status": "complete", "paths": [str(scene_path), str(contract_path), str(marker_path)]}
+    existing = [
+        path for path in (scene_path, contract_path, marker_path, transaction_path)
+        if path.exists()
+    ]
+    for authority_path in (marker_path, transaction_path):
+        existing.extend(
+            path for path in authority_path.parent.glob(f".{authority_path.name}.*.candidate")
+            if path not in existing
+        )
+    if not existing:
+        return {"status": "empty", "paths": []}
+    revision = rejected_root / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ-incomplete-pair")
+    revision.mkdir(parents=True, exist_ok=False)
+    archived: list[str] = []
+    for source in existing:
+        destination = revision / source.name.lstrip(".")
+        os.rename(source, destination)
+        archived.append(str(destination))
+    return {"status": "recovered_to_rejected", "paths": archived}
+
+
+def _interpret_fresh_validation_process(completed: Any) -> list[str]:
+    emitted = [
+        line.removeprefix(VALIDATION_MARKER)
+        for line in str(completed.stdout).splitlines()
+        if line.startswith(VALIDATION_MARKER)
+    ]
+    if completed.returncode != 0:
+        return [
+            "fresh Blender validation process failed "
+            f"(exit={completed.returncode}, stdout={str(completed.stdout).strip()}, "
+            f"stderr={str(completed.stderr).strip()})"
+        ]
+    if len(emitted) != 1:
+        return ["fresh Blender validation did not emit exactly one result"]
+    try:
+        result = json.loads(emitted[0])
+    except json.JSONDecodeError as error:
+        return [f"fresh Blender validation emitted invalid JSON: {error}"]
+    return result if isinstance(result, list) and all(isinstance(item, str) for item in result) else ["fresh Blender validation result is invalid"]
+
+
 def _run_fresh_editorial_validation(scene_path: Path, contract_path: Path) -> list[str]:
     """Reopen one candidate in a fresh Blender 5.2 process with this validator."""
 
@@ -943,34 +1500,30 @@ def _run_fresh_editorial_validation(scene_path: Path, contract_path: Path) -> li
         timeout=300,
         check=False,
     )
-    emitted = [line.removeprefix(VALIDATION_MARKER) for line in completed.stdout.splitlines() if line.startswith(VALIDATION_MARKER)]
-    if completed.returncode and len(emitted) != 1:
-        return [
-            "fresh Blender validation process failed "
-            f"(exit={completed.returncode}, stdout={completed.stdout.strip()}, "
-            f"stderr={completed.stderr.strip()})"
-        ]
-    if len(emitted) != 1:
-        return ["fresh Blender validation did not emit exactly one result"]
-    try:
-        result = json.loads(emitted[0])
-    except json.JSONDecodeError as error:
-        return [f"fresh Blender validation emitted invalid JSON: {error}"]
-    return result if isinstance(result, list) and all(isinstance(item, str) for item in result) else ["fresh Blender validation result is invalid"]
+    return _interpret_fresh_validation_process(completed)
 
 
 def _author_and_publish(bpy: Any, shot: EditorialConceptShot) -> dict[str, object]:
     scene_destination = require_within(_scene_path(shot), ASSET_ROOT / "scenes" / SCENE_LIBRARY_ID)
     contract_destination = require_within(_contract_path(shot), ASSET_ROOT / "scenes" / "contracts" / SCENE_LIBRARY_ID)
-    if scene_destination.exists() or contract_destination.exists():
+    marker_destination = require_within(_completion_path(shot), ASSET_ROOT / "scenes" / "contracts" / SCENE_LIBRARY_ID)
+    transaction_candidate = contract_destination.with_name(f".{contract_destination.stem}.transaction.json")
+    recovery = _recover_incomplete_publication(
+        scene_destination,
+        contract_destination,
+        marker_destination,
+        transaction_candidate,
+        ASSET_ROOT / "scenes" / "rejected" / EDITORIAL_CAMPAIGN_ID,
+    )
+    if recovery["status"] == "complete":
         return {
             "status": "blocked_existing_publication",
-            "errors": ["passing editorial scene/contract publication is never replaced"],
+            "errors": ["completed editorial scene/contract publication is never replaced"],
             "scene_path": str(scene_destination),
             "contract_path": str(contract_destination),
+            "completion_marker_path": str(marker_destination),
         }
     contract = prepare_editorial_contract(shot)
-    contract_bytes = _contract_bytes(contract)
     protected_paths = [_master_path("30G"), _master_path("50G"), _material_path()]
     before = {str(path): sha256_file(path) for path in protected_paths}
     scene_destination.parent.mkdir(parents=True, exist_ok=True)
@@ -978,16 +1531,16 @@ def _author_and_publish(bpy: Any, shot: EditorialConceptShot) -> dict[str, objec
     nonce = uuid.uuid4().hex
     scene_candidate = scene_destination.with_name(f".{scene_destination.stem}.{nonce}.candidate.blend")
     contract_candidate = contract_destination.with_name(f".{contract_destination.stem}.{nonce}.candidate.json")
-    published: list[Path] = []
     try:
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.context.preferences.filepaths.use_relative_paths = False
+        authoring = author_editorial_scene(bpy, shot, contract)
+        contract_bytes = _contract_bytes(contract)
         with contract_candidate.open("xb") as stream:
             stream.write(contract_bytes)
             stream.flush()
             os.fsync(stream.fileno())
         contract_candidate.chmod(stat.S_IREAD)
-        bpy.ops.wm.read_factory_settings(use_empty=True)
-        bpy.context.preferences.filepaths.use_relative_paths = False
-        authoring = author_editorial_scene(bpy, shot, contract)
         bpy.ops.wm.save_as_mainfile(
             filepath=str(scene_candidate), check_existing=False, relative_remap=False
         )
@@ -1002,27 +1555,65 @@ def _author_and_publish(bpy: Any, shot: EditorialConceptShot) -> dict[str, objec
         if errors:
             rejected = _preserve_rejected((scene_candidate, contract_candidate), shot.shot_id)
             return {"status": "rejected", "errors": errors, "rejected_paths": rejected, "fingerprints_before": before, "fingerprints_after": after}
-        if scene_destination.exists() or contract_destination.exists():
+        if any(path.exists() for path in (scene_destination, contract_destination, marker_destination, transaction_candidate)):
             raise FileExistsError("editorial publication destination appeared during validation")
-        os.rename(contract_candidate, contract_destination)
-        published.append(contract_destination)
-        os.rename(scene_candidate, scene_destination)
-        published.append(scene_destination)
+        scene_sha = sha256_file(scene_candidate)
+        contract_sha = sha256_file(contract_candidate)
+        transaction = {
+            "schema": PUBLICATION_SCHEMA,
+            "status": "staged",
+            "scene_id": shot.shot_id,
+            "transaction_id": contract["publication"]["transaction_id"],
+            "scene_sha256": scene_sha,
+            "contract_sha256": contract_sha,
+        }
+        _atomic_json_write(transaction_candidate, transaction)
+        marker = dict(transaction)
+        marker["status"] = "complete"
+        _commit_publication_pair(
+            scene_candidate=scene_candidate,
+            contract_candidate=contract_candidate,
+            transaction_candidate=transaction_candidate,
+            scene_destination=scene_destination,
+            contract_destination=contract_destination,
+            marker_destination=marker_destination,
+            marker_payload=marker,
+        )
+        final_errors = _run_fresh_editorial_validation(scene_destination, contract_destination)
+        if final_errors:
+            rejected = _preserve_rejected(
+                (scene_destination, contract_destination, marker_destination, transaction_candidate),
+                shot.shot_id,
+            )
+            return {
+                "status": "rejected",
+                "errors": final_errors,
+                "rejected_paths": rejected,
+                "fingerprints_before": before,
+                "fingerprints_after": after,
+            }
         return {
             "status": "published_preview_scene",
             "errors": [],
             "scene_path": str(scene_destination),
             "scene_sha256": sha256_file(scene_destination),
             "contract_path": str(contract_destination),
-            "contract_sha256": sha256_file(contract_destination),
+            "contract_sha256": contract_sha,
+            "completion_marker_path": str(marker_destination),
+            "completion_marker_sha256": sha256_file(marker_destination),
+            "publication_transaction_id": contract["publication"]["transaction_id"],
             "fresh_validation": True,
             "authoring": authoring,
             "fingerprints_before": before,
             "fingerprints_after": after,
         }
     except Exception as error:
-        rejected_sources = [path for path in (scene_candidate, contract_candidate) if path.exists()]
-        rejected_sources.extend(path for path in published if path.exists())
+        rejected_sources = [
+            path for path in (
+                scene_candidate, contract_candidate, transaction_candidate,
+                scene_destination, contract_destination, marker_destination,
+            ) if path.exists()
+        ]
         rejected = _preserve_rejected(rejected_sources, shot.shot_id)
         return {"status": "rejected", "errors": [str(error)], "rejected_paths": rejected, "fingerprints_before": before, "fingerprints_after": {str(path): sha256_file(path) for path in protected_paths}}
 

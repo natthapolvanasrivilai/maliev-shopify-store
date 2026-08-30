@@ -5,7 +5,11 @@ from __future__ import annotations
 import copy
 import dataclasses
 from contextlib import redirect_stdout
+import hashlib
+import json
 from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 import unittest
@@ -15,6 +19,8 @@ from scripts.blender.pimm_production.editorial_concept_contract import (
     load_editorial_campaign,
 )
 from scripts.blender.pimm_production import blender_editorial_scene
+from scripts.blender.pimm_production import editorial_sets
+from scripts.blender.pimm_production.tests.test_editorial_sets import _FakeBpy
 
 
 def _snapshot(contract: dict[str, object]) -> dict[str, object]:
@@ -65,6 +71,10 @@ def _snapshot(contract: dict[str, object]) -> dict[str, object]:
             "eye_level_midline": True,
             "complete_machine_framed": True,
             "support_rectangle_framed": True,
+            "machine_frame_width_ratio": 0.48,
+            "machine_frame_height_ratio": 0.72,
+            "machine_frame_area_ratio": 0.34,
+            "safe_margin_minimum": 0.04,
         },
         "render": {
             "engine": "CYCLES",
@@ -94,6 +104,12 @@ def _snapshot(contract: dict[str, object]) -> dict[str, object]:
         ],
         "set": copy.deepcopy(contract["set"]),
         "external_provenance": copy.deepcopy(contract["external_assets"]),
+        "publication": {
+            "complete": True,
+            "transaction_id_matches": True,
+            "scene_sha256_matches": True,
+            "contract_sha256_matches": True,
+        },
     }
 
 
@@ -103,7 +119,10 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         campaign = load_editorial_campaign(EDITORIAL_CAMPAIGN_PATH)
         cls.campaign = campaign
         cls.shot = campaign.by_shot_id["pimm-30g--concept-architectural-daylight"]
-        cls.contract = blender_editorial_scene.prepare_editorial_contract(cls.shot)
+        cls.prepared_contract = blender_editorial_scene.prepare_editorial_contract(cls.shot)
+        cls.contract = copy.deepcopy(cls.prepared_contract)
+        cls.contract["set"]["scene_geometry_signature"] = "A" * 64
+        cls.contract["set"]["scene_light_signature"] = "B" * 64
 
     def errors(self, snapshot: dict[str, object], contract: dict[str, object] | None = None) -> list[str]:
         return blender_editorial_scene._validate_editorial_runtime_snapshot(
@@ -113,7 +132,7 @@ class BlenderEditorialSceneTests(unittest.TestCase):
     def test_prepares_exact_preview_only_contract_from_current_protected_inputs(self) -> None:
         """Catches a contract that omits immutable master, material, contact, or preview authority."""
 
-        contract = self.contract
+        contract = self.prepared_contract
         self.assertEqual(contract["schema"], "maliev.pimm-editorial-scene/v1")
         self.assertEqual(contract["scene_id"], self.shot.shot_id)
         self.assertEqual(contract["master"]["path"], "masters/PIMM-30G-MASTER.blend")
@@ -241,6 +260,149 @@ class BlenderEditorialSceneTests(unittest.TestCase):
             blender_editorial_scene._object_bounds(support),
             ((-2.0, -4.0, -6.0), (3.0, 5.0, 7.0)),
         )
+
+    def test_rejects_tiny_product_coverage_even_when_every_bound_is_inside_frame(self) -> None:
+        """Catches a huge contact plane making the machine technically framed but unusably tiny."""
+
+        snapshot = _snapshot(self.contract)
+        snapshot["camera"].update({
+            "machine_frame_width_ratio": 0.019,
+            "machine_frame_height_ratio": 0.031,
+            "machine_frame_area_ratio": 0.0006,
+            "safe_margin_minimum": 0.04,
+        })
+        self.assertIn("visually dominant", "\n".join(self.errors(snapshot)))
+
+    def test_scene_signatures_change_when_a_real_support_or_light_datablock_changes(self) -> None:
+        """Catches validation trusting embedded signature text instead of reopened datablocks."""
+
+        fake_bpy = _FakeBpy()
+        evidence = editorial_sets.build_editorial_set(fake_bpy, self.shot)
+        allowed = {item.name for item in evidence.geometry}
+        geometry_before = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        support = next(obj for obj in fake_bpy.context.scene.objects if obj.name in allowed)
+        support.location = (float(support.location[0]) + 25.0, *support.location[1:])
+        geometry_after = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        self.assertNotEqual(geometry_before, geometry_after)
+
+        light_before = blender_editorial_scene._scene_light_signature(fake_bpy)
+        governed = copy.deepcopy(self.contract)
+        governed["set"]["scene_geometry_signature"] = geometry_before
+        governed["set"]["scene_light_signature"] = light_before
+        geometry_snapshot = _snapshot(governed)
+        geometry_snapshot["set"]["scene_geometry_signature"] = geometry_after
+        self.assertIn("signatures do not match", "\n".join(self.errors(geometry_snapshot, governed)))
+
+        light = next(obj for obj in fake_bpy.context.scene.objects if obj.type == "LIGHT")
+        light.data.energy += 1.0
+        light_after = blender_editorial_scene._scene_light_signature(fake_bpy)
+        self.assertNotEqual(light_before, light_after)
+        light_snapshot = _snapshot(governed)
+        light_snapshot["set"]["scene_light_signature"] = light_after
+        self.assertIn("signatures do not match", "\n".join(self.errors(light_snapshot, governed)))
+
+    def test_support_tag_cannot_hide_an_extra_local_product_copy(self) -> None:
+        """Catches a duplicated local product mesh bypassing rejection via scene-support tags."""
+
+        fake_bpy = _FakeBpy()
+        editorial_sets.build_editorial_set(fake_bpy, self.shot)
+        duplicate = fake_bpy.data.objects.new(
+            "DUPLICATED_LOCAL_PRODUCT",
+            fake_bpy.data.meshes.new("DUPLICATED_LOCAL_PRODUCT_MESH"),
+        )
+        duplicate["pimm_scene_support_ownership"] = "scene-support"
+        duplicate["pimm_scene_support_role"] = "fixture"
+        duplicate["pimm_stable_id"] = "30G-illegal-local-copy"
+        fake_bpy.context.scene.collection.objects.link(duplicate)
+
+        errors = blender_editorial_scene._scene_object_allowlist_errors(
+            fake_bpy, self.contract["set"]["support_allowlist"]
+        )
+        joined = "\n".join(errors)
+        self.assertIn("unexpected local renderable", joined)
+        self.assertIn("product ownership", joined)
+
+    def test_camera_projection_occlusion_uses_screen_overlap_and_depth(self) -> None:
+        """Catches world-axis ordering that misses a real rendered foot overlap."""
+
+        foot = {"minimum": [0.40, 0.08], "maximum": [0.50, 0.18], "depth_min": 10.0}
+        foreground = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 8.0}
+        separate = {"minimum": [0.60, 0.10], "maximum": [0.70, 0.20], "depth_min": 8.0}
+        behind = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 12.0}
+        self.assertTrue(blender_editorial_scene._projected_occlusion(foreground, foot))
+        self.assertFalse(blender_editorial_scene._projected_occlusion(separate, foot))
+        self.assertFalse(blender_editorial_scene._projected_occlusion(behind, foot))
+
+    def test_incomplete_pair_publication_is_recovered_without_deletion_at_every_boundary(self) -> None:
+        """Catches a crash between sequential renames permanently blocking a shot."""
+
+        for boundary in ("contract-published", "scene-published", "marker-published"):
+            with self.subTest(boundary=boundary), TemporaryDirectory() as directory:
+                root = Path(directory)
+                candidates = root / "candidates"
+                published = root / "published"
+                rejected = root / "rejected"
+                candidates.mkdir()
+                published.mkdir()
+                scene_candidate = candidates / "shot.blend"
+                contract_candidate = candidates / "shot.json"
+                transaction_candidate = candidates / "shot.transaction.json"
+                scene_candidate.write_bytes(b"scene")
+                contract_candidate.write_bytes(b"contract")
+                transaction_candidate.write_bytes(b"transaction")
+                scene_path = published / "shot.blend"
+                contract_path = published / "shot.json"
+                marker_path = published / "shot.complete.json"
+                contract_bytes = json.dumps({
+                    "scene_id": "shot",
+                    "publication": {"transaction_id": "a" * 32},
+                }).encode("utf-8")
+                contract_candidate.write_bytes(contract_bytes)
+                marker_payload = {
+                    "schema": "maliev.pimm-editorial-publication/v1",
+                    "scene_id": "shot",
+                    "transaction_id": "a" * 32,
+                    "scene_sha256": hashlib.sha256(b"scene").hexdigest().upper(),
+                    "contract_sha256": hashlib.sha256(contract_bytes).hexdigest().upper(),
+                }
+
+                def interrupt(stage: str) -> None:
+                    if stage == boundary:
+                        raise KeyboardInterrupt(stage)
+
+                with self.assertRaises(KeyboardInterrupt):
+                    blender_editorial_scene._commit_publication_pair(
+                        scene_candidate=scene_candidate,
+                        contract_candidate=contract_candidate,
+                        transaction_candidate=transaction_candidate,
+                        scene_destination=scene_path,
+                        contract_destination=contract_path,
+                        marker_destination=marker_path,
+                        marker_payload=marker_payload,
+                        interrupt=interrupt,
+                    )
+                result = blender_editorial_scene._recover_incomplete_publication(
+                    scene_path, contract_path, marker_path, transaction_candidate, rejected
+                )
+                if boundary == "marker-published":
+                    self.assertEqual(result["status"], "complete")
+                    self.assertTrue(scene_path.is_file() and contract_path.is_file() and marker_path.is_file())
+                else:
+                    self.assertEqual(result["status"], "recovered_to_rejected")
+                    self.assertFalse(scene_path.exists() or contract_path.exists() or marker_path.exists())
+                    archived = list(rejected.rglob("*"))
+                    self.assertTrue(any(path.is_file() for path in archived))
+
+    def test_nonzero_fresh_blender_exit_fails_even_with_an_empty_error_marker(self) -> None:
+        """Catches a validator crash being accepted because stdout contained one earlier [] marker."""
+
+        completed = SimpleNamespace(
+            returncode=1,
+            stdout=blender_editorial_scene.VALIDATION_MARKER + "[]\n",
+            stderr="forced failure",
+        )
+        errors = blender_editorial_scene._interpret_fresh_validation_process(completed)
+        self.assertIn("exit=1", "\n".join(errors))
 
 
 if __name__ == "__main__":
