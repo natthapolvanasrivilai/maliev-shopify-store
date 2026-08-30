@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import math
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -30,6 +31,33 @@ EXPECTED_SHADOWS = {
     "dark-engineering": "elongated-diagonal-readable-underside",
     "modern-workshop": "soft-window-cast-with-contact-depth",
     "process-still-life": "layered-foreground-edge-defined",
+}
+
+EXPECTED_LIGHT_PARAMETERS = {
+    "architectural-daylight": {
+        "SUN_Gobo": ("SUN", 4.0, (1.0, 0.82, 0.64), (-3600, -3000, 4800), (math.radians(28), 0, math.radians(-38)), 0.0, 0.0, math.radians(1.3)),
+        "FILL_WALL": ("AREA", 950.0, (1.0, 0.91, 0.80), (3000, 500, 2200), (math.radians(76), 0, math.radians(115)), 2600, 1800, 0.0),
+        "EDGE_STRIP": ("AREA", 1200.0, (1.0, 0.94, 0.85), (-2100, 1300, 2300), (math.radians(90), 0, math.radians(-65)), 1700, 180, 0.0),
+    },
+    "dark-engineering": {
+        "KEY_SLASH": ("AREA", 2100.0, (1.0, 0.86, 0.70), (-2900, -2500, 4100), (math.radians(42), 0, math.radians(-38)), 1100, 180, 0.0),
+        "RIM_LEFT": ("AREA", 1500.0, (0.84, 0.91, 1.0), (-2300, 1500, 2300), (math.radians(90), 0, math.radians(-72)), 2100, 130, 0.0),
+        "RIM_RIGHT": ("AREA", 1350.0, (0.91, 0.95, 1.0), (2400, 1700, 2100), (math.radians(90), 0, math.radians(70)), 1900, 120, 0.0),
+        "BASE_LIFT": ("AREA", 420.0, (0.76, 0.82, 0.90), (0, -1100, 450), (math.radians(18), 0, math.radians(180)), 1900, 700, 0.0),
+        "BLUE_ACCENT": ("AREA", 560.0, (0.035, 0.20, 0.82), (1350, 900, 1650), (math.radians(85), 0, math.radians(120)), 900, 90, 0.0),
+    },
+    "modern-workshop": {
+        "WORKSHOP_HDRI": ("WORLD", 0.42, (1.0, 1.0, 1.0), (0, 0, 0), (0, 0, 0), 0.0, 0.0, 0.0),
+        "WINDOW_KEY": ("AREA", 1700.0, (0.82, 0.91, 1.0), (-3200, -1700, 3600), (math.radians(48), 0, math.radians(-48)), 2400, 1400, 0.0),
+        "MACHINE_FILL": ("AREA", 780.0, (0.93, 0.96, 1.0), (2200, -800, 1500), (math.radians(72), 0, math.radians(118)), 1800, 1000, 0.0),
+        "PRACTICAL_WARM": ("POINT", 520.0, (1.0, 0.54, 0.24), (-1700, 1650, 2600), (0, 0, 0), 180, 0.0, 0.0),
+    },
+    "process-still-life": {
+        "KEY_TOP_SIDE": ("AREA", 1900.0, (1.0, 0.86, 0.69), (-2200, -1700, 3900), (math.radians(32), 0, math.radians(-35)), 1500, 900, 0.0),
+        "EDGE_CARD": ("AREA", 1050.0, (0.82, 0.90, 1.0), (2100, 400, 2200), (math.radians(88), 0, math.radians(72)), 1700, 160, 0.0),
+        "FOREGROUND_KICK": ("AREA", 720.0, (1.0, 0.66, 0.39), (-900, -2500, 700), (math.radians(68), 0, math.radians(-12)), 950, 260, 0.0),
+        "BASE_LIFT": ("AREA", 500.0, (0.78, 0.84, 0.92), (600, -900, 500), (math.radians(28), 0, math.radians(160)), 1500, 650, 0.0),
+    },
 }
 
 EXPECTED_GEOMETRY_ROLES = {
@@ -161,6 +189,18 @@ class _Object(_ID):
         self.library = None
         self.instance_type = "NONE"
         self.instance_collection = None
+        self.matrix_world = (
+            (1.0, 0.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+        self.bound_box = tuple(
+            (x, y, z)
+            for x in (-0.5, 0.5)
+            for y in (-0.5, 0.5)
+            for z in (-0.5, 0.5)
+        )
 
 
 class _Collection(_ID):
@@ -204,8 +244,21 @@ class _LibraryLoad:
         return self.available, self.requested
 
     def __exit__(self, *args: object) -> None:
+        dimensions = (
+            (1.2734, 0.7536, 0.9646)
+            if "tool_cart" in self.path
+            else (0.4001, 0.3198, 0.1724)
+        )
+        half = tuple(value / 2.0 for value in dimensions)
+        source = _Object("external-mesh", _Mesh("external-mesh"))
+        source.bound_box = tuple(
+            (x, y, z)
+            for x in (-half[0], half[0])
+            for y in (-half[1], half[1])
+            for z in (-half[2], half[2])
+        )
         self.requested.collections = [
-            _Collection(f"LINKED::{Path(self.path).stem}", (_Object("external-mesh", _Mesh("external-mesh")),))
+            _Collection(f"LINKED::{Path(self.path).stem}", (source,))
             for item in self.requested.collections
             if item is not None
         ]
@@ -309,6 +362,87 @@ class EditorialSetTests(unittest.TestCase):
                 signatures.add(evidence.geometry_signature)
                 self.assertTrue(all(obj.get("pimm_editorial_light_role") for obj in fake_bpy.context.scene.objects if obj.type == "LIGHT"))
         self.assertEqual(len(signatures), 4)
+
+    def test_freezes_every_light_type_color_energy_size_and_direction(self) -> None:
+        """Catches materially changed rigs hidden behind unchanged role labels."""
+
+        for shot in self.campaign.shots:
+            if shot.concept in {"modern-workshop", "process-still-life"}:
+                directory = TemporaryDirectory()
+                self.addCleanup(directory.cleanup)
+                root = Path(directory.name)
+                _asset_manifest(root)
+            else:
+                root = Path("unused")
+            with patch.object(editorial_sets, "ASSET_ROOT", root):
+                evidence = editorial_sets.build_editorial_set(_FakeBpy(), shot)
+            actual = {
+                light.role: (
+                    light.light_type, light.energy, light.color, light.location_mm,
+                    light.rotation_euler, light.size_mm, light.size_y_mm, light.angle_radians,
+                )
+                for light in evidence.lights
+            }
+            with self.subTest(concept=shot.concept):
+                self.assertEqual(actual, EXPECTED_LIGHT_PARAMETERS[shot.concept])
+
+    def test_external_model_instances_convert_real_meter_bounds_to_credible_millimetres(self) -> None:
+        """Catches linked metre-authored props left 1,000 times too small in the mm scene."""
+
+        expected_ranges = {
+            "tool_cart": ((1200.0, 1350.0), (700.0, 820.0), (900.0, 1030.0)),
+            "metal_toolbox": ((360.0, 450.0), (280.0, 360.0), (140.0, 220.0)),
+        }
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _asset_manifest(root)
+            with patch.object(editorial_sets, "ASSET_ROOT", root):
+                for shot_id in (
+                    "pimm-50g--concept-modern-workshop",
+                    "pimm-30g--concept-process-still-life",
+                ):
+                    fake_bpy = _FakeBpy()
+                    evidence = editorial_sets.build_editorial_set(fake_bpy, self.campaign.by_shot_id[shot_id])
+                    for item in evidence.external_instances:
+                        ranges = expected_ranges[item.asset_id]
+                        with self.subTest(asset=item.asset_id):
+                            self.assertEqual(item.instance_scale, (1000.0, 1000.0, 1000.0))
+                            self.assertTrue(all(low <= actual <= high for actual, (low, high) in zip(item.resolved_dimensions_mm, ranges)))
+                            instance = next(obj for obj in fake_bpy.context.scene.objects if obj.name == item.object_name)
+                            self.assertEqual(instance.scale, item.instance_scale)
+
+    def test_editorial_props_have_recognizable_feature_geometry(self) -> None:
+        """Catches semantic props regressing to one renamed primitive per requested object."""
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _asset_manifest(root)
+            with patch.object(editorial_sets, "ASSET_ROOT", root):
+                workshop = editorial_sets.build_editorial_set(
+                    _FakeBpy(), self.campaign.by_shot_id["pimm-50g--concept-modern-workshop"]
+                )
+                process = editorial_sets.build_editorial_set(
+                    _FakeBpy(), self.campaign.by_shot_id["pimm-30g--concept-process-still-life"]
+                )
+
+        workshop_counts = dict(workshop.feature_counts)
+        self.assertGreaterEqual(workshop_counts["container-pellet"], 24)
+        self.assertGreaterEqual(workshop_counts["mold-cavity"], 2)
+        self.assertGreaterEqual(workshop_counts["mold-parting-line"], 2)
+        self.assertGreaterEqual(workshop_counts["mold-fastener"], 8)
+        self.assertGreaterEqual(workshop_counts["drawing-linework"], 8)
+
+        process_counts = dict(process.feature_counts)
+        for pellet_role in ("peek-pellets", "black-pellets", "neutral-pellets"):
+            self.assertGreaterEqual(process_counts[pellet_role], 12)
+            granules = [item for item in process.geometry if item.role == pellet_role]
+            self.assertTrue(all(8.0 <= item.maximum_dimension_mm <= 30.0 for item in granules))
+        self.assertGreaterEqual(process_counts["mold-cavity"], 2)
+        self.assertGreaterEqual(process_counts["mold-parting-line"], 2)
+        self.assertGreaterEqual(process_counts["mold-fastener"], 8)
+        self.assertGreaterEqual(process_counts["molded-sample"], 4)
+        self.assertGreaterEqual(process_counts["inspection-caliper"], 5)
+        self.assertGreaterEqual(process_counts["drawing-linework"], 10)
 
     def test_all_supports_are_scene_local_non_product_owned_and_credibly_scaled(self) -> None:
         """Catches support props that masquerade as, parent into, or dwarf linked product data."""

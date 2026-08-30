@@ -34,6 +34,11 @@ _EXTERNAL_BY_CONCEPT = {
     "modern-workshop": ("university_workshop", "tool_cart"),
     "process-still-life": ("metal_toolbox",),
 }
+_EXTERNAL_MODEL_SCALE = (1000.0, 1000.0, 1000.0)
+_EXTERNAL_MODEL_DIMENSION_RANGES_MM = {
+    "tool_cart": ((1200.0, 1350.0), (700.0, 820.0), (900.0, 1030.0)),
+    "metal_toolbox": ((360.0, 450.0), (280.0, 360.0), (140.0, 220.0)),
+}
 
 
 @dataclass(frozen=True)
@@ -87,6 +92,17 @@ class EditorialExternalAsset:
 
 
 @dataclass(frozen=True)
+class EditorialExternalInstance:
+    """Measured scene-local instance transform for one linked external model."""
+
+    asset_id: str
+    object_name: str
+    source_dimensions_bu: tuple[float, float, float]
+    instance_scale: tuple[float, float, float]
+    resolved_dimensions_mm: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
 class EditorialSetEvidence:
     """Immutable evidence returned after one editorial set is constructed."""
 
@@ -97,6 +113,8 @@ class EditorialSetEvidence:
     shadow_intent: str
     geometry_signature: str
     external_assets: tuple[EditorialExternalAsset, ...]
+    external_instances: tuple[EditorialExternalInstance, ...]
+    feature_counts: tuple[tuple[str, int], ...]
 
 
 @dataclass(frozen=True)
@@ -148,6 +166,104 @@ _STEEL = (0.31, 0.34, 0.37, 1.0)
 _PAPER = (0.80, 0.79, 0.74, 1.0)
 
 
+def _pellet_cluster(
+    prefix: str,
+    role: str,
+    center: tuple[float, float, float],
+    color: tuple[float, float, float, float],
+    *,
+    count: int,
+    spacing_mm: float,
+    pellet_mm: tuple[float, float, float] = (20.0, 20.0, 14.0),
+) -> tuple[EditorialSetGeometry, ...]:
+    """Return small individually readable granules in a deterministic layered cluster."""
+
+    columns = 4
+    rows = math.ceil(count / columns)
+    items: list[EditorialSetGeometry] = []
+    for index in range(count):
+        column = index % columns
+        row = (index // columns) % rows
+        layer = index // (columns * rows)
+        offset_x = (column - (columns - 1) / 2.0) * spacing_mm
+        offset_y = (row - (rows - 1) / 2.0) * spacing_mm
+        offset_z = layer * pellet_mm[2] * 0.72
+        items.append(_geometry(
+            f"{prefix}_{index + 1:02d}", role, "cylinder",
+            (center[0] + offset_x, center[1] + offset_y, center[2] + offset_z),
+            pellet_mm, color, 0.42,
+            rotation=(math.radians(90), math.radians((index % 3) * 12), math.radians((index * 29) % 180)),
+        ))
+    return tuple(items)
+
+
+def _drawing_linework(
+    prefix: str,
+    center: tuple[float, float, float],
+    *,
+    width_mm: float,
+    depth_mm: float,
+    rotation_z: float,
+    count: int,
+) -> tuple[EditorialSetGeometry, ...]:
+    """Return raised blueprint-like linework that remains visible in a preview render."""
+
+    lines: list[EditorialSetGeometry] = []
+    for index in range(count):
+        horizontal = index % 3 != 2
+        lane = index // 3
+        if horizontal:
+            dimensions = (width_mm * (0.38 + 0.08 * (index % 3)), 7.0, 3.0)
+            offset = (-width_mm * 0.12, -depth_mm * 0.32 + lane * depth_mm * 0.18)
+        else:
+            dimensions = (7.0, depth_mm * 0.58, 3.0)
+            offset = (width_mm * (0.20 - lane * 0.11), 0.0)
+        lines.append(_geometry(
+            f"{prefix}_LINE_{index + 1:02d}", "drawing-linework", "box",
+            (center[0] + offset[0], center[1] + offset[1], center[2]),
+            dimensions, (0.055, 0.13, 0.23, 1.0), 0.34,
+            rotation=(0.0, 0.0, rotation_z),
+        ))
+    return tuple(lines)
+
+
+def _mold_features(
+    prefix: str,
+    center: tuple[float, float, float],
+    footprint: tuple[float, float],
+    top_z: float,
+    rotation_z: float,
+) -> tuple[EditorialSetGeometry, ...]:
+    """Add cavity, parting line, and four fasteners to a solid mold half."""
+
+    width, depth = footprint
+    fastener_color = (0.10, 0.11, 0.12, 1.0)
+    features = [
+        _geometry(
+            f"{prefix}_CAVITY", "mold-cavity", "cylinder", center[:2] + (top_z + 5.0,),
+            (min(width, depth) * 0.42, min(width, depth) * 0.34, 10.0),
+            (0.055, 0.060, 0.068, 1.0), 0.16,
+            rotation=(0.0, 0.0, rotation_z), metallic=0.82,
+        ),
+        _geometry(
+            f"{prefix}_PARTING", "mold-parting-line", "box", center[:2] + (top_z + 11.0,),
+            (width * 0.88, 8.0, 4.0), (0.60, 0.62, 0.64, 1.0), 0.17,
+            rotation=(0.0, 0.0, rotation_z), metallic=0.90,
+        ),
+    ]
+    for index, (x_sign, y_sign) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1)), 1):
+        features.append(_geometry(
+            f"{prefix}_FASTENER_{index}", "mold-fastener", "cylinder",
+            (
+                center[0] + x_sign * width * 0.34,
+                center[1] + y_sign * depth * 0.32,
+                top_z + 8.0,
+            ),
+            (26.0, 26.0, 16.0), fastener_color, 0.18, metallic=0.92,
+        ))
+    return tuple(features)
+
+
 _SETS = {
     "architectural-daylight": _EditorialSetSpec(
         "architectural-daylight",
@@ -190,9 +306,16 @@ _SETS = {
             _geometry("WORKBENCH_LEG_B", "steel-workbench", "box", (-1550, 1150, 440), (90, 650, 880), _STEEL, 0.38, metallic=0.68),
             _geometry("PELLET_JAR_CLEAR_A", "pellet-jar", "cylinder", (-2650, 1040, 1190), (230, 230, 480), (0.82, 0.91, 0.94, 0.34), 0.12, transmission=0.82),
             _geometry("PELLET_JAR_CLEAR_B", "pellet-jar", "cylinder", (-2320, 1040, 1150), (210, 210, 400), (0.80, 0.88, 0.91, 0.34), 0.12, transmission=0.82),
+            _geometry("PELLET_JAR_LID_A", "pellet-jar-lid", "cylinder", (-2650, 1040, 1440), (244, 244, 24), (0.18, 0.20, 0.22, 1.0), 0.30, metallic=0.62),
+            _geometry("PELLET_JAR_LID_B", "pellet-jar-lid", "cylinder", (-2320, 1040, 1362), (224, 224, 24), (0.18, 0.20, 0.22, 1.0), 0.30, metallic=0.62),
+            *_pellet_cluster("WORKSHOP_JAR_A_PELLET", "container-pellet", (-2650, 1040, 990), (0.72, 0.55, 0.30, 1.0), count=12, spacing_mm=38.0, pellet_mm=(24, 24, 17)),
+            *_pellet_cluster("WORKSHOP_JAR_B_PELLET", "container-pellet", (-2320, 1040, 980), (0.12, 0.13, 0.15, 1.0), count=12, spacing_mm=34.0, pellet_mm=(22, 22, 16)),
             _geometry("WORKSHOP_MOLD_A", "mold-block", "box", (-1980, 1050, 1035), (380, 300, 180), (0.27, 0.30, 0.32, 1), 0.24, metallic=0.88),
             _geometry("WORKSHOP_MOLD_B", "mold-block", "box", (-1580, 1050, 1035), (320, 280, 180), (0.22, 0.24, 0.26, 1), 0.22, metallic=0.90),
+            *_mold_features("WORKSHOP_MOLD_A", (-1980, 1050, 0), (380, 300), 1125, 0.0),
+            *_mold_features("WORKSHOP_MOLD_B", (-1580, 1050, 0), (320, 280), 1125, 0.0),
             _geometry("WORKSHOP_DRAWING", "technical-drawing", "box", (-2250, 650, 970), (720, 470, 8), _PAPER, 0.72, rotation=(math.radians(4), 0, math.radians(-8))),
+            *_drawing_linework("WORKSHOP_DRAWING", (-2250, 650, 977), width_mm=720, depth_mm=470, rotation_z=math.radians(-8), count=10),
         ),
         (
             _light("WORKSHOP_HDRI", "WORLD", 0.42, (1.0, 1.0, 1.0), (0, 0, 0), (0, 0, 0)),
@@ -207,15 +330,22 @@ _SETS = {
         (
             _geometry("PROCESS_MOLD_HALF_A", "mold-half", "box", (-1250, -650, 220), (620, 430, 260), (0.24, 0.26, 0.28, 1), 0.20, rotation=(0, 0, math.radians(-14)), metallic=0.92),
             _geometry("PROCESS_MOLD_HALF_B", "mold-half", "box", (-570, -780, 185), (560, 420, 220), (0.19, 0.21, 0.23, 1), 0.18, rotation=(0, 0, math.radians(10)), metallic=0.94),
-            _geometry("PROCESS_PEEK_PELLETS", "peek-pellets", "cylinder", (720, -980, 90), (500, 500, 180), (0.72, 0.55, 0.30, 1), 0.44),
-            _geometry("PROCESS_BLACK_PELLETS", "black-pellets", "cylinder", (1270, -760, 80), (420, 420, 160), (0.012, 0.014, 0.018, 1), 0.50),
-            _geometry("PROCESS_NEUTRAL_PELLETS", "neutral-pellets", "cylinder", (1120, -1320, 70), (380, 380, 140), (0.62, 0.60, 0.55, 1), 0.48),
+            *_mold_features("PROCESS_MOLD_HALF_A", (-1250, -650, 0), (620, 430), 350, math.radians(-14)),
+            *_mold_features("PROCESS_MOLD_HALF_B", (-570, -780, 0), (560, 420), 295, math.radians(10)),
+            *_pellet_cluster("PROCESS_PEEK_PELLET", "peek-pellets", (720, -980, 15), (0.72, 0.55, 0.30, 1), count=14, spacing_mm=27.0),
+            *_pellet_cluster("PROCESS_BLACK_PELLET", "black-pellets", (1270, -760, 15), (0.012, 0.014, 0.018, 1), count=14, spacing_mm=27.0),
+            *_pellet_cluster("PROCESS_NEUTRAL_PELLET", "neutral-pellets", (1120, -1320, 15), (0.62, 0.60, 0.55, 1), count=14, spacing_mm=27.0),
             _geometry("PROCESS_SAMPLE_A", "molded-sample", "cylinder", (320, -1180, 110), (260, 260, 220), (0.025, 0.030, 0.038, 1), 0.32, rotation=(math.radians(90), 0, 0)),
             _geometry("PROCESS_SAMPLE_B", "molded-sample", "box", (50, -980, 105), (360, 190, 210), (0.08, 0.18, 0.34, 1), 0.28, rotation=(0, 0, math.radians(-18))),
+            _geometry("PROCESS_SAMPLE_C", "molded-sample", "cylinder", (420, -760, 70), (180, 180, 140), (0.72, 0.55, 0.30, 1), 0.28, rotation=(math.radians(90), 0, math.radians(24))),
+            _geometry("PROCESS_SAMPLE_D", "molded-sample", "box", (120, -650, 55), (260, 90, 110), (0.055, 0.060, 0.070, 1), 0.30, rotation=(0, math.radians(8), math.radians(18))),
             _geometry("PROCESS_CALIPER_BAR", "inspection-caliper", "box", (-250, -1420, 42), (950, 55, 32), (0.48, 0.50, 0.52, 1), 0.18, rotation=(0, 0, math.radians(12)), metallic=0.92),
             _geometry("PROCESS_CALIPER_JAW_A", "inspection-caliper", "box", (-650, -1320, 105), (45, 300, 130), (0.48, 0.50, 0.52, 1), 0.18, rotation=(0, 0, math.radians(12)), metallic=0.92),
             _geometry("PROCESS_CALIPER_JAW_B", "inspection-caliper", "box", (120, -1505, 105), (45, 300, 130), (0.48, 0.50, 0.52, 1), 0.18, rotation=(0, 0, math.radians(12)), metallic=0.92),
+            _geometry("PROCESS_CALIPER_SLIDER", "inspection-caliper", "box", (-180, -1405, 66), (170, 125, 62), (0.32, 0.34, 0.36, 1), 0.20, rotation=(0, 0, math.radians(12)), metallic=0.88),
+            _geometry("PROCESS_CALIPER_DIAL", "inspection-caliper", "cylinder", (-175, -1380, 112), (105, 105, 24), (0.74, 0.75, 0.76, 1), 0.16, rotation=(0, 0, math.radians(12)), metallic=0.90),
             _geometry("PROCESS_DRAWING", "technical-drawing", "box", (-1250, 450, 18), (1050, 780, 10), _PAPER, 0.76, rotation=(0, 0, math.radians(-7))),
+            *_drawing_linework("PROCESS_DRAWING", (-1250, 450, 25), width_mm=1050, depth_mm=780, rotation_z=math.radians(-7), count=12),
             _geometry("PROCESS_FOREGROUND_LOW", "foreground-block", "box", (-1650, -1650, 160), (720, 600, 320), (0.12, 0.13, 0.15, 1), 0.58),
             _geometry("PROCESS_FOREGROUND_HIGH", "foreground-block", "box", (1580, -1650, 310), (620, 580, 620), (0.28, 0.27, 0.24, 1), 0.62),
             _geometry("PROCESS_FOREGROUND_STEP", "foreground-block", "box", (1850, -900, 135), (500, 420, 270), (0.42, 0.39, 0.34, 1), 0.66),
@@ -443,7 +573,31 @@ def _product_like_external_object(obj: Any) -> bool:
     return False
 
 
-def _install_linked_model(bpy: Any, record: EditorialExternalAsset, shot: EditorialConceptShot) -> Any:
+def _transform_point(matrix: Any, point: tuple[float, float, float]) -> tuple[float, float, float]:
+    vector = (float(point[0]), float(point[1]), float(point[2]), 1.0)
+    return tuple(
+        sum(float(matrix[row][column]) * vector[column] for column in range(4))
+        for row in range(3)
+    )
+
+
+def _collection_dimensions(collection: Any) -> tuple[float, float, float]:
+    points = [
+        _transform_point(obj.matrix_world, tuple(corner))
+        for obj in getattr(collection, "all_objects", ())
+        if getattr(obj, "type", None) == "MESH" and getattr(obj, "bound_box", None)
+        for corner in obj.bound_box
+    ]
+    if not points:
+        raise ValueError(f"editorial external model has no measurable mesh bounds: {collection.name}")
+    minimum = tuple(min(point[axis] for point in points) for axis in range(3))
+    maximum = tuple(max(point[axis] for point in points) for axis in range(3))
+    return tuple(maximum[axis] - minimum[axis] for axis in range(3))
+
+
+def _install_linked_model(
+    bpy: Any, record: EditorialExternalAsset, shot: EditorialConceptShot
+) -> tuple[Any, EditorialExternalInstance]:
     with bpy.data.libraries.load(str(record.path), link=True, relative=False) as (available, requested):
         if not available.collections:
             raise ValueError(f"editorial external model has no collection: {record.path}")
@@ -453,6 +607,20 @@ def _install_linked_model(bpy: Any, record: EditorialExternalAsset, shot: Editor
         raise ValueError(f"editorial external model did not resolve one collection: {record.path}")
     if any(_product_like_external_object(obj) for obj in getattr(loaded[0], "all_objects", ())):
         raise ValueError(f"product-like external scene support is forbidden: {record.asset_id}")
+    source_dimensions = _collection_dimensions(loaded[0])
+    resolved_dimensions = tuple(
+        source_dimensions[axis] * _EXTERNAL_MODEL_SCALE[axis]
+        for axis in range(3)
+    )
+    expected_ranges = _EXTERNAL_MODEL_DIMENSION_RANGES_MM[record.asset_id]
+    if not all(
+        low <= dimension <= high
+        for dimension, (low, high) in zip(resolved_dimensions, expected_ranges)
+    ):
+        raise ValueError(
+            f"editorial external model dimensions are outside the credible mm range: "
+            f"{record.asset_id}: {resolved_dimensions}"
+        )
     instance = bpy.data.objects.new(f"PIMM_SCENE_SUPPORT_EXTERNAL_{record.asset_id.upper()}", None)
     instance.instance_type = "COLLECTION"
     instance.instance_collection = loaded[0]
@@ -460,12 +628,19 @@ def _install_linked_model(bpy: Any, record: EditorialExternalAsset, shot: Editor
         "tool_cart": (2550.0, 1250.0, 0.0),
         "metal_toolbox": (-1850.0, 900.0, 720.0),
     }[record.asset_id]
+    instance.scale = _EXTERNAL_MODEL_SCALE
     instance["pimm_scene_support_ownership"] = "scene-support"
     instance["pimm_scene_support_role"] = f"external-{record.asset_id.replace('_', '-')}"
     instance["pimm_editorial_shot_id"] = shot.shot_id
     _tag_provenance(instance, record)
     bpy.context.scene.collection.objects.link(instance)
-    return instance
+    return instance, EditorialExternalInstance(
+        asset_id=record.asset_id,
+        object_name=str(instance.name),
+        source_dimensions_bu=source_dimensions,
+        instance_scale=_EXTERNAL_MODEL_SCALE,
+        resolved_dimensions_mm=resolved_dimensions,
+    )
 
 
 def _geometry_signature(items: tuple[EditorialSetGeometry, ...]) -> str:
@@ -474,6 +649,13 @@ def _geometry_signature(items: tuple[EditorialSetGeometry, ...]) -> str:
         for item in items
     ]
     return hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode("utf-8")).hexdigest().upper()
+
+
+def _feature_counts(items: tuple[EditorialSetGeometry, ...]) -> tuple[tuple[str, int], ...]:
+    counts: dict[str, int] = {}
+    for item in items:
+        counts[item.role] = counts.get(item.role, 0) + 1
+    return tuple(sorted(counts.items()))
 
 
 def _validate_shot(shot: EditorialConceptShot) -> None:
@@ -498,12 +680,14 @@ def build_editorial_set(bpy: Any, shot: EditorialConceptShot) -> EditorialSetEvi
         _install_geometry(bpy, item)
     for item in spec.lights:
         _install_light(bpy, item)
+    external_instances: list[EditorialExternalInstance] = []
     for record in external:
         if record.asset_id == "university_workshop":
             world_light = next(light for light in spec.lights if light.role == "WORKSHOP_HDRI")
             _install_hdri(bpy, record, world_light.energy)
         else:
-            _install_linked_model(bpy, record, shot)
+            _instance, instance_evidence = _install_linked_model(bpy, record, shot)
+            external_instances.append(instance_evidence)
     return EditorialSetEvidence(
         shot_id=shot.shot_id,
         concept=shot.concept,
@@ -512,4 +696,6 @@ def build_editorial_set(bpy: Any, shot: EditorialConceptShot) -> EditorialSetEvi
         shadow_intent=spec.shadow_intent,
         geometry_signature=_geometry_signature(spec.geometry),
         external_assets=external,
+        external_instances=tuple(external_instances),
+        feature_counts=_feature_counts(spec.geometry),
     )
