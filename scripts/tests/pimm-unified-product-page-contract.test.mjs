@@ -291,7 +291,11 @@ test('editorial photography is intrinsic lazy localized and independent of selec
   assert.doesNotMatch(editorial, /data-pimm-media-model|object-fit\s*:\s*cover|<carousel\b|<button\b/);
   assert.doesNotMatch(editorial, /style\s*=|position\s*:\s*absolute|100vw/);
   assert.match(css, /\.pimm-machine__editorial-figure img\s*\{[^}]*height:\s*auto[^}]*width:\s*100%/s);
-  assert.doesNotMatch(css.match(/\.pimm-machine__editorial[\s\S]*?(?=@media \(prefers-reduced-motion)/)?.[0] ?? '', /object-fit:\s*cover|position:\s*absolute|100vw/);
+  const editorialCss = [...css.matchAll(/(?:^|\n)([^\n{]*\.pimm-machine__editorial[^\n{]*)\{([^}]*)\}/g)]
+    .map((match) => `${match[1]}{${match[2]}}`)
+    .join('\n');
+  assert.match(editorialCss, /\.pimm-machine__editorial/);
+  assert.doesNotMatch(editorialCss, /object-fit:\s*cover|position:\s*absolute|100vw|margin-inline:\s*-/);
 });
 
 test('engineering console uses the approved open twelve-column product stage', () => {
