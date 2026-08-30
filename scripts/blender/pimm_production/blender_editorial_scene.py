@@ -10,6 +10,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import sys
@@ -193,10 +194,12 @@ def _set_contract(
             "framing_eligible": not is_hdri,
             "contact_plane": False,
             **({} if is_hdri else {
+                "instance_object_name": f"PIMM_SCENE_SUPPORT_EXTERNAL_{asset_id.upper()}",
                 "instance_collection_name": None,
                 "instance_library_relative_path": str(record["local_relative_path"]),
                 "instance_library_sha256": str(record["sha256"]),
                 "instance_provenance": dict(record),
+                "instance_membership_signature": None,
             }),
         })
     coverage = {
@@ -385,9 +388,17 @@ def _contract_errors(contract: Mapping[str, object]) -> list[str]:
                         break
                     for field, expected_value in expected_record.items():
                         actual_value = actual_record.get(field)
-                        if field == "instance_collection_name" and expected_value is None:
-                            if actual_value is not None and not isinstance(actual_value, str):
+                        if field in {"instance_collection_name", "instance_membership_signature"} and expected_value is None:
+                            if actual_value is None:
+                                continue
+                            if field == "instance_collection_name" and not isinstance(actual_value, str):
                                 errors.append("editorial external instance collection binding is invalid")
+                            elif field == "instance_membership_signature" and (
+                                not isinstance(actual_value, str)
+                                or len(actual_value) != 64
+                                or any(character not in "0123456789ABCDEF" for character in actual_value)
+                            ):
+                                errors.append("editorial external instance membership signature is invalid")
                         elif actual_value != expected_value:
                             errors.append("editorial contract set does not match the exact approved shot")
                             break
@@ -713,59 +724,97 @@ def _image_signature_record(bpy: Any, image: Any) -> dict[str, object]:
             absolute = Path(str(resolved)).resolve()
         except (AttributeError, OSError):
             absolute = Path(raw_path)
+    packed_files = list(getattr(image, "packed_files", ()))
     packed = getattr(image, "packed_file", None)
+    if not packed_files and packed is not None:
+        packed_files = [packed]
+    packed_records = []
+    for item in packed_files:
+        raw_data = getattr(item, "data", b"")
+        try:
+            data = bytes(raw_data)
+        except (TypeError, ValueError):
+            data = memoryview(raw_data).tobytes()
+        packed_records.append({
+            "size": int(getattr(item, "size", len(data))),
+            "sha256": _sha256_bytes(data),
+        })
     return {
         "name": str(getattr(image, "name", "")),
         "source": str(getattr(image, "source", "")),
         "filepath": raw_path,
         "absolute_path": str(absolute) if absolute is not None else "",
         "sha256": sha256_file(absolute) if absolute is not None and absolute.is_file() else None,
-        "packed_size": int(getattr(packed, "size", 0)) if packed is not None else 0,
+        "packed_files": packed_records,
     }
 
 
-def _node_tree_signature_record(bpy: Any, node_tree: Any) -> dict[str, object] | None:
+def _node_tree_signature_record(
+    bpy: Any, node_tree: Any, active: set[int] | None = None
+) -> dict[str, object] | None:
     if node_tree is None:
         return None
-    nodes = []
-    for node in sorted(_node_values(node_tree.nodes), key=lambda item: str(getattr(item, "name", ""))):
-        record = {
-            "name": str(getattr(node, "name", "")),
-            "type": str(getattr(node, "bl_idname", getattr(node, "type", ""))),
-            "label": str(getattr(node, "label", "")),
-            "mute": bool(getattr(node, "mute", False)),
-            "settings": _rna_scalar_properties(
-                node, {"name", "label", "mute", "inputs", "outputs", "image"}
-            ),
-            "inputs": [
-                {
-                    "name": name,
-                    "default": _signature_value(getattr(socket, "default_value", None)),
-                    "enabled": bool(getattr(socket, "enabled", True)),
-                    "hide_value": bool(getattr(socket, "hide_value", False)),
-                }
-                for name, socket in sorted(_socket_values(getattr(node, "inputs", ())))
-            ],
-            "outputs": [name for name, _socket in sorted(_socket_values(getattr(node, "outputs", ())))],
+    active = active if active is not None else set()
+    identity = id(node_tree)
+    if identity in active:
+        return {
+            "name": str(getattr(node_tree, "name", "")),
+            "cycle_reference": True,
         }
-        image = getattr(node, "image", None)
-        if image is not None:
-            record["image"] = _image_signature_record(bpy, image)
-        nodes.append(record)
+    active.add(identity)
+    nodes = []
     try:
-        links_source = list(node_tree.links)
-    except TypeError:
-        links_source = []
-    links = sorted(
-        [
-            str(getattr(link.from_node, "name", "")),
-            str(getattr(link.from_socket, "identifier", getattr(link.from_socket, "name", ""))),
-            str(getattr(link.to_node, "name", "")),
-            str(getattr(link.to_socket, "identifier", getattr(link.to_socket, "name", ""))),
-        ]
-        for link in links_source
-    )
-    return {"nodes": nodes, "links": links}
+        for node in sorted(_node_values(node_tree.nodes), key=lambda item: str(getattr(item, "name", ""))):
+            record = {
+                "name": str(getattr(node, "name", "")),
+                "type": str(getattr(node, "bl_idname", getattr(node, "type", ""))),
+                "label": str(getattr(node, "label", "")),
+                "mute": bool(getattr(node, "mute", False)),
+                "settings": _rna_scalar_properties(
+                    node, {"name", "label", "mute", "inputs", "outputs", "image", "node_tree"}
+                ),
+                "inputs": [
+                    {
+                        "name": name,
+                        "default": _signature_value(getattr(socket, "default_value", None)),
+                        "enabled": bool(getattr(socket, "enabled", True)),
+                        "hide_value": bool(getattr(socket, "hide_value", False)),
+                    }
+                    for name, socket in sorted(_socket_values(getattr(node, "inputs", ())))
+                ],
+                "outputs": [name for name, _socket in sorted(_socket_values(getattr(node, "outputs", ())))],
+            }
+            image = getattr(node, "image", None)
+            if image is not None:
+                record["image"] = _image_signature_record(bpy, image)
+            group_tree = getattr(node, "node_tree", None)
+            if group_tree is not None:
+                record["node_group"] = _node_tree_signature_record(bpy, group_tree, active)
+            nodes.append(record)
+        try:
+            links_source = list(node_tree.links)
+        except TypeError:
+            links_source = []
+        links = sorted(
+            [
+                str(getattr(link.from_node, "name", "")),
+                str(getattr(link.from_socket, "identifier", getattr(link.from_socket, "name", ""))),
+                str(getattr(link.to_node, "name", "")),
+                str(getattr(link.to_socket, "identifier", getattr(link.to_socket, "name", ""))),
+            ]
+            for link in links_source
+        )
+        return {
+            "name": str(getattr(node_tree, "name", "")),
+            "settings": _rna_scalar_properties(
+                node_tree, {"name", "nodes", "links", "is_runtime_data"}
+            ),
+            "properties": _custom_properties(node_tree),
+            "nodes": nodes,
+            "links": links,
+        }
+    finally:
+        active.remove(identity)
 
 
 def _material_signature_record(bpy: Any, material: Any) -> dict[str, object]:
@@ -775,7 +824,7 @@ def _material_signature_record(bpy: Any, material: Any) -> dict[str, object]:
         "diffuse_color": _numeric_sequence(getattr(material, "diffuse_color", None)),
         "properties": _custom_properties(material),
         "settings": _rna_scalar_properties(
-            material, {"name", "node_tree", "diffuse_color"}
+            material, {"name", "node_tree", "diffuse_color", "poliigon"}
         ),
         "node_tree": _node_tree_signature_record(bpy, getattr(material, "node_tree", None)),
     }
@@ -916,20 +965,102 @@ _PRODUCT_PROPERTIES = {
 }
 
 
+def _collection_objects(collection: Any) -> list[Any]:
+    direct = getattr(collection, "objects", None)
+    if direct is not None:
+        return list(direct)
+    return list(getattr(collection, "all_objects", ()))
+
+
+def _walk_collection_tree(collection: Any) -> list[tuple[Any, list[Any]]]:
+    pending = [collection]
+    seen: set[int] = set()
+    result: list[tuple[Any, list[Any]]] = []
+    while pending:
+        current = pending.pop()
+        identity = id(current)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        result.append((current, _collection_objects(current)))
+        pending.extend(getattr(current, "children", ()))
+    return result
+
+
+def _datablock_has_product_identity(datablock: Any) -> bool:
+    return datablock is not None and any(
+        getattr(datablock, "get", lambda _key: None)(key) is not None
+        for key in _PRODUCT_PROPERTIES
+    )
+
+
 def _has_product_identity(obj: Any) -> bool:
     datablocks = [obj, getattr(obj, "data", None)]
     data = getattr(obj, "data", None)
     datablocks.extend(getattr(data, "materials", ()) if data is not None else ())
     instance = getattr(obj, "instance_collection", None)
-    instance_objects = list(getattr(instance, "all_objects", ())) if instance is not None else []
-    datablocks.extend(instance_objects)
-    for member in instance_objects:
-        member_data = getattr(member, "data", None)
-        datablocks.append(member_data)
-        datablocks.extend(getattr(member_data, "materials", ()) if member_data is not None else ())
-    return any(
-        datablock is not None and any(datablock.get(key) is not None for key in _PRODUCT_PROPERTIES)
-        for datablock in datablocks
+    if instance is not None:
+        for collection, members in _walk_collection_tree(instance):
+            datablocks.append(collection)
+            for member in members:
+                datablocks.append(member)
+                member_data = getattr(member, "data", None)
+                datablocks.append(member_data)
+                datablocks.extend(
+                    getattr(member_data, "materials", ()) if member_data is not None else ()
+                )
+    return any(_datablock_has_product_identity(datablock) for datablock in datablocks)
+
+
+def _collection_membership_record(
+    bpy: Any, collection: Any, active: set[int] | None = None
+) -> dict[str, object]:
+    active = active if active is not None else set()
+    identity = id(collection)
+    if identity in active:
+        return {
+            "name": str(getattr(collection, "name", "")),
+            "cycle_reference": True,
+        }
+    active.add(identity)
+    try:
+        objects = []
+        for member in sorted(_collection_objects(collection), key=lambda item: str(getattr(item, "name", ""))):
+            data = getattr(member, "data", None)
+            objects.append({
+                "name": str(getattr(member, "name", "")),
+                "type": str(getattr(member, "type", "")),
+                "library": str(_library_path(bpy, getattr(member, "library", None)) or ""),
+                "data_name": str(getattr(data, "name", "")),
+                "data_library": str(_library_path(bpy, getattr(data, "library", None)) or ""),
+                "properties": _custom_properties(member),
+                "data_properties": _custom_properties(data) if data is not None else [],
+                "materials": sorted(
+                    str(getattr(material, "name", ""))
+                    for material in getattr(data, "materials", ()) if material is not None
+                ) if data is not None else [],
+            })
+        children = [
+            _collection_membership_record(bpy, child, active)
+            for child in sorted(
+                getattr(collection, "children", ()),
+                key=lambda item: str(getattr(item, "name", "")),
+            )
+        ]
+        return {
+            "name": str(getattr(collection, "name", "")),
+            "library": str(_library_path(bpy, getattr(collection, "library", None)) or ""),
+            "properties": _custom_properties(collection),
+            "objects": objects,
+            "children": children,
+        }
+    finally:
+        active.remove(identity)
+
+
+def _collection_membership_signature(bpy: Any, collection: Any) -> str:
+    return _sha256_bytes(
+        _canonical_json({"collection": _collection_membership_record(bpy, collection)}).encode("utf-8")
     )
 
 
@@ -948,11 +1079,16 @@ def _bind_external_instance_contract(
         collection = getattr(obj, "instance_collection", None) if obj is not None else None
         if obj is None or getattr(obj, "instance_type", None) != "COLLECTION" or collection is None:
             raise ValueError(f"external scene-support instance did not resolve: {record['name']}")
+        if str(obj.name) != record["instance_object_name"]:
+            raise ValueError(f"external scene-support instance object changed: {record['name']}")
         library_path = _library_path(bpy, getattr(collection, "library", None))
         expected_path = (ASSET_ROOT / Path(str(record["instance_library_relative_path"]))).resolve()
         if library_path != expected_path or sha256_file(expected_path) != record["instance_library_sha256"]:
             raise ValueError(f"external scene-support library binding changed: {record['name']}")
+        if _has_product_identity(obj):
+            raise ValueError(f"external scene-support instance contains product identity: {record['name']}")
         record["instance_collection_name"] = str(collection.name)
+        record["instance_membership_signature"] = _collection_membership_signature(bpy, collection)
 
 
 def _scene_object_allowlist_errors(
@@ -989,12 +1125,19 @@ def _scene_object_allowlist_errors(
                 or str(getattr(collection, "name", "")) != record["instance_collection_name"]
             ):
                 errors.append(f"external instance collection binding changed: {name}")
+            if str(getattr(obj, "name", "")) != record["instance_object_name"]:
+                errors.append(f"external instance object binding changed: {name}")
             if actual_path != expected_path:
                 errors.append(f"external instance library binding changed: {name}")
             elif not expected_path.is_file() or sha256_file(expected_path) != record["instance_library_sha256"]:
                 errors.append(f"external instance library hash changed: {name}")
             if _provenance_record(obj) != record["instance_provenance"]:
                 errors.append(f"external instance provenance changed: {name}")
+            if collection is not None and (
+                _collection_membership_signature(bpy, collection)
+                != record["instance_membership_signature"]
+            ):
+                errors.append(f"external instance membership signature changed: {name}")
     for name in sorted(set(actual_supports) - set(expected)):
         errors.append(f"unexpected scene-support object: {name}")
     for obj in bpy.context.scene.objects:
@@ -1721,6 +1864,81 @@ def _completion_marker_matches(
     )
 
 
+_TRANSACTION_PATH_KEYS = {
+    "scene_candidate", "contract_candidate", "transaction",
+    "scene_published", "contract_published", "completion_marker",
+}
+
+
+def _is_upper_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789ABCDEF" for character in value)
+    )
+
+
+def _validated_transaction_artifact_paths(
+    journal: object,
+    scene_path: Path,
+    contract_path: Path,
+    marker_path: Path,
+    transaction_path: Path,
+) -> list[Path] | None:
+    if not isinstance(journal, Mapping):
+        return None
+    transaction_id = journal.get("transaction_id")
+    paths = journal.get("paths")
+    if (
+        journal.get("schema") != PUBLICATION_SCHEMA
+        or journal.get("status") != "staged"
+        or journal.get("scene_id") != scene_path.stem
+        or not isinstance(transaction_id, str)
+        or re.fullmatch(r"[0-9a-f]{32}", transaction_id) is None
+        or not _is_upper_sha256(journal.get("scene_sha256"))
+        or not _is_upper_sha256(journal.get("contract_sha256"))
+        or not isinstance(paths, Mapping)
+        or set(paths) != _TRANSACTION_PATH_KEYS
+    ):
+        return None
+    try:
+        resolved = {name: Path(str(paths[name])).resolve() for name in _TRANSACTION_PATH_KEYS}
+    except (OSError, RuntimeError, ValueError):
+        return None
+    fixed = {
+        "transaction": transaction_path.resolve(),
+        "scene_published": scene_path.resolve(),
+        "contract_published": contract_path.resolve(),
+        "completion_marker": marker_path.resolve(),
+    }
+    if any(resolved[name] != expected for name, expected in fixed.items()):
+        return None
+    scene_match = re.fullmatch(
+        rf"\.{re.escape(scene_path.stem)}\.([0-9a-f]{{32}})\.candidate{re.escape(scene_path.suffix)}",
+        resolved["scene_candidate"].name,
+    )
+    contract_match = re.fullmatch(
+        rf"\.{re.escape(contract_path.stem)}\.([0-9a-f]{{32}})\.candidate{re.escape(contract_path.suffix)}",
+        resolved["contract_candidate"].name,
+    )
+    if (
+        scene_match is None
+        or contract_match is None
+        or scene_match.group(1) != contract_match.group(1)
+        or resolved["scene_candidate"].parent != scene_path.parent.resolve()
+        or resolved["contract_candidate"].parent != contract_path.parent.resolve()
+    ):
+        return None
+    return [resolved[name] for name in sorted(_TRANSACTION_PATH_KEYS)]
+
+
+def _nonce_candidates(path: Path) -> list[Path]:
+    pattern = re.compile(
+        rf"\.{re.escape(path.stem)}\.[0-9a-f]{{32}}\.candidate{re.escape(path.suffix)}"
+    )
+    return [candidate for candidate in path.parent.iterdir() if pattern.fullmatch(candidate.name)]
+
+
 def _recover_incomplete_publication(
     scene_path: Path,
     contract_path: Path,
@@ -1732,26 +1950,27 @@ def _recover_incomplete_publication(
 
     complete = _completion_marker_matches(scene_path, contract_path, marker_path)
     discovered: list[Path] = [scene_path, contract_path, marker_path, transaction_path]
+    journal_valid = False
     if transaction_path.is_file():
         try:
             journal = json.loads(transaction_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             journal = None
-        paths = journal.get("paths") if isinstance(journal, Mapping) else None
-        if isinstance(paths, Mapping):
-            allowed_parents = {scene_path.parent.resolve(), contract_path.parent.resolve()}
-            for raw_path in paths.values():
-                candidate = Path(str(raw_path)).resolve()
-                if candidate.parent in allowed_parents:
-                    discovered.append(candidate)
-    discovered.extend(scene_path.parent.glob(f".{scene_path.stem}.*.candidate{scene_path.suffix}"))
-    discovered.extend(contract_path.parent.glob(f".{contract_path.stem}.*.candidate{contract_path.suffix}"))
+        journal_paths = _validated_transaction_artifact_paths(
+            journal, scene_path, contract_path, marker_path, transaction_path
+        )
+        journal_valid = journal_paths is not None
+        if journal_paths is not None:
+            discovered.extend(journal_paths)
+    discovered.extend(_nonce_candidates(scene_path))
+    discovered.extend(_nonce_candidates(contract_path))
     for authority_path in (marker_path, transaction_path):
         discovered.extend(authority_path.parent.glob(f".{authority_path.name}.*.candidate"))
     existing = list(dict.fromkeys(path for path in discovered if path.exists()))
     incomplete_artifacts = [
         path for path in existing
         if path not in {scene_path, contract_path, marker_path, transaction_path}
+        or (path == transaction_path and not journal_valid)
     ]
     if complete and not incomplete_artifacts:
         return {
