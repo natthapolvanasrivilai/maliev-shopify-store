@@ -9,6 +9,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -22,6 +23,7 @@ from scripts.blender.pimm_production.editorial_final_contract import (
     validate_editorial_owner_approval,
 )
 from scripts.blender.pimm_production.blender_editorial_final import (
+    _load_worker_contract,
     _validate_ephemeral_render_delta,
     publish_editorial_native_release,
 )
@@ -243,6 +245,22 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             [sys.executable, "-c", probe], capture_output=True, text=True, check=False
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_fresh_blender_worker_uses_hash_bound_headless_contract_validation(self) -> None:
+        """Catches worker re-entering Pillow-dependent accepted-image validation."""
+
+        approval_path = self._approval()
+        contract_path = authorize_editorial_final_release(
+            approval_path, self.asset_root, RELEASE_ID
+        )
+        expected_sha = sha256_file(contract_path)
+        with patch(
+            "scripts.blender.pimm_production.blender_editorial_final.validate_editorial_final_contract",
+            side_effect=ModuleNotFoundError("Pillow unavailable in Blender"),
+        ):
+            contract = _load_worker_contract(contract_path, self.asset_root, expected_sha)
+        self.assertEqual(contract["release_id"], RELEASE_ID)
+        self.assertEqual(contract["samples"], 256)
 
 
 if __name__ == "__main__":

@@ -121,6 +121,55 @@ def _shot_dimensions(contract: Mapping[str, object], approved_shot: Mapping[str,
     return width, height
 
 
+def _load_worker_contract(
+    contract_path: Path,
+    asset_root: Path,
+    expected_sha256: str,
+) -> dict[str, object]:
+    """Perform Pillow-free contract validation inside a fresh Blender process.
+
+    The controller performs the full accepted-image validation immediately
+    before and after every worker.  Blender independently binds the exact
+    contract and approval bytes, policy, shot count, and current scene
+    authority without importing raster tooling that is absent from Blender's
+    bundled Python.
+    """
+
+    contract_path = require_within(Path(contract_path).resolve(), Path(asset_root).resolve())
+    if sha256_file(contract_path) != expected_sha256:
+        raise ValueError("fresh Blender final contract hash drift")
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    required = {
+        "schema", "revision", "release_id", "generation_id", "approval", "samples", "denoise",
+        "landscape_dimensions", "portrait_dimensions", "archive_format", "delivery_format",
+        "web_derivative_format", "allowed_scene_mutations", "shots", "authorized_at",
+    }
+    if set(contract) != required or contract.get("schema") != "maliev.pimm-editorial-final-contract/v1":
+        raise ValueError("fresh Blender final contract fields or schema drift")
+    if (
+        contract.get("release_id") != RELEASE_ID
+        or contract.get("samples") != 256
+        or contract.get("denoise") is not True
+        or contract.get("landscape_dimensions") != [3840, 2160]
+        or contract.get("portrait_dimensions") != [2400, 3000]
+        or contract.get("archive_format") != "OPEN_EXR"
+        or contract.get("delivery_format") != "PNG"
+        or contract.get("web_derivative_format") != "WEBP"
+        or contract.get("allowed_scene_mutations") != ALLOWED_SCENE_MUTATIONS
+    ):
+        raise ValueError("fresh Blender final render policy drift")
+    shots = contract.get("shots")
+    if not isinstance(shots, list) or [item.get("shot_id") for item in shots if isinstance(item, Mapping)] != [shot.shot_id for shot in _CAMPAIGN.shots]:
+        raise ValueError("fresh Blender final exact four-shot contract drift")
+    approval = contract.get("approval")
+    if not isinstance(approval, Mapping) or set(approval) != {"path", "sha256"}:
+        raise ValueError("fresh Blender approval binding is invalid")
+    approval_path = require_within(Path(str(approval["path"])).resolve(), Path(asset_root).resolve())
+    if sha256_file(approval_path) != approval.get("sha256"):
+        raise ValueError("fresh Blender approval hash drift")
+    return contract
+
+
 def _render_worker(
     bpy: Any,
     *,
@@ -128,8 +177,9 @@ def _render_worker(
     contract_path: Path,
     staging_root: Path,
     shot_id: str,
+    expected_contract_sha256: str,
 ) -> dict[str, object]:
-    contract = validate_editorial_final_contract(contract_path, asset_root)
+    contract = _load_worker_contract(contract_path, asset_root, expected_contract_sha256)
     approved = next((item for item in contract["shots"] if item["shot_id"] == shot_id), None)
     if approved is None:
         raise ValueError("final shot is not approval-authorized")
@@ -181,7 +231,7 @@ def _render_worker(
         raise ValueError("native archive EXR was not produced")
     final_state = _state_record(bpy)
     _validate_ephemeral_render_delta(baseline, final_state, contract)
-    validate_editorial_final_contract(contract_path, asset_root)
+    _load_worker_contract(contract_path, asset_root, expected_contract_sha256)
     return {
         "shot_id": shot_id,
         "process_id": os.getpid(),
@@ -205,12 +255,14 @@ def _render_worker(
 
 
 def _worker_command(
-    blender: Path, scene: Path, asset_root: Path, contract: Path, staging: Path, shot_id: str
+    blender: Path, scene: Path, asset_root: Path, contract: Path, staging: Path, shot_id: str,
+    expected_contract_sha256: str,
 ) -> list[str]:
     return [
         str(blender), "--background", str(scene), "--python", str(Path(__file__).resolve()), "--",
         "--render-shot", "--asset-root", str(asset_root), "--contract", str(contract),
         "--staging-root", str(staging), "--shot-id", shot_id,
+        "--expected-contract-sha256", expected_contract_sha256,
     ]
 
 
@@ -285,7 +337,10 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
             validate_editorial_final_contract(contract_path, asset_root)
             scene = Path(str(shot["authority"]["scene_path"]))
             completed = subprocess.run(
-                _worker_command(blender, scene, asset_root, contract_path, staging, str(shot["shot_id"])),
+                _worker_command(
+                    blender, scene, asset_root, contract_path, staging, str(shot["shot_id"]),
+                    sha256_file(contract_path),
+                ),
                 capture_output=True, text=True, timeout=WORKER_TIMEOUT_SECONDS, check=False,
             )
             records.append(_parse_worker(completed, str(shot["shot_id"])))
@@ -442,6 +497,7 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--contract", type=Path)
     parser.add_argument("--staging-root", type=Path)
     parser.add_argument("--shot-id")
+    parser.add_argument("--expected-contract-sha256")
     return parser.parse_args(argv)
 
 
@@ -449,7 +505,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = _arguments(
         list(argv) if argv is not None else sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
     )
-    if not arguments.render_shot or None in (arguments.asset_root, arguments.contract, arguments.staging_root, arguments.shot_id):
+    if not arguments.render_shot or None in (
+        arguments.asset_root, arguments.contract, arguments.staging_root,
+        arguments.shot_id, arguments.expected_contract_sha256,
+    ):
         raise ValueError("native final worker requires render-shot, asset-root, contract, staging-root, and shot-id")
     import bpy
     result = _render_worker(
@@ -458,6 +517,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         contract_path=arguments.contract.resolve(),
         staging_root=arguments.staging_root.resolve(),
         shot_id=str(arguments.shot_id),
+        expected_contract_sha256=str(arguments.expected_contract_sha256),
     )
     print(WORKER_MARKER + json.dumps(result, sort_keys=True), flush=True)
     return 0
