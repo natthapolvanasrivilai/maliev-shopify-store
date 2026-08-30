@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +19,7 @@ const releaseManifestSha256 = '9CBCB6A3787DDD76DFBA5B1962DA36B30616E2838518FBD84
 const generationId = 'editorial-preview-20260830T120711.840572Z-63746b40-bca60b04';
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 const readUint24LE = (bytes, offset) => bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
+const lineagePath = (shotId, extension) => win32.join(canonicalRoot, `${shotId}.${extension}`);
 
 const webpMetadata = (bytes) => {
   assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF', 'asset is not RIFF');
@@ -57,11 +58,11 @@ const validateManifest = (manifest) => {
     assert.deepEqual(entry.dimensions, item.dimensions);
     assert.equal(entry.shot_id, item.shotId);
     assert.equal(entry.scene_sha256, item.sceneSha256);
-    assert.equal(entry.native.png.path, join(canonicalRoot, `${item.shotId}.png`));
+    assert.equal(entry.native.png.path, lineagePath(item.shotId, 'png'));
     assert.equal(entry.native.png.sha256, item.pngSha256);
-    assert.equal(entry.native.exr.path, join(canonicalRoot, `${item.shotId}.exr`));
+    assert.equal(entry.native.exr.path, lineagePath(item.shotId, 'exr'));
     assert.equal(entry.native.exr.sha256, item.exrSha256);
-    assert.equal(entry.source_webp.path, join(canonicalRoot, `${item.shotId}.webp`));
+    assert.equal(entry.source_webp.path, lineagePath(item.shotId, 'webp'));
     assert.equal(entry.source_webp.sha256, item.sourceSha256);
     assert.equal(entry.derivative.path, `assets/${item.name}`);
     assert.equal(entry.derivative.sha256, item.derivativeSha256);
@@ -89,4 +90,10 @@ test('lineage validation rejects coordinated manifest hash mutations', () => {
     else mutated.assets[0][parent] = 'F'.repeat(64);
     assert.throws(() => validateManifest(mutated), undefined, field);
   }
+});
+
+test('canonical lineage paths remain Windows paths on every CI host', () => {
+  const path = lineagePath(expected[0].shotId, 'png');
+  assert.equal(path.startsWith(['M:', '\\', '30_Products', '\\'].join('')), true);
+  assert.equal(path.includes('/'), false);
 });
