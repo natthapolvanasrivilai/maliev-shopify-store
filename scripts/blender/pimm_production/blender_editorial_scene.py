@@ -192,6 +192,12 @@ def _set_contract(
             "source": "task-3-external",
             "framing_eligible": not is_hdri,
             "contact_plane": False,
+            **({} if is_hdri else {
+                "instance_collection_name": None,
+                "instance_library_relative_path": str(record["local_relative_path"]),
+                "instance_library_sha256": str(record["sha256"]),
+                "instance_provenance": dict(record),
+            }),
         })
     coverage = {
         "architectural-daylight": (0.22, 0.75, 0.18),
@@ -368,6 +374,27 @@ def _contract_errors(contract: Mapping[str, object]) -> list[str]:
                     or any(character not in "0123456789ABCDEF" for character in signature)
                 ):
                     errors.append(f"editorial set {key} is invalid")
+            elif key == "support_allowlist":
+                actual_allowlist = actual_set.get(key)
+                if not isinstance(actual_allowlist, list) or len(actual_allowlist) != len(value):
+                    errors.append("editorial contract set does not match the exact approved shot")
+                    break
+                for expected_record, actual_record in zip(value, actual_allowlist, strict=True):
+                    if not isinstance(actual_record, Mapping):
+                        errors.append("editorial contract set does not match the exact approved shot")
+                        break
+                    for field, expected_value in expected_record.items():
+                        actual_value = actual_record.get(field)
+                        if field == "instance_collection_name" and expected_value is None:
+                            if actual_value is not None and not isinstance(actual_value, str):
+                                errors.append("editorial external instance collection binding is invalid")
+                        elif actual_value != expected_value:
+                            errors.append("editorial contract set does not match the exact approved shot")
+                            break
+                    if set(actual_record) != set(expected_record):
+                        errors.append("editorial contract set does not match the exact approved shot")
+                if errors:
+                    break
             elif actual_set.get(key) != value:
                 errors.append("editorial contract set does not match the exact approved shot")
                 break
@@ -613,29 +640,174 @@ def _matrix_sequence(value: Any) -> list[list[float]] | None:
         return None
 
 
-def _material_signature_record(material: Any) -> dict[str, object]:
-    record: dict[str, object] = {
+def _signature_value(value: Any) -> object:
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return round(value, 9)
+    if isinstance(value, Path):
+        return str(value)
+    try:
+        return [round(float(item), 9) for item in value]
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _custom_properties(datablock: Any) -> list[list[object]]:
+    return sorted(
+        [str(key), _signature_value(value)]
+        for key, value in getattr(datablock, "items", lambda: ())()
+        if str(key) != "_RNA_UI"
+    )
+
+
+def _rna_scalar_properties(datablock: Any, excluded: set[str] | None = None) -> dict[str, object]:
+    excluded = excluded or set()
+    identifiers: set[str] = set(vars(datablock)) if hasattr(datablock, "__dict__") else set()
+    rna = getattr(datablock, "bl_rna", None)
+    identifiers.update(
+        str(prop.identifier) for prop in getattr(rna, "properties", ())
+        if not getattr(prop, "is_readonly", False)
+    )
+    result: dict[str, object] = {}
+    for identifier in sorted(identifiers - excluded - {"rna_type"}):
+        if identifier.startswith("_"):
+            continue
+        try:
+            value = getattr(datablock, identifier)
+        except (AttributeError, RuntimeError):
+            continue
+        if callable(value) or hasattr(value, "bl_rna"):
+            continue
+        if isinstance(value, (bool, int, float, str)):
+            result[identifier] = _signature_value(value)
+            continue
+        try:
+            sequence = list(value)
+        except TypeError:
+            continue
+        if len(sequence) <= 16 and all(isinstance(item, (bool, int, float, str)) for item in sequence):
+            result[identifier] = [_signature_value(item) for item in sequence]
+    return result
+
+
+def _node_values(nodes: Any) -> list[Any]:
+    try:
+        return list(nodes)
+    except TypeError:
+        return list(getattr(nodes, "_items", {}).values())
+
+
+def _socket_values(sockets: Any) -> list[tuple[str, Any]]:
+    if hasattr(sockets, "items"):
+        return [(str(name), socket) for name, socket in sockets.items()]
+    return [(str(getattr(socket, "identifier", getattr(socket, "name", index))), socket) for index, socket in enumerate(sockets)]
+
+
+def _image_signature_record(bpy: Any, image: Any) -> dict[str, object]:
+    raw_path = str(getattr(image, "filepath", ""))
+    absolute: Path | None = None
+    if raw_path:
+        try:
+            resolved = bpy.path.abspath(raw_path) if raw_path.startswith("//") else raw_path
+            absolute = Path(str(resolved)).resolve()
+        except (AttributeError, OSError):
+            absolute = Path(raw_path)
+    packed = getattr(image, "packed_file", None)
+    return {
+        "name": str(getattr(image, "name", "")),
+        "source": str(getattr(image, "source", "")),
+        "filepath": raw_path,
+        "absolute_path": str(absolute) if absolute is not None else "",
+        "sha256": sha256_file(absolute) if absolute is not None and absolute.is_file() else None,
+        "packed_size": int(getattr(packed, "size", 0)) if packed is not None else 0,
+    }
+
+
+def _node_tree_signature_record(bpy: Any, node_tree: Any) -> dict[str, object] | None:
+    if node_tree is None:
+        return None
+    nodes = []
+    for node in sorted(_node_values(node_tree.nodes), key=lambda item: str(getattr(item, "name", ""))):
+        record = {
+            "name": str(getattr(node, "name", "")),
+            "type": str(getattr(node, "bl_idname", getattr(node, "type", ""))),
+            "label": str(getattr(node, "label", "")),
+            "mute": bool(getattr(node, "mute", False)),
+            "settings": _rna_scalar_properties(
+                node, {"name", "label", "mute", "inputs", "outputs", "image"}
+            ),
+            "inputs": [
+                {
+                    "name": name,
+                    "default": _signature_value(getattr(socket, "default_value", None)),
+                    "enabled": bool(getattr(socket, "enabled", True)),
+                    "hide_value": bool(getattr(socket, "hide_value", False)),
+                }
+                for name, socket in sorted(_socket_values(getattr(node, "inputs", ())))
+            ],
+            "outputs": [name for name, _socket in sorted(_socket_values(getattr(node, "outputs", ())))],
+        }
+        image = getattr(node, "image", None)
+        if image is not None:
+            record["image"] = _image_signature_record(bpy, image)
+        nodes.append(record)
+    try:
+        links_source = list(node_tree.links)
+    except TypeError:
+        links_source = []
+    links = sorted(
+        [
+            str(getattr(link.from_node, "name", "")),
+            str(getattr(link.from_socket, "identifier", getattr(link.from_socket, "name", ""))),
+            str(getattr(link.to_node, "name", "")),
+            str(getattr(link.to_socket, "identifier", getattr(link.to_socket, "name", ""))),
+        ]
+        for link in links_source
+    )
+    return {"nodes": nodes, "links": links}
+
+
+def _material_signature_record(bpy: Any, material: Any) -> dict[str, object]:
+    return {
         "name": str(getattr(material, "name", "")),
         "library": str(getattr(getattr(material, "library", None), "filepath", "")),
         "diffuse_color": _numeric_sequence(getattr(material, "diffuse_color", None)),
-        "properties": sorted(
-            (str(key), str(value)) for key, value in getattr(material, "items", lambda: ())()
-            if str(key).startswith("pimm_")
+        "properties": _custom_properties(material),
+        "settings": _rna_scalar_properties(
+            material, {"name", "node_tree", "diffuse_color"}
         ),
+        "node_tree": _node_tree_signature_record(bpy, getattr(material, "node_tree", None)),
     }
-    node_tree = getattr(material, "node_tree", None)
-    shader = node_tree.nodes.get("Principled BSDF") if node_tree else None
-    if shader is not None:
-        record["principled"] = {
-            key: _numeric_sequence(socket.default_value)
-            if hasattr(socket.default_value, "__iter__")
-            else round(float(socket.default_value), 9)
-            if socket.default_value is not None
-            else None
-            for key, socket in sorted(shader.inputs.items())
-            if key in {"Base Color", "Roughness", "Metallic", "Transmission Weight", "Alpha"}
+
+
+def _mesh_signature_record(mesh: Any) -> dict[str, object]:
+    vertices = [
+        _numeric_sequence(getattr(vertex, "co", vertex))
+        for vertex in getattr(mesh, "vertices", ())
+    ]
+    edges = [
+        list(getattr(edge, "vertices", edge))
+        for edge in getattr(mesh, "edges", ())
+    ]
+    polygons_source = getattr(mesh, "polygons", getattr(mesh, "faces", ()))
+    polygons = [
+        {
+            "vertices": list(getattr(polygon, "vertices", polygon)),
+            "material_index": int(getattr(polygon, "material_index", 0)),
+            "use_smooth": bool(getattr(polygon, "use_smooth", False)),
         }
-    return record
+        for polygon in polygons_source
+    ]
+    return {
+        "vertices": vertices,
+        "edges": edges,
+        "polygons": polygons,
+        "settings": _rna_scalar_properties(
+            mesh, {"name", "vertices", "edges", "polygons", "loops", "faces", "materials"}
+        ),
+        "properties": _custom_properties(mesh),
+    }
 
 
 def _scene_geometry_signature(bpy: Any, allowed_names: set[str]) -> str:
@@ -649,7 +821,16 @@ def _scene_geometry_signature(bpy: Any, allowed_names: set[str]) -> str:
         data = getattr(obj, "data", None)
         materials = list(getattr(data, "materials", ())) if data is not None else []
         instance = getattr(obj, "instance_collection", None)
-        records.append({
+        evaluated = obj
+        evaluated_mesh = data
+        owns_evaluated_mesh = False
+        depsgraph_get = getattr(bpy.context, "evaluated_depsgraph_get", None)
+        if getattr(obj, "type", None) == "MESH" and callable(depsgraph_get) and hasattr(obj, "evaluated_get"):
+            depsgraph = depsgraph_get()
+            evaluated = obj.evaluated_get(depsgraph)
+            evaluated_mesh = evaluated.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
+            owns_evaluated_mesh = True
+        record = {
             "name": str(obj.name),
             "type": str(getattr(obj, "type", "")),
             "role": obj.get("pimm_scene_support_role"),
@@ -661,13 +842,27 @@ def _scene_geometry_signature(bpy: Any, allowed_names: set[str]) -> str:
             "scale": _numeric_sequence(getattr(obj, "scale", None)),
             "matrix_world": _matrix_sequence(getattr(obj, "matrix_world", None)),
             "data_name": str(getattr(data, "name", "")),
-            "vertex_count": len(getattr(data, "vertices", ())) if data is not None else 0,
-            "polygon_count": len(getattr(data, "polygons", getattr(data, "faces", ()))) if data is not None else 0,
-            "materials": [_material_signature_record(material) for material in materials if material is not None],
+            "evaluated_geometry": _mesh_signature_record(evaluated_mesh) if evaluated_mesh is not None else None,
+            "modifiers": [
+                {
+                    "name": str(getattr(modifier, "name", "")),
+                    "type": str(getattr(modifier, "type", "")),
+                    "settings": _rna_scalar_properties(modifier, {"name", "type"}),
+                }
+                for modifier in getattr(obj, "modifiers", ())
+            ],
+            "object_settings": {
+                name: _signature_value(getattr(obj, name, None))
+                for name in ("hide_render", "visible_camera", "visible_shadow", "is_shadow_catcher", "color")
+            },
+            "materials": [_material_signature_record(bpy, material) for material in materials if material is not None],
             "instance_type": str(getattr(obj, "instance_type", "")),
             "instance_collection": str(getattr(instance, "name", "")),
             "instance_library": str(_library_path(bpy, getattr(instance, "library", None)) or ""),
-        })
+        }
+        records.append(record)
+        if owns_evaluated_mesh:
+            evaluated.to_mesh_clear()
     return _sha256_bytes(_canonical_json({"objects": records}).encode("utf-8"))
 
 
@@ -695,29 +890,21 @@ def _scene_light_signature(bpy: Any) -> str:
             "rotation_euler": _numeric_sequence(getattr(obj, "rotation_euler", None)),
             "scale": _numeric_sequence(getattr(obj, "scale", None)),
             "matrix_world": _matrix_sequence(getattr(obj, "matrix_world", None)),
+            "settings": _rna_scalar_properties(
+                data, {"name", "node_tree", "color", "energy", "type", "shape", "size", "size_y", "angle", "shadow_soft_size"}
+            ),
+            "node_tree": _node_tree_signature_record(bpy, getattr(data, "node_tree", None)),
         })
     world = bpy.context.scene.world
     if world is not None:
-        node_tree = getattr(world, "node_tree", None)
-        background = node_tree.nodes.get("Background") if node_tree else None
-        strength_socket = background.inputs.get("Strength") if background else None
-        node_values = getattr(getattr(node_tree, "nodes", None), "_items", {}).values() if node_tree else ()
-        try:
-            node_values = list(node_tree.nodes) if node_tree else []
-        except TypeError:
-            pass
-        environment_images = sorted(
-            str(getattr(getattr(node, "image", None), "filepath", ""))
-            for node in node_values
-            if getattr(node, "image", None) is not None
-        ) if node_tree else []
         records.append({
             "name": str(getattr(world, "name", "")),
             "role": world.get("pimm_editorial_light_role"),
             "external_version": world.get("pimm_external_asset_version_id"),
             "external_sha256": world.get("pimm_external_sha256"),
-            "strength": round(float(strength_socket.default_value), 9) if strength_socket and strength_socket.default_value is not None else None,
-            "environment_images": environment_images,
+            "settings": _rna_scalar_properties(world, {"name", "node_tree"}),
+            "properties": _custom_properties(world),
+            "node_tree": _node_tree_signature_record(bpy, getattr(world, "node_tree", None)),
         })
     return _sha256_bytes(_canonical_json({"lights": records}).encode("utf-8"))
 
@@ -746,6 +933,28 @@ def _has_product_identity(obj: Any) -> bool:
     )
 
 
+def _bind_external_instance_contract(
+    bpy: Any, allowlist: Sequence[Mapping[str, object]]
+) -> None:
+    """Bind author-time linked collection identity into the otherwise immutable contract."""
+
+    objects = {str(obj.name): obj for obj in bpy.context.scene.objects}
+    for record in allowlist:
+        if "instance_collection_name" not in record:
+            continue
+        if not isinstance(record, dict):
+            raise ValueError("external instance allowlist record must be mutable during authoring")
+        obj = objects.get(str(record["name"]))
+        collection = getattr(obj, "instance_collection", None) if obj is not None else None
+        if obj is None or getattr(obj, "instance_type", None) != "COLLECTION" or collection is None:
+            raise ValueError(f"external scene-support instance did not resolve: {record['name']}")
+        library_path = _library_path(bpy, getattr(collection, "library", None))
+        expected_path = (ASSET_ROOT / Path(str(record["instance_library_relative_path"]))).resolve()
+        if library_path != expected_path or sha256_file(expected_path) != record["instance_library_sha256"]:
+            raise ValueError(f"external scene-support library binding changed: {record['name']}")
+        record["instance_collection_name"] = str(collection.name)
+
+
 def _scene_object_allowlist_errors(
     bpy: Any, allowlist: Sequence[Mapping[str, object]]
 ) -> list[str]:
@@ -770,9 +979,35 @@ def _scene_object_allowlist_errors(
             errors.append(f"scene-support contact-plane authority changed: {name}")
         if _has_product_identity(obj):
             errors.append(f"scene-support carries forbidden product ownership or stable ID: {name}")
+        if "instance_collection_name" in record:
+            collection = getattr(obj, "instance_collection", None)
+            expected_path = (ASSET_ROOT / Path(str(record["instance_library_relative_path"]))).resolve()
+            actual_path = _library_path(bpy, getattr(collection, "library", None)) if collection is not None else None
+            if (
+                getattr(obj, "instance_type", None) != "COLLECTION"
+                or collection is None
+                or str(getattr(collection, "name", "")) != record["instance_collection_name"]
+            ):
+                errors.append(f"external instance collection binding changed: {name}")
+            if actual_path != expected_path:
+                errors.append(f"external instance library binding changed: {name}")
+            elif not expected_path.is_file() or sha256_file(expected_path) != record["instance_library_sha256"]:
+                errors.append(f"external instance library hash changed: {name}")
+            if _provenance_record(obj) != record["instance_provenance"]:
+                errors.append(f"external instance provenance changed: {name}")
     for name in sorted(set(actual_supports) - set(expected)):
         errors.append(f"unexpected scene-support object: {name}")
     for obj in bpy.context.scene.objects:
+        unexpected_instance = (
+            getattr(obj, "type", None) == "EMPTY"
+            and getattr(obj, "instance_type", None) == "COLLECTION"
+            and _library_path(bpy, getattr(obj, "library", None)) is None
+            and str(obj.name) not in expected
+        )
+        if unexpected_instance:
+            errors.append(f"unexpected local collection instance: {obj.name}")
+            if _has_product_identity(obj):
+                errors.append(f"unexpected local collection instance has product ownership or stable ID: {obj.name}")
         if (
             getattr(obj, "type", None) in _LOCAL_RENDERABLE_TYPES
             and _library_path(bpy, getattr(obj, "library", None)) is None
@@ -854,7 +1089,7 @@ def _projected_occlusion(
         - max(float(support_min[axis]), float(foot_min[axis])) > tolerance
         for axis in (0, 1)
     )
-    return overlaps and float(support["depth_min"]) < float(foot["depth_min"]) - tolerance
+    return overlaps and float(support["depth_min"]) < float(foot["depth_max"]) - tolerance
 
 
 def _provenance_record(datablock: Any) -> dict[str, object] | None:
@@ -963,10 +1198,7 @@ def _collect_runtime_snapshot(bpy: Any, contract: Mapping[str, object]) -> tuple
         target = (math.inf, math.inf, math.inf)
     vertical = camera.matrix_world.to_quaternion() @ __import__("mathutils").Vector((0.0, 1.0, 0.0)) if camera else None
     forward = camera.matrix_world.to_quaternion() @ __import__("mathutils").Vector((0.0, 0.0, -1.0)) if camera else None
-    supports_with_bounds = [
-        bounds for obj, bounds in _support_bounds(bpy)
-        if obj.get("pimm_editorial_framing_eligible") is True
-    ]
+    supports_with_bounds = _framing_support_bounds(bpy)
     support_rectangle = (
         (
             tuple(min(bounds[0][axis] for bounds in supports_with_bounds) for axis in range(3)),
@@ -1140,6 +1372,53 @@ def _group_bounds(objects: Sequence[Any]) -> tuple[tuple[float, float, float], t
     )
 
 
+def _framing_support_bounds(
+    bpy: Any,
+) -> list[tuple[tuple[float, float, float], tuple[float, float, float]]]:
+    """Return only editorially designed props explicitly eligible for camera solving."""
+
+    return [
+        bounds for obj, bounds in _support_bounds(bpy)
+        if obj.get("pimm_editorial_framing_eligible") is True
+        and obj.get("pimm_editorial_contact_plane") is not True
+    ]
+
+
+def _solve_camera_layout(
+    shot: EditorialConceptShot,
+    machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
+    support_bounds: Sequence[tuple[tuple[float, float, float], tuple[float, float, float]]],
+) -> dict[str, object]:
+    support_rectangle = (
+        (
+            tuple(min(bounds[0][axis] for bounds in support_bounds) for axis in range(3)),
+            tuple(max(bounds[1][axis] for bounds in support_bounds) for axis in range(3)),
+        )
+        if support_bounds else machine_bounds
+    )
+    combined = (
+        tuple(min(machine_bounds[0][axis], support_rectangle[0][axis]) for axis in range(3)),
+        tuple(max(machine_bounds[1][axis], support_rectangle[1][axis]) for axis in range(3)),
+    )
+    target = (
+        (machine_bounds[0][0] + machine_bounds[1][0]) / 2.0,
+        (machine_bounds[0][1] + machine_bounds[1][1]) / 2.0,
+        (machine_bounds[0][2] + machine_bounds[1][2]) / 2.0,
+    )
+    tan_horizontal = SENSOR_WIDTH_MM / (2.0 * shot.focal_length_mm)
+    tan_vertical = tan_horizontal / (shot.width / shot.height)
+    horizontal = max(abs(combined[0][0] - target[0]), abs(combined[1][0] - target[0]))
+    vertical = max(abs(combined[0][2] - target[2]), abs(combined[1][2] - target[2]))
+    near_distance = max(horizontal / tan_horizontal, vertical / tan_vertical) * 1.08
+    return {
+        "combined_bounds": combined,
+        "support_rectangle": support_rectangle,
+        "target": target,
+        "near_distance": near_distance,
+        "location": (target[0], combined[0][1] - near_distance, target[2]),
+    }
+
+
 def _place_supports(
     bpy: Any,
     shot: EditorialConceptShot,
@@ -1227,25 +1506,12 @@ def _configure_camera(
 ) -> tuple[Any, tuple[float, float, float], dict[str, object]]:
     from mathutils import Vector
 
-    support_bounds = [
-        bounds for obj, bounds in _support_bounds(bpy)
-        if obj.get("pimm_editorial_framing_eligible") is True
-    ]
-    combined = (
-        tuple(min([machine_bounds[0][axis], *[bounds[0][axis] for bounds in support_bounds]]) for axis in range(3)),
-        tuple(max([machine_bounds[1][axis], *[bounds[1][axis] for bounds in support_bounds]]) for axis in range(3)),
-    )
-    target = (
-        (machine_bounds[0][0] + machine_bounds[1][0]) / 2.0,
-        (machine_bounds[0][1] + machine_bounds[1][1]) / 2.0,
-        (machine_bounds[0][2] + machine_bounds[1][2]) / 2.0,
-    )
-    tan_horizontal = SENSOR_WIDTH_MM / (2.0 * shot.focal_length_mm)
-    tan_vertical = tan_horizontal / (shot.width / shot.height)
-    horizontal = max(abs(combined[0][0] - target[0]), abs(combined[1][0] - target[0]))
-    vertical = max(abs(combined[0][2] - target[2]), abs(combined[1][2] - target[2]))
-    near_distance = max(horizontal / tan_horizontal, vertical / tan_vertical) * 1.08
-    location = (target[0], combined[0][1] - near_distance, target[2])
+    support_bounds = _framing_support_bounds(bpy)
+    layout = _solve_camera_layout(shot, machine_bounds, support_bounds)
+    combined = layout["combined_bounds"]
+    target = layout["target"]
+    near_distance = layout["near_distance"]
+    location = layout["location"]
     data = bpy.data.cameras.new(CAMERA_NAME)
     camera = bpy.data.objects.new(CAMERA_NAME, data)
     bpy.context.scene.collection.objects.link(camera)
@@ -1261,13 +1527,7 @@ def _configure_camera(
     data.dof.focus_distance = math.dist(location, target)
     bpy.context.scene.camera = camera
     bpy.context.view_layer.update()
-    support_rectangle = (
-        (
-            tuple(min(bounds[0][axis] for bounds in support_bounds) for axis in range(3)),
-            tuple(max(bounds[1][axis] for bounds in support_bounds) for axis in range(3)),
-        )
-        if support_bounds else machine_bounds
-    )
+    support_rectangle = layout["support_rectangle"]
     return camera, target, {
         "machine_bounds": _bounds_mapping(machine_bounds),
         "support_rectangle": _bounds_mapping(support_rectangle),
@@ -1305,6 +1565,7 @@ def author_editorial_scene(
     set_contract = contract["set"]
     if not isinstance(set_contract, dict):
         raise ValueError("editorial set contract must be mutable during authoring")
+    _bind_external_instance_contract(bpy, set_contract["support_allowlist"])
     _place_supports(
         bpy, shot, set_evidence, machine_bounds, contact.z,
         set_contract["support_allowlist"],
@@ -1384,6 +1645,37 @@ def _atomic_json_write(path: Path, payload: Mapping[str, object]) -> None:
     os.replace(candidate, path)
 
 
+def _publication_transaction_payload(
+    *,
+    scene_id: str,
+    transaction_id: str,
+    scene_candidate: Path,
+    contract_candidate: Path,
+    transaction_path: Path,
+    scene_destination: Path,
+    contract_destination: Path,
+    marker_destination: Path,
+    scene_sha256: str,
+    contract_sha256: str,
+) -> dict[str, object]:
+    return {
+        "schema": PUBLICATION_SCHEMA,
+        "status": "staged",
+        "scene_id": scene_id,
+        "transaction_id": transaction_id,
+        "scene_sha256": scene_sha256,
+        "contract_sha256": contract_sha256,
+        "paths": {
+            "scene_candidate": str(scene_candidate.resolve()),
+            "contract_candidate": str(contract_candidate.resolve()),
+            "transaction": str(transaction_path.resolve()),
+            "scene_published": str(scene_destination.resolve()),
+            "contract_published": str(contract_destination.resolve()),
+            "completion_marker": str(marker_destination.resolve()),
+        },
+    }
+
+
 def _commit_publication_pair(
     *,
     scene_candidate: Path,
@@ -1438,27 +1730,61 @@ def _recover_incomplete_publication(
 ) -> dict[str, object]:
     """Archive, never delete, any pair that lacks a matching marker-last commit."""
 
-    if _completion_marker_matches(scene_path, contract_path, marker_path):
-        return {"status": "complete", "paths": [str(scene_path), str(contract_path), str(marker_path)]}
-    existing = [
-        path for path in (scene_path, contract_path, marker_path, transaction_path)
-        if path.exists()
-    ]
+    complete = _completion_marker_matches(scene_path, contract_path, marker_path)
+    discovered: list[Path] = [scene_path, contract_path, marker_path, transaction_path]
+    if transaction_path.is_file():
+        try:
+            journal = json.loads(transaction_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            journal = None
+        paths = journal.get("paths") if isinstance(journal, Mapping) else None
+        if isinstance(paths, Mapping):
+            allowed_parents = {scene_path.parent.resolve(), contract_path.parent.resolve()}
+            for raw_path in paths.values():
+                candidate = Path(str(raw_path)).resolve()
+                if candidate.parent in allowed_parents:
+                    discovered.append(candidate)
+    discovered.extend(scene_path.parent.glob(f".{scene_path.stem}.*.candidate{scene_path.suffix}"))
+    discovered.extend(contract_path.parent.glob(f".{contract_path.stem}.*.candidate{contract_path.suffix}"))
     for authority_path in (marker_path, transaction_path):
-        existing.extend(
-            path for path in authority_path.parent.glob(f".{authority_path.name}.*.candidate")
-            if path not in existing
-        )
+        discovered.extend(authority_path.parent.glob(f".{authority_path.name}.*.candidate"))
+    existing = list(dict.fromkeys(path for path in discovered if path.exists()))
+    incomplete_artifacts = [
+        path for path in existing
+        if path not in {scene_path, contract_path, marker_path, transaction_path}
+    ]
+    if complete and not incomplete_artifacts:
+        return {
+            "status": "complete",
+            "paths": [str(scene_path), str(contract_path), str(marker_path)],
+        }
+    if complete:
+        existing = incomplete_artifacts
     if not existing:
         return {"status": "empty", "paths": []}
     revision = rejected_root / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ-incomplete-pair")
     revision.mkdir(parents=True, exist_ok=False)
     archived: list[str] = []
+    before_hashes = {str(source): sha256_file(source) for source in existing if source.is_file()}
     for source in existing:
-        destination = revision / source.name.lstrip(".")
+        destination = revision / source.name
         os.rename(source, destination)
         archived.append(str(destination))
-    return {"status": "recovered_to_rejected", "paths": archived}
+    verified = all(
+        sha256_file(Path(destination)) == before_hashes[str(source)]
+        for source, destination in zip(existing, archived, strict=True)
+        if str(source) in before_hashes
+    )
+    return {
+        "status": "complete" if complete else "recovered_to_rejected",
+        "paths": archived,
+        "archived_hashes_verified": verified,
+        "archived_sha256": {
+            str(destination): before_hashes[str(source)]
+            for source, destination in zip(existing, archived, strict=True)
+            if str(source) in before_hashes
+        },
+    }
 
 
 def _interpret_fresh_validation_process(completed: Any) -> list[str]:
@@ -1559,14 +1885,18 @@ def _author_and_publish(bpy: Any, shot: EditorialConceptShot) -> dict[str, objec
             raise FileExistsError("editorial publication destination appeared during validation")
         scene_sha = sha256_file(scene_candidate)
         contract_sha = sha256_file(contract_candidate)
-        transaction = {
-            "schema": PUBLICATION_SCHEMA,
-            "status": "staged",
-            "scene_id": shot.shot_id,
-            "transaction_id": contract["publication"]["transaction_id"],
-            "scene_sha256": scene_sha,
-            "contract_sha256": contract_sha,
-        }
+        transaction = _publication_transaction_payload(
+            scene_id=shot.shot_id,
+            transaction_id=contract["publication"]["transaction_id"],
+            scene_candidate=scene_candidate,
+            contract_candidate=contract_candidate,
+            transaction_path=transaction_candidate,
+            scene_destination=scene_destination,
+            contract_destination=contract_destination,
+            marker_destination=marker_destination,
+            scene_sha256=scene_sha,
+            contract_sha256=contract_sha,
+        )
         _atomic_json_write(transaction_candidate, transaction)
         marker = dict(transaction)
         marker["status"] = "complete"

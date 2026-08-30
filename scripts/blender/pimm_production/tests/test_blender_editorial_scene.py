@@ -9,6 +9,7 @@ import hashlib
 import json
 from io import StringIO
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -273,6 +274,89 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         })
         self.assertIn("visually dominant", "\n".join(self.errors(snapshot)))
 
+    def test_real_projection_and_camera_solver_exclude_a_twenty_metre_contact_plane(self) -> None:
+        """Catches the contact receiver re-entering the real framing/camera solve path."""
+
+        machine = ((-207.0, -172.5, 0.0), (207.0, 172.5, 892.5))
+        prop = ((-310.0, 300.0, 0.0), (310.0, 700.0, 700.0))
+        plane = ((-10_207.0, -10_172.5, 0.0), (10_207.0, 10_172.5, 0.0))
+
+        class Support(dict):
+            def __init__(self, name: str, eligible: bool) -> None:
+                super().__init__(pimm_editorial_framing_eligible=eligible)
+                self.name = name
+
+        eligible = Support("PROP", True)
+        contact = Support("CONTACT", False)
+        fake_bpy = SimpleNamespace()
+        with patch.object(
+            blender_editorial_scene,
+            "_support_bounds",
+            return_value=[(eligible, prop), (contact, plane)],
+        ):
+            support_bounds = blender_editorial_scene._framing_support_bounds(fake_bpy)
+        self.assertEqual(support_bounds, [prop])
+
+        layout = blender_editorial_scene._solve_camera_layout(self.shot, machine, support_bounds)
+        polluted = blender_editorial_scene._solve_camera_layout(self.shot, machine, [prop, plane])
+        self.assertEqual(layout["support_rectangle"], prop)
+        self.assertLess(layout["near_distance"], polluted["near_distance"] / 10.0)
+
+        class Projected:
+            def __init__(self, x: float, y: float, z: float) -> None:
+                self.x, self.y, self.z = x, y, z
+
+            def __getitem__(self, axis: int) -> float:
+                return (self.x, self.y, self.z)[axis]
+
+        camera = SimpleNamespace(
+            distance=layout["near_distance"],
+            target_z=layout["target"][2],
+        )
+        tan_h = blender_editorial_scene.SENSOR_WIDTH_MM / (2.0 * self.shot.focal_length_mm)
+        tan_v = tan_h / (self.shot.width / self.shot.height)
+
+        def project(_scene, current_camera, point):
+            return Projected(
+                0.5 + float(point[0]) / (2.0 * current_camera.distance * tan_h),
+                0.5 + (float(point[2]) - current_camera.target_z) / (2.0 * current_camera.distance * tan_v),
+                current_camera.distance + float(point[1]),
+            )
+
+        modules = {
+            "bpy_extras": SimpleNamespace(),
+            "bpy_extras.object_utils": SimpleNamespace(world_to_camera_view=project),
+            "mathutils": SimpleNamespace(Vector=lambda value: value),
+        }
+        projection_bpy = SimpleNamespace(context=SimpleNamespace(scene=object()))
+        with patch.dict(sys.modules, modules):
+            measured = blender_editorial_scene._project_bounds(projection_bpy, camera, machine)
+            polluted_camera = SimpleNamespace(
+                distance=polluted["near_distance"], target_z=polluted["target"][2]
+            )
+            polluted_measured = blender_editorial_scene._project_bounds(
+                projection_bpy, polluted_camera, machine
+            )
+            foot_projection = blender_editorial_scene._project_bounds(
+                projection_bpy, camera, ((0.0, 0.0, 0.0), (10.0, 20.0, 10.0))
+            )
+            partial_projection = blender_editorial_scene._project_bounds(
+                projection_bpy, camera, ((2.0, 15.0, 2.0), (8.0, 25.0, 8.0))
+            )
+            separate_projection = blender_editorial_scene._project_bounds(
+                projection_bpy, camera, ((30.0, 15.0, 2.0), (40.0, 25.0, 8.0))
+            )
+            behind_projection = blender_editorial_scene._project_bounds(
+                projection_bpy, camera, ((2.0, 30.0, 2.0), (8.0, 40.0, 8.0))
+            )
+        policy = self.contract["set"]["coverage_policy"]
+        self.assertGreaterEqual(measured["width_ratio"], policy["minimum_machine_width_ratio"])
+        self.assertGreaterEqual(measured["height_ratio"], policy["minimum_machine_height_ratio"])
+        self.assertLess(polluted_measured["width_ratio"], policy["minimum_machine_width_ratio"])
+        self.assertTrue(blender_editorial_scene._projected_occlusion(partial_projection, foot_projection))
+        self.assertFalse(blender_editorial_scene._projected_occlusion(separate_projection, foot_projection))
+        self.assertFalse(blender_editorial_scene._projected_occlusion(behind_projection, foot_projection))
+
     def test_scene_signatures_change_when_a_real_support_or_light_datablock_changes(self) -> None:
         """Catches validation trusting embedded signature text instead of reopened datablocks."""
 
@@ -301,6 +385,80 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         light_snapshot["set"]["scene_light_signature"] = light_after
         self.assertIn("signatures do not match", "\n".join(self.errors(light_snapshot, governed)))
 
+    def test_scene_signatures_cover_geometry_modifiers_material_images_and_world_nodes(self) -> None:
+        """Catches datablock edits hidden behind unchanged transforms and light energy."""
+
+        fake_bpy = _FakeBpy()
+        evidence = editorial_sets.build_editorial_set(fake_bpy, self.shot)
+        allowed = {item.name for item in evidence.geometry}
+        support = next(obj for obj in fake_bpy.context.scene.objects if obj.name in allowed)
+
+        def assert_geometry_rejected(before_signature: str, after_signature: str) -> None:
+            governed = copy.deepcopy(self.contract)
+            governed["set"]["scene_geometry_signature"] = before_signature
+            snapshot = _snapshot(governed)
+            snapshot["set"]["scene_geometry_signature"] = after_signature
+            self.assertIn("signatures do not match", "\n".join(self.errors(snapshot, governed)))
+
+        def assert_light_rejected(before_signature: str, after_signature: str) -> None:
+            governed = copy.deepcopy(self.contract)
+            governed["set"]["scene_light_signature"] = before_signature
+            snapshot = _snapshot(governed)
+            snapshot["set"]["scene_light_signature"] = after_signature
+            self.assertIn("signatures do not match", "\n".join(self.errors(snapshot, governed)))
+
+        before = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        support.data.vertices[0] = tuple(value + 1.0 for value in support.data.vertices[0])
+        after_vertex = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        self.assertNotEqual(before, after_vertex)
+        assert_geometry_rejected(before, after_vertex)
+
+        before_modifier = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        support.modifiers = [SimpleNamespace(name="BEND", type="SIMPLE_DEFORM", strength=0.25)]
+        after_modifier_add = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        self.assertNotEqual(before_modifier, after_modifier_add)
+        assert_geometry_rejected(before_modifier, after_modifier_add)
+        support.modifiers[0].strength = 0.5
+        after_modifier = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        self.assertNotEqual(after_modifier_add, after_modifier)
+        assert_geometry_rejected(after_modifier_add, after_modifier)
+
+        material = support.data.materials[0]
+        before_topology = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        material_node = material.node_tree.nodes.new("ShaderNodeTexImage")
+        after_topology = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        self.assertNotEqual(before_topology, after_topology)
+        assert_geometry_rejected(before_topology, after_topology)
+        material_node.inputs["Strength"].default_value = 0.25
+        before_node = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        material_node.inputs["Strength"].default_value = 0.75
+        after_node = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+        self.assertNotEqual(before_node, after_node)
+        assert_geometry_rejected(before_node, after_node)
+
+        with TemporaryDirectory() as directory:
+            image_path = Path(directory) / "identity.hdr"
+            image_path.write_bytes(b"image-a")
+            material_node.image = SimpleNamespace(name="IDENTITY", filepath=str(image_path))
+            before_image = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+            image_path.write_bytes(b"image-b")
+            after_image = blender_editorial_scene._scene_geometry_signature(fake_bpy, allowed)
+            self.assertNotEqual(before_image, after_image)
+            assert_geometry_rejected(before_image, after_image)
+
+        fake_bpy.context.scene.world = fake_bpy.data.worlds.new("TEST_WORLD")
+        before_world_topology = blender_editorial_scene._scene_light_signature(fake_bpy)
+        world_node = fake_bpy.context.scene.world.node_tree.nodes.new("ShaderNodeValue")
+        after_world_topology = blender_editorial_scene._scene_light_signature(fake_bpy)
+        self.assertNotEqual(before_world_topology, after_world_topology)
+        assert_light_rejected(before_world_topology, after_world_topology)
+        world_node.inputs["Strength"].default_value = 0.25
+        before_world = blender_editorial_scene._scene_light_signature(fake_bpy)
+        world_node.inputs["Strength"].default_value = 0.75
+        after_world = blender_editorial_scene._scene_light_signature(fake_bpy)
+        self.assertNotEqual(before_world, after_world)
+        assert_light_rejected(before_world, after_world)
+
     def test_support_tag_cannot_hide_an_extra_local_product_copy(self) -> None:
         """Catches a duplicated local product mesh bypassing rejection via scene-support tags."""
 
@@ -322,14 +480,83 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         self.assertIn("unexpected local renderable", joined)
         self.assertIn("product ownership", joined)
 
+    def test_local_collection_instances_cannot_bypass_the_support_allowlist(self) -> None:
+        """Catches untagged or falsely tagged EMPTY instances rendering product collections."""
+
+        for tagged in (False, True):
+            with self.subTest(tagged=tagged):
+                fake_bpy = _FakeBpy()
+                editorial_sets.build_editorial_set(fake_bpy, self.shot)
+                product = fake_bpy.data.objects.new(
+                    "PRODUCT_IN_COLLECTION", fake_bpy.data.meshes.new("PRODUCT_MESH")
+                )
+                product["pimm_stable_id"] = "30G-hidden-product"
+                collection = SimpleNamespace(
+                    name="DUPLICATED_PRODUCT_COLLECTION",
+                    library=None,
+                    all_objects=[product],
+                )
+                instance = fake_bpy.data.objects.new("LOCAL_PRODUCT_INSTANCE", None)
+                instance.instance_type = "COLLECTION"
+                instance.instance_collection = collection
+                if tagged:
+                    instance["pimm_scene_support_ownership"] = "scene-support"
+                    instance["pimm_scene_support_role"] = "fixture"
+                fake_bpy.context.scene.collection.objects.link(instance)
+                errors = blender_editorial_scene._scene_object_allowlist_errors(
+                    fake_bpy, self.contract["set"]["support_allowlist"]
+                )
+                joined = "\n".join(errors)
+                self.assertIn("unexpected local collection instance", joined)
+                self.assertIn("product ownership", joined)
+
+    def test_expected_external_instance_is_bound_to_collection_library_hash_and_provenance(self) -> None:
+        """Catches an allowed EMPTY being redirected to a different collection or library."""
+
+        shot = self.campaign.by_shot_id["pimm-50g--concept-modern-workshop"]
+        contract = blender_editorial_scene.prepare_editorial_contract(shot)
+        fake_bpy = _FakeBpy()
+        editorial_sets.build_editorial_set(fake_bpy, shot)
+        records = contract["set"]["support_allowlist"]
+        by_name = {record["name"]: record for record in records}
+        for obj in fake_bpy.context.scene.objects:
+            record = by_name.get(obj.name)
+            if record:
+                obj["pimm_editorial_framing_eligible"] = record["framing_eligible"]
+                obj["pimm_editorial_contact_plane"] = record["contact_plane"]
+        instance = next(
+            obj for obj in fake_bpy.context.scene.objects
+            if obj.name == "PIMM_SCENE_SUPPORT_EXTERNAL_TOOL_CART"
+        )
+        external = next(item for item in contract["external_assets"] if item["asset_id"] == "tool_cart")
+        instance.instance_collection.library = SimpleNamespace(
+            filepath=str(blender_editorial_scene.ASSET_ROOT / external["local_relative_path"])
+        )
+        blender_editorial_scene._bind_external_instance_contract(fake_bpy, records)
+        record = by_name[instance.name]
+        self.assertEqual(record["instance_collection_name"], instance.instance_collection.name)
+        self.assertEqual(record["instance_library_relative_path"], external["local_relative_path"])
+        self.assertEqual(record["instance_library_sha256"], external["sha256"])
+        self.assertEqual(record["instance_provenance"]["asset_version_id"], external["asset_version_id"])
+        baseline = blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)
+        self.assertFalse(any("external instance" in error for error in baseline), baseline)
+
+        instance.instance_collection.name += "_REDIRECTED"
+        self.assertIn(
+            "instance collection binding changed",
+            "\n".join(blender_editorial_scene._scene_object_allowlist_errors(fake_bpy, records)),
+        )
+
     def test_camera_projection_occlusion_uses_screen_overlap_and_depth(self) -> None:
         """Catches world-axis ordering that misses a real rendered foot overlap."""
 
-        foot = {"minimum": [0.40, 0.08], "maximum": [0.50, 0.18], "depth_min": 10.0}
-        foreground = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 8.0}
-        separate = {"minimum": [0.60, 0.10], "maximum": [0.70, 0.20], "depth_min": 8.0}
-        behind = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 12.0}
+        foot = {"minimum": [0.40, 0.08], "maximum": [0.50, 0.18], "depth_min": 10.0, "depth_max": 12.0}
+        foreground = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 8.0, "depth_max": 9.0}
+        partial_depth = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 11.0, "depth_max": 13.0}
+        separate = {"minimum": [0.60, 0.10], "maximum": [0.70, 0.20], "depth_min": 8.0, "depth_max": 9.0}
+        behind = {"minimum": [0.45, 0.10], "maximum": [0.55, 0.20], "depth_min": 13.0, "depth_max": 14.0}
         self.assertTrue(blender_editorial_scene._projected_occlusion(foreground, foot))
+        self.assertTrue(blender_editorial_scene._projected_occlusion(partial_depth, foot))
         self.assertFalse(blender_editorial_scene._projected_occlusion(separate, foot))
         self.assertFalse(blender_editorial_scene._projected_occlusion(behind, foot))
 
@@ -339,20 +566,18 @@ class BlenderEditorialSceneTests(unittest.TestCase):
         for boundary in ("contract-published", "scene-published", "marker-published"):
             with self.subTest(boundary=boundary), TemporaryDirectory() as directory:
                 root = Path(directory)
-                candidates = root / "candidates"
-                published = root / "published"
+                scenes = root / "scenes"
+                contracts = root / "contracts"
                 rejected = root / "rejected"
-                candidates.mkdir()
-                published.mkdir()
-                scene_candidate = candidates / "shot.blend"
-                contract_candidate = candidates / "shot.json"
-                transaction_candidate = candidates / "shot.transaction.json"
+                scenes.mkdir()
+                contracts.mkdir()
+                scene_candidate = scenes / ".shot.nonce.candidate.blend"
+                contract_candidate = contracts / ".shot.nonce.candidate.json"
+                transaction_candidate = contracts / ".shot.transaction.json"
                 scene_candidate.write_bytes(b"scene")
-                contract_candidate.write_bytes(b"contract")
-                transaction_candidate.write_bytes(b"transaction")
-                scene_path = published / "shot.blend"
-                contract_path = published / "shot.json"
-                marker_path = published / "shot.complete.json"
+                scene_path = scenes / "shot.blend"
+                contract_path = contracts / "shot.json"
+                marker_path = contracts / "shot.complete.json"
                 contract_bytes = json.dumps({
                     "scene_id": "shot",
                     "publication": {"transaction_id": "a" * 32},
@@ -365,6 +590,19 @@ class BlenderEditorialSceneTests(unittest.TestCase):
                     "scene_sha256": hashlib.sha256(b"scene").hexdigest().upper(),
                     "contract_sha256": hashlib.sha256(contract_bytes).hexdigest().upper(),
                 }
+                transaction = blender_editorial_scene._publication_transaction_payload(
+                    scene_id="shot",
+                    transaction_id="a" * 32,
+                    scene_candidate=scene_candidate,
+                    contract_candidate=contract_candidate,
+                    transaction_path=transaction_candidate,
+                    scene_destination=scene_path,
+                    contract_destination=contract_path,
+                    marker_destination=marker_path,
+                    scene_sha256=marker_payload["scene_sha256"],
+                    contract_sha256=marker_payload["contract_sha256"],
+                )
+                blender_editorial_scene._atomic_json_write(transaction_candidate, transaction)
 
                 def interrupt(stage: str) -> None:
                     if stage == boundary:
@@ -389,9 +627,83 @@ class BlenderEditorialSceneTests(unittest.TestCase):
                     self.assertTrue(scene_path.is_file() and contract_path.is_file() and marker_path.is_file())
                 else:
                     self.assertEqual(result["status"], "recovered_to_rejected")
-                    self.assertFalse(scene_path.exists() or contract_path.exists() or marker_path.exists())
-                    archived = list(rejected.rglob("*"))
-                    self.assertTrue(any(path.is_file() for path in archived))
+                    self.assertTrue(result["archived_hashes_verified"])
+                    expected_names = {
+                        "contract-published": {
+                            scene_candidate.name, contract_path.name, transaction_candidate.name,
+                        },
+                        "scene-published": {
+                            scene_path.name, contract_path.name, transaction_candidate.name,
+                        },
+                    }[boundary]
+                    archived_names = {
+                        path.name for path in rejected.rglob("*") if path.is_file()
+                    }
+                    self.assertEqual(archived_names, expected_names)
+                    self.assertFalse(any(path.exists() for path in (
+                        scene_candidate, contract_candidate, scene_path, contract_path,
+                        marker_path, transaction_candidate,
+                    )))
+
+    def test_recovery_archives_hash_drift_or_orphan_marker_and_all_nonce_candidates(self) -> None:
+        """Catches incomplete artifacts being left behind or a drifted pair being trusted."""
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            scenes, contracts, rejected = root / "scenes", root / "contracts", root / "rejected"
+            scenes.mkdir()
+            contracts.mkdir()
+            scene = scenes / "shot.blend"
+            contract = contracts / "shot.json"
+            marker = contracts / "shot.complete.json"
+            transaction = contracts / ".shot.transaction.json"
+            scene.write_bytes(b"scene")
+            contract_bytes = json.dumps({
+                "scene_id": "shot", "publication": {"transaction_id": "a" * 32},
+            }).encode("utf-8")
+            contract.write_bytes(contract_bytes)
+            marker.write_text(json.dumps({
+                "schema": "maliev.pimm-editorial-publication/v1",
+                "scene_id": "shot",
+                "transaction_id": "a" * 32,
+                "scene_sha256": hashlib.sha256(b"scene").hexdigest().upper(),
+                "contract_sha256": hashlib.sha256(contract_bytes).hexdigest().upper(),
+            }), encoding="utf-8")
+            transaction.write_text(json.dumps({"paths": {}}), encoding="utf-8")
+            scene.write_bytes(b"drifted-scene")
+            result = blender_editorial_scene._recover_incomplete_publication(
+                scene, contract, marker, transaction, rejected
+            )
+            self.assertEqual(result["status"], "recovered_to_rejected")
+            self.assertTrue(result["archived_hashes_verified"])
+            self.assertEqual(
+                {path.name for path in rejected.rglob("*") if path.is_file()},
+                {scene.name, contract.name, marker.name, transaction.name},
+            )
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            scenes, contracts, rejected = root / "scenes", root / "contracts", root / "rejected"
+            scenes.mkdir()
+            contracts.mkdir()
+            scene = scenes / "shot.blend"
+            contract = contracts / "shot.json"
+            marker = contracts / "shot.complete.json"
+            transaction = contracts / ".shot.transaction.json"
+            scene_candidate = scenes / ".shot.abc.candidate.blend"
+            contract_candidate = contracts / ".shot.def.candidate.json"
+            scene_candidate.write_bytes(b"candidate-scene")
+            contract_candidate.write_bytes(b"candidate-contract")
+            marker.write_text("{}", encoding="utf-8")
+            result = blender_editorial_scene._recover_incomplete_publication(
+                scene, contract, marker, transaction, rejected
+            )
+            self.assertEqual(result["status"], "recovered_to_rejected")
+            self.assertTrue(result["archived_hashes_verified"])
+            self.assertEqual(
+                {path.name for path in rejected.rglob("*") if path.is_file()},
+                {scene_candidate.name, contract_candidate.name, marker.name},
+            )
 
     def test_nonzero_fresh_blender_exit_fails_even_with_an_empty_error_marker(self) -> None:
         """Catches a validator crash being accepted because stdout contained one earlier [] marker."""
