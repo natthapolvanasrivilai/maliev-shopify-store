@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import struct
 import sys
 import time
 from typing import Any, Mapping, Sequence
@@ -136,6 +138,127 @@ def _shot_dimensions(contract: Mapping[str, object], approved_shot: Mapping[str,
     return width, height
 
 
+def _parse_openexr(path: Path) -> dict[str, object]:
+    """Parse and structurally decode one single-part scanline OpenEXR file."""
+
+    data = Path(path).read_bytes()
+    if len(data) < 16 or data[:4] != b"\x76\x2f\x31\x01":
+        raise ValueError("native final EXR magic is invalid")
+    version = struct.unpack_from("<I", data, 4)[0]
+    if (version & 0xFF) not in {1, 2} or version & 0x00001E00:
+        raise ValueError("native final EXR must be a single-part scanline image")
+    cursor = 8
+    attributes: dict[str, tuple[str, bytes]] = {}
+
+    def cstring(position: int) -> tuple[str, int]:
+        end = data.find(b"\0", position)
+        if end < 0:
+            raise ValueError("native final EXR header is truncated")
+        try:
+            return data[position:end].decode("ascii"), end + 1
+        except UnicodeDecodeError as error:
+            raise ValueError("native final EXR header name is invalid") from error
+
+    while True:
+        name, cursor = cstring(cursor)
+        if not name:
+            break
+        kind, cursor = cstring(cursor)
+        if cursor + 4 > len(data):
+            raise ValueError("native final EXR attribute length is truncated")
+        size = struct.unpack_from("<I", data, cursor)[0]
+        cursor += 4
+        if size > len(data) - cursor:
+            raise ValueError("native final EXR attribute payload is truncated")
+        if name in attributes:
+            raise ValueError("native final EXR contains duplicate attributes")
+        attributes[name] = (kind, data[cursor:cursor + size])
+        cursor += size
+    required = {"channels", "compression", "dataWindow"}
+    if not required.issubset(attributes):
+        raise ValueError("native final EXR required header attributes are missing")
+    if attributes["dataWindow"][0] != "box2i" or len(attributes["dataWindow"][1]) != 16:
+        raise ValueError("native final EXR data window is invalid")
+    xmin, ymin, xmax, ymax = struct.unpack("<iiii", attributes["dataWindow"][1])
+    width, height = xmax - xmin + 1, ymax - ymin + 1
+    if width <= 0 or height <= 0:
+        raise ValueError("native final EXR data window dimensions are invalid")
+    compression_payload = attributes["compression"][1]
+    if attributes["compression"][0] != "compression" or len(compression_payload) != 1:
+        raise ValueError("native final EXR compression attribute is invalid")
+    compression = compression_payload[0]
+    lines_per_chunk = {0: 1, 1: 1, 2: 1, 3: 16, 4: 32, 5: 16, 6: 32, 7: 32, 8: 32, 9: 256}.get(compression)
+    if lines_per_chunk is None:
+        raise ValueError("native final EXR compression is unsupported")
+    kind, channel_payload = attributes["channels"]
+    if kind != "chlist":
+        raise ValueError("native final EXR channel list type is invalid")
+    channels: list[str] = []
+    position = 0
+    while position < len(channel_payload):
+        end = channel_payload.find(b"\0", position)
+        if end < 0:
+            raise ValueError("native final EXR channel list is truncated")
+        if end == position:
+            position += 1
+            break
+        try:
+            channel = channel_payload[position:end].decode("ascii")
+        except UnicodeDecodeError as error:
+            raise ValueError("native final EXR channel name is invalid") from error
+        position = end + 1
+        if position + 16 > len(channel_payload):
+            raise ValueError("native final EXR channel record is truncated")
+        pixel_type, _linear, x_sampling, y_sampling = struct.unpack_from("<iB3xii", channel_payload, position)
+        position += 16
+        if pixel_type not in {0, 1, 2} or x_sampling <= 0 or y_sampling <= 0:
+            raise ValueError("native final EXR channel record is invalid")
+        channels.append(channel)
+    if position != len(channel_payload) or not channels or len(channels) != len(set(channels)):
+        raise ValueError("native final EXR channel list is invalid")
+    chunk_count = (height + lines_per_chunk - 1) // lines_per_chunk
+    table_end = cursor + chunk_count * 8
+    if table_end > len(data):
+        raise ValueError("native final EXR chunk table is truncated")
+    offsets = struct.unpack_from(f"<{chunk_count}Q", data, cursor)
+    for offset in offsets:
+        if offset < table_end or offset + 8 > len(data):
+            raise ValueError("native final EXR chunk offset is invalid")
+        packed_size = struct.unpack_from("<I", data, offset + 4)[0]
+        if packed_size == 0 or offset + 8 + packed_size > len(data):
+            raise ValueError("native final EXR chunk payload is truncated")
+    return {
+        "dimensions": [width, height],
+        "channels": channels,
+        "compression": compression,
+        "chunk_count": chunk_count,
+    }
+
+
+def _blender_decode_exr(bpy: Any, path: Path) -> dict[str, object]:
+    """Force Blender's native image stack to decode the complete archive image."""
+
+    image = bpy.data.images.load(str(path), check_existing=False)
+    try:
+        dimensions = [int(image.size[0]), int(image.size[1])]
+        channels = int(image.channels)
+        pixel_count = len(image.pixels)
+        if dimensions[0] <= 0 or dimensions[1] <= 0 or channels < 3:
+            raise ValueError("Blender decoded invalid EXR dimensions or channels")
+        if pixel_count != dimensions[0] * dimensions[1] * channels:
+            raise ValueError("Blender decoded incomplete EXR pixel data")
+        # Indexing both ends forces lazy decoders to materialize the full buffer.
+        _ = float(image.pixels[0]), float(image.pixels[pixel_count - 1])
+        return {
+            "status": "pass",
+            "dimensions": dimensions,
+            "channels": channels,
+            "pixel_count": pixel_count,
+        }
+    finally:
+        bpy.data.images.remove(image)
+
+
 def _load_worker_contract(
     contract_path: Path,
     asset_root: Path,
@@ -198,17 +321,28 @@ def _load_worker_contract(
 
 
 def _controller_authority_snapshot(contract_path: Path, asset_root: Path) -> dict[str, object]:
-    contract = validate_editorial_final_contract(contract_path, asset_root)
-    approval_path = Path(str(contract["approval"]["path"])).resolve()
-    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    contract_path = Path(contract_path).resolve()
+    contract_bytes = contract_path.read_bytes()
+    captured_contract = json.loads(contract_bytes)
+    approval_path = Path(str(captured_contract["approval"]["path"])).resolve()
+    approval_bytes = approval_path.read_bytes()
+    captured_approval = json.loads(approval_bytes)
+    validated_contract = validate_editorial_final_contract(contract_path, asset_root)
+    if (
+        contract_path.read_bytes() != contract_bytes
+        or approval_path.read_bytes() != approval_bytes
+        or validated_contract != captured_contract
+    ):
+        raise ValueError("controller contract/approval capture tuple drift during validation")
     return {
-        "contract_sha256": sha256_file(contract_path),
-        "generation_id": approval["generation_id"],
-        "approval_sha256": sha256_file(approval_path),
-        "manifest_sha256": approval["manifest"]["sha256"],
-        "report_sha256": approval["report"]["sha256"],
-        "visual_disposition_sha256": approval["visual_disposition"]["sha256"],
-        "contact_sheet_sha256": approval["contact_sheet"]["sha256"],
+        "_captured_contract": captured_contract,
+        "contract_sha256": hashlib.sha256(contract_bytes).hexdigest().upper(),
+        "generation_id": captured_approval["generation_id"],
+        "approval_sha256": hashlib.sha256(approval_bytes).hexdigest().upper(),
+        "manifest_sha256": captured_approval["manifest"]["sha256"],
+        "report_sha256": captured_approval["report"]["sha256"],
+        "visual_disposition_sha256": captured_approval["visual_disposition"]["sha256"],
+        "contact_sheet_sha256": captured_approval["contact_sheet"]["sha256"],
     }
 
 
@@ -317,12 +451,8 @@ def _render_worker(
         "png_sha256": sha256_file(png),
         "exr": exr.name,
         "exr_sha256": sha256_file(exr),
-        "exr_validation": {
-            "magic": "762F3101",
-            "dimensions": [width, height],
-            "channels": ["R", "G", "B"],
-            "authority": "blender-render-result",
-        },
+        "exr_validation": _parse_openexr(exr),
+        "blender_exr_decode": _blender_decode_exr(bpy, exr),
         "dimensions": [width, height],
         "samples": int(contract["samples"]),
         "denoise": bool(contract["denoise"]),
@@ -405,8 +535,8 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
     asset_root = Path(asset_root).resolve()
     blender = Path(blender).resolve()
     contract_path = Path(contract_path).resolve()
-    contract = validate_editorial_final_contract(contract_path, asset_root)
     held = _controller_authority_snapshot(contract_path, asset_root)
+    contract = dict(held["_captured_contract"])
     _validate_blender_authority(asset_root, blender)
     parent = asset_root / "renders" / "final" / FINAL_LIBRARY
     parent.mkdir(parents=True, exist_ok=True)
@@ -423,8 +553,8 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
             completed = subprocess.run(
                 _worker_command(
                     blender, scene, asset_root, contract_path, staging, str(shot["shot_id"]),
-                    sha256_file(contract_path),
-                    {key: value for key, value in held.items() if key != "contract_sha256"},
+                    str(held["contract_sha256"]),
+                    {key: value for key, value in held.items() if not key.startswith("_") and key != "contract_sha256"},
                 ),
                 capture_output=True, text=True, timeout=WORKER_TIMEOUT_SECONDS, check=False,
             )
@@ -438,7 +568,7 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
             "release_id": contract["release_id"],
             "generation_id": contract["generation_id"],
             "contract_path": str(contract_path),
-            "contract_sha256": sha256_file(contract_path),
+            "contract_sha256": held["contract_sha256"],
             "rendered_at": _utc_now(),
             "fresh_blender_processes": 4,
             "samples": 256,
@@ -505,13 +635,23 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
                 raise ValueError(f"native final {field} hash drift")
             expected.add(relative)
         exr_path = staging / str(record["exr"])
-        if exr_path.read_bytes()[:4] != b"\x76\x2f\x31\x01":
-            raise ValueError("native final EXR magic is invalid")
-        if record.get("exr_validation") != {
-            "magic": "762F3101", "dimensions": [width, height],
-            "channels": ["R", "G", "B"], "authority": "blender-render-result",
-        }:
-            raise ValueError("native final EXR dimensions/channels evidence drift")
+        exr_validation = _parse_openexr(exr_path)
+        blender_decode = record.get("blender_exr_decode")
+        decode_channels = (
+            blender_decode.get("channels") if isinstance(blender_decode, Mapping) else None
+        )
+        if (
+            record.get("exr_validation") != exr_validation
+            or exr_validation.get("dimensions") != [width, height]
+            or not {"R", "G", "B"}.issubset(set(exr_validation.get("channels", [])))
+            or not isinstance(blender_decode, Mapping)
+            or blender_decode.get("status") != "pass"
+            or blender_decode.get("dimensions") != [width, height]
+            or not isinstance(decode_channels, int)
+            or decode_channels < 3
+            or blender_decode.get("pixel_count") != width * height * decode_channels
+        ):
+            raise ValueError("native final EXR dimensions/channels/decode evidence drift")
         with Image.open(staging / str(record["png"])) as image:
             if image.format != "PNG" or image.size != (width, height):
                 raise ValueError("native final PNG dimensions or format drift")
@@ -524,28 +664,44 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
     return report, expected
 
 
-def _preserve_publication_collision(
-    staging: Path,
-    asset_root: Path,
-    release_id: str,
-    message: str,
-) -> Path:
-    """Move an unmarked reviewed tree into one exclusive immutable failure path."""
+def _tree_fingerprint(root: Path) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (path.relative_to(root).as_posix(), sha256_file(path))
+        for path in sorted(root.rglob("*")) if path.is_file()
+    )
 
-    marker = staging / RELEASE_MANIFEST_NAME
-    if marker.exists():
-        marker.unlink()
-    failure_parent = asset_root / "renders" / "final-failures" / FINAL_LIBRARY
-    failure_parent.mkdir(parents=True, exist_ok=True)
-    rejected = failure_parent / f"{release_id}-publication-{uuid.uuid4().hex[:8]}"
-    _exclusive_json(staging / "publication-failure.json", {
-        "schema": "maliev.pimm-editorial-publication-failure/v1",
-        "release_id": release_id,
-        "failed_at": _utc_now(),
-        "error": message,
-    })
-    os.rename(staging, rejected)
-    return rejected
+
+def _copy_transaction_candidate(
+    staging: Path, asset_root: Path, release_id: str
+) -> Path:
+    """Copy immutable pending bytes into one owned transaction candidate."""
+
+    before = _tree_fingerprint(staging)
+    transaction_root = asset_root / "renders" / "final-transactions" / FINAL_LIBRARY
+    transaction_root.mkdir(parents=True, exist_ok=True)
+    candidate = transaction_root / f".{release_id}.{uuid.uuid4().hex}.candidate"
+    candidate.mkdir(exist_ok=False)
+    try:
+        for source in staging.iterdir():
+            if not source.is_file():
+                raise ValueError("native final pending tree contains a directory")
+            shutil.copyfile(source, candidate / source.name)
+        if _tree_fingerprint(staging) != before or _tree_fingerprint(candidate) != before:
+            raise ValueError("native final pending bytes drifted during copy-on-write capture")
+        return candidate
+    except Exception:
+        shutil.rmtree(candidate, ignore_errors=True)
+        raise
+
+
+def _discard_candidate(candidate: Path) -> None:
+    """Remove an owned candidate; it never removes or edits pending source bytes."""
+
+    if candidate.exists():
+        for path in candidate.rglob("*"):
+            if path.is_file():
+                path.chmod(0o644)
+        shutil.rmtree(candidate)
 
 
 def reject_editorial_native_release(
@@ -586,12 +742,34 @@ def reject_editorial_native_release(
         any_failure = any_failure or "fail" in states
     if not any_failure:
         raise ValueError("actual-pixel rejection must identify at least one failed field")
-    rejected_disposition = staging / REJECTED_DISPOSITION_NAME
-    _exclusive_json(rejected_disposition, dict(disposition))
+    source_fingerprint = _tree_fingerprint(staging)
+    candidate = _copy_transaction_candidate(
+        staging, asset_root, str(contract["release_id"])
+    )
     failure_parent = asset_root / "renders" / "final-failures" / FINAL_LIBRARY
     failure_parent.mkdir(parents=True, exist_ok=True)
     rejected = failure_parent / f"{contract['release_id']}-rejected-{uuid.uuid4().hex[:8]}"
-    os.rename(staging, rejected)
+    claim_parent = asset_root / "renders" / "final-transactions" / FINAL_LIBRARY / ".claims"
+    claim_parent.mkdir(parents=True, exist_ok=True)
+    claim = claim_parent / f"{hashlib.sha256(str(staging).encode()).hexdigest()}.reject.json"
+    claim_owned = False
+    try:
+        _exclusive_json(claim, {
+            "schema": "maliev.pimm-editorial-reject-claim/v1",
+            "release_id": contract["release_id"],
+            "pending_fingerprint": list(source_fingerprint),
+        })
+        claim_owned = True
+        _exclusive_json(candidate / REJECTED_DISPOSITION_NAME, dict(disposition))
+        os.rename(candidate, rejected)
+    except Exception as error:
+        _discard_candidate(candidate)
+        if claim_owned:
+            claim.chmod(0o644)
+            claim.unlink(missing_ok=True)
+        if _tree_fingerprint(staging) != source_fingerprint:
+            raise ValueError("reject rollback failed: pending source bytes changed") from error
+        raise ValueError(f"native final rejection transaction failed: {error}") from error
     return rejected
 
 
@@ -613,11 +791,7 @@ def publish_editorial_native_release(
 
     target = parent / str(contract["release_id"])
     if target.exists():
-        preserved = _preserve_publication_collision(
-            staging, asset_root, str(contract["release_id"]),
-            "native final release replay or competing publication",
-        )
-        raise ValueError(f"native final release replay or competing publication; evidence={preserved}")
+        raise ValueError("native final release replay or competing publication collision")
 
     if disposition.get("decision") != "accept" or not str(disposition.get("reviewer", "")).strip():
         raise ValueError("actual-pixel disposition is not an identified acceptance")
@@ -637,56 +811,66 @@ def publish_editorial_native_release(
             raise ValueError("actual-pixel shot disposition hash drift")
         if any(review.get(field) != "pass" for field in _PASS_FIELDS) or not str(review.get("notes", "")).strip():
             raise ValueError("actual-pixel shot disposition requires every field to pass")
-    # Web derivatives are intentionally created only after the acceptance above is complete.
-    for record in report["shots"]:
-        webp = staging / f"{record['shot_id']}.webp"
-        with Image.open(staging / str(record["png"])) as image:
-            image.save(webp, format="WEBP", quality=92, method=6)
-        record["webp"] = webp.name
-        record["webp_sha256"] = sha256_file(webp)
-        expected.add(webp.name)
-    disposition_path = staging / DISPOSITION_NAME
-    _exclusive_json(disposition_path, dict(disposition))
-    expected.add(DISPOSITION_NAME)
-    # Bind the accepted review and derivatives into the report before marker-last publication.
-    report["status"] = "accepted"
-    report["accepted_at"] = _utc_now()
-    report["actual_pixel_disposition"] = {"path": DISPOSITION_NAME, "sha256": sha256_file(disposition_path)}
-    report["shots"] = report["shots"]
-    report_path = staging / REPORT_NAME
-    report_path.chmod(0o644)
-    report_path.write_bytes(_json_bytes(report))
-    report_path.chmod(0o444)
-    validate_editorial_final_contract(contract_path, asset_root)
-    expected.add(REPORT_NAME)
-    manifest = {
-        "schema": "maliev.pimm-editorial-native-release/v1",
-        "release_id": contract["release_id"],
-        "generation_id": contract["generation_id"],
-        "approval": contract["approval"],
-        "contract": {"path": str(contract_path), "sha256": sha256_file(contract_path)},
-        "report": {"path": REPORT_NAME, "sha256": sha256_file(report_path)},
-        "contact_sheet": report["contact_sheet"],
-        "actual_pixel_disposition": report["actual_pixel_disposition"],
-        "shots": report["shots"],
-        "published_at": _utc_now(),
-        "status": "accepted",
-    }
-    # Every fallible authority and tree check completes before marker creation.
-    observed = {path.name for path in staging.iterdir()}
-    if observed != expected or any(path.is_dir() for path in staging.iterdir()):
-        raise ValueError("native final release tree contains extra or missing files")
-    validate_editorial_final_contract(contract_path, asset_root)
-    marker = staging / RELEASE_MANIFEST_NAME
-    _exclusive_json(marker, manifest)  # marker is immediately followed by atomic rename
+    source_staging = staging
+    source_fingerprint = _tree_fingerprint(source_staging)
+    staging = _copy_transaction_candidate(
+        source_staging, asset_root, str(contract["release_id"])
+    )
     try:
-        os.rename(staging, target)
-    except OSError as error:
-        preserved = _preserve_publication_collision(
-            staging, asset_root, str(contract["release_id"]),
-            f"atomic final publication collision: {error}",
-        )
-        raise ValueError(f"native final publication collision; evidence={preserved}") from error
+        report, expected = _validate_staging(staging, contract)
+        # Web derivatives are intentionally created only after acceptance is complete.
+        for record in report["shots"]:
+            webp = staging / f"{record['shot_id']}.webp"
+            with Image.open(staging / str(record["png"])) as image:
+                image.save(webp, format="WEBP", quality=92, method=6)
+            record["webp"] = webp.name
+            record["webp_sha256"] = sha256_file(webp)
+            expected.add(webp.name)
+        disposition_path = staging / DISPOSITION_NAME
+        _exclusive_json(disposition_path, dict(disposition))
+        expected.add(DISPOSITION_NAME)
+        report["status"] = "accepted"
+        report["accepted_at"] = _utc_now()
+        report["actual_pixel_disposition"] = {
+            "path": DISPOSITION_NAME,
+            "sha256": sha256_file(disposition_path),
+        }
+        report_path = staging / REPORT_NAME
+        report_path.chmod(0o644)
+        report_path.write_bytes(_json_bytes(report))
+        report_path.chmod(0o444)
+        validate_editorial_final_contract(contract_path, asset_root)
+        expected.add(REPORT_NAME)
+        manifest = {
+            "schema": "maliev.pimm-editorial-native-release/v1",
+            "release_id": contract["release_id"],
+            "generation_id": contract["generation_id"],
+            "approval": contract["approval"],
+            "contract": {
+                "path": str(contract_path),
+                "sha256": sha256_file(contract_path),
+            },
+            "report": {"path": REPORT_NAME, "sha256": sha256_file(report_path)},
+            "contact_sheet": report["contact_sheet"],
+            "actual_pixel_disposition": report["actual_pixel_disposition"],
+            "shots": report["shots"],
+            "published_at": _utc_now(),
+            "status": "accepted",
+        }
+        # Every fallible authority and tree check completes before marker creation.
+        observed = {path.name for path in staging.iterdir()}
+        if observed != expected or any(path.is_dir() for path in staging.iterdir()):
+            raise ValueError("native final release tree contains extra or missing files")
+        validate_editorial_final_contract(contract_path, asset_root)
+        marker = staging / RELEASE_MANIFEST_NAME
+        _exclusive_json(marker, manifest)
+        os.rename(staging, target)  # marker is immediately followed by atomic rename
+    except Exception as error:
+        if staging.exists():
+            _discard_candidate(staging)
+        if _tree_fingerprint(source_staging) != source_fingerprint:
+            raise ValueError("publication rollback failed: pending source bytes changed") from error
+        raise ValueError(f"native final publication transaction failed: {error}") from error
     return target
 
 

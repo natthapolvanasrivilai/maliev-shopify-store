@@ -6,8 +6,10 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
+import struct
 import sys
 from tempfile import TemporaryDirectory
+from typing import Mapping
 import unittest
 from unittest.mock import patch
 
@@ -15,6 +17,7 @@ from PIL import Image
 
 from scripts.blender.pimm_production import blender_editorial_preview as preview_module
 from scripts.blender.pimm_production import editorial_final_contract as contract_module
+from scripts.blender.pimm_production import blender_editorial_final as final_module
 from scripts.blender.pimm_production.editorial_final_contract import (
     APPROVED_GENERATION_ID,
     RELEASE_ID,
@@ -26,6 +29,7 @@ from scripts.blender.pimm_production.editorial_final_contract import (
 from scripts.blender.pimm_production.blender_editorial_final import (
     _controller_authority_snapshot,
     _load_worker_contract,
+    _parse_openexr,
     _validate_ephemeral_render_delta,
     publish_editorial_native_release,
     reject_editorial_native_release,
@@ -35,6 +39,33 @@ from scripts.blender.pimm_production.tests import test_editorial_preview as _pre
 
 
 class EditorialFinalReleaseTests(unittest.TestCase):
+    @staticmethod
+    def _minimal_exr(width: int, height: int) -> bytes:
+        def attr(name: str, kind: str, value: bytes) -> bytes:
+            return name.encode() + b"\0" + kind.encode() + b"\0" + struct.pack("<I", len(value)) + value
+        channel = lambda name: name.encode() + b"\0" + struct.pack("<iB3xii", 1, 0, 1, 1)
+        channels = channel("B") + channel("G") + channel("R") + b"\0"
+        box = struct.pack("<iiii", 0, 0, width - 1, height - 1)
+        header = b"".join((
+            attr("channels", "chlist", channels), attr("compression", "compression", b"\0"),
+            attr("dataWindow", "box2i", box), attr("displayWindow", "box2i", box),
+            attr("lineOrder", "lineOrder", b"\0"),
+            attr("pixelAspectRatio", "float", struct.pack("<f", 1.0)),
+            attr("screenWindowCenter", "v2f", struct.pack("<ff", 0.0, 0.0)),
+            attr("screenWindowWidth", "float", struct.pack("<f", 1.0)), b"\0",
+        ))
+        prefix = b"\x76\x2f\x31\x01" + struct.pack("<I", 2) + header
+        chunks = []
+        offset = len(prefix) + height * 8
+        offsets = []
+        row = b"\0\0" * width * 3
+        for y in range(height):
+            chunk = struct.pack("<ii", y, len(row)) + row
+            offsets.append(offset)
+            chunks.append(chunk)
+            offset += len(chunk)
+        return prefix + b"".join(struct.pack("<Q", value) for value in offsets) + b"".join(chunks)
+
     def setUp(self) -> None:
         self.preview = _preview_tests.EditorialPreviewTests("runTest")
         self.preview.setUp()
@@ -81,7 +112,7 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             png = staging / f"{approved['shot_id']}.png"
             exr = staging / f"{approved['shot_id']}.exr"
             Image.new("RGB", (width, height), (80 + index, 90, 100)).save(png)
-            exr.write_bytes(b"\x76\x2f\x31\x01" + f"EXR-{index}".encode())
+            exr.write_bytes(self._minimal_exr(width, height))
             authority = approved["authority"]
             shots.append({
                 "shot_id": approved["shot_id"], "process_id": 1000 + index,
@@ -91,8 +122,11 @@ class EditorialFinalReleaseTests(unittest.TestCase):
                 "authority_status": "pass", "scene_sha256": authority["scene_sha256"],
                 "contract_sha256": authority["contract_sha256"],
                 "completion_marker_sha256": authority["completion_marker_sha256"],
-                "exr_validation": {"magic": "762F3101", "dimensions": [width, height],
-                    "channels": ["R", "G", "B"], "authority": "blender-render-result"},
+                "exr_validation": _parse_openexr(exr),
+                "blender_exr_decode": {
+                    "status": "pass", "dimensions": [width, height],
+                    "channels": 4, "pixel_count": width * height * 4,
+                },
             })
         sheet = staging / "sheet-editorial-finals.png"
         Image.new("RGB", (2560, 1800), (30, 40, 50)).save(sheet)
@@ -118,6 +152,13 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             ],
         }
         return staging, disposition
+
+    @staticmethod
+    def _tree_bytes(root: Path) -> tuple[tuple[str, bytes], ...]:
+        return tuple(
+            (path.relative_to(root).as_posix(), path.read_bytes())
+            for path in sorted(root.rglob("*")) if path.is_file()
+        )
 
     def test_owner_approval_binds_every_exact_accepted_image_and_authority(self) -> None:
         """Catches approval that binds only a generation label or contact sheet."""
@@ -272,13 +313,46 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "EXR|exr"):
             publish_editorial_native_release(staging, contract_path, disposition)
 
-        exr.write_bytes(b"\x76\x2f\x31\x01fixture")
+        exr.write_bytes(b"\x76\x2f\x31\x01truncated-junk")
+        report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "EXR|exr"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+        width, height = report["shots"][0]["dimensions"]
+        exr.write_bytes(self._minimal_exr(width, height))
         report["shots"][0]["exr_sha256"] = sha256_file(exr)
         report["shots"][0].pop("authority_status")
         disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
         report_path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "authority|evidence"):
             publish_editorial_native_release(staging, contract_path, disposition)
+
+    def test_staging_rejects_missing_blender_bound_exr_decode_evidence(self) -> None:
+        """Catches structurally framed EXRs that were never decoded by the native worker."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        report_path = staging / "native-report.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report["shots"][0].pop("blender_exr_decode")
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "EXR|decode"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+    def test_openexr_parser_reads_real_data_window_channels_and_chunks(self) -> None:
+        """Catches magic-only acceptance without a decodable OpenEXR structure."""
+
+        with TemporaryDirectory() as root:
+            path = Path(root) / "fixture.exr"
+            path.write_bytes(self._minimal_exr(4, 3))
+            self.assertEqual(_parse_openexr(path), {
+                "dimensions": [4, 3], "channels": ["B", "G", "R"],
+                "compression": 0, "chunk_count": 3,
+            })
 
     def test_reject_flow_is_hash_bound_exclusive_and_never_publishes(self) -> None:
         """Catches visual rejection being deleted, overwritten, or moved into final release."""
@@ -303,18 +377,104 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             self._approval(), self.asset_root, RELEASE_ID
         )
         staging, disposition = self._staging_fixture(contract_path)
+        before = self._tree_bytes(staging)
         target = staging.parent / RELEASE_ID
         target.mkdir()
         with self.assertRaisesRegex(ValueError, "competing|replay|collision"):
             publish_editorial_native_release(staging, contract_path, disposition)
-        self.assertFalse(staging.exists())
-        preserved = list(
-            (self.asset_root / "renders" / "final-failures" / "editorial-concepts-v1").glob(
-                f"{RELEASE_ID}-publication-*"
-            )
+        self.assertEqual(self._tree_bytes(staging), before)
+        self.assertFalse((staging / "release-manifest.json").exists())
+
+    def test_accept_rename_fault_rolls_back_candidate_and_keeps_pending_exact(self) -> None:
+        """Catches post-marker rename faults poisoning or changing the pending source."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
         )
-        self.assertEqual(len(preserved), 1)
-        self.assertFalse((preserved[0] / "release-manifest.json").exists())
+        staging, disposition = self._staging_fixture(contract_path)
+        before = self._tree_bytes(staging)
+        real_rename = final_module.os.rename
+
+        def fail_final_rename(source: object, destination: object) -> None:
+            if Path(destination).name == RELEASE_ID:
+                raise OSError("injected final rename fault")
+            real_rename(source, destination)
+
+        with patch.object(final_module.os, "rename", side_effect=fail_final_rename):
+            with self.assertRaisesRegex(ValueError, "rename|publication|fault"):
+                publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertEqual(self._tree_bytes(staging), before)
+        transaction_root = self.asset_root / "renders" / "final-transactions" / "editorial-concepts-v1"
+        self.assertEqual(list(transaction_root.glob(f".{RELEASE_ID}.*")), [])
+
+    def test_accept_metadata_write_faults_discard_candidate_and_keep_pending_exact(self) -> None:
+        """Catches disposition or marker faults leaving hidden poison trees or changed evidence."""
+
+        for failed_name in ("actual-pixel-disposition.json", "release-manifest.json"):
+            with self.subTest(failed_name=failed_name):
+                self.tearDown()
+                self.setUp()
+                contract_path = authorize_editorial_final_release(
+                    self._approval(), self.asset_root, RELEASE_ID
+                )
+                staging, disposition = self._staging_fixture(contract_path)
+                before = self._tree_bytes(staging)
+                real_json = final_module._exclusive_json
+
+                def fail_json(path: Path, payload: Mapping[str, object]) -> None:
+                    if path.name == failed_name:
+                        raise OSError(f"injected {failed_name} write fault")
+                    real_json(path, payload)
+
+                with patch.object(final_module, "_exclusive_json", side_effect=fail_json):
+                    with self.assertRaisesRegex(ValueError, "publication transaction failed"):
+                        publish_editorial_native_release(staging, contract_path, disposition)
+                self.assertEqual(self._tree_bytes(staging), before)
+                transaction_root = (
+                    self.asset_root / "renders" / "final-transactions" /
+                    "editorial-concepts-v1"
+                )
+                self.assertEqual(list(transaction_root.glob(f".{RELEASE_ID}.*")), [])
+                self.assertFalse((staging.parent / RELEASE_ID).exists())
+
+    def test_reject_write_and_rename_faults_leave_pending_exact_and_retryable(self) -> None:
+        """Catches rejected-disposition or move faults corrupting the source evidence."""
+
+        for fault in ("write", "rename"):
+            with self.subTest(fault=fault):
+                self.tearDown()
+                self.setUp()
+                contract_path = authorize_editorial_final_release(
+                    self._approval(), self.asset_root, RELEASE_ID
+                )
+                staging, disposition = self._staging_fixture(contract_path)
+                disposition["decision"] = "reject"
+                disposition["shots"][0]["pixel_review"] = "fail"
+                before = self._tree_bytes(staging)
+                real_json = final_module._exclusive_json
+                real_rename = final_module.os.rename
+
+                def fail_json(path: Path, payload: Mapping[str, object]) -> None:
+                    if path.name == "rejected-disposition.json":
+                        raise OSError("injected reject write fault")
+                    real_json(path, payload)
+
+                def fail_rename(source: object, destination: object) -> None:
+                    if "-rejected-" in Path(destination).name:
+                        raise OSError("injected reject rename fault")
+                    real_rename(source, destination)
+
+                patcher = patch.object(
+                    final_module,
+                    "_exclusive_json",
+                    side_effect=fail_json,
+                ) if fault == "write" else patch.object(
+                    final_module.os, "rename", side_effect=fail_rename
+                )
+                with patcher:
+                    with self.assertRaises((OSError, ValueError)):
+                        reject_editorial_native_release(staging, contract_path, disposition)
+                self.assertEqual(self._tree_bytes(staging), before)
 
     def test_blender_worker_script_bootstraps_outside_package_mode(self) -> None:
         """Catches Blender executing the checked-in worker with unresolved relative imports."""
@@ -356,7 +516,10 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         )
         expected_sha = sha256_file(contract_path)
         held = _controller_authority_snapshot(contract_path, self.asset_root)
-        bindings = {key: value for key, value in held.items() if key != "contract_sha256"}
+        bindings = {
+            key: value for key, value in held.items()
+            if not key.startswith("_") and key != "contract_sha256"
+        }
         with patch(
             "scripts.blender.pimm_production.blender_editorial_final.validate_editorial_final_contract",
             side_effect=ModuleNotFoundError("Pillow unavailable in Blender"),
@@ -369,6 +532,32 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         drifted = {**bindings, "manifest_sha256": "0" * 64}
         with self.assertRaisesRegex(ValueError, "binding drift"):
             _load_worker_contract(contract_path, self.asset_root, expected_sha, drifted)
+
+    def test_controller_capture_rejects_contract_mutation_during_full_validation(self) -> None:
+        """Catches validating one contract tuple and passing later bytes to Blender."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        original_bytes = contract_path.read_bytes()
+        original_validate = final_module.validate_editorial_final_contract
+
+        def mutate_after_validation(path: Path, root: Path) -> dict[str, object]:
+            validated = original_validate(path, root)
+            Path(path).chmod(0o644)
+            Path(path).write_bytes(original_bytes + b" ")
+            return validated
+
+        try:
+            with patch.object(
+                final_module, "validate_editorial_final_contract",
+                side_effect=mutate_after_validation,
+            ):
+                with self.assertRaisesRegex(ValueError, "capture|tuple|drift"):
+                    _controller_authority_snapshot(contract_path, self.asset_root)
+        finally:
+            contract_path.chmod(0o644)
+            contract_path.write_bytes(original_bytes)
 
 
 if __name__ == "__main__":
