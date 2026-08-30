@@ -1454,6 +1454,76 @@ def _validate_generation_files(
         raise ValueError("staged shot records changed before pending-review publication")
 
 
+def validate_accepted_editorial_generation(
+    asset_root: Path,
+    generation_id: str,
+) -> dict[str, object]:
+    """Revalidate one accepted generation and every current scene authority.
+
+    Consumer paths are reconstructed from the accepted generation root and the
+    immutable ``output_relative_path``.  The historical worker ``output_path``
+    intentionally remains evidence only because it names the former staging
+    directory.
+    """
+
+    asset_root = Path(asset_root).resolve()
+    if not asset_root.is_dir():
+        raise ValueError(f"editorial asset root is missing: {asset_root}")
+    if not isinstance(generation_id, str) or _GENERATION_ID_PATTERN.fullmatch(generation_id) is None:
+        raise ValueError("accepted editorial generation ID is invalid")
+    generation_parent = require_within(
+        asset_root / "renders" / "proofs" / PROOF_LIBRARY_ID,
+        asset_root,
+    )
+    generation_root = require_within(generation_parent / generation_id, generation_parent)
+    if not generation_root.is_dir():
+        raise ValueError("accepted editorial generation is missing")
+    manifest, report, manifest_sha, report_sha = _validate_generation_artifacts(
+        generation_root,
+        expected_status="accepted",
+        require_disposition=True,
+    )
+    current_authorities = {
+        shot.shot_id: _load_completion_authority(asset_root, shot)
+        for shot in _CAMPAIGN.shots
+    }
+    resolved_shots: list[dict[str, object]] = []
+    for record in manifest["shots"]:
+        shot_id = str(record["shot_id"])
+        authority = current_authorities[shot_id]
+        if record.get("authority") != _authority_worker_record(authority) | {
+            "checked_at": record["authority"].get("checked_at"),
+            "blender_scene_validation": "pass",
+        }:
+            raise ValueError(f"accepted editorial current authority drift: {shot_id}")
+        relative = str(record["output_relative_path"])
+        output_path = require_within(generation_root / relative, generation_root)
+        resolved_shots.append(
+            {
+                **dict(record),
+                "output_path": output_path,
+                "output_relative_path": relative,
+                "completion_authority": authority,
+            }
+        )
+    disposition_path = generation_root / VISUAL_DISPOSITION_NAME
+    return {
+        "generation_id": generation_id,
+        "generation_root": generation_root,
+        "manifest": manifest,
+        "manifest_path": generation_root / MANIFEST_NAME,
+        "manifest_sha256": manifest_sha,
+        "report": report,
+        "report_path": generation_root / REPORT_NAME,
+        "report_sha256": report_sha,
+        "visual_disposition_path": disposition_path,
+        "visual_disposition_sha256": sha256_file(disposition_path),
+        "contact_sheet_path": generation_root / CONTACT_SHEET_NAME,
+        "contact_sheet_sha256": sha256_file(generation_root / CONTACT_SHEET_NAME),
+        "shots": resolved_shots,
+    }
+
+
 def render_editorial_preview_campaign(
     asset_root: Path, blender: Path
 ) -> EditorialPreviewResult:

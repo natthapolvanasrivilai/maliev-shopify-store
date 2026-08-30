@@ -1825,6 +1825,30 @@ class EditorialPreviewTests(unittest.TestCase):
                     build_editorial_contact_sheet(result.manifest_path, alternate)
                 self.assertFalse(alternate.exists())
 
+    def test_public_accepted_generation_validator_resolves_only_accepted_relative_outputs(self) -> None:
+        """Catches final authorization trusting stale pending-root output_path values."""
+
+        pending = self._render()
+        accepted = preview_module.accept_editorial_preview_generation(
+            self.asset_root,
+            pending.generation_id,
+            self._visual_decision(pending),
+        )
+
+        authority = preview_module.validate_accepted_editorial_generation(
+            self.asset_root,
+            accepted.generation_id,
+        )
+
+        self.assertEqual(authority["generation_root"], accepted.output_root)
+        self.assertEqual(len(authority["shots"]), 4)
+        for shot in authority["shots"]:
+            self.assertEqual(
+                shot["output_path"],
+                accepted.output_root / shot["output_relative_path"],
+            )
+            self.assertTrue(shot["output_path"].is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
