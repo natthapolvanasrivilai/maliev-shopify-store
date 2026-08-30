@@ -47,6 +47,7 @@ WORKER_MARKER = "PIMM_EDITORIAL_FINAL_JSON="
 REPORT_NAME = "native-report.json"
 CONTACT_SHEET_NAME = "sheet-editorial-finals.png"
 DISPOSITION_NAME = "actual-pixel-disposition.json"
+REJECTED_DISPOSITION_NAME = "rejected-disposition.json"
 RELEASE_MANIFEST_NAME = "release-manifest.json"
 FINAL_LIBRARY = "editorial-concepts-v1"
 WORKER_TIMEOUT_SECONDS = 3600
@@ -91,8 +92,16 @@ def _validate_ephemeral_render_delta(
 
 def _state_record(bpy: Any) -> dict[str, object]:
     scene = bpy.context.scene
+    camera = scene.camera
+    camera_data = getattr(camera, "data", None)
     return {
-        "camera": str(scene.camera.name if scene.camera else ""),
+        "camera": {
+            "name": str(camera.name if camera else ""),
+            "matrix_world": [list(row) for row in camera.matrix_world] if camera else None,
+            "lens": float(camera_data.lens) if camera_data else None,
+            "sensor_width": float(camera_data.sensor_width) if camera_data else None,
+            "aperture_fstop": float(camera_data.dof.aperture_fstop) if camera_data else None,
+        },
         "lights": blender_editorial_scene._scene_light_signature(bpy),
         "world": str(getattr(scene.world, "name", "")),
         "compositor": blender_editorial_scene._node_tree_signature_record(
@@ -107,6 +116,12 @@ def _state_record(bpy: Any) -> dict[str, object]:
         "image_settings.file_format": str(scene.render.image_settings.file_format),
         "image_settings.color_mode": str(scene.render.image_settings.color_mode),
         "image_settings.color_depth": str(scene.render.image_settings.color_depth),
+        "color_management": {
+            "view_transform": str(scene.view_settings.view_transform),
+            "look": str(scene.view_settings.look),
+            "exposure": float(scene.view_settings.exposure),
+            "gamma": float(scene.view_settings.gamma),
+        },
     }
 
 
@@ -125,6 +140,7 @@ def _load_worker_contract(
     contract_path: Path,
     asset_root: Path,
     expected_sha256: str,
+    expected_bindings: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Perform Pillow-free contract validation inside a fresh Blender process.
 
@@ -167,7 +183,42 @@ def _load_worker_contract(
     approval_path = require_within(Path(str(approval["path"])).resolve(), Path(asset_root).resolve())
     if sha256_file(approval_path) != approval.get("sha256"):
         raise ValueError("fresh Blender approval hash drift")
+    approval_payload = json.loads(approval_path.read_text(encoding="utf-8"))
+    bindings = {
+        "generation_id": approval_payload.get("generation_id"),
+        "approval_sha256": sha256_file(approval_path),
+        "manifest_sha256": approval_payload.get("manifest", {}).get("sha256"),
+        "report_sha256": approval_payload.get("report", {}).get("sha256"),
+        "visual_disposition_sha256": approval_payload.get("visual_disposition", {}).get("sha256"),
+        "contact_sheet_sha256": approval_payload.get("contact_sheet", {}).get("sha256"),
+    }
+    if expected_bindings is not None and bindings != dict(expected_bindings):
+        raise ValueError("fresh Blender held approval/accepted-generation binding drift")
     return contract
+
+
+def _controller_authority_snapshot(contract_path: Path, asset_root: Path) -> dict[str, object]:
+    contract = validate_editorial_final_contract(contract_path, asset_root)
+    approval_path = Path(str(contract["approval"]["path"])).resolve()
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    return {
+        "contract_sha256": sha256_file(contract_path),
+        "generation_id": approval["generation_id"],
+        "approval_sha256": sha256_file(approval_path),
+        "manifest_sha256": approval["manifest"]["sha256"],
+        "report_sha256": approval["report"]["sha256"],
+        "visual_disposition_sha256": approval["visual_disposition"]["sha256"],
+        "contact_sheet_sha256": approval["contact_sheet"]["sha256"],
+    }
+
+
+def _assert_controller_authority_snapshot(
+    contract_path: Path, asset_root: Path, expected: Mapping[str, object]
+) -> dict[str, object]:
+    current = _controller_authority_snapshot(contract_path, asset_root)
+    if current != dict(expected):
+        raise ValueError("held controller approval/final-contract authority drift")
+    return current
 
 
 def _render_worker(
@@ -178,8 +229,11 @@ def _render_worker(
     staging_root: Path,
     shot_id: str,
     expected_contract_sha256: str,
+    expected_bindings: Mapping[str, object],
 ) -> dict[str, object]:
-    contract = _load_worker_contract(contract_path, asset_root, expected_contract_sha256)
+    contract = _load_worker_contract(
+        contract_path, asset_root, expected_contract_sha256, expected_bindings
+    )
     approved = next((item for item in contract["shots"] if item["shot_id"] == shot_id), None)
     if approved is None:
         raise ValueError("final shot is not approval-authorized")
@@ -229,9 +283,30 @@ def _render_worker(
     bpy.data.images["Render Result"].save_render(filepath=str(exr), scene=scene)
     if not exr.is_file() or exr.stat().st_size <= 0:
         raise ValueError("native archive EXR was not produced")
+    if exr.read_bytes()[:4] != b"\x76\x2f\x31\x01":
+        raise ValueError("native archive EXR magic is invalid")
     final_state = _state_record(bpy)
     _validate_ephemeral_render_delta(baseline, final_state, contract)
-    _load_worker_contract(contract_path, asset_root, expected_contract_sha256)
+    after_snapshot, after_collection_errors = blender_editorial_scene._collect_runtime_snapshot(
+        bpy, authority.contract
+    )
+    normalized_after = dict(after_snapshot)
+    normalized_after["render"] = snapshot["render"]
+    after_errors = [
+        *after_collection_errors,
+        *blender_editorial_scene._validate_editorial_runtime_snapshot(
+            normalized_after, authority.contract
+        ),
+    ]
+    if after_errors:
+        raise ValueError("post-render editorial scene authority failed: " + "; ".join(after_errors))
+    if {key: value for key, value in after_snapshot.items() if key != "render"} != {
+        key: value for key, value in snapshot.items() if key != "render"
+    }:
+        raise ValueError("post-render camera/light/world/product/material/decal/contact drift")
+    _load_worker_contract(
+        contract_path, asset_root, expected_contract_sha256, expected_bindings
+    )
     return {
         "shot_id": shot_id,
         "process_id": os.getpid(),
@@ -242,6 +317,12 @@ def _render_worker(
         "png_sha256": sha256_file(png),
         "exr": exr.name,
         "exr_sha256": sha256_file(exr),
+        "exr_validation": {
+            "magic": "762F3101",
+            "dimensions": [width, height],
+            "channels": ["R", "G", "B"],
+            "authority": "blender-render-result",
+        },
         "dimensions": [width, height],
         "samples": int(contract["samples"]),
         "denoise": bool(contract["denoise"]),
@@ -257,12 +338,14 @@ def _render_worker(
 def _worker_command(
     blender: Path, scene: Path, asset_root: Path, contract: Path, staging: Path, shot_id: str,
     expected_contract_sha256: str,
+    expected_bindings: Mapping[str, object],
 ) -> list[str]:
     return [
         str(blender), "--background", str(scene), "--python", str(Path(__file__).resolve()), "--",
         "--render-shot", "--asset-root", str(asset_root), "--contract", str(contract),
         "--staging-root", str(staging), "--shot-id", shot_id,
         "--expected-contract-sha256", expected_contract_sha256,
+        "--expected-bindings-json", json.dumps(dict(expected_bindings), sort_keys=True),
     ]
 
 
@@ -323,6 +406,7 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
     blender = Path(blender).resolve()
     contract_path = Path(contract_path).resolve()
     contract = validate_editorial_final_contract(contract_path, asset_root)
+    held = _controller_authority_snapshot(contract_path, asset_root)
     _validate_blender_authority(asset_root, blender)
     parent = asset_root / "renders" / "final" / FINAL_LIBRARY
     parent.mkdir(parents=True, exist_ok=True)
@@ -334,17 +418,18 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
     try:
         records = []
         for shot in contract["shots"]:
-            validate_editorial_final_contract(contract_path, asset_root)
+            _assert_controller_authority_snapshot(contract_path, asset_root, held)
             scene = Path(str(shot["authority"]["scene_path"]))
             completed = subprocess.run(
                 _worker_command(
                     blender, scene, asset_root, contract_path, staging, str(shot["shot_id"]),
                     sha256_file(contract_path),
+                    {key: value for key, value in held.items() if key != "contract_sha256"},
                 ),
                 capture_output=True, text=True, timeout=WORKER_TIMEOUT_SECONDS, check=False,
             )
             records.append(_parse_worker(completed, str(shot["shot_id"])))
-            validate_editorial_final_contract(contract_path, asset_root)
+            _assert_controller_authority_snapshot(contract_path, asset_root, held)
         if len({record["process_id"] for record in records}) != 4:
             raise ValueError("native final campaign did not use four fresh Blender processes")
         contact = _build_contact_sheet(staging, records)
@@ -357,12 +442,13 @@ def render_editorial_native_finals(asset_root: Path, blender: Path, contract_pat
             "rendered_at": _utc_now(),
             "fresh_blender_processes": 4,
             "samples": 256,
+            "denoise": True,
             "shots": records,
             "contact_sheet": {"path": contact.name, "sha256": sha256_file(contact), "dimensions": [2560, 1800]},
             "status": "pending-actual-pixel-review",
         }
         _exclusive_json(staging / REPORT_NAME, report)
-        validate_editorial_final_contract(contract_path, asset_root)
+        _assert_controller_authority_snapshot(contract_path, asset_root, held)
         return staging
     except Exception as error:
         rejected = _preserve_failure(staging, asset_root, str(contract["release_id"]), error)
@@ -375,16 +461,41 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
 
     report_path = staging / REPORT_NAME
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    if report.get("release_id") != contract["release_id"] or report.get("contract_sha256") != sha256_file(Path(str(report["contract_path"]))):
+    if (
+        report.get("schema") != "maliev.pimm-editorial-native-report/v1"
+        or report.get("status") != "pending-actual-pixel-review"
+        or report.get("release_id") != contract["release_id"]
+        or report.get("generation_id") != contract["generation_id"]
+        or report.get("contract_sha256") != sha256_file(Path(str(report["contract_path"])))
+        or report.get("fresh_blender_processes") != 4
+        or report.get("samples") != 256
+        or report.get("denoise") is not True
+    ):
         raise ValueError("native report contract binding drift")
     records = report.get("shots")
     if not isinstance(records, list) or [item.get("shot_id") for item in records] != [item["shot_id"] for item in contract["shots"]]:
         raise ValueError("native report exact four-shot set drift")
+    process_ids = [item.get("process_id") for item in records]
+    if (
+        any(not isinstance(value, int) or isinstance(value, bool) for value in process_ids)
+        or len(set(process_ids)) != 4
+    ):
+        raise ValueError("native report does not prove four fresh Blender processes")
     expected = {REPORT_NAME, CONTACT_SHEET_NAME}
     for approved, record in zip(contract["shots"], records, strict=True):
         width, height = _shot_dimensions(contract, approved)
-        if record.get("dimensions") != [width, height]:
-            raise ValueError("native final dimensions drift")
+        authority = approved["authority"]
+        if (
+            record.get("dimensions") != [width, height]
+            or record.get("samples") != 256
+            or record.get("denoise") is not True
+            or record.get("film_transparent") is not False
+            or record.get("authority_status") != "pass"
+            or record.get("scene_sha256") != authority.get("scene_sha256")
+            or record.get("contract_sha256") != authority.get("contract_sha256")
+            or record.get("completion_marker_sha256") != authority.get("completion_marker_sha256")
+        ):
+            raise ValueError("native final dimensions, render, opacity, or authority evidence drift")
         for field in ("png", "exr"):
             relative = record.get(field)
             if not isinstance(relative, str) or Path(relative).name != relative:
@@ -393,6 +504,14 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
             if not path.is_file() or sha256_file(path) != record.get(f"{field}_sha256"):
                 raise ValueError(f"native final {field} hash drift")
             expected.add(relative)
+        exr_path = staging / str(record["exr"])
+        if exr_path.read_bytes()[:4] != b"\x76\x2f\x31\x01":
+            raise ValueError("native final EXR magic is invalid")
+        if record.get("exr_validation") != {
+            "magic": "762F3101", "dimensions": [width, height],
+            "channels": ["R", "G", "B"], "authority": "blender-render-result",
+        }:
+            raise ValueError("native final EXR dimensions/channels evidence drift")
         with Image.open(staging / str(record["png"])) as image:
             if image.format != "PNG" or image.size != (width, height):
                 raise ValueError("native final PNG dimensions or format drift")
@@ -403,6 +522,77 @@ def _validate_staging(staging: Path, contract: Mapping[str, object]) -> tuple[di
     if observed != expected or any(path.is_dir() for path in staging.iterdir()):
         raise ValueError("native final staging contains extra or missing files")
     return report, expected
+
+
+def _preserve_publication_collision(
+    staging: Path,
+    asset_root: Path,
+    release_id: str,
+    message: str,
+) -> Path:
+    """Move an unmarked reviewed tree into one exclusive immutable failure path."""
+
+    marker = staging / RELEASE_MANIFEST_NAME
+    if marker.exists():
+        marker.unlink()
+    failure_parent = asset_root / "renders" / "final-failures" / FINAL_LIBRARY
+    failure_parent.mkdir(parents=True, exist_ok=True)
+    rejected = failure_parent / f"{release_id}-publication-{uuid.uuid4().hex[:8]}"
+    _exclusive_json(staging / "publication-failure.json", {
+        "schema": "maliev.pimm-editorial-publication-failure/v1",
+        "release_id": release_id,
+        "failed_at": _utc_now(),
+        "error": message,
+    })
+    os.rename(staging, rejected)
+    return rejected
+
+
+def reject_editorial_native_release(
+    staging: Path, contract_path: Path, disposition: Mapping[str, object]
+) -> Path:
+    """Atomically preserve one hash-bound actual-pixel rejection outside finals."""
+
+    staging = Path(staging).resolve()
+    contract_path = Path(contract_path).resolve()
+    asset_root = contract_path.parents[3]
+    contract = validate_editorial_final_contract(contract_path, asset_root)
+    parent = asset_root / "renders" / "final" / FINAL_LIBRARY
+    require_within(staging, parent)
+    if not staging.is_dir() or not staging.name.startswith(f".{contract['release_id']}.pending"):
+        raise ValueError("native final staging claim is missing or invalid")
+    report, _expected = _validate_staging(staging, contract)
+    if disposition.get("decision") != "reject" or not str(disposition.get("reviewer", "")).strip():
+        raise ValueError("actual-pixel rejection is not identified")
+    sheet = disposition.get("contact_sheet")
+    if not isinstance(sheet, Mapping) or sheet.get("sha256") != report["contact_sheet"]["sha256"]:
+        raise ValueError("actual-pixel rejection contact-sheet hash drift")
+    reviews = disposition.get("shots")
+    if not isinstance(reviews, list) or len(reviews) != 4:
+        raise ValueError("actual-pixel rejection requires exact four-shot evidence")
+    any_failure = False
+    for record, review in zip(report["shots"], reviews, strict=True):
+        if (
+            not isinstance(review, Mapping)
+            or review.get("shot_id") != record["shot_id"]
+            or review.get("png_sha256") != record["png_sha256"]
+            or review.get("exr_sha256") != record["exr_sha256"]
+            or not str(review.get("notes", "")).strip()
+        ):
+            raise ValueError("actual-pixel rejection shot/hash evidence drift")
+        states = [review.get(field) for field in _PASS_FIELDS]
+        if any(state not in {"pass", "fail"} for state in states):
+            raise ValueError("actual-pixel rejection fields must be explicit pass/fail")
+        any_failure = any_failure or "fail" in states
+    if not any_failure:
+        raise ValueError("actual-pixel rejection must identify at least one failed field")
+    rejected_disposition = staging / REJECTED_DISPOSITION_NAME
+    _exclusive_json(rejected_disposition, dict(disposition))
+    failure_parent = asset_root / "renders" / "final-failures" / FINAL_LIBRARY
+    failure_parent.mkdir(parents=True, exist_ok=True)
+    rejected = failure_parent / f"{contract['release_id']}-rejected-{uuid.uuid4().hex[:8]}"
+    os.rename(staging, rejected)
+    return rejected
 
 
 def publish_editorial_native_release(
@@ -420,6 +610,14 @@ def publish_editorial_native_release(
         raise ValueError("native final staging claim is invalid")
     report, expected = _validate_staging(staging, contract)
     from PIL import Image
+
+    target = parent / str(contract["release_id"])
+    if target.exists():
+        preserved = _preserve_publication_collision(
+            staging, asset_root, str(contract["release_id"]),
+            "native final release replay or competing publication",
+        )
+        raise ValueError(f"native final release replay or competing publication; evidence={preserved}")
 
     if disposition.get("decision") != "accept" or not str(disposition.get("reviewer", "")).strip():
         raise ValueError("actual-pixel disposition is not an identified acceptance")
@@ -474,19 +672,21 @@ def publish_editorial_native_release(
         "published_at": _utc_now(),
         "status": "accepted",
     }
-    marker = staging / RELEASE_MANIFEST_NAME
-    _exclusive_json(marker, manifest)  # marker written last
-    expected.add(RELEASE_MANIFEST_NAME)
+    # Every fallible authority and tree check completes before marker creation.
     observed = {path.name for path in staging.iterdir()}
     if observed != expected or any(path.is_dir() for path in staging.iterdir()):
-        marker.unlink(missing_ok=True)
         raise ValueError("native final release tree contains extra or missing files")
     validate_editorial_final_contract(contract_path, asset_root)
-    target = parent / str(contract["release_id"])
-    if target.exists():
-        marker.unlink(missing_ok=True)
-        raise ValueError("native final release replay or competing publication")
-    os.rename(staging, target)
+    marker = staging / RELEASE_MANIFEST_NAME
+    _exclusive_json(marker, manifest)  # marker is immediately followed by atomic rename
+    try:
+        os.rename(staging, target)
+    except OSError as error:
+        preserved = _preserve_publication_collision(
+            staging, asset_root, str(contract["release_id"]),
+            f"atomic final publication collision: {error}",
+        )
+        raise ValueError(f"native final publication collision; evidence={preserved}") from error
     return target
 
 
@@ -498,6 +698,7 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--staging-root", type=Path)
     parser.add_argument("--shot-id")
     parser.add_argument("--expected-contract-sha256")
+    parser.add_argument("--expected-bindings-json")
     return parser.parse_args(argv)
 
 
@@ -508,6 +709,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not arguments.render_shot or None in (
         arguments.asset_root, arguments.contract, arguments.staging_root,
         arguments.shot_id, arguments.expected_contract_sha256,
+        arguments.expected_bindings_json,
     ):
         raise ValueError("native final worker requires render-shot, asset-root, contract, staging-root, and shot-id")
     import bpy
@@ -518,6 +720,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         staging_root=arguments.staging_root.resolve(),
         shot_id=str(arguments.shot_id),
         expected_contract_sha256=str(arguments.expected_contract_sha256),
+        expected_bindings=json.loads(str(arguments.expected_bindings_json)),
     )
     print(WORKER_MARKER + json.dumps(result, sort_keys=True), flush=True)
     return 0

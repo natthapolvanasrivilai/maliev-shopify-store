@@ -14,6 +14,7 @@ from unittest.mock import patch
 from PIL import Image
 
 from scripts.blender.pimm_production import blender_editorial_preview as preview_module
+from scripts.blender.pimm_production import editorial_final_contract as contract_module
 from scripts.blender.pimm_production.editorial_final_contract import (
     APPROVED_GENERATION_ID,
     RELEASE_ID,
@@ -23,9 +24,11 @@ from scripts.blender.pimm_production.editorial_final_contract import (
     validate_editorial_owner_approval,
 )
 from scripts.blender.pimm_production.blender_editorial_final import (
+    _controller_authority_snapshot,
     _load_worker_contract,
     _validate_ephemeral_render_delta,
     publish_editorial_native_release,
+    reject_editorial_native_release,
 )
 from scripts.blender.pimm_production.io_contract import sha256_file
 from scripts.blender.pimm_production.tests import test_editorial_preview as _preview_tests
@@ -42,8 +45,19 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             pending.generation_id,
             self.preview._visual_decision(pending),
         )
+        self._original_generation = contract_module.APPROVED_GENERATION_ID
+        self._original_hashes = dict(contract_module.EXPECTED_ACCEPTED_HASHES)
+        accepted = preview_module.validate_accepted_editorial_generation(
+            self.asset_root, self.accepted.generation_id
+        )
+        contract_module.APPROVED_GENERATION_ID = self.accepted.generation_id
+        contract_module.EXPECTED_ACCEPTED_HASHES = {
+            field: accepted[field] for field in contract_module.EXPECTED_ACCEPTED_HASHES
+        }
 
     def tearDown(self) -> None:
+        contract_module.APPROVED_GENERATION_ID = self._original_generation
+        contract_module.EXPECTED_ACCEPTED_HASHES = self._original_hashes
         self.preview.tearDown()
 
     def _approval(self) -> Path:
@@ -53,6 +67,57 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             owner="natth",
             notes="Approved all four exact editorial previews for native final rendering",
         )
+
+    def _staging_fixture(self, contract_path: Path) -> tuple[Path, dict[str, object]]:
+        contract = validate_editorial_final_contract(contract_path, self.asset_root)
+        staging = (
+            self.asset_root / "renders" / "final" / "editorial-concepts-v1"
+            / f".{RELEASE_ID}.pending-fixture"
+        )
+        staging.mkdir(parents=True)
+        shots = []
+        for index, approved in enumerate(contract["shots"]):
+            width, height = (3840, 2160) if index < 3 else (2400, 3000)
+            png = staging / f"{approved['shot_id']}.png"
+            exr = staging / f"{approved['shot_id']}.exr"
+            Image.new("RGB", (width, height), (80 + index, 90, 100)).save(png)
+            exr.write_bytes(b"\x76\x2f\x31\x01" + f"EXR-{index}".encode())
+            authority = approved["authority"]
+            shots.append({
+                "shot_id": approved["shot_id"], "process_id": 1000 + index,
+                "png": png.name, "png_sha256": sha256_file(png),
+                "exr": exr.name, "exr_sha256": sha256_file(exr), "dimensions": [width, height],
+                "samples": 256, "denoise": True, "film_transparent": False,
+                "authority_status": "pass", "scene_sha256": authority["scene_sha256"],
+                "contract_sha256": authority["contract_sha256"],
+                "completion_marker_sha256": authority["completion_marker_sha256"],
+                "exr_validation": {"magic": "762F3101", "dimensions": [width, height],
+                    "channels": ["R", "G", "B"], "authority": "blender-render-result"},
+            })
+        sheet = staging / "sheet-editorial-finals.png"
+        Image.new("RGB", (2560, 1800), (30, 40, 50)).save(sheet)
+        report = {
+            "schema": "maliev.pimm-editorial-native-report/v1", "status": "pending-actual-pixel-review",
+            "release_id": RELEASE_ID, "generation_id": contract["generation_id"],
+            "contract_path": str(contract_path), "contract_sha256": sha256_file(contract_path),
+            "fresh_blender_processes": 4, "samples": 256, "denoise": True,
+            "shots": shots,
+            "contact_sheet": {"path": sheet.name, "sha256": sha256_file(sheet), "dimensions": [2560, 1800]},
+        }
+        (staging / "native-report.json").write_text(json.dumps(report), encoding="utf-8")
+        disposition = {
+            "decision": "accept", "reviewer": "Codex actual-pixel reviewer",
+            "reviewed_at": "2026-08-30T13:00:00Z",
+            "contact_sheet": {"sha256": report["contact_sheet"]["sha256"], "pixel_review": "pass"},
+            "shots": [
+                {"shot_id": shot["shot_id"], "png_sha256": shot["png_sha256"],
+                 "exr_sha256": shot["exr_sha256"], "pixel_review": "pass",
+                 "grounding": "pass", "clipping": "pass", "props": "pass",
+                 "exposure": "pass", "detail": "pass", "decals": "pass", "notes": "reviewed"}
+                for shot in shots
+            ],
+        }
+        return staging, disposition
 
     def test_owner_approval_binds_every_exact_accepted_image_and_authority(self) -> None:
         """Catches approval that binds only a generation label or contact sheet."""
@@ -90,6 +155,18 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(FileExistsError, "approval-r01"):
             self._approval()
         self.assertTrue(approval_path.is_file())
+
+    def test_r01_rejects_every_other_accepted_generation(self) -> None:
+        """Catches release r01 authority being reused for a later accepted generation."""
+
+        pending = self.preview._render()
+        another = preview_module.accept_editorial_preview_generation(
+            self.asset_root, pending.generation_id, self.preview._visual_decision(pending)
+        )
+        with self.assertRaisesRegex(ValueError, "exact|generation"):
+            record_editorial_owner_approval(
+                self.asset_root, another.generation_id, owner="natth", notes="wrong generation"
+            )
 
     def test_approval_rejects_any_accepted_generation_or_current_authority_drift(self) -> None:
         """Catches final authorization after preview bytes or protected scene bytes change."""
@@ -172,48 +249,72 @@ class EditorialFinalReleaseTests(unittest.TestCase):
         contract_path = authorize_editorial_final_release(
             approval_path, self.asset_root, RELEASE_ID
         )
-        staging = self.asset_root / "renders" / "final" / "editorial-concepts-v1" / f".{RELEASE_ID}.pending-fixture"
-        staging.mkdir(parents=True)
-        contract = validate_editorial_final_contract(contract_path, self.asset_root)
-        shots = []
-        for index, approved in enumerate(contract["shots"]):
-            width, height = (3840, 2160) if index < 3 else (2400, 3000)
-            png = staging / f"{approved['shot_id']}.png"
-            exr = staging / f"{approved['shot_id']}.exr"
-            Image.new("RGB", (width, height), (80 + index, 90, 100)).save(png)
-            exr.write_bytes(f"EXR-{index}".encode())
-            shots.append({
-                "shot_id": approved["shot_id"], "png": png.name, "png_sha256": sha256_file(png),
-                "exr": exr.name, "exr_sha256": sha256_file(exr), "dimensions": [width, height],
-            })
-        Image.new("RGB", (2560, 1800), (30, 40, 50)).save(staging / "sheet-editorial-finals.png")
-        (staging / "native-report.json").write_text(json.dumps({
-            "release_id": RELEASE_ID,
-            "contract_path": str(contract_path),
-            "contract_sha256": sha256_file(contract_path),
-            "shots": shots,
-            "contact_sheet": {
-                "path": "sheet-editorial-finals.png",
-                "sha256": sha256_file(staging / "sheet-editorial-finals.png"),
-                "dimensions": [2560, 1800],
-            },
-        }), encoding="utf-8")
-        disposition = {
-            "decision": "accept", "reviewer": "Codex actual-pixel reviewer",
-            "reviewed_at": "2026-08-30T13:00:00Z",
-            "contact_sheet": {"sha256": sha256_file(staging / "sheet-editorial-finals.png"), "pixel_review": "pass"},
-            "shots": [
-                {"shot_id": shot["shot_id"], "png_sha256": shot["png_sha256"],
-                 "exr_sha256": shot["exr_sha256"], "pixel_review": "pass",
-                 "grounding": "pass", "clipping": "pass", "props": "pass",
-                 "exposure": "pass", "detail": "pass", "decals": "pass", "notes": "reviewed"}
-                for shot in shots
-            ],
-        }
+        staging, disposition = self._staging_fixture(contract_path)
         disposition["shots"][0]["pixel_review"] = "fail"
         with self.assertRaisesRegex(ValueError, "pixel|pass"):
             publish_editorial_native_release(staging, contract_path, disposition)
         self.assertFalse((staging.parent / RELEASE_ID).exists())
+
+    def test_staging_rejects_invalid_exr_magic_and_missing_native_evidence(self) -> None:
+        """Catches arbitrary bytes or incomplete claims being accepted as native finals."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        report_path = staging / "native-report.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        exr = staging / report["shots"][0]["exr"]
+        exr.write_bytes(b"not an exr")
+        report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "EXR|exr"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+        exr.write_bytes(b"\x76\x2f\x31\x01fixture")
+        report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report["shots"][0].pop("authority_status")
+        disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "authority|evidence"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+    def test_reject_flow_is_hash_bound_exclusive_and_never_publishes(self) -> None:
+        """Catches visual rejection being deleted, overwritten, or moved into final release."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        disposition["decision"] = "reject"
+        disposition["shots"][0]["pixel_review"] = "fail"
+        disposition["shots"][0]["notes"] = "Rejected at actual pixels"
+        rejected = reject_editorial_native_release(staging, contract_path, disposition)
+        self.assertTrue((rejected / "rejected-disposition.json").is_file())
+        self.assertFalse((staging.parent / RELEASE_ID).exists())
+        with self.assertRaisesRegex(ValueError, "staging|claim|missing"):
+            reject_editorial_native_release(staging, contract_path, disposition)
+
+    def test_accept_collision_preserves_reviewed_staging_without_release_marker(self) -> None:
+        """Catches target races leaving a marker-certified hidden tree or deleting evidence."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        target = staging.parent / RELEASE_ID
+        target.mkdir()
+        with self.assertRaisesRegex(ValueError, "competing|replay|collision"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertFalse(staging.exists())
+        preserved = list(
+            (self.asset_root / "renders" / "final-failures" / "editorial-concepts-v1").glob(
+                f"{RELEASE_ID}-publication-*"
+            )
+        )
+        self.assertEqual(len(preserved), 1)
+        self.assertFalse((preserved[0] / "release-manifest.json").exists())
 
     def test_blender_worker_script_bootstraps_outside_package_mode(self) -> None:
         """Catches Blender executing the checked-in worker with unresolved relative imports."""
@@ -254,13 +355,20 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             approval_path, self.asset_root, RELEASE_ID
         )
         expected_sha = sha256_file(contract_path)
+        held = _controller_authority_snapshot(contract_path, self.asset_root)
+        bindings = {key: value for key, value in held.items() if key != "contract_sha256"}
         with patch(
             "scripts.blender.pimm_production.blender_editorial_final.validate_editorial_final_contract",
             side_effect=ModuleNotFoundError("Pillow unavailable in Blender"),
         ):
-            contract = _load_worker_contract(contract_path, self.asset_root, expected_sha)
+            contract = _load_worker_contract(
+                contract_path, self.asset_root, expected_sha, bindings
+            )
         self.assertEqual(contract["release_id"], RELEASE_ID)
         self.assertEqual(contract["samples"], 256)
+        drifted = {**bindings, "manifest_sha256": "0" * 64}
+        with self.assertRaisesRegex(ValueError, "binding drift"):
+            _load_worker_contract(contract_path, self.asset_root, expected_sha, drifted)
 
 
 if __name__ == "__main__":

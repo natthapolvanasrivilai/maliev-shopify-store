@@ -75,11 +75,12 @@ def _authority_json(shot: Mapping[str, object]) -> dict[str, object]:
 
 
 def _accepted_snapshot(asset_root: Path, generation_id: str) -> tuple[dict[str, object], list[dict[str, object]]]:
+    if generation_id != APPROVED_GENERATION_ID:
+        raise ValueError("release r01 requires the exact owner-approved editorial generation")
     accepted = validate_accepted_editorial_generation(asset_root, generation_id)
-    if generation_id == APPROVED_GENERATION_ID:
-        for field, expected in EXPECTED_ACCEPTED_HASHES.items():
-            if accepted[field] != expected:
-                raise ValueError(f"approved accepted-generation {field} drift")
+    for field, expected in EXPECTED_ACCEPTED_HASHES.items():
+        if accepted[field] != expected:
+            raise ValueError(f"approved accepted-generation {field} drift")
     shots = []
     for shot in accepted["shots"]:
         shots.append({
