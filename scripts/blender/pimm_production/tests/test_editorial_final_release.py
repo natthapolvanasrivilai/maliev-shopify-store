@@ -805,6 +805,42 @@ class EditorialFinalReleaseTests(unittest.TestCase):
             self.assertEqual(evidence["result_sha256"], result_sha256)
             self.assertFalse(final_module._worker_phase_path(staging, "shot-one").exists())
 
+    def test_worker_phase_paths_stay_short_and_collision_safe_at_long_unc_root(self) -> None:
+        """Catches full shot IDs or UUIDs overflowing the real Windows staging root."""
+
+        staging = Path(
+            r"\\maliev\maliev\30_Products\00_Pneumatic Injection Molding Machine"
+            r"\blender-product-renders\renders\final\editorial-concepts-v1"
+        ) / (
+            ".editorial-release-2026-08-30-r01.pending-"
+            + "a" * 32
+        )
+        long_shot = "editorial-lifestyle-pneumatic-side-" + "x" * 256
+        phase = final_module._worker_phase_path(staging, long_shot)
+
+        self.assertLess(len(str(phase)), 260)
+        self.assertLessEqual(len(phase.name), len(".phase-") + 16 + len(".json"))
+        self.assertNotIn(long_shot, phase.name)
+        self.assertEqual(len({
+            final_module._worker_phase_path(
+                staging, f"editorial-shot-{index}-" + "x" * 256
+            )
+            for index in range(100)
+        }), 100)
+
+        with patch.object(
+            final_module.uuid, "uuid4",
+            side_effect=[
+                SimpleNamespace(hex="b" * 32),
+                SimpleNamespace(hex="c" * 32),
+            ],
+        ):
+            first_temp = final_module._worker_phase_temporary_path(staging)
+            second_temp = final_module._worker_phase_temporary_path(staging)
+        self.assertLess(len(str(first_temp)), 260)
+        self.assertEqual(first_temp.name, ".phase-bbbbbbbbbbbbbbbb.tmp")
+        self.assertNotEqual(first_temp, second_temp)
+
     def test_blender_worker_import_does_not_require_pillow(self) -> None:
         """Catches fresh Blender exiting before render because its Python lacks Pillow."""
 

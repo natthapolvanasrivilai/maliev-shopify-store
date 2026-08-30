@@ -86,7 +86,13 @@ def _fsync_file(path: Path) -> None:
 
 
 def _worker_phase_path(staging: Path, shot_id: str) -> Path:
-    return require_within(staging / f".worker-phase-{shot_id}.json", staging)
+    key = hashlib.sha256(shot_id.encode("utf-8")).hexdigest()[:16]
+    return require_within(staging / f".phase-{key}.json", staging)
+
+
+def _worker_phase_temporary_path(staging: Path) -> Path:
+    nonce = uuid.uuid4().hex[:16]
+    return require_within(staging / f".phase-{nonce}.tmp", staging)
 
 
 def _write_worker_phase(
@@ -95,7 +101,7 @@ def _write_worker_phase(
     """Durably replace one worker phase record; failures preserve the latest phase."""
 
     path = _worker_phase_path(staging, shot_id)
-    temporary = require_within(staging / f".{path.name}.{uuid.uuid4().hex}.tmp", staging)
+    temporary = _worker_phase_temporary_path(staging)
     temporary.write_bytes(_json_bytes({
         "schema": "maliev.pimm-editorial-worker-phase/v1",
         "shot_id": shot_id, "phase": phase, "recorded_at": _utc_now(), **evidence,
