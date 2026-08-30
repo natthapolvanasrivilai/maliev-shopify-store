@@ -50,6 +50,18 @@ def _public_source_url(value: object) -> bool:
     return not bool((segments | hostname | query) & _ACCOUNT_GATED_SEGMENTS)
 
 
+def _polyhaven_asset_id(value: object) -> str | None:
+    """Return the public Poly Haven page slug when the source has its canonical shape."""
+
+    if not isinstance(value, str):
+        return None
+    parsed = urlparse(value)
+    parts = [part for part in parsed.path.split("/") if part]
+    if parsed.hostname != "polyhaven.com" or len(parts) != 2 or parts[0] != "a":
+        return None
+    return parts[1]
+
+
 def validate_external_assets(
     manifest: object, campaign_shot_ids: object
 ) -> list[str]:
@@ -94,6 +106,14 @@ def validate_external_assets(
             errors.append(f"{prefix} license must equal CC0-1.0")
         if not _safe_asset_path(asset.get("local_relative_path")):
             errors.append(f"{prefix} local_relative_path must be a safe relative asset path")
+        polyhaven_id = _polyhaven_asset_id(asset.get("source_url"))
+        if polyhaven_id is not None:
+            if not isinstance(version, str) or not version.startswith(f"{polyhaven_id}:"):
+                errors.append(f"{prefix} Poly Haven asset_version_id must begin with its source asset ID")
+            local_path = asset.get("local_relative_path")
+            expected_prefix = f"assets/external/polyhaven/{polyhaven_id}/"
+            if not isinstance(local_path, str) or not local_path.startswith(expected_prefix):
+                errors.append(f"{prefix} Poly Haven local_relative_path must remain in its source asset folder")
         if not isinstance(asset.get("sha256"), str) or _SHA256.fullmatch(asset["sha256"]) is None:
             errors.append(f"{prefix} sha256 must be 64 hexadecimal characters")
         intended = asset.get("intended_shot_ids")

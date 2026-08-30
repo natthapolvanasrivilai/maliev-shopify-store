@@ -19,7 +19,7 @@ def _manifest() -> dict[str, object]:
         "schema": "maliev.pimm-external-assets/v1",
         "assets": [
             {
-                "source_url": "https://polyhaven.com/a/industrial_crate",
+                "source_url": "https://assets.example.invalid/a/industrial_crate",
                 "asset_version_id": "industrial-crate-1.0",
                 "license": "CC0-1.0",
                 "local_relative_path": "assets/props/industrial-crate.blend",
@@ -46,6 +46,42 @@ class ExternalAssetManifestTests(unittest.TestCase):
         """Catches a provenance gate that rejects a complete, scoped public CC0 record."""
 
         self.assertEqual(validate_external_assets(_manifest(), CAMPAIGN_SHOTS), [])
+
+    def test_accepts_polyhaven_editorial_provenance_only_for_its_concept_shots(self) -> None:
+        manifest = _manifest()
+        asset = manifest["assets"][0]
+        assert isinstance(asset, dict)
+        asset.update(
+            {
+                "source_url": "https://polyhaven.com/a/metal_toolbox",
+                "asset_version_id": "metal_toolbox:1k:blend:e0ea9770745ba209029fecc482e27d53",
+                "local_relative_path": "assets/external/polyhaven/metal_toolbox/metal_toolbox_1k.blend",
+                "intended_shot_ids": ["pimm-50g--concept-modern-workshop"],
+            }
+        )
+
+        self.assertEqual(
+            validate_external_assets(manifest, {"pimm-50g--concept-modern-workshop"}),
+            [],
+        )
+
+    def test_rejects_polyhaven_provenance_that_does_not_bind_page_version_and_path(self) -> None:
+        manifest = _manifest()
+        asset = manifest["assets"][0]
+        assert isinstance(asset, dict)
+        asset.update(
+            {
+                "source_url": "https://polyhaven.com/a/metal_toolbox",
+                "asset_version_id": "tool_cart:models:1k:blend:3861700017732faa0f596ee072647726",
+                "local_relative_path": "assets/external/polyhaven/tool_cart/tool_cart_1k.blend",
+                "intended_shot_ids": ["pimm-50g--concept-modern-workshop"],
+            }
+        )
+
+        errors = validate_external_assets(manifest, {"pimm-50g--concept-modern-workshop"})
+
+        self.assertIn("assets[0] Poly Haven asset_version_id must begin with its source asset ID", errors)
+        self.assertIn("assets[0] Poly Haven local_relative_path must remain in its source asset folder", errors)
 
     def test_collects_incomplete_account_gated_and_uncontracted_asset_errors(self) -> None:
         """Catches a fail-open manifest parser that accepts unauditable or scoped-wrong assets."""
