@@ -1,10 +1,10 @@
 {% doc %}
-  Renders the governed PIMM 50G light-studio product story.
+  Renders the master-derived PIMM 50G normal-scroll product story.
 
   @param {string} story_asset_set
 {% enddoc %}
 
-{% if story_asset_set == 'pimm50-light-studio-v1' %}
+{% if story_asset_set == 'pimm-master-20260831-r02-50g' %}
   <section class="pimm-story pimm-story--50g" aria-label="{{ 'products.pimm_machine.editorial.heading' | t | escape }} — 50G">
     <header class="pimm-story__intro">
       <p class="pimm-machine__eyebrow">50G</p>
@@ -13,28 +13,23 @@
     </header>
 
     <article class="pimm-story__chapter">
-      <figure class="pimm-story__media"><img src="{{ 'pimm50-light-studio-capacity.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.overview' | t | escape }}" width="1200" height="1200" loading="lazy" decoding="async"></figure>
+      <figure class="pimm-story__media"><img src="{{ 'pimm-master-20260831-r02-50g-three-quarter.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.overview' | t | escape }}" width="1600" height="1312" loading="lazy" decoding="async"></figure>
       <div class="pimm-story__copy"><p class="pimm-story__index">01</p><h3>{{ 'products.pimm_machine.specs.capacity.label' | t }}</h3><p>{{ 'products.pimm_machine.specs.capacity.guidance' | t }}</p></div>
     </article>
 
     <article class="pimm-story__chapter">
-      <figure class="pimm-story__media"><img src="{{ 'pimm50-light-studio-melt-zone.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.tooling' | t | escape }}" width="1200" height="1200" loading="lazy" decoding="async"></figure>
-      <div class="pimm-story__copy"><p class="pimm-story__index">02</p><h3>{{ 'products.pimm_machine.tooling.heading' | t }}</h3><p>{{ 'products.pimm_machine.tooling.body' | t }}</p></div>
+      <figure class="pimm-story__media"><img src="{{ 'pimm-master-20260831-r02-50g-controls.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.engineering' | t | escape }}" width="1600" height="1248" loading="lazy" decoding="async"></figure>
+      <div class="pimm-story__copy"><p class="pimm-story__index">02</p><h3>{{ 'products.pimm_machine.specs.temperature.label' | t }}</h3><p>{{ 'products.pimm_machine.specs.temperature.guidance' | t }}</p></div>
     </article>
 
     <article class="pimm-story__chapter">
-      <figure class="pimm-story__media"><img src="{{ 'pimm50-light-studio-heating.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.engineering' | t | escape }}" width="1200" height="1200" loading="lazy" decoding="async"></figure>
-      <div class="pimm-story__copy"><p class="pimm-story__index">03</p><h3>{{ 'products.pimm_machine.specs.temperature.label' | t }}</h3><p>{{ 'products.pimm_machine.specs.temperature.guidance' | t }}</p></div>
-    </article>
-
-    <article class="pimm-story__chapter">
-      <figure class="pimm-story__media"><img src="{{ 'pimm50-light-studio-mold-space.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.tooling' | t | escape }}" width="1200" height="1200" loading="lazy" decoding="async"></figure>
-      <div class="pimm-story__copy"><p class="pimm-story__index">04</p><h3>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</h3><p>{{ 'products.pimm_machine.specs.mold_envelope.guidance' | t }}</p></div>
+      <figure class="pimm-story__media"><img src="{{ 'pimm-master-20260831-r02-50g-tooling.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.tooling' | t | escape }}" width="1600" height="1248" loading="lazy" decoding="async"></figure>
+      <div class="pimm-story__copy"><p class="pimm-story__index">03</p><h3>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</h3><p>{{ 'products.pimm_machine.specs.mold_envelope.guidance' | t }}</p></div>
     </article>
 
     <article class="pimm-story__chapter pimm-story__chapter--configuration">
-      <figure class="pimm-story__media" data-pimm-full-machine data-pimm-stage-baseline><img src="{{ 'pimm50-light-studio-purchase.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.hero' | t | escape }}" width="1400" height="1400" loading="lazy" decoding="async"></figure>
-      <div class="pimm-story__copy"><p class="pimm-story__index">05</p><h3>{{ 'products.pimm_machine.purchase.heading' | t }}</h3><p>{{ 'products.pimm_machine.purchase.body' | t }}</p></div>
+      <figure class="pimm-story__media" data-pimm-full-machine data-pimm-physical-ground-contact><img src="{{ 'pimm-master-20260831-r02-50g-hero.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.hero' | t | escape }}" width="1600" height="1920" loading="lazy" decoding="async"></figure>
+      <div class="pimm-story__copy"><p class="pimm-story__index">04</p><h3>{{ 'products.pimm_machine.purchase.heading' | t }}</h3><p>{{ 'products.pimm_machine.purchase.body' | t }}</p></div>
     </article>
   </section>
 {% endif %}

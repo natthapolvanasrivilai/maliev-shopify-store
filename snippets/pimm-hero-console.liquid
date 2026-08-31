@@ -15,7 +15,7 @@
 <header class="pimm-machine__hero" data-pimm-hero>
   <div class="pimm-machine__decision">
     <p class="pimm-machine__eyebrow">{{ 'products.pimm_machine.hero.evidence_heading' | t }}</p>
-    <h1>{{ product.title | escape }}</h1>
+    <h1 class="pimm-machine__title">{{ product.title | escape }}</h1>
     <p class="pimm-machine__promise">{{ 'products.pimm_machine.hero.promise' | t }}</p>
     <p class="pimm-machine__fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
 
@@ -33,35 +33,32 @@
       data-pimm-media-model="30G"
       data-pimm-media-slot="hero"
       data-pimm-full-machine
-      data-pimm-stage-baseline
+      data-pimm-physical-ground-contact
       {% unless selected_model_code == '30G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
     >
-      <picture>
-        <source media="(max-width: 749px)" srcset="{{ 'pimm30-v13-hero-mobile-contained.webp' | asset_url }}">
         <img
-          src="{{ 'pimm30-v13-hero-desktop-contained.webp' | asset_url }}"
+          src="{{ 'pimm-master-20260831-r02-30g-hero.webp' | asset_url }}"
           alt="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}"
-          width="1920"
-          height="1080"
+          width="1600"
+          height="1920"
           loading="{% if selected_model_code == '30G' %}eager{% else %}lazy{% endif %}"
           decoding="async"
           {% if selected_model_code == '30G' %}fetchpriority="high"{% endif %}
         >
-      </picture>
     </div>
     <div
       class="pimm-machine__hero-media pimm-machine__hero-media--50g"
       data-pimm-media-model="50G"
       data-pimm-media-slot="hero"
       data-pimm-full-machine
-      data-pimm-stage-baseline
+      data-pimm-physical-ground-contact
       {% unless selected_model_code == '50G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
     >
       <img
-        src="{{ 'pimm50-light-studio-hero.webp' | asset_url }}"
+        src="{{ 'pimm-master-20260831-r02-50g-hero.webp' | asset_url }}"
         alt="{{ 'products.pimm_machine.alt.50g.hero' | t | escape }}"
-        width="1400"
-        height="1400"
+        width="1600"
+        height="1920"
         loading="{% if selected_model_code == '50G' %}eager{% else %}lazy{% endif %}"
         decoding="async"
         {% if selected_model_code == '50G' %}fetchpriority="high"{% endif %}

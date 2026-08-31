@@ -50,9 +50,9 @@
       const specifications = variant?.specifications;
       const mold = specifications?.mold_envelope_mm;
       const expectedStoryAssetSet = variant?.model === '30G'
-        ? 'pimm30-production-v13'
+        ? 'pimm-master-20260831-r02-30g'
         : variant?.model === '50G'
-          ? 'pimm50-light-studio-v1'
+          ? 'pimm-master-20260831-r02-50g'
           : '';
 
       return (

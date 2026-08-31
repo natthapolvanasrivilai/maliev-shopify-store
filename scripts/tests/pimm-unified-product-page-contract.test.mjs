@@ -28,8 +28,8 @@ test('unified template declares governed model story sets and no retired media s
   assert.equal(template.sections.main.type, 'maliev-pimm-machine-product');
   const blocks = template.sections.main.blocks;
   assert.deepEqual(template.sections.main.block_order, ['model_30g', 'model_50g']);
-  assert.equal(blocks.model_30g.settings.story_asset_set, 'pimm30-production-v13');
-  assert.equal(blocks.model_50g.settings.story_asset_set, 'pimm50-light-studio-v1');
+  assert.equal(blocks.model_30g.settings.story_asset_set, 'pimm-master-20260831-r02-30g');
+  assert.equal(blocks.model_50g.settings.story_asset_set, 'pimm-master-20260831-r02-50g');
   for (const block of Object.values(blocks)) {
     for (const retired of ['hero_asset', 'overview_asset', 'engineering_asset', 'tooling_asset']) {
       assert.equal(Object.hasOwn(block.settings, retired), false);
@@ -51,31 +51,22 @@ test('one controller owns one decision header two stories and singular conversio
 });
 
 test('model stories use only their authoritative production families', () => {
-  for (const name of ['hero', 'capacity', 'melt-zone', 'heating', 'mold-space', 'purchase']) {
-    assert.match([hero, story50G].join('\n'), new RegExp(`pimm50-light-studio-${name}\\.webp`));
+  for (const model of ['30g', '50g']) {
+    for (const role of ['hero', 'three-quarter', 'controls', 'tooling']) {
+      assert.match([hero, model === '30g' ? story30G : story50G].join('\n'), new RegExp(`pimm-master-20260831-r02-${model}-${role}\\.webp`));
+    }
   }
-  for (const name of [
-    'pimm30-v13-hero-desktop-contained',
-    'pimm30-v13-hero-mobile-contained',
-    'pimm30-capacity-three-cube-desktop',
-    'pimm30-temperature-controller-desktop',
-    'pimm30-v11-cylinder-desktop',
-    'pimm30-v16-operation-desktop',
-    'pimm30-v10-regulator-desktop',
-    'pimm30-v15-fixture-desktop',
-    'pimm30-v10-capacity-desktop',
-    'pimm30-configuration-turntable-desktop',
-  ]) assert.match([hero, story30G].join('\n'), new RegExp(`${name}\\.webp`));
-  assert.doesNotMatch(story30G, /pimm50-/);
-  assert.doesNotMatch(story50G, /pimm30-/);
-  assert.doesNotMatch(renderedContract, /pimm-(?:machine|editorial)-[^'"\s)]+\.webp/);
+  assert.doesNotMatch(story30G, /pimm-master-20260831-r02-50g/);
+  assert.doesNotMatch(story50G, /pimm-master-20260831-r02-30g/);
+  assert.doesNotMatch(renderedContract, /(?:(?:pimm30-|pimm50-|pimm-(?:machine|editorial)-|maliev-pimm-)[^'"\s)]+\.(?:png|webp|webm|mp4))/i);
 });
 
-test('full-machine views expose a measurable stage baseline and complete intrinsic media', () => {
+test('full-machine views use physical ground contact without CSS compensation', () => {
   assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-full-machine/g)?.length, 4);
-  assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-stage-baseline/g)?.length, 4);
-  assert.match(css, /\[data-pimm-stage-baseline\][^{]*\{[^}]*align-items:\s*end/s);
+  assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-physical-ground-contact/g)?.length, 4);
+  assert.doesNotMatch([hero, story30G, story50G, css].join('\n'), /data-pimm-stage-baseline|pimm-ground-line-offset|translate[XY]?\(/);
   assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*object-fit:\s*contain/s);
+  assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*transform:\s*none/s);
   assert.doesNotMatch(css, /object-fit:\s*cover\s*!important/);
 });
 
@@ -89,14 +80,21 @@ test('normal-scroll responsive CSS contains no legacy slide or editorial cascade
 });
 
 test('model records bind exact story sets and fail closed on identity drift', () => {
-  assert.match(section, /assign expected_variant_story_asset_set = 'pimm30-production-v13'/);
-  assert.match(section, /assign expected_variant_story_asset_set = 'pimm50-light-studio-v1'/);
-  assert.match(section, /if variant_story_asset_set == expected_variant_story_asset_set/);
+  assert.match(section, /assign expected_variant_story_asset_set = 'pimm-master-20260831-r02-30g'/);
+  assert.match(section, /assign expected_variant_story_asset_set = 'pimm-master-20260831-r02-50g'/);
+  assert.match(section, /if variant_story_binding_valid and variant_specifications != blank/);
   assert.match(section, /"storyAssetSet":\s*\{\{ variant_story_asset_set \| json \}\}/);
   assert.match(js, /variant\.storyAssetSet === expectedStoryAssetSet/);
-  assert.match(js, /variant\?\.model === '30G'[\s\S]*?'pimm30-production-v13'/);
-  assert.match(js, /variant\?\.model === '50G'[\s\S]*?'pimm50-light-studio-v1'/);
+  assert.match(js, /variant\?\.model === '30G'[\s\S]*?'pimm-master-20260831-r02-30g'/);
+  assert.match(js, /variant\?\.model === '50G'[\s\S]*?'pimm-master-20260831-r02-50g'/);
   assert.match(js, /showOnlyStory\(contractValid \? variant\.model : ''\)/);
+});
+
+test('existing theme blocks migrate a blank story setting to the governed model set', () => {
+  assert.match(section, /assign selected_story_binding_valid = false/);
+  assert.match(section, /if selected_model_block\.settings\.story_asset_set == blank or selected_model_block\.settings\.story_asset_set == expected_story_asset_set/);
+  assert.match(section, /assign variant_story_asset_set = expected_variant_story_asset_set/);
+  assert.match(section, /if variant_model_block\.settings\.story_asset_set == blank or variant_model_block\.settings\.story_asset_set == expected_variant_story_asset_set/);
 });
 
 test('variant payload preserves verified commerce and specification boundaries', () => {
@@ -127,7 +125,7 @@ test('selected hero is eager while inactive and below-fold media remain deferred
   assert.match(hero, /loading="\{% if selected_model_code == '30G' %\}eager\{% else %\}lazy\{% endif %\}"/);
   assert.match(hero, /loading="\{% if selected_model_code == '50G' %\}eager\{% else %\}lazy\{% endif %\}"/);
   assert.match(hero, /fetchpriority="high"/);
-  assert.equal([story30G, story50G].join('\n').match(/loading="lazy"/g)?.length, 13);
+  assert.equal([story30G, story50G].join('\n').match(/loading="lazy"/g)?.length, 8);
   assert.doesNotMatch([story30G, story50G].join('\n'), /loading="eager"|fetchpriority="high"/);
 });
 

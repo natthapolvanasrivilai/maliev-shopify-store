@@ -14,14 +14,14 @@
           "type": "model",
           "settings": {
             "model_code": "30G",
-            "story_asset_set": "pimm30-production-v13"
+            "story_asset_set": "pimm-master-20260831-r02-30g"
           }
         },
         "model_50g": {
           "type": "model",
           "settings": {
             "model_code": "50G",
-            "story_asset_set": "pimm50-light-studio-v1"
+            "story_asset_set": "pimm-master-20260831-r02-50g"
           }
         }
       },

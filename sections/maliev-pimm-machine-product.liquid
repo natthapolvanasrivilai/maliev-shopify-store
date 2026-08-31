@@ -25,9 +25,9 @@
   assign expected_story_asset_set = ''
   case selected_model_code
     when '30G'
-      assign expected_story_asset_set = 'pimm30-production-v13'
+      assign expected_story_asset_set = 'pimm-master-20260831-r02-30g'
     when '50G'
-      assign expected_story_asset_set = 'pimm50-light-studio-v1'
+      assign expected_story_asset_set = 'pimm-master-20260831-r02-50g'
   endcase
 
   assign specifications = selected_variant.metafields.custom.pimm_specifications.value
@@ -35,9 +35,14 @@
   assign selected_full_price_cents = selected_variant.price | times: 2
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
   assign model_contract_valid = false
+  assign selected_story_binding_valid = false
+
+  if selected_model_block.settings.story_asset_set == blank or selected_model_block.settings.story_asset_set == expected_story_asset_set
+    assign selected_story_binding_valid = true
+  endif
 
   if product_model_contract_valid and selected_model_block != blank and model_block_match_count == 1
-    if selected_model_block.settings.story_asset_set == expected_story_asset_set and specifications != blank
+    if selected_story_binding_valid and specifications != blank
       if specifications.schema_version == 1 and specifications.model == selected_model_code
         if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
           if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
@@ -58,8 +63,8 @@
   endif
 -%}
 
-{{ 'maliev-pimm-machine.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'maliev-pimm-machine.js' | asset_url }}" defer="defer"></script>
+<link rel="stylesheet" href="{{ 'maliev-pimm-machine.css' | asset_url }}&amp;pimm_release=pimm-master-20260831-r02-bright-4" media="all">
+<script src="{{ 'maliev-pimm-machine.js' | asset_url }}&amp;pimm_release=pimm-master-20260831-r02-bright-4" defer="defer"></script>
 
 <pimm-machine-product
   class="pimm-machine"
@@ -84,13 +89,13 @@
       data-pimm-story-model="30G"
       {% unless selected_model_code == '30G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
     >
-      {% render 'pimm-30g-product-story', story_asset_set: 'pimm30-production-v13' %}
+      {% render 'pimm-30g-product-story', story_asset_set: 'pimm-master-20260831-r02-30g' %}
     </div>
     <div
       data-pimm-story-model="50G"
       {% unless selected_model_code == '50G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
     >
-      {% render 'pimm-50g-product-story', story_asset_set: 'pimm50-light-studio-v1' %}
+      {% render 'pimm-50g-product-story', story_asset_set: 'pimm-master-20260831-r02-50g' %}
     </div>
   </main>
 
@@ -123,11 +128,15 @@
           assign expected_variant_story_asset_set = ''
           case variant_model
             when '30G'
-              assign expected_variant_story_asset_set = 'pimm30-production-v13'
+              assign expected_variant_story_asset_set = 'pimm-master-20260831-r02-30g'
             when '50G'
-              assign expected_variant_story_asset_set = 'pimm50-light-studio-v1'
+              assign expected_variant_story_asset_set = 'pimm-master-20260831-r02-50g'
           endcase
-          assign variant_story_asset_set = variant_model_block.settings.story_asset_set
+          assign variant_story_asset_set = expected_variant_story_asset_set
+          assign variant_story_binding_valid = false
+          if variant_model_block.settings.story_asset_set == blank or variant_model_block.settings.story_asset_set == expected_variant_story_asset_set
+            assign variant_story_binding_valid = true
+          endif
           assign variant_specifications = variant.metafields.custom.pimm_specifications.value
           assign variant_full_price = variant.metafields.custom.full_machine_price.value
           assign variant_full_price_cents = variant.price | times: 2
@@ -135,7 +144,7 @@
           assign variant_contract_valid = false
 
           if product_model_contract_valid and variant_model_block != blank and variant_model_block_count == 1
-            if variant_story_asset_set == expected_variant_story_asset_set and variant_specifications != blank
+            if variant_story_binding_valid and variant_specifications != blank
               if variant_specifications.schema_version == 1 and variant_specifications.model == variant_model
                 if variant_specifications.shot_capacity_g > 0 and variant_specifications.max_melt_temperature_c > 0
                   if variant_specifications.max_air_pressure_mpa > 0 and variant_specifications.mold_envelope_mm.width > 0
