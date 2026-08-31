@@ -140,12 +140,76 @@
   padding-block: clamp(5rem, 8vw, 10rem);
 }
 .pimm-story__chapter:nth-child(odd) .pimm-story__media { order: 2; }
-.pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 1.4rem; display: grid; min-height: 48rem; overflow: hidden; }
+.pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 1.4rem; display: grid; min-height: 48rem; overflow: hidden; position: relative; }
 .pimm-story__media img { height: 100%; max-height: 68rem; object-fit: contain; width: 100%; }
 .pimm-story__copy { display: grid; gap: 1.8rem; max-width: 52rem; }
 .pimm-story__copy h3 { max-width: 14ch; }
 .pimm-story__copy p:last-child { max-width: 48ch; }
 .pimm-story__index { color: var(--pimm-blue) !important; font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.3rem !important; font-weight: 600; }
+
+/* Precision reveal: the static page remains complete until the controller confirms
+   motion support, then each engineering view resolves from a soft optical mask. */
+.pimm-motion-ready [data-pimm-reveal] .pimm-story__media,
+.pimm-motion-ready [data-pimm-reveal] .pimm-story__media img,
+.pimm-motion-ready [data-pimm-reveal] .pimm-story__copy > * {
+  transition-duration: 900ms;
+  transition-property: clip-path, filter, opacity, transform;
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+}
+
+.pimm-motion-ready [data-pimm-reveal] .pimm-story__media::after {
+  background: rgba(255, 255, 255, .76);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 1050ms cubic-bezier(.16, 1, .3, 1);
+  z-index: 1;
+}
+
+.pimm-motion-ready [data-pimm-reveal]:nth-child(odd) .pimm-story__media::after {
+  transform-origin: left center;
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="pending"] .pimm-story__media {
+  clip-path: inset(4% 5% 4% 5%);
+  opacity: .74;
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="pending"] .pimm-story__media::after {
+  transform: scaleX(1);
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="pending"] .pimm-story__media:not([data-pimm-full-machine]) img {
+  filter: saturate(.82) contrast(.94) brightness(1.035);
+  transform: scale(1.045);
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="pending"] .pimm-story__copy > * {
+  clip-path: inset(0 0 34% 0);
+  opacity: .66;
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="visible"] .pimm-story__media {
+  clip-path: inset(0);
+  opacity: 1;
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="visible"] .pimm-story__media:not([data-pimm-full-machine]) img {
+  filter: none;
+  transform: scale(1);
+  transition-duration: 1350ms;
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="visible"] .pimm-story__copy > * {
+  clip-path: inset(0);
+  opacity: 1;
+}
+
+.pimm-motion-ready [data-pimm-reveal-state="visible"] .pimm-story__copy > :nth-child(2) { transition-delay: 90ms; }
+.pimm-motion-ready [data-pimm-reveal-state="visible"] .pimm-story__copy > :nth-child(3) { transition-delay: 170ms; }
 
 .pimm-story__chapter--configuration .pimm-story__media { align-items: center; background: #f4f4f2; min-height: 70rem; }
 .pimm-story__chapter--configuration .pimm-story__media img { height: 70rem; max-height: 70rem; max-width: 100%; object-fit: contain; transform: none; width: 100%; }
@@ -204,4 +268,15 @@
   .pimm-machine *,
   .pimm-machine *::before,
   .pimm-machine *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
+
+  .pimm-machine [data-pimm-reveal] .pimm-story__media,
+  .pimm-machine [data-pimm-reveal] .pimm-story__media img,
+  .pimm-machine [data-pimm-reveal] .pimm-story__copy > * {
+    clip-path: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .pimm-machine [data-pimm-reveal] .pimm-story__media::after { content: none !important; }
 }

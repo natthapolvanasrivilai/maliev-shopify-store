@@ -29,7 +29,42 @@
         }
       });
 
+      this.initializePrecisionReveal();
       if (!this.payloadContractValid) this.failClosed();
+    }
+
+    disconnectedCallback() {
+      this.revealObserver?.disconnect();
+    }
+
+    initializePrecisionReveal() {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reducedMotion || typeof window.IntersectionObserver !== 'function') return;
+
+      this.revealObserver = new window.IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.dataset.pimmRevealState = 'visible';
+          this.revealObserver.unobserve(entry.target);
+        });
+      }, {
+        rootMargin: '0px 0px -12% 0px',
+        threshold: 0.18,
+      });
+
+      this.classList.add('pimm-motion-ready');
+      this.observeVisibleStoryChapters();
+    }
+
+    observeVisibleStoryChapters() {
+      if (!this.revealObserver) return;
+
+      this.querySelectorAll('[data-pimm-reveal]').forEach((chapter) => {
+        if (chapter.closest('[data-pimm-story-model][hidden]')) return;
+        if (chapter.dataset.pimmRevealState === 'visible') return;
+        chapter.dataset.pimmRevealState = 'pending';
+        this.revealObserver.observe(chapter);
+      });
     }
 
     hasExactPayloadContract(variants) {
@@ -223,6 +258,7 @@
         story.ariaHidden = String(hidden);
         story.inert = hidden;
       });
+      this.observeVisibleStoryChapters();
     }
 
     updateSpecifications(variant, contractValid) {
