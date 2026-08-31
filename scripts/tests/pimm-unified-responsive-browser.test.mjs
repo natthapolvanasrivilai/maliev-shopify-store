@@ -553,11 +553,16 @@ const editorialGeometryProbe = `(async () => {
   const editorial = document.querySelector('[data-pimm-editorial]');
   editorial?.scrollIntoView({ block: 'start' });
   const images = [...(editorial?.querySelectorAll('img') || [])];
-  await Promise.all(images.map((image) => image.decode?.().catch(() => undefined)));
+  for (const image of images) {
+    image.loading = 'eager';
+    image.scrollIntoView({ block: 'center' });
+    await image.decode?.().catch(() => undefined);
+  }
   const overlaps = (a, b) => Boolean(
     a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
   );
   return {
+    editorialOverflowX: editorial ? editorial.scrollWidth - editorial.clientWidth : null,
     files: images.map((image) => new URL(image.currentSrc || image.src, location.href).pathname.split('/').pop()),
     chapters: [...(editorial?.querySelectorAll('[data-pimm-editorial-chapter]') || [])].map((chapter) => {
       const figure = chapter.querySelector('figure');
@@ -884,31 +889,6 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               max_air_pressure_mpa: String(expectedModel.specifications.max_air_pressure_mpa),
             });
 
-            const editorialState = await evaluate(session, editorialGeometryProbe);
-            assert.deepEqual(editorialState.files, [
-              'pimm-editorial-30g-architectural-daylight.webp',
-              'pimm-editorial-50g-modern-workshop.webp',
-              'pimm-editorial-50g-dark-engineering.webp',
-              'pimm-editorial-30g-process-still-life.webp',
-            ]);
-            assert.equal(editorialState.overflowX <= 1, true, `${language} ${model} ${width}x${height} editorial overflow`);
-            assert.deepEqual(
-              editorialState.chapters.map(({ chapter, intrinsic }) => [chapter, intrinsic]),
-              [
-                ['architectural', [2560, 1440]],
-                ['workshop', [2560, 1440]],
-                ['engineering', [2560, 1440]],
-                ['process', [1800, 2250]],
-              ],
-            );
-            for (const chapter of editorialState.chapters) {
-              assert.equal(chapter.loaded, true, `${language} ${model} ${width}x${height} ${chapter.chapter} must load`);
-              assert.equal(chapter.imageContained, true, `${language} ${model} ${width}x${height} ${chapter.chapter} must not clip`);
-              assert.equal(chapter.overlap, false, `${language} ${model} ${width}x${height} ${chapter.chapter} image/copy overlap`);
-              assert.equal(chapter.captionTruncated, false, `${language} ${model} ${width}x${height} ${chapter.chapter} caption truncation`);
-              const [naturalWidth, naturalHeight] = chapter.intrinsic;
-              assert.ok(Math.abs(chapter.renderedRatio - (naturalWidth / naturalHeight)) < 0.01);
-            }
             assert.deepEqual(
               Object.fromEntries(Object.entries(state.record.media).map(([slot, media]) => [slot, {
                 alt: media.alt,
@@ -944,6 +924,32 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
                 '[data-pimm-purchase-qualification]',
               );
             }
+          }
+
+          const editorialState = await evaluate(session, editorialGeometryProbe);
+          assert.deepEqual(editorialState.files, [
+            'pimm-editorial-30g-architectural-daylight.webp',
+            'pimm-editorial-50g-modern-workshop.webp',
+            'pimm-editorial-50g-dark-engineering.webp',
+            'pimm-editorial-30g-process-still-life.webp',
+          ]);
+          assert.equal(editorialState.overflowX <= 1, true, `${language} ${width}x${height} editorial overflow`);
+          assert.deepEqual(
+            editorialState.chapters.map(({ chapter, intrinsic }) => [chapter, intrinsic]),
+            [
+              ['architectural', [2560, 1440]],
+              ['workshop', [2560, 1440]],
+              ['engineering', [2560, 1440]],
+              ['process', [1800, 2250]],
+            ],
+          );
+          for (const chapter of editorialState.chapters) {
+            assert.equal(chapter.loaded, true, `${language} ${width}x${height} ${chapter.chapter} must load`);
+            assert.equal(chapter.imageContained, true, `${language} ${width}x${height} ${chapter.chapter} must not clip`);
+            assert.equal(chapter.overlap, false, `${language} ${width}x${height} ${chapter.chapter} image/copy overlap`);
+            assert.equal(chapter.captionTruncated, false, `${language} ${width}x${height} ${chapter.chapter} caption truncation`);
+            const [naturalWidth, naturalHeight] = chapter.intrinsic;
+            assert.ok(Math.abs(chapter.renderedRatio - (naturalWidth / naturalHeight)) < 0.01);
           }
         }
       });
@@ -1199,7 +1205,7 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
       assert.ok(zoom.overflowX <= 1, `200% zoom flow ${JSON.stringify(zoom)}`);
       assert.ok(zoom.titleLineCount <= 5, `200% zoom title ${JSON.stringify(zoom)}`);
       const editorialZoom = await evaluate(session, editorialGeometryProbe);
-      assert.ok(editorialZoom.overflowX <= 1, `200% editorial overflow ${JSON.stringify(editorialZoom)}`);
+      assert.ok(editorialZoom.editorialOverflowX <= 1, `200% editorial overflow ${JSON.stringify(editorialZoom)}`);
       assert.equal(editorialZoom.chapters.length, 4);
       for (const chapter of editorialZoom.chapters) {
         assert.equal(chapter.imageContained, true, `200% ${chapter.chapter} image clipping`);
