@@ -33,7 +33,10 @@ try:
     )
     from .blender_scene_template import comparison_link_plan, _run_fresh_validation
     from .campaign_contract import load_campaign, validate_campaign
-    from .external_asset_manifest import validate_external_assets
+    from .external_asset_manifest import (
+        scope_external_assets_to_campaign,
+        validate_external_assets,
+    )
     from .io_contract import atomic_write_json, sha256_file
     from .paths import ASSET_ROOT, require_within
     from .scene_contract import (
@@ -78,6 +81,7 @@ except ImportError:  # Blender executes checked-in scripts outside package mode.
     )
     from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
     from scripts.blender.pimm_production.external_asset_manifest import (
+        scope_external_assets_to_campaign,
         validate_external_assets,
     )
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
@@ -100,6 +104,7 @@ RESULT_MARKER = "PIMM_STATIC_PRODUCT_SCENE_JSON="
 MASTER_COLLECTION = "PIMM_PUBLISHED"
 STATIC_CAMERA_CLIP_START = 1.0
 STATIC_CAMERA_CLIP_END = 10000.0
+MINIMUM_SHADOW_CATCHER_EXTENT = 100_000.0
 MANAGED_LIGHT_NAMES = (
     "KEY_SOFTBOX",
     "FILL_SOFTBOX",
@@ -196,6 +201,147 @@ class WorkshopSupportRecord:
     path: Path
     local_relative_path: str
     sha256: str
+
+
+WORKSHOP_SUPPORT_SCALE = 650.0
+WORKSHOP_MACHINE_CLEARANCE_MM = 120.0
+WORKSHOP_PROP_STACK_CLEARANCE_MM = 5.0
+
+
+def _workshop_asset_name(record: WorkshopSupportRecord) -> str:
+    return record.asset_version_id.split(":", 1)[0]
+
+
+def workshop_support_scale(record: WorkshopSupportRecord) -> float:
+    """Return the governed meter-to-millimeter scale for an approved prop."""
+
+    asset_name = _workshop_asset_name(record)
+    if asset_name not in {"tool_cart", "metal_toolbox"}:
+        raise ValueError(
+            f"workshop support has no governed composition transform: {asset_name}"
+        )
+    return WORKSHOP_SUPPORT_SCALE
+
+
+def translated_bounds(
+    bounds: tuple[Sequence[float], Sequence[float]],
+    delta: Sequence[float],
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Translate one axis-aligned bounds pair without changing its extent."""
+
+    return tuple(
+        tuple(float(bound[index]) + float(delta[index]) for index in range(3))
+        for bound in bounds
+    )  # type: ignore[return-value]
+
+
+def workshop_support_placement_delta(
+    asset_name: str,
+    support_bounds: tuple[Sequence[float], Sequence[float]],
+    machine_bounds: tuple[Sequence[float], Sequence[float]],
+    positioned_support_bounds: Mapping[
+        str, tuple[Sequence[float], Sequence[float]]
+    ],
+) -> tuple[float, float, float]:
+    """Place workshop props from measured bounds, never from guessed origins."""
+
+    support_min, support_max = support_bounds
+    machine_min, machine_max = machine_bounds
+    support_center = tuple(
+        (float(support_min[index]) + float(support_max[index])) / 2.0
+        for index in range(3)
+    )
+    if asset_name == "tool_cart":
+        desired_center_y = (float(machine_min[1]) + float(machine_max[1])) / 2.0
+        return (
+            float(machine_max[0])
+            + WORKSHOP_MACHINE_CLEARANCE_MM
+            - float(support_min[0]),
+            desired_center_y - support_center[1],
+            float(machine_min[2]) - float(support_min[2]),
+        )
+    if asset_name == "metal_toolbox":
+        cart_bounds = positioned_support_bounds.get("tool_cart")
+        if cart_bounds is None:
+            raise ValueError("metal toolbox requires the positioned tool cart")
+        cart_min, cart_max = cart_bounds
+        cart_center = tuple(
+            (float(cart_min[index]) + float(cart_max[index])) / 2.0
+            for index in range(3)
+        )
+        return (
+            cart_center[0] - support_center[0],
+            cart_center[1] - support_center[1],
+            float(cart_max[2])
+            + WORKSHOP_PROP_STACK_CLEARANCE_MM
+            - float(support_min[2]),
+        )
+    raise ValueError(
+        f"workshop support has no governed composition transform: {asset_name}"
+    )
+
+
+def workshop_support_roots(objects: Sequence[Any]) -> tuple[Any, ...]:
+    """Return only imported roots so parented meshes are not scaled twice."""
+
+    object_ids = {id(obj) for obj in objects}
+    return tuple(
+        obj
+        for obj in objects
+        if getattr(obj, "parent", None) is None
+        or id(getattr(obj, "parent", None)) not in object_ids
+    )
+
+
+def workshop_support_clearance_errors(
+    machine_bounds: tuple[Sequence[float], Sequence[float]],
+    support_bounds_by_asset_id: Mapping[
+        str, tuple[Sequence[float], Sequence[float]]
+    ],
+) -> list[str]:
+    """Reject workshop props that intersect or crowd the machine footprint."""
+
+    errors: list[str] = []
+    machine_min, machine_max = machine_bounds
+    bounds_by_name = {
+        asset_id.split(":", 1)[0]: bounds
+        for asset_id, bounds in support_bounds_by_asset_id.items()
+    }
+    for asset_id, (support_min, support_max) in support_bounds_by_asset_id.items():
+        x_gap = max(
+            float(support_min[0]) - float(machine_max[0]),
+            float(machine_min[0]) - float(support_max[0]),
+            0.0,
+        )
+        y_gap = max(
+            float(support_min[1]) - float(machine_max[1]),
+            float(machine_min[1]) - float(support_max[1]),
+            0.0,
+        )
+        clearance = math.hypot(x_gap, y_gap)
+        if clearance + 1e-6 < WORKSHOP_MACHINE_CLEARANCE_MM:
+            errors.append(
+                f"workshop support crowds machine: {asset_id}: "
+                f"{clearance:.3f} mm clearance is below "
+                f"{WORKSHOP_MACHINE_CLEARANCE_MM:.3f} mm"
+            )
+        if asset_id.startswith("tool_cart:") and not math.isclose(
+            float(support_min[2]), float(machine_min[2]), abs_tol=0.5
+        ):
+            errors.append(
+                f"workshop tool cart must contact the machine ground plane: {asset_id}"
+            )
+    cart_bounds = bounds_by_name.get("tool_cart")
+    toolbox_bounds = bounds_by_name.get("metal_toolbox")
+    if cart_bounds is not None and toolbox_bounds is not None:
+        stack_gap = float(toolbox_bounds[0][2]) - float(cart_bounds[1][2])
+        if not math.isclose(
+            stack_gap, WORKSHOP_PROP_STACK_CLEARANCE_MM, abs_tol=0.5
+        ):
+            errors.append(
+                "workshop metal toolbox must sit on the tool cart at the governed gap"
+            )
+    return errors
 
 
 @dataclass(frozen=True)
@@ -374,13 +520,28 @@ def bounds_for_objects(
 
     if not objects:
         raise ValueError("stable target group must contain at least one object")
-    points: list[Sequence[float]] = []
     for obj in objects:
         stable_id = obj.get("pimm_stable_id")
         if not isinstance(stable_id, str) or not stable_id.strip():
             raise ValueError("stable target object is missing pimm_stable_id")
         if getattr(obj, "type", None) != "MESH":
             raise ValueError(f"stable target object is not a mesh: {stable_id}")
+    return world_bounds_for_mesh_objects(objects)
+
+
+def world_bounds_for_mesh_objects(
+    objects: Sequence[Any],
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Return world bounds for one nonempty group of mesh objects."""
+
+    if not objects:
+        raise ValueError("bounded mesh group must contain at least one object")
+    points: list[Sequence[float]] = []
+    for obj in objects:
+        if getattr(obj, "type", None) != "MESH":
+            raise ValueError(
+                f"bounded object is not a mesh: {getattr(obj, 'name', '')}"
+            )
         try:
             from mathutils import Vector
 
@@ -755,11 +916,11 @@ def camera_pose(
             abs(_dot(offset, up)) / (2.0 * usable_half_height * vertical_tangent)
             - along,
         )
-    distance *= 1.001
     distance = max(
         distance,
         _size[2] * composition.minimum_working_distance_heights,
     )
+    distance *= 1.001
     return orbit_camera_pose(bounds_min, bounds_max, distance, azimuth, elevation)
 
 
@@ -793,8 +954,8 @@ def profile_rig_specs(
             "PIMM_SCENE_SHADOW_CATCHER",
             "shadow-catcher",
             (center[0], center[1], float(bounds_min[2])),
-            catcher_half_width * 2.0,
-            catcher_half_depth * 2.0,
+            max(catcher_half_width * 2.0, MINIMUM_SHADOW_CATCHER_EXTENT),
+            max(catcher_half_depth * 2.0, MINIMUM_SHADOW_CATCHER_EXTENT),
             0.0,
             (0.86, 0.86, 0.86, 1.0),
             0.72,
@@ -958,7 +1119,9 @@ def load_workshop_support_records(
         raise ValueError(
             f"external asset manifest cannot be read: {manifest_path}: {error}"
         ) from error
-    errors = validate_external_assets(payload, set(_CAMPAIGN.by_shot_id))
+    campaign_shot_ids = set(_CAMPAIGN.by_shot_id)
+    scoped_payload = scope_external_assets_to_campaign(payload, campaign_shot_ids)
+    errors = validate_external_assets(scoped_payload, campaign_shot_ids)
     if errors:
         raise ValueError("external asset manifest is invalid: " + "; ".join(errors))
     records: list[WorkshopSupportRecord] = []
@@ -1015,12 +1178,31 @@ def _workshop_product_like_error(obj: Any) -> str | None:
 
 
 def load_workshop_support_assets(
-    bpy: Any, config: ShotConfig
+    bpy: Any,
+    config: ShotConfig,
+    machine_bounds: tuple[Sequence[float], Sequence[float]] | None = None,
 ) -> tuple[WorkshopSupportRecord, ...]:
     """Append and tag only hash-verified non-product workshop support assets."""
 
     records = load_workshop_support_records(config)
-    for record in records:
+    if machine_bounds is None:
+        try:
+            stable_products = list(_stable_product_objects(bpy).values())
+        except ValueError:
+            stable_products = []
+        machine_bounds = (
+            bounds_for_objects(stable_products)
+            if stable_products
+            else ((0.0, 0.0, 0.0), (0.0, 0.0, 1000.0))
+        )
+    positioned_support_bounds: dict[
+        str, tuple[tuple[float, float, float], tuple[float, float, float]]
+    ] = {}
+    order = {"tool_cart": 0, "metal_toolbox": 1}
+    ordered_records = sorted(
+        records, key=lambda item: order.get(_workshop_asset_name(item), 99)
+    )
+    for record in ordered_records:
         before_collections = set(bpy.data.collections)
         before_objects = set(bpy.data.objects)
         before_meshes = set(bpy.data.meshes)
@@ -1067,6 +1249,30 @@ def load_workshop_support_assets(
                 collection["pimm_external_asset_member_count"] = len(member_names)
                 collection["pimm_external_asset_member_names"] = member_names_json
                 bpy.context.scene.collection.children.link(collection)
+            roots = workshop_support_roots(tuple(loaded_objects))
+            source_scale = workshop_support_scale(record)
+            for obj in roots:
+                obj.location = tuple(
+                    float(obj.location[index]) * source_scale for index in range(3)
+                )
+                obj.scale = tuple(float(value) * source_scale for value in obj.scale)
+            bpy.context.view_layer.update()
+            scaled_bounds = world_bounds_for_mesh_objects(mesh_objects)
+            asset_name = _workshop_asset_name(record)
+            delta = workshop_support_placement_delta(
+                asset_name,
+                scaled_bounds,
+                machine_bounds,
+                positioned_support_bounds,
+            )
+            for obj in roots:
+                obj.location = tuple(
+                    float(obj.location[index]) + delta[index] for index in range(3)
+                )
+            bpy.context.view_layer.update()
+            positioned_support_bounds[asset_name] = world_bounds_for_mesh_objects(
+                mesh_objects
+            )
             for obj in loaded_objects:
                 obj["pimm_scene_support_ownership"] = "scene-support"
                 obj["pimm_scene_support_role"] = "workshop-prop"
@@ -1788,7 +1994,11 @@ def _configure_authored_scene(
     _install_profile_supports(bpy, supports)
     _install_world_environment(bpy, scene, world_environment)
     workshop_records = (
-        load_workshop_support_assets(bpy, config)
+        load_workshop_support_assets(
+            bpy,
+            config,
+            (product_bounds_min, product_bounds_max),
+        )
         if config.purpose == "workshop"
         else ()
     )

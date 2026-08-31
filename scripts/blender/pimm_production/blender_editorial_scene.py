@@ -75,6 +75,7 @@ CAMERA_NAME = "CAM_EDITORIAL"
 MASTER_COLLECTION = "PIMM_PUBLISHED"
 SENSOR_WIDTH_MM = 36.0
 CLIP_START = 1.0
+MINIMUM_CONTACT_PLANE_EXTENT = 100_000.0
 _CONTRACT_FIELDS = {
     "schema", "campaign_id", "scene_id", "machine", "concept", "scene_path",
     "master", "material_library", "contact", "camera", "render", "set",
@@ -1564,8 +1565,14 @@ def validate_open_editorial_scene(bpy: Any, contract: Mapping[str, object]) -> l
 
 
 def _flatten_contact_plane(obj: Any, contact_z: float, machine_bounds: tuple[tuple[float, float, float], tuple[float, float, float]]) -> None:
-    width = machine_bounds[1][0] - machine_bounds[0][0] + 20_000.0
-    depth = machine_bounds[1][1] - machine_bounds[0][1] + 20_000.0
+    width = max(
+        machine_bounds[1][0] - machine_bounds[0][0] + 20_000.0,
+        MINIMUM_CONTACT_PLANE_EXTENT,
+    )
+    depth = max(
+        machine_bounds[1][1] - machine_bounds[0][1] + 20_000.0,
+        MINIMUM_CONTACT_PLANE_EXTENT,
+    )
     obj.data.clear_geometry()
     obj.data.from_pydata(
         [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)],

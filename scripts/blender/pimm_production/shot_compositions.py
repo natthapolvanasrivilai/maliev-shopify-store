@@ -264,8 +264,7 @@ def _composition_for_policy(campaign: RenderCampaign, shot_id: str) -> ShotCompo
         elif shot_id.endswith("--tablet"):
             placement = _placement(0.50, 0.50, 0.10)
         else:
-            placement = SubjectPlacement(0.50, 0.36, 0.10, 0.10, 0.08, 0.40)
-            protected = NormalizedRect(0.0, 0.66, 1.0, 1.0)
+            placement = _placement(0.50, 0.50, 0.08)
     elif policy.purpose == "editorial":
         if "--editorial-bright--" in shot_id:
             profile = "bright"

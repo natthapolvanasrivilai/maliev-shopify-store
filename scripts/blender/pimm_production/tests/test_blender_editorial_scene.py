@@ -488,7 +488,7 @@ class BlenderEditorialSceneTests(unittest.TestCase):
             [(0, 1, 2, 3)],
         ))
         self.assertTrue(support.data.updated)
-        self.assertEqual((support.scale.x, support.scale.y, support.scale.z), (20_400.0, 20_600.0, 1.0))
+        self.assertEqual((support.scale.x, support.scale.y, support.scale.z), (100_000.0, 100_000.0, 1.0))
         self.assertEqual((support.location.x, support.location.y, support.location.z), (100.0, 100.0, 7.5))
 
     def test_corrective_coverage_policy_enforces_workshop_and_portrait_product_dominance(self) -> None:

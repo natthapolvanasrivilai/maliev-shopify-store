@@ -75,16 +75,16 @@ class ShotCompositionTests(unittest.TestCase):
                 )
                 self.assertIsNone(shot.protected_copy_rect)
 
-    def test_mobile_heroes_leave_the_lower_control_region_clear(self) -> None:
-        """Catches mobile machines dropping into the selector and CTA field."""
+    def test_mobile_heroes_fill_their_dedicated_media_frame(self) -> None:
+        """Catches mobile assets retaining obsolete in-image CTA whitespace."""
 
         for machine in ("30g", "50g"):
             shot = composition_for(f"pimm-{machine}--hero--mobile")
             with self.subTest(machine=machine):
-                self.assertLessEqual(shot.subject_placement.center_y, 0.40)
-                self.assertIsNotNone(shot.protected_copy_rect)
-                self.assertGreaterEqual(shot.protected_copy_rect.top, 0.66)
-                self.assertEqual(shot.protected_copy_rect.bottom, 1.0)
+                self.assertAlmostEqual(shot.subject_placement.center_y, 0.50)
+                self.assertIsNone(shot.protected_copy_rect)
+                self.assertLessEqual(shot.subject_placement.clearance_top, 0.10)
+                self.assertLessEqual(shot.subject_placement.clearance_bottom, 0.10)
 
     def test_editorial_bright_and_dark_use_distinct_eye_level_three_quarter_orbits(self) -> None:
         """Catches editorial variants collapsing to one view or a tilted full-machine camera."""

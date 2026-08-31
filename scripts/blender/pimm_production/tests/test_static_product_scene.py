@@ -388,6 +388,8 @@ class StaticProductSceneTests(unittest.TestCase):
         self.assertEqual(cards, self.module.MANAGED_REFLECTION_CARD_NAMES)
         catcher = next(item for item in supports if item.role == "shadow-catcher")
         self.assertEqual(catcher.name, "PIMM_SCENE_SHADOW_CATCHER")
+        self.assertGreaterEqual(catcher.width, 100_000.0)
+        self.assertGreaterEqual(catcher.depth, 100_000.0)
         self.assertTrue(self.module.catcher_edges_outside_camera_frustum(catcher, pose, config))
 
     def test_comparison_authority_covers_both_masters_and_contact_planes(self):
@@ -671,7 +673,7 @@ class StaticProductSceneTests(unittest.TestCase):
             support.write_bytes(b"approved-support")
             digest = hashlib.sha256(support.read_bytes()).hexdigest().upper()
             record = {
-                "source_url": "https://polyhaven.com/a/fixture",
+                "source_url": "https://example.com/assets/fixture",
                 "asset_version_id": "fixture-1.0",
                 "license": "CC0-1.0",
                 "local_relative_path": "assets/props/fixture.blend",
@@ -683,7 +685,16 @@ class StaticProductSceneTests(unittest.TestCase):
                 json.dumps(
                     {
                         "schema": "maliev.pimm-external-assets/v1",
-                        "assets": [record],
+                        "assets": [
+                            record,
+                            {
+                                **record,
+                                "local_relative_path": "assets/props/legacy-only.blend",
+                                "intended_shot_ids": [
+                                    "pimm-50g--concept-modern-workshop"
+                                ],
+                            },
+                        ],
                     }
                 ),
                 encoding="utf-8",
@@ -696,6 +707,78 @@ class StaticProductSceneTests(unittest.TestCase):
             support.write_bytes(b"drifted-support")
             with self.assertRaisesRegex(ValueError, "SHA-256"):
                 module.load_workshop_support_records(config)
+
+    def test_workshop_support_placement_keeps_cart_beside_machine_and_toolbox_on_cart(self):
+        """Catches fixed prop offsets intersecting the machine or double-scaling child meshes."""
+
+        cart = self.module.WorkshopSupportRecord(
+            "tool_cart:models:1k:blend:test", Path("cart.blend"), "assets/cart.blend", "A" * 64
+        )
+        toolbox = self.module.WorkshopSupportRecord(
+            "metal_toolbox:models:1k:blend:test", Path("box.blend"), "assets/box.blend", "B" * 64
+        )
+
+        self.assertEqual(self.module.workshop_support_scale(cart), 650.0)
+        self.assertEqual(self.module.workshop_support_scale(toolbox), 650.0)
+
+        machine_bounds = ((-191.0, -189.993, 0.0), (223.0, 155.0, 1014.5))
+        cart_bounds = ((-427.443, -239.647, -2.314), (400.283, 250.213, 624.705))
+        cart_delta = self.module.workshop_support_placement_delta(
+            "tool_cart", cart_bounds, machine_bounds, {}
+        )
+        positioned_cart = self.module.translated_bounds(cart_bounds, cart_delta)
+        self.assertAlmostEqual(
+            positioned_cart[0][0] - machine_bounds[1][0],
+            self.module.WORKSHOP_MACHINE_CLEARANCE_MM,
+        )
+        self.assertAlmostEqual(positioned_cart[0][2], machine_bounds[0][2])
+
+        toolbox_bounds = ((-130.0, -71.0, 0.0), (130.0, 140.0, 133.0))
+        toolbox_delta = self.module.workshop_support_placement_delta(
+            "metal_toolbox",
+            toolbox_bounds,
+            machine_bounds,
+            {"tool_cart": positioned_cart},
+        )
+        positioned_toolbox = self.module.translated_bounds(toolbox_bounds, toolbox_delta)
+        cart_center_x = (positioned_cart[0][0] + positioned_cart[1][0]) / 2.0
+        toolbox_center_x = (positioned_toolbox[0][0] + positioned_toolbox[1][0]) / 2.0
+        self.assertAlmostEqual(toolbox_center_x, cart_center_x)
+        self.assertAlmostEqual(
+            positioned_toolbox[0][2] - positioned_cart[1][2],
+            self.module.WORKSHOP_PROP_STACK_CLEARANCE_MM,
+        )
+
+    def test_workshop_support_roots_exclude_children_from_world_scale(self):
+        """Catches parented toolbox parts receiving the meter conversion twice."""
+
+        root = SimpleNamespace(parent=None)
+        child = SimpleNamespace(parent=root)
+        other_root = SimpleNamespace(parent=None)
+
+        self.assertEqual(
+            self.module.workshop_support_roots((root, child, other_root)),
+            (root, other_root),
+        )
+
+    def test_workshop_clearance_gate_rejects_machine_prop_collision(self):
+        """Catches a proof passing when a workshop prop intersects the machine."""
+
+        machine_bounds = ((-191.0, -190.0, 0.0), (223.0, 155.0, 1014.5))
+        intersecting = {
+            "tool_cart:models:1k:blend:test": ((22.0, -40.0, 0.0), (850.0, 450.0, 625.0))
+        }
+        separated = {
+            "tool_cart:models:1k:blend:test": ((343.0, -240.0, 0.0), (1171.0, 250.0, 625.0))
+        }
+
+        self.assertTrue(
+            self.module.workshop_support_clearance_errors(machine_bounds, intersecting)
+        )
+        self.assertEqual(
+            self.module.workshop_support_clearance_errors(machine_bounds, separated),
+            [],
+        )
 
     @unittest.skipUnless(BLENDER.is_file(), "Blender 5.2 fixture runtime is unavailable")
     def test_workshop_loader_appends_only_hash_verified_non_product_supports(self):
@@ -763,7 +846,7 @@ class StaticProductSceneTests(unittest.TestCase):
 
                     def record(path, version):
                         return {
-                            "source_url": f"https://polyhaven.com/a/{version}",
+                            "source_url": f"https://example.com/assets/{version}",
                             "asset_version_id": version,
                             "license": "CC0-1.0",
                             "local_relative_path": f"assets/props/{path.name}",
@@ -784,7 +867,8 @@ class StaticProductSceneTests(unittest.TestCase):
                     unrecorded = authoring.load_workshop_support_assets(bpy, config)
 
                     bpy.ops.wm.read_factory_settings(use_empty=True)
-                    write_manifest([record(valid_path, "valid-1.0")])
+                    valid_asset_id = "tool_cart:models:1k:blend:test"
+                    write_manifest([record(valid_path, valid_asset_id)])
                     before = digest(master)
                     loaded = authoring.load_workshop_support_assets(bpy, config)
                     after = digest(master)
@@ -796,12 +880,12 @@ class StaticProductSceneTests(unittest.TestCase):
                     authoring._install_profile_supports(bpy, ())
                     retained = [
                         obj for obj in bpy.context.scene.objects
-                        if obj.get("pimm_external_asset_version_id") == "valid-1.0"
+                        if obj.get("pimm_external_asset_version_id") == valid_asset_id
                     ]
                     scene_evidence = json.dumps(
                         [
                             {
-                                "asset_version_id": "valid-1.0",
+                                "asset_version_id": valid_asset_id,
                                 "local_relative_path": "assets/props/valid-support.blend",
                                 "sha256": digest(valid_path),
                             }
@@ -944,7 +1028,7 @@ class StaticProductSceneTests(unittest.TestCase):
                     "count": 1,
                     "tagged": 2,
                     "retained_after_rig": 2,
-                    "asset_id": "valid-1.0",
+                    "asset_id": "tool_cart:models:1k:blend:test",
                     "master_unchanged": True,
                     "reopened_valid": [],
                     "member_hash_rejected": True,
@@ -976,6 +1060,20 @@ class StaticProductSceneTests(unittest.TestCase):
 
         self.assertEqual((depth_min, depth_max), (1318.0, 3622.0))
         self.assertLess(depth_max, self.module.STATIC_CAMERA_CLIP_END)
+
+    def test_camera_working_distance_retains_float_roundtrip_margin(self):
+        """Catches Blender float storage nudging a minimum-distance camera inside its gate."""
+
+        config = self.module.SHOT_CONFIGS["pimm-30g--hero--mobile"]
+        bounds_min = (-191.0, -189.9927, 0.0)
+        bounds_max = (223.0, 155.0, 884.5)
+        pose = self.module.camera_pose(bounds_min, bounds_max, config)
+        minimum = (
+            (bounds_max[2] - bounds_min[2])
+            * self.module.composition_for(config.scene_id).minimum_working_distance_heights
+        )
+
+        self.assertGreater(math.dist(pose.location, pose.target), minimum + 0.1)
 
     def test_authoring_rejects_default_blender_far_clip(self):
         """Catches authored static cameras retaining Blender's 1000-unit far plane."""

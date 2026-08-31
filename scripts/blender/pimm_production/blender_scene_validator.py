@@ -29,9 +29,14 @@ try:
         load_target_manifest,
         resolve_live_foot_contact_planes,
         resolve_target_bounds,
+        workshop_support_clearance_errors,
+        world_bounds_for_mesh_objects,
     )
     from .blender_scene_template import comparison_link_plan
-    from .external_asset_manifest import validate_external_assets
+    from .external_asset_manifest import (
+        scope_external_assets_to_campaign,
+        validate_external_assets,
+    )
     from .io_contract import sha256_file
     from .machine_contract import load_machine_contract, validate_controller_scene
     from .paths import ASSET_ROOT, require_within
@@ -73,11 +78,14 @@ except ImportError:  # Blender may execute this checked-in script directly.
         load_target_manifest,
         resolve_live_foot_contact_planes,
         resolve_target_bounds,
+        workshop_support_clearance_errors,
+        world_bounds_for_mesh_objects,
     )
     from scripts.blender.pimm_production.blender_scene_template import (
         comparison_link_plan,
     )
     from scripts.blender.pimm_production.external_asset_manifest import (
+        scope_external_assets_to_campaign,
         validate_external_assets,
     )
     from scripts.blender.pimm_production.io_contract import sha256_file
@@ -209,7 +217,11 @@ def _external_asset_provenance(
     except (OSError, json.JSONDecodeError) as error:
         return {}, [f"external asset manifest cannot be read: {path}: {error}"]
     campaign = load_campaign(CAMPAIGN_PATH)
-    errors = validate_external_assets(payload, set(campaign.by_shot_id))
+    campaign_shot_ids = set(campaign.by_shot_id)
+    errors = validate_external_assets(
+        scope_external_assets_to_campaign(payload, campaign_shot_ids),
+        campaign_shot_ids,
+    )
     assets = payload.get("assets", ()) if isinstance(payload, Mapping) else ()
     provenance: dict[str, Mapping[str, object]] = {}
     for record in assets:
@@ -1170,6 +1182,27 @@ def validate_open_render_scene(
         for published in published_by_machine.values()
         for product in getattr(published, "all_objects", ())
     }
+    if contract.purpose == "workshop":
+        machine_meshes = [
+            product
+            for product in expected_products
+            if getattr(product, "type", None) == "MESH"
+        ]
+        support_groups: dict[str, list[object]] = {}
+        for support in support_objects:
+            asset_id = _property(support, "pimm_external_asset_version_id")
+            if isinstance(asset_id, str):
+                support_groups.setdefault(asset_id, []).append(support)
+        if machine_meshes and support_groups:
+            errors.extend(
+                workshop_support_clearance_errors(
+                    world_bounds_for_mesh_objects(machine_meshes),
+                    {
+                        asset_id: world_bounds_for_mesh_objects(group)
+                        for asset_id, group in support_groups.items()
+                    },
+                )
+            )
     material_registry: dict[tuple[str, Path | None], object] = {}
     # Validate every used material datablock, not only object slots. Geometry
     # Nodes and node-socket pointers can contribute a material to rendering
