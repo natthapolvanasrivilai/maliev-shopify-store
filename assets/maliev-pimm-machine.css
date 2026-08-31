@@ -597,7 +597,7 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
 }
 
 .pimm-machine__editorial-chapter--process .pimm-machine__editorial-copy {
-  grid-column: 7 / -1;
+  grid-column: 6 / -1;
 }
 
 .pimm-machine__editorial-disclaimer {

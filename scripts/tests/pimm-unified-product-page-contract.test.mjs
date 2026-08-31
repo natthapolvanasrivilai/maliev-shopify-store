@@ -296,6 +296,8 @@ test('editorial photography is intrinsic lazy localized and independent of selec
     .join('\n');
   assert.match(editorialCss, /\.pimm-machine__editorial/);
   assert.doesNotMatch(editorialCss, /object-fit:\s*cover|position:\s*absolute|100vw|margin-inline:\s*-/);
+  assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-figure\s*\{[^}]*grid-column:\s*1\s*\/\s*6/s);
+  assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-copy\s*\{[^}]*grid-column:\s*6\s*\/\s*-1/s);
 });
 
 test('engineering console uses the approved open twelve-column product stage', () => {
