@@ -538,6 +538,16 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   padding-block: clamp(64px, 8vw, 112px);
 }
 
+.pimm-machine__story {
+  display: grid;
+  gap: clamp(72px, 10vw, 144px);
+  min-width: 0;
+}
+
+.pimm-machine__story[hidden] {
+  display: none;
+}
+
 .pimm-machine__editorial-chapter {
   align-items: center;
   display: grid;
@@ -611,6 +621,14 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
 
 .pimm-machine__editorial-chapter--process .pimm-machine__editorial-copy {
   grid-column: 7 / -1;
+}
+
+.pimm-machine__editorial-chapter--tooling .pimm-machine__editorial-figure {
+  grid-column: 1 / 8;
+}
+
+.pimm-machine__editorial-chapter--tooling .pimm-machine__editorial-copy {
+  grid-column: 9 / -1;
 }
 
 .pimm-machine__editorial-disclaimer {
@@ -975,7 +993,9 @@ body main .section-pimm-machine-product .pimm-machine__hero-evidence > h2 {
   .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-figure,
   .pimm-machine__editorial-chapter--engineering .pimm-machine__editorial-copy,
   .pimm-machine__editorial-chapter--process .pimm-machine__editorial-figure,
-  .pimm-machine__editorial-chapter--process .pimm-machine__editorial-copy {
+  .pimm-machine__editorial-chapter--process .pimm-machine__editorial-copy,
+  .pimm-machine__editorial-chapter--tooling .pimm-machine__editorial-figure,
+  .pimm-machine__editorial-chapter--tooling .pimm-machine__editorial-copy {
     grid-column: 1;
   }
 

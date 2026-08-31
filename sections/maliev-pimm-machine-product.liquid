@@ -88,74 +88,12 @@
         section: section
       %}
 
-      <section class="pimm-machine__tooling" aria-labelledby="PimmMachineTooling-{{ section.id }}" data-pimm-tooling>
-        <figure class="pimm-machine__figure">
-          {%- for block in section.blocks -%}
-            {%- if block.type == 'model' -%}
-              {%- liquid
-                assign media_is_selected = false
-                if model_contract_valid and block.settings.model_code == selected_model_code
-                  assign media_is_selected = true
-                endif
-                case block.settings.model_code
-                  when '30G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
-                    assign block_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t | strip_html
-                  when '50G'
-                    assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
-                    assign block_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t | strip_html
-                endcase
-                if use_thai_alt
-                  if block.settings.hero_alt_th != blank
-                    assign block_hero_alt = block.settings.hero_alt_th | strip_html
-                  endif
-                  if block.settings.tooling_alt_th != blank
-                    assign block_tooling_alt = block.settings.tooling_alt_th | strip_html
-                  endif
-                else
-                  if block.settings.hero_alt_en != blank
-                    assign block_hero_alt = block.settings.hero_alt_en | strip_html
-                  endif
-                  if block.settings.tooling_alt_en != blank
-                    assign block_tooling_alt = block.settings.tooling_alt_en | strip_html
-                  endif
-                endif
-                assign block_tooling_asset = block.settings.tooling_asset
-                assign block_tooling_width = 2400
-                assign block_tooling_height = 1800
-                if block_tooling_asset == blank
-                  assign block_tooling_asset = block.settings.hero_asset
-                  assign block_tooling_alt = block_hero_alt
-                  assign block_tooling_width = 1800
-                  assign block_tooling_height = 2200
-                endif
-              -%}
-              <picture
-                data-pimm-media-model="{{ block.settings.model_code }}"
-                aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
-                {% unless media_is_selected %}hidden{% endunless %}
-              >
-                <img
-                  src="{{ block_tooling_asset | asset_url }}"
-                  alt="{{ block_tooling_alt | escape }}"
-                  width="{{ block_tooling_width }}"
-                  height="{{ block_tooling_height }}"
-                  loading="lazy"
-                  decoding="async"
-                  data-pimm-media-slot="tooling"
-                  data-pimm-media-image
-                >
-              </picture>
-            {%- endif -%}
-          {%- endfor -%}
-        </figure>
-        <div class="pimm-machine__prose">
-          <h2 id="PimmMachineTooling-{{ section.id }}">{{ 'products.pimm_machine.tooling.heading' | t }}</h2>
-          <p>{{ 'products.pimm_machine.tooling.body' | t }}</p>
-        </div>
-      </section>
-
-      {% render 'pimm-editorial-chapters', section: section %}
+      {% render 'pimm-editorial-chapters',
+        section: section,
+        selected_model_code: selected_model_code,
+        model_contract_valid: model_contract_valid,
+        use_thai_alt: use_thai_alt
+      %}
       {% render 'pimm-ownership', section: section %}
       {% render 'pimm-purchase-qualification',
         selected_variant: selected_variant,

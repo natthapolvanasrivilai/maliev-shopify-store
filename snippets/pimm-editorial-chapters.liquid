@@ -1,94 +1,148 @@
 {% doc %}
-  Renders the fixed PIMM product-family editorial photography sequence.
+  Renders the selected PIMM model's product story and tooling path.
 
   @param {section} section - The owning machine-product section.
+  @param {string} selected_model_code - Validated selected model code.
+  @param {boolean} model_contract_valid - Whether the selected model contract is usable.
+  @param {boolean} use_thai_alt - Whether merchant Thai alt copy should be preferred.
 {% enddoc %}
 
-<section
-  class="pimm-machine__editorial"
-  aria-labelledby="PimmMachineEditorial-{{ section.id }}"
-  data-pimm-editorial
->
+<div class="pimm-machine__editorial" data-pimm-editorial>
   <header class="pimm-machine__editorial-intro">
     <h2 id="PimmMachineEditorial-{{ section.id }}">{{ 'products.pimm_machine.editorial.heading' | t }}</h2>
     <p>{{ 'products.pimm_machine.editorial.intro' | t }}</p>
   </header>
 
-  <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--architectural" data-pimm-editorial-chapter="architectural">
-    <figure class="pimm-machine__editorial-figure">
-      <img
-        src="{{ 'pimm-editorial-30g-architectural-daylight.webp' | asset_url }}"
-        alt="{{ 'products.pimm_machine.editorial.architectural.alt' | t | strip_html | escape }}"
-        width="2560"
-        height="1440"
-        loading="lazy"
-        decoding="async"
-        fetchpriority="low"
-      >
-      <figcaption>{{ 'products.pimm_machine.editorial.architectural.caption' | t }}</figcaption>
-    </figure>
-    <div class="pimm-machine__editorial-copy">
-      <h3>{{ 'products.pimm_machine.editorial.architectural.heading' | t }}</h3>
-      <p>{{ 'products.pimm_machine.editorial.architectural.body' | t }}</p>
-    </div>
-  </article>
+  {%- for block in section.blocks -%}
+    {%- if block.type == 'model' -%}
+      {%- liquid
+        assign story_is_selected = false
+        if model_contract_valid and block.settings.model_code == selected_model_code
+          assign story_is_selected = true
+        endif
+        case block.settings.model_code
+          when '30G'
+            assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
+            assign block_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t | strip_html
+          when '50G'
+            assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
+            assign block_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t | strip_html
+        endcase
+        if use_thai_alt
+          if block.settings.hero_alt_th != blank
+            assign block_hero_alt = block.settings.hero_alt_th | strip_html
+          endif
+          if block.settings.tooling_alt_th != blank
+            assign block_tooling_alt = block.settings.tooling_alt_th | strip_html
+          endif
+        else
+          if block.settings.hero_alt_en != blank
+            assign block_hero_alt = block.settings.hero_alt_en | strip_html
+          endif
+          if block.settings.tooling_alt_en != blank
+            assign block_tooling_alt = block.settings.tooling_alt_en | strip_html
+          endif
+        endif
+        assign block_tooling_asset = block.settings.tooling_asset
+        assign block_tooling_width = 2400
+        assign block_tooling_height = 1800
+        if block_tooling_asset == blank
+          assign block_tooling_asset = block.settings.hero_asset
+          assign block_tooling_alt = block_hero_alt
+          assign block_tooling_width = 1800
+          assign block_tooling_height = 2200
+        endif
+      -%}
 
-  <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--workshop" data-pimm-editorial-chapter="workshop">
-    <figure class="pimm-machine__editorial-figure">
-      <img
-        src="{{ 'pimm-editorial-50g-modern-workshop.webp' | asset_url }}"
-        alt="{{ 'products.pimm_machine.editorial.workshop.alt' | t | strip_html | escape }}"
-        width="2560"
-        height="1440"
-        loading="lazy"
-        decoding="async"
-        fetchpriority="low"
-      >
-      <figcaption>{{ 'products.pimm_machine.editorial.workshop.caption' | t }}</figcaption>
-    </figure>
-    <div class="pimm-machine__editorial-copy">
-      <h3>{{ 'products.pimm_machine.editorial.workshop.heading' | t }}</h3>
-      <p>{{ 'products.pimm_machine.editorial.workshop.body' | t }}</p>
-    </div>
-  </article>
+      {%- case block.settings.model_code -%}
+        {%- when '30G' -%}
+          <section
+            class="pimm-machine__story"
+            aria-labelledby="PimmMachineStory30G-{{ section.id }}"
+            data-pimm-story-model="30G"
+            aria-hidden="{% if story_is_selected %}false{% else %}true{% endif %}"
+            {% unless story_is_selected %}hidden{% endunless %}
+          >
+            <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--architectural" data-pimm-editorial-chapter="architectural">
+              <figure class="pimm-machine__editorial-figure">
+                <img src="{{ 'pimm-editorial-30g-architectural-daylight.webp' | asset_url }}" alt="{{ 'products.pimm_machine.editorial.architectural.alt' | t | strip_html | escape }}" width="2560" height="1440" loading="lazy" decoding="async" fetchpriority="low">
+                <figcaption>{{ 'products.pimm_machine.editorial.architectural.caption' | t }}</figcaption>
+              </figure>
+              <div class="pimm-machine__editorial-copy">
+                <h3 id="PimmMachineStory30G-{{ section.id }}">{{ 'products.pimm_machine.editorial.architectural.heading' | t }}</h3>
+                <p>{{ 'products.pimm_machine.editorial.architectural.body' | t }}</p>
+              </div>
+            </article>
 
-  <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--engineering" data-pimm-editorial-chapter="engineering">
-    <figure class="pimm-machine__editorial-figure">
-      <img
-        src="{{ 'pimm-editorial-50g-dark-engineering.webp' | asset_url }}"
-        alt="{{ 'products.pimm_machine.editorial.engineering.alt' | t | strip_html | escape }}"
-        width="2560"
-        height="1440"
-        loading="lazy"
-        decoding="async"
-        fetchpriority="low"
-      >
-      <figcaption>{{ 'products.pimm_machine.editorial.engineering.caption' | t }}</figcaption>
-    </figure>
-    <div class="pimm-machine__editorial-copy">
-      <h3>{{ 'products.pimm_machine.editorial.engineering.heading' | t }}</h3>
-      <p>{{ 'products.pimm_machine.editorial.engineering.body' | t }}</p>
-    </div>
-  </article>
+            <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--process" data-pimm-editorial-chapter="process">
+              <figure class="pimm-machine__editorial-figure">
+                <img src="{{ 'pimm-editorial-30g-process-still-life.webp' | asset_url }}" alt="{{ 'products.pimm_machine.editorial.process.alt' | t | strip_html | escape }}" width="1800" height="2250" loading="lazy" decoding="async" fetchpriority="low">
+                <figcaption>{{ 'products.pimm_machine.editorial.process.caption' | t }}</figcaption>
+              </figure>
+              <div class="pimm-machine__editorial-copy">
+                <h3>{{ 'products.pimm_machine.editorial.process.heading' | t }}</h3>
+                <p>{{ 'products.pimm_machine.editorial.process.body' | t }}</p>
+              </div>
+            </article>
 
-  <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--process" data-pimm-editorial-chapter="process">
-    <figure class="pimm-machine__editorial-figure">
-      <img
-        src="{{ 'pimm-editorial-30g-process-still-life.webp' | asset_url }}"
-        alt="{{ 'products.pimm_machine.editorial.process.alt' | t | strip_html | escape }}"
-        width="1800"
-        height="2250"
-        loading="lazy"
-        decoding="async"
-        fetchpriority="low"
-      >
-      <figcaption>{{ 'products.pimm_machine.editorial.process.caption' | t }}</figcaption>
-    </figure>
-    <div class="pimm-machine__editorial-copy">
-      <h3>{{ 'products.pimm_machine.editorial.process.heading' | t }}</h3>
-      <p>{{ 'products.pimm_machine.editorial.process.body' | t }}</p>
-    </div>
-  </article>
+            <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--tooling">
+              <figure class="pimm-machine__editorial-figure pimm-machine__figure">
+                <picture>
+                  <img src="{{ block_tooling_asset | asset_url }}" alt="{{ block_tooling_alt | escape }}" width="{{ block_tooling_width }}" height="{{ block_tooling_height }}" loading="lazy" decoding="async" data-pimm-media-slot="tooling" data-pimm-media-image>
+                </picture>
+              </figure>
+              <div class="pimm-machine__editorial-copy">
+                <h3>{{ 'products.pimm_machine.tooling.heading' | t }}</h3>
+                <p>{{ 'products.pimm_machine.tooling.body' | t }}</p>
+              </div>
+            </article>
+          </section>
+
+        {%- when '50G' -%}
+          <section
+            class="pimm-machine__story"
+            aria-labelledby="PimmMachineStory50G-{{ section.id }}"
+            data-pimm-story-model="50G"
+            aria-hidden="{% if story_is_selected %}false{% else %}true{% endif %}"
+            {% unless story_is_selected %}hidden{% endunless %}
+          >
+            <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--workshop" data-pimm-editorial-chapter="workshop">
+              <figure class="pimm-machine__editorial-figure">
+                <img src="{{ 'pimm-editorial-50g-modern-workshop.webp' | asset_url }}" alt="{{ 'products.pimm_machine.editorial.workshop.alt' | t | strip_html | escape }}" width="2560" height="1440" loading="lazy" decoding="async" fetchpriority="low">
+                <figcaption>{{ 'products.pimm_machine.editorial.workshop.caption' | t }}</figcaption>
+              </figure>
+              <div class="pimm-machine__editorial-copy">
+                <h3 id="PimmMachineStory50G-{{ section.id }}">{{ 'products.pimm_machine.editorial.workshop.heading' | t }}</h3>
+                <p>{{ 'products.pimm_machine.editorial.workshop.body' | t }}</p>
+              </div>
+            </article>
+
+            <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--engineering" data-pimm-editorial-chapter="engineering">
+              <figure class="pimm-machine__editorial-figure">
+                <img src="{{ 'pimm-editorial-50g-dark-engineering.webp' | asset_url }}" alt="{{ 'products.pimm_machine.editorial.engineering.alt' | t | strip_html | escape }}" width="2560" height="1440" loading="lazy" decoding="async" fetchpriority="low">
+                <figcaption>{{ 'products.pimm_machine.editorial.engineering.caption' | t }}</figcaption>
+              </figure>
+              <div class="pimm-machine__editorial-copy">
+                <h3>{{ 'products.pimm_machine.editorial.engineering.heading' | t }}</h3>
+                <p>{{ 'products.pimm_machine.editorial.engineering.body' | t }}</p>
+              </div>
+            </article>
+
+            <article class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--tooling">
+              <figure class="pimm-machine__editorial-figure pimm-machine__figure">
+                <picture>
+                  <img src="{{ block_tooling_asset | asset_url }}" alt="{{ block_tooling_alt | escape }}" width="{{ block_tooling_width }}" height="{{ block_tooling_height }}" loading="lazy" decoding="async" data-pimm-media-slot="tooling" data-pimm-media-image>
+                </picture>
+              </figure>
+              <div class="pimm-machine__editorial-copy">
+                <h3>{{ 'products.pimm_machine.tooling.heading' | t }}</h3>
+                <p>{{ 'products.pimm_machine.tooling.body' | t }}</p>
+              </div>
+            </article>
+          </section>
+      {%- endcase -%}
+    {%- endif -%}
+  {%- endfor -%}
 
   <p class="pimm-machine__editorial-disclaimer">{{ 'products.pimm_machine.editorial.props_disclaimer' | t }}</p>
-</section>
+</div>

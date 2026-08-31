@@ -161,6 +161,12 @@ const createControllerHarness = (variants) => {
       };
     }),
   );
+  const storyGroups = variants.map((variant, index) => ({
+    dataset: { pimmStoryModel: variant.model },
+    hidden: index !== 0,
+    ariaHidden: String(index !== 0),
+    inert: index !== 0,
+  }));
   const specificationNodes = [
     'shot_capacity_g',
     'max_melt_temperature_c',
@@ -185,6 +191,7 @@ const createControllerHarness = (variants) => {
     '[data-pimm-model-value]': values,
     '[data-pimm-model-radio]': radios,
     '[data-pimm-media-model]': mediaGroups,
+    '[data-pimm-story-model]': storyGroups,
     '[data-pimm-spec]': specificationNodes,
     '[data-pimm-spec-unit]': specificationUnits,
   })[selector] ?? [];
@@ -199,6 +206,7 @@ const createControllerHarness = (variants) => {
     factoryVisit,
     radios,
     mediaGroups,
+    storyGroups,
     specificationNodes,
     specificationUnits,
     browser,
@@ -232,7 +240,7 @@ test('engineering console contains the first-screen qualification strip and lead
   const orderedLandmarks = [
     "render 'pimm-hero-console'",
     "render 'pimm-engineering-bento'",
-    'pimm-machine__tooling',
+    "render 'pimm-editorial-chapters'",
     "render 'pimm-ownership'",
     "render 'pimm-purchase-qualification'",
   ];
@@ -263,34 +271,47 @@ test('released product imagery follows the buyer decision instead of competing i
   assert.match(bento, /class="pimm-machine__engineering-controls"/);
   assert.match(bento, /class="pimm-machine__engineering-specs"/);
 
-  assert.equal(section.match(/data-pimm-media-slot="tooling"/g)?.length, 1);
-  assert.equal(editorial.match(/<article\b/g)?.length, 4);
+  assert.equal(editorial.match(/data-pimm-media-slot="tooling"/g)?.length, 2);
+  assert.equal(editorial.match(/<article\b/g)?.length, 6);
 });
 
-test('one fixed editorial landmark follows tooling and precedes ownership and demo conversion', () => {
-  const tooling = section.indexOf('pimm-machine__tooling');
+test('one selected-model story follows engineering and precedes ownership and demo conversion', () => {
+  const engineeringRender = section.indexOf("render 'pimm-engineering-bento'");
   const editorialRender = section.indexOf("render 'pimm-editorial-chapters'");
   const ownershipRender = section.indexOf("render 'pimm-ownership'");
   const purchaseRender = section.indexOf("render 'pimm-purchase-qualification'");
 
-  assert.ok(tooling >= 0 && editorialRender > tooling);
+  assert.ok(engineeringRender >= 0 && editorialRender > engineeringRender);
   assert.ok(ownershipRender > editorialRender);
   assert.ok(purchaseRender > ownershipRender);
-  assert.equal(editorial.match(/data-pimm-editorial(?:\s|>)/g)?.length, 1);
-  assert.equal(editorial.match(/<article\b/g)?.length, 4);
+  assert.equal(editorial.match(/data-pimm-story-model=/g)?.length, 2);
+  assert.equal(editorial.match(/<article\b/g)?.length, 6);
   assert.deepEqual(
-    [...editorial.matchAll(/data-pimm-editorial-chapter="([^"]+)"/g)].map((match) => match[1]),
-    ['architectural', 'workshop', 'engineering', 'process'],
+    [...editorial.matchAll(/data-pimm-story-model="([^"]+)"/g)].map((match) => match[1]),
+    ['30G', '50G'],
   );
+  assert.doesNotMatch(section, /class="pimm-machine__tooling"|data-pimm-tooling/);
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
 });
 
-test('editorial photography is intrinsic lazy localized and independent of selected-model state', () => {
+test('selected-model story keeps each released render with its owning machine', () => {
+  const modelStories = [...editorial.matchAll(/<section[\s\S]*?data-pimm-story-model="(30G|50G)"[\s\S]*?<\/section>/g)];
+  assert.equal(modelStories.length, 2);
+  const story30G = modelStories.find((match) => match[1] === '30G')?.[0] ?? '';
+  const story50G = modelStories.find((match) => match[1] === '50G')?.[0] ?? '';
+
+  assert.match(story30G, /pimm-editorial-30g-architectural-daylight\.webp/);
+  assert.match(story30G, /pimm-editorial-30g-process-still-life\.webp/);
+  assert.doesNotMatch(story30G, /pimm-editorial-50g-/);
+  assert.match(story50G, /pimm-editorial-50g-modern-workshop\.webp/);
+  assert.match(story50G, /pimm-editorial-50g-dark-engineering\.webp/);
+  assert.doesNotMatch(story50G, /pimm-editorial-30g-/);
+
   const expected = [
     ['pimm-editorial-30g-architectural-daylight.webp', '2560', '1440'],
+    ['pimm-editorial-30g-process-still-life.webp', '1800', '2250'],
     ['pimm-editorial-50g-modern-workshop.webp', '2560', '1440'],
     ['pimm-editorial-50g-dark-engineering.webp', '2560', '1440'],
-    ['pimm-editorial-30g-process-still-life.webp', '1800', '2250'],
   ];
 
   for (const [asset, width, height] of expected) {
@@ -303,7 +324,9 @@ test('editorial photography is intrinsic lazy localized and independent of selec
     assert.match(image, /products\.pimm_machine\.editorial\.[^.]+\.alt/);
   }
 
-  assert.doesNotMatch(editorial, /data-pimm-media-model|object-fit\s*:\s*cover|<carousel\b|<button\b/);
+  assert.match(editorial, /aria-hidden="\{% if story_is_selected %\}false\{% else %\}true\{% endif %\}"/);
+  assert.match(editorial, /unless story_is_selected[^]*hidden/);
+  assert.doesNotMatch(editorial, /object-fit\s*:\s*cover|<carousel\b|<button\b/);
   assert.doesNotMatch(editorial, /style\s*=|position\s*:\s*absolute|100vw/);
   assert.match(css, /\.pimm-machine__editorial-figure img\s*\{[^}]*height:\s*auto[^}]*width:\s*100%/s);
   const editorialCss = [...css.matchAll(/(?:^|\n)([^\n{]*\.pimm-machine__editorial[^\n{]*)\{([^}]*)\}/g)]
@@ -313,6 +336,7 @@ test('editorial photography is intrinsic lazy localized and independent of selec
   assert.doesNotMatch(editorialCss, /object-fit:\s*cover|position:\s*absolute|100vw|margin-inline:\s*-/);
   assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-figure\s*\{[^}]*grid-column:\s*1\s*\/\s*6/s);
   assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-copy\s*\{[^}]*grid-column:\s*7\s*\/\s*-1/s);
+  assert.doesNotMatch(editorial, /<picture data-pimm-media-model=/);
 });
 
 test('engineering console uses the approved open twelve-column product stage', () => {
@@ -502,6 +526,12 @@ test('storefront copy never mentions a production deposit', () => {
   assert.doesNotMatch(storefrontCopy, /deposit|50%|มัดจำ/i);
 });
 
+test('selected-model story removes the superseded planning headings from every locale', () => {
+  const storefrontCopy = storefrontLocales.map(({ value }) => JSON.stringify(value)).join('\n');
+  assert.doesNotMatch(storefrontCopy, /Plan the process before production|Plan the mold with the machine/);
+  assert.doesNotMatch(storefrontCopy, /วางแผนกระบวนการก่อนเริ่มผลิต|วางแผนแม่พิมพ์ให้สอดคล้องกับเครื่อง/);
+});
+
 test('one asymmetric engineering bento exposes stable model media and semantic specifications', () => {
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
   assert.match(bento, /class="pimm-machine__engineering-bento"/);
@@ -528,8 +558,8 @@ test('one asymmetric engineering bento exposes stable model media and semantic s
   assert.match(bento, /data-pimm-media-slot="overview"[\s\S]*width="\{\{ block_overview_width \}\}"[\s\S]*height="\{\{ block_overview_height \}\}"/);
   assert.match(bento, /assign block_engineering_width = 2400[\s\S]*assign block_engineering_height = 1800/);
   assert.match(bento, /data-pimm-media-slot="engineering"[\s\S]*width="\{\{ block_engineering_width \}\}"[\s\S]*height="\{\{ block_engineering_height \}\}"/);
-  assert.match(section, /assign block_tooling_width = 2400[\s\S]*assign block_tooling_height = 1800/);
-  assert.match(section, /width="\{\{ block_tooling_width \}\}"[\s\S]*height="\{\{ block_tooling_height \}\}"[\s\S]*data-pimm-media-slot="tooling"/);
+  assert.match(editorial, /assign block_tooling_width = 2400[\s\S]*assign block_tooling_height = 1800/);
+  assert.match(editorial, /width="\{\{ block_tooling_width \}\}"[\s\S]*height="\{\{ block_tooling_height \}\}"[\s\S]*data-pimm-media-slot="tooling"/);
 });
 
 test('released media has one narrative owner for each selected-model slot', () => {
@@ -537,7 +567,7 @@ test('released media has one narrative owner for each selected-model slot', () =
   assert.match(heroConsole, /data-pimm-media-slot="hero"/);
   assert.match(bento, /data-pimm-media-slot="overview"/);
   assert.match(bento, /data-pimm-media-slot="engineering"/);
-  assert.match(section, /class="pimm-machine__tooling[\s\S]*data-pimm-media-slot="tooling"/);
+  assert.match(editorial, /class="pimm-machine__editorial-chapter pimm-machine__editorial-chapter--tooling"[\s\S]*data-pimm-media-slot="tooling"/);
   assert.equal(renderedContract.match(/data-pimm-media-slot="overview"/g)?.length, 1);
   assert.equal(renderedContract.match(/data-pimm-media-slot="engineering"/g)?.length, 1);
 });
@@ -577,7 +607,7 @@ test('model media crossfade retains stable nodes and cleans rapid transitions', 
 
 test('only the selected hero is eager while below-fold model media stays lazy and async', () => {
   assert.match(heroConsole, /if media_is_selected[\s\S]*loading="eager"[\s\S]*fetchpriority="high"/);
-  const detailSources = { overview: bento, engineering: bento, tooling: section };
+  const detailSources = { overview: bento, engineering: bento, tooling: editorial };
   for (const [slot, source] of Object.entries(detailSources)) {
     assert.match(source, new RegExp(`data-pimm-media-slot="${slot}"`));
     assert.match(source, /loading="lazy"/);
@@ -694,7 +724,7 @@ test('section schema exposes only approved links and a two-model contract', () =
 });
 
 test('merchant model alt settings resolve initial and switched media with locale fallbacks', () => {
-  const runtimeAltSources = `${sectionRuntime}\n${heroConsole}\n${bento}`;
+  const runtimeAltSources = `${sectionRuntime}\n${heroConsole}\n${bento}\n${editorial}`;
   const slots = ['hero', 'overview', 'engineering', 'tooling'];
 
   for (const slot of slots) {
@@ -710,7 +740,7 @@ test('merchant model alt settings resolve initial and switched media with locale
       hero: heroConsole,
       overview: bento,
       engineering: bento,
-      tooling: sectionRuntime,
+      tooling: editorial,
     }[slot];
     const initialVariable = `block_${slot}_alt`;
     assert.match(initialSource, new RegExp(`assign ${initialVariable} = 'products\\.pimm_machine\\.alt\\.30g\\.${slot}' \\| t`));
@@ -891,6 +921,10 @@ test('controller selects a valid variant without rebuilding DOM', () => {
   assert.match(harness.browser.window.location.href, /variant=202$/);
   assert.deepEqual(harness.mediaGroups.map((group) => group.hidden), [true, true, true, true, false, false, false, false]);
   assert.deepEqual(harness.mediaGroups.map((group) => group.ariaHidden), ['true', 'true', 'true', 'true', 'false', 'false', 'false', 'false']);
+  assert.deepEqual(harness.storyGroups.map((group) => [group.hidden, group.ariaHidden, group.inert]), [
+    [true, 'true', true],
+    [false, 'false', false],
+  ]);
   assert.deepEqual(harness.specificationNodes.map((node) => node.textContent), ['50', '350', '240 × 240 × 100', '0.7']);
   assert.deepEqual(harness.specificationNodes.map((node) => node.ariaLabel), ['50 g', '350 °C', '240 × 240 × 100 mm', '0.7 MPa']);
   assert.deepEqual(harness.mediaGroups.map((group) => group.image.decodeCount), [0, 0, 0, 0, 1, 0, 0, 0]);

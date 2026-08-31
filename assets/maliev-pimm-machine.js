@@ -129,6 +129,7 @@
       if (status && status.textContent.trim() !== announcement) status.textContent = announcement;
 
       this.applyMedia(variant, contractValid, media);
+      this.showOnlyStory(contractValid ? variant.model : '');
       if (contractValid) this.decodeSelectedHero(variant.model);
       this.updateUrl(variant.id);
     }
@@ -221,6 +222,15 @@
         group.ariaHidden = String(hidden);
         group.inert = hidden;
         delete group.dataset.pimmMediaState;
+      });
+    }
+
+    showOnlyStory(model) {
+      this.querySelectorAll('[data-pimm-story-model]').forEach((story) => {
+        const hidden = !model || story.dataset.pimmStoryModel !== model;
+        story.hidden = hidden;
+        story.ariaHidden = String(hidden);
+        story.inert = hidden;
       });
     }
 

@@ -232,8 +232,8 @@
     },
     "pimm_machine": {
       "editorial": {
-        "heading": "Built for the workshop floor",
-        "intro": "Four views connect the machine's structure, controls and production context. The selected specifications above remain the authority for choosing 30G or 50G.",
+        "heading": "Your selected machine, in context",
+        "intro": "The story below follows the model selected above, from workshop fit and operating access to the mold path for a demo session.",
         "architectural": {
           "heading": "Workshop scale, engineered in Thailand",
           "body": "The 30G combines a compact frame with direct pneumatic operation and independent temperature control, with the machine kept fully visible for installation planning.",
@@ -253,8 +253,8 @@
           "alt": "MALIEV 50G pneumatic injection molding machine in a full front view under controlled graphite studio lighting"
         },
         "process": {
-          "heading": "Plan the process before production",
-          "body": "Bring your part, material, mold plan, compressor capacity and utility requirements to a demo session so the machine and tooling plan can be confirmed together.",
+          "heading": "From part idea to first shot",
+          "body": "Bring your part, material, compressor capacity and utility requirements to a demo session. MALIEV will review the 30G setup and the next mold steps with you.",
           "caption": "30G shown in an illustrative process-planning setting. Surrounding props are not included.",
           "alt": "MALIEV 30G pneumatic injection molding machine with process-planning and inspection props arranged around the machine"
         },
@@ -309,8 +309,8 @@
         }
       },
       "tooling": {
-        "heading": "Plan the mold with the machine",
-        "body": "The open tooling area and threaded fixture grid support custom molds and holding fixtures. Confirm mold dimensions, injection entry and required support before production starts."
+        "heading": "Confirm your mold path",
+        "body": "The selected machine's open tooling area and threaded fixture grid support custom molds and holding fixtures. Bring the mold dimensions and injection entry to the demo so the required support can be checked together."
       },
       "purchase": {
         "heading": "See the machine before you commit",
