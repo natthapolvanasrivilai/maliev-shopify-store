@@ -13,6 +13,7 @@ const evidenceDir = resolve(
 );
 const viewports = [
   [1440, 900],
+  [1236, 1032],
   [1280, 800],
   [1024, 768],
   [768, 1024],
@@ -653,6 +654,7 @@ const consoleGeometryProbe = `(() => {
       titleFontSize: title ? parseFloat(getComputedStyle(title).fontSize) : null,
       titleLineCount: titleRange ? [...titleRange.getClientRects()].filter((value) => value.width > 0).length : 0,
       titleTop: title?.getBoundingClientRect().top ?? null,
+      titleWordBreak: title ? getComputedStyle(title).wordBreak : null,
     },
     visibleFactCount: [...document.querySelectorAll('.pimm-machine__hero-facts [data-pimm-spec]')]
       .filter((node) => node.getClientRects().length > 0).length,
@@ -836,6 +838,11 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
             assert.ok(
               consoleGeometry.typography.titleLineCount <= 5,
               `${language} ${model} ${width}x${height} title typography ${JSON.stringify(consoleGeometry.typography)}`,
+            );
+            assert.equal(
+              consoleGeometry.typography.titleWordBreak,
+              'normal',
+              `${language} ${model} ${width}x${height} title must not split words`,
             );
             assert.ok(
               consoleGeometry.typography.evidenceHeadingFontSize <= 22,

@@ -34,10 +34,11 @@
 }
 
 body main .section-pimm-machine-product .pimm-machine h1 {
-  font-size: clamp(4.4rem, 4.6vw, 6.2rem) !important;
+  font-size: clamp(4.4rem, 4.2vw, 6.2rem) !important;
   font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 0.94;
+  word-break: normal;
 }
 
 .pimm-machine h2 {
