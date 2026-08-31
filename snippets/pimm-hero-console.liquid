@@ -1,148 +1,90 @@
 {% doc %}
-  Renders the engineering-console hero for the selected PIMM model.
+  Renders the shared PIMM decision header and authoritative hero for each model.
 
-  @param {product} product - The unified PIMM product.
-  @param {section} section - The owning machine-product section.
-  @param {string} selected_model_code - The selected 30G or 50G model code.
-  @param {object} selected_variant - The selected Shopify variant.
-  @param {object} specifications - The validated versioned specifications object.
-  @param {number} full_price_cents - Twice the selected contextual variant price in integer cents.
-  @param {string} lead_time - The selected variant's production lead time.
-  @param {boolean} model_contract_valid - Whether commerce and presentation data agree.
-  @param {string} factory_visit_url - The factory-visit destination.
+  @param {object} product
+  @param {object} section
+  @param {string} selected_model_code
+  @param {object} selected_variant
+  @param {object} specifications
+  @param {number} full_price_cents
+  @param {number} lead_time
+  @param {boolean} model_contract_valid
+  @param {string} factory_visit_url
 {% enddoc %}
 
-{%- liquid
-  assign use_thai_alt = false
-  if request.locale.iso_code == 'th' or request.locale.iso_code contains 'th-'
-    assign use_thai_alt = true
-  endif
--%}
+<header class="pimm-machine__hero" data-pimm-hero>
+  <div class="pimm-machine__decision">
+    <p class="pimm-machine__eyebrow">{{ 'products.pimm_machine.hero.evidence_heading' | t }}</p>
+    <h1>{{ product.title | escape }}</h1>
+    <p class="pimm-machine__promise">{{ 'products.pimm_machine.hero.promise' | t }}</p>
+    <p class="pimm-machine__fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
 
-<section
-  class="pimm-machine__hero-console"
-  aria-labelledby="PimmMachineTitle-{{ section.id }}"
-  data-pimm-hero-console
-  data-header-overlay-sentinel
-  data-header-overlay-tone="bright"
->
-  <div class="pimm-machine__hero-decision">
-    <div class="pimm-machine__hero-title-group">
-      <h1 id="PimmMachineTitle-{{ section.id }}">{{ product.title | remove: ' (Development)' | escape }}</h1>
-      <p class="pimm-machine__hero-promise">{{ 'products.pimm_machine.hero.promise' | t }}</p>
-      <p class="pimm-machine__hero-fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
-    </div>
     {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
-    <div class="pimm-machine__hero-actions">
-      <a class="button button--primary" href="{{ factory_visit_url }}" data-pimm-book-visit>
-        {{ 'products.pimm_machine.purchase.book_visit' | t }}
-      </a>
+
+    <div class="pimm-machine__actions">
+      <a class="button button--primary" href="{{ factory_visit_url }}">{{ 'products.pimm_machine.purchase.book_visit' | t }}</a>
+      <a class="pimm-machine__text-link" href="#PimmMachineQualification-{{ section.id }}">{{ 'products.pimm_machine.purchase.heading' | t }}</a>
     </div>
   </div>
 
-  <figure class="pimm-machine__hero-stage" data-pimm-hero-media>
-    {%- for block in section.blocks -%}
-      {%- if block.type == 'model' -%}
-        {%- liquid
-          assign media_is_selected = false
-          if model_contract_valid and block.settings.model_code == selected_model_code
-            assign media_is_selected = true
-          endif
-          case block.settings.model_code
-            when '30G'
-              assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
-            when '50G'
-              assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
-          endcase
-          if use_thai_alt
-            if block.settings.hero_alt_th != blank
-              assign block_hero_alt = block.settings.hero_alt_th | strip_html
-            endif
-          elsif block.settings.hero_alt_en != blank
-            assign block_hero_alt = block.settings.hero_alt_en | strip_html
-          endif
-        -%}
-        <picture
-          data-pimm-media-model="{{ block.settings.model_code }}"
-          data-pimm-media-slot="hero"
-          aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
-          {% unless media_is_selected %}hidden inert{% endunless %}
+  <figure class="pimm-machine__hero-stage">
+    <div
+      class="pimm-machine__hero-media pimm-machine__hero-media--30g"
+      data-pimm-media-model="30G"
+      data-pimm-media-slot="hero"
+      data-pimm-full-machine
+      data-pimm-stage-baseline
+      {% unless selected_model_code == '30G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
+    >
+      <picture>
+        <source media="(max-width: 749px)" srcset="{{ 'pimm30-v13-hero-mobile-contained.webp' | asset_url }}">
+        <img
+          src="{{ 'pimm30-v13-hero-desktop-contained.webp' | asset_url }}"
+          alt="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}"
+          width="1920"
+          height="1080"
+          loading="{% if selected_model_code == '30G' %}eager{% else %}lazy{% endif %}"
+          decoding="async"
+          {% if selected_model_code == '30G' %}fetchpriority="high"{% endif %}
         >
-          <img
-            src="{{ block.settings.hero_asset | asset_url }}"
-            alt="{{ block_hero_alt | escape }}"
-            width="1800"
-            height="2200"
-            {%- if media_is_selected %}
-              loading="eager"
-              fetchpriority="high"
-            {%- else %}
-              loading="lazy"
-              decoding="async"
-            {%- endif %}
-            data-pimm-media-image
-          >
-        </picture>
-      {%- endif -%}
-    {%- endfor -%}
+      </picture>
+    </div>
+    <div
+      class="pimm-machine__hero-media pimm-machine__hero-media--50g"
+      data-pimm-media-model="50G"
+      data-pimm-media-slot="hero"
+      data-pimm-full-machine
+      data-pimm-stage-baseline
+      {% unless selected_model_code == '50G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
+    >
+      <img
+        src="{{ 'pimm50-light-studio-hero.webp' | asset_url }}"
+        alt="{{ 'products.pimm_machine.alt.50g.hero' | t | escape }}"
+        width="1400"
+        height="1400"
+        loading="{% if selected_model_code == '50G' %}eager{% else %}lazy{% endif %}"
+        decoding="async"
+        {% if selected_model_code == '50G' %}fetchpriority="high"{% endif %}
+      >
+    </div>
   </figure>
 
-  <aside class="pimm-machine__hero-evidence" data-pimm-hero-evidence aria-labelledby="PimmMachineEvidence-{{ section.id }}">
-    <h2 id="PimmMachineEvidence-{{ section.id }}">{{ 'products.pimm_machine.hero.evidence_heading' | t }}</h2>
-    <dl class="pimm-machine__hero-facts">
-      <div>
-        <dt>{{ 'products.pimm_machine.specs.capacity.label' | t }}</dt>
-        <dd>
-          <span
-            data-pimm-spec="shot_capacity_g"
-            aria-label="{% if model_contract_valid %}{{ specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t | escape }}{% endif %}"
-          >{% if model_contract_valid %}{{ specifications.shot_capacity_g }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
-          <span data-pimm-spec-unit="shot_capacity_g" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.capacity.unit' | t }}</span>
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'products.pimm_machine.specs.temperature.label' | t }}</dt>
-        <dd>
-          <span
-            data-pimm-spec="max_melt_temperature_c"
-            aria-label="{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t | escape }}{% endif %}"
-          >{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
-          <span data-pimm-spec-unit="max_melt_temperature_c" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.temperature.unit' | t }}</span>
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</dt>
-        <dd>
-          <span
-            data-pimm-spec="mold_envelope"
-            aria-label="{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t | escape }}{% endif %}"
-          >{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
-          <span data-pimm-spec-unit="mold_envelope" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</span>
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'products.pimm_machine.specs.pressure.label' | t }}</dt>
-        <dd>
-          <span
-            data-pimm-spec="max_air_pressure_mpa"
-            aria-label="{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t | escape }}{% endif %}"
-          >{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span>
-          <span data-pimm-spec-unit="max_air_pressure_mpa" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.pressure.unit' | t }}</span>
-        </dd>
-      </div>
+  <aside class="pimm-machine__specifications" aria-labelledby="PimmMachineEvidence-{{ section.id }}">
+    <h2 id="PimmMachineEvidence-{{ section.id }}">{{ 'products.pimm_machine.engineering.heading' | t }}</h2>
+    <dl>
+      <div><dt>{{ 'products.pimm_machine.specs.capacity.label' | t }}</dt><dd><span data-pimm-spec="shot_capacity_g">{% if model_contract_valid %}{{ specifications.shot_capacity_g }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="shot_capacity_g" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.capacity.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.temperature.label' | t }}</dt><dd><span data-pimm-spec="max_melt_temperature_c">{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="max_melt_temperature_c" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.temperature.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</dt><dd><span data-pimm-spec="mold_envelope">{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="mold_envelope" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.pressure.label' | t }}</dt><dd><span data-pimm-spec="max_air_pressure_mpa">{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="max_air_pressure_mpa" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.pressure.unit' | t }}</span></dd></div>
     </dl>
-
-    <a class="pimm-machine__hero-detail" href="#PimmMachineEngineering-{{ section.id }}">
-      <span>{{ 'products.pimm_machine.hero.engineering_detail' | t }}</span>
-      <span aria-hidden="true">&#8595;</span>
-    </a>
   </aside>
+</header>
 
-  {% render 'pimm-qualification-strip',
-    section: section,
-    selected_variant: selected_variant,
-    full_price_cents: full_price_cents,
-    lead_time: lead_time,
-    model_contract_valid: model_contract_valid
-  %}
-</section>
+{% render 'pimm-qualification-strip',
+  selected_variant: selected_variant,
+  model_contract_valid: model_contract_valid,
+  full_price_cents: full_price_cents,
+  lead_time: lead_time,
+  section: section,
+  factory_visit_url: factory_visit_url
+%}

@@ -46,14 +46,20 @@
       );
     }
 
-    hasValidRecordContract(variant, media = this.resolveMedia(variant)) {
+    hasValidRecordContract(variant) {
       const specifications = variant?.specifications;
       const mold = specifications?.mold_envelope_mm;
+      const expectedStoryAssetSet = variant?.model === '30G'
+        ? 'pimm30-production-v13'
+        : variant?.model === '50G'
+          ? 'pimm50-light-studio-v1'
+          : '';
 
       return (
         this.payloadContractValid &&
         variant?.contractValid === true &&
         (variant.model === '30G' || variant.model === '50G') &&
+        variant.storyAssetSet === expectedStoryAssetSet &&
         typeof variant.fullPrice === 'string' &&
         typeof variant.leadTime === 'string' &&
         typeof variant.statusText === 'string' &&
@@ -67,8 +73,7 @@
         specifications.max_air_pressure_mpa > 0 &&
         mold?.width > 0 &&
         mold.height > 0 &&
-        mold.depth > 0 &&
-        media !== null
+        mold.depth > 0
       );
     }
 
@@ -110,8 +115,7 @@
         return;
       }
 
-      const media = this.resolveMedia(variant);
-      const contractValid = this.hasValidRecordContract(variant, media);
+      const contractValid = this.hasValidRecordContract(variant);
       this.querySelectorAll('[data-pimm-model-radio]').forEach((radio) => {
         radio.checked = Number(radio.value) === variant.id;
       });
@@ -128,32 +132,19 @@
       const announcement = contractValid ? variant.announcementText : this.invalidMessage;
       if (status && status.textContent.trim() !== announcement) status.textContent = announcement;
 
-      this.applyMedia(variant, contractValid, media);
+      this.applyMedia(variant, contractValid);
       this.showOnlyStory(contractValid ? variant.model : '');
       if (contractValid) this.decodeSelectedHero(variant.model);
       this.updateUrl(variant.id);
     }
 
-    applyMedia(variant, contractValid, media = null) {
-      if (!contractValid || !media) {
+    applyMedia(variant, contractValid) {
+      if (!contractValid) {
         this.stopMediaTransition('');
         this.selectedMediaModel = '';
         this.updateSpecifications(variant, false);
         return;
       }
-
-      this.querySelectorAll('[data-pimm-media-model]').forEach((group) => {
-        if (group.dataset.pimmMediaModel !== variant.model) return;
-        const image = group.querySelector('img');
-        const slot = group.dataset.pimmMediaSlot || image?.dataset.pimmMediaSlot;
-        const item = media[slot];
-        if (!item || !image) return;
-        image.srcset = item.src;
-        image.src = item.src;
-        image.alt = item.alt;
-        image.width = item.width;
-        image.height = item.height;
-      });
 
       this.transitionMediaTo(variant.model);
 
@@ -294,7 +285,7 @@
       const status = this.querySelector('[data-pimm-variant-status]');
       if (status) status.textContent = this.invalidMessage;
 
-      this.applyMedia({ model: '', specifications: {} }, false, null);
+      this.applyMedia({ model: '', specifications: {} }, false);
     }
   }
 

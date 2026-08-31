@@ -4,18 +4,12 @@
   assign selected_model_block = nil
   assign model_block_match_count = 0
   assign product_model_contract_valid = false
-  assign use_thai_alt = false
-  if request.locale.iso_code == 'th' or request.locale.iso_code contains 'th-'
-    assign use_thai_alt = true
-  endif
 
-  if product.options.size == 1 and product.options.first == 'Model'
-    if product.variants.size == 2
-      assign first_model_variant = product.variants.first
-      assign second_model_variant = product.variants.last
-      if first_model_variant.option1 == '30G' and second_model_variant.option1 == '50G'
-        assign product_model_contract_valid = true
-      endif
+  if product.options.size == 1 and product.options.first == 'Model' and product.variants.size == 2
+    assign first_model_variant = product.variants.first
+    assign second_model_variant = product.variants.last
+    if first_model_variant.option1 == '30G' and second_model_variant.option1 == '50G'
+      assign product_model_contract_valid = true
     endif
   endif
 
@@ -28,24 +22,28 @@
     endif
   endfor
 
+  assign expected_story_asset_set = ''
+  case selected_model_code
+    when '30G'
+      assign expected_story_asset_set = 'pimm30-production-v13'
+    when '50G'
+      assign expected_story_asset_set = 'pimm50-light-studio-v1'
+  endcase
+
   assign specifications = selected_variant.metafields.custom.pimm_specifications.value
   assign full_price = selected_variant.metafields.custom.full_machine_price.value
   assign selected_full_price_cents = selected_variant.price | times: 2
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
   assign model_contract_valid = false
 
-  if product_model_contract_valid
-    if selected_model_code == '30G' or selected_model_code == '50G'
-      if selected_model_block != blank and model_block_match_count == 1 and specifications != blank
-        if specifications.schema_version == 1 and specifications.model == selected_model_code
-          if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
-            if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
-              if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
-                if full_price != blank and lead_time > 0
-                  if selected_model_block.settings.hero_asset != blank
-                    assign model_contract_valid = true
-                  endif
-                endif
+  if product_model_contract_valid and selected_model_block != blank and model_block_match_count == 1
+    if selected_model_block.settings.story_asset_set == expected_story_asset_set and specifications != blank
+      if specifications.schema_version == 1 and specifications.model == selected_model_code
+        if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
+          if specifications.max_air_pressure_mpa > 0 and specifications.mold_envelope_mm.width > 0
+            if specifications.mold_envelope_mm.height > 0 and specifications.mold_envelope_mm.depth > 0
+              if full_price != blank and lead_time > 0
+                assign model_contract_valid = true
               endif
             endif
           endif
@@ -69,256 +67,146 @@
   data-section-id="{{ section.id }}"
   data-model-contract-valid="{{ model_contract_valid }}"
 >
-      {% render 'pimm-hero-console',
-        product: product,
-        section: section,
-        selected_model_code: selected_model_code,
-        selected_variant: selected_variant,
-        specifications: specifications,
-        full_price_cents: selected_full_price_cents,
-        lead_time: lead_time,
-        model_contract_valid: model_contract_valid,
-        factory_visit_url: factory_visit_url
-      %}
+  {% render 'pimm-hero-console',
+    product: product,
+    section: section,
+    selected_model_code: selected_model_code,
+    selected_variant: selected_variant,
+    specifications: specifications,
+    full_price_cents: selected_full_price_cents,
+    lead_time: lead_time,
+    model_contract_valid: model_contract_valid,
+    factory_visit_url: factory_visit_url
+  %}
 
-      {% render 'pimm-engineering-bento',
-        selected_model_code: selected_model_code,
-        specifications: specifications,
-        model_contract_valid: model_contract_valid,
-        section: section
-      %}
+  <main class="pimm-machine__stories" data-pimm-stories>
+    <div
+      data-pimm-story-model="30G"
+      {% unless selected_model_code == '30G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
+    >
+      {% render 'pimm-30g-product-story', story_asset_set: 'pimm30-production-v13' %}
+    </div>
+    <div
+      data-pimm-story-model="50G"
+      {% unless selected_model_code == '50G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
+    >
+      {% render 'pimm-50g-product-story', story_asset_set: 'pimm50-light-studio-v1' %}
+    </div>
+  </main>
 
-      {% render 'pimm-editorial-chapters',
-        section: section,
-        selected_model_code: selected_model_code,
-        model_contract_valid: model_contract_valid,
-        use_thai_alt: use_thai_alt
-      %}
-      {% render 'pimm-ownership', section: section %}
-      {% render 'pimm-purchase-qualification',
-        selected_variant: selected_variant,
-        model_contract_valid: model_contract_valid,
-        section: section
-      %}
+  {% render 'pimm-ownership', section: section %}
+  {% render 'pimm-purchase-qualification', selected_variant: selected_variant, model_contract_valid: model_contract_valid, section: section %}
 
-      <script
-        type="application/json"
-        data-pimm-variant-data
-        data-pimm-invalid-message="{{ 'products.pimm_machine.status.unavailable' | t | escape }}"
-        data-pimm-taxes-included="{{ cart.taxes_included }}"
-        data-pimm-country="{{ localization.country.iso_code | escape }}"
-        data-pimm-currency="{{ cart.currency.iso_code | escape }}"
-      >
-        [
-          {%- for variant in product.variants -%}
-            {%- liquid
-              assign variant_model = variant.option1 | strip
-              assign variant_model_block = nil
-              assign variant_model_block_count = 0
-              for block in section.blocks
-                if block.type == 'model' and block.settings.model_code == variant_model
-                  assign variant_model_block_count = variant_model_block_count | plus: 1
-                  if variant_model_block == nil
-                    assign variant_model_block = block
-                  endif
-                endif
-              endfor
-
-              assign variant_specifications = variant.metafields.custom.pimm_specifications.value
-              assign variant_full_price = variant.metafields.custom.full_machine_price.value
-              assign variant_full_price_cents = variant.price | times: 2
-              assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
-              assign variant_contract_valid = false
-              case variant_model
-                when '30G'
-                  assign variant_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
-                  assign variant_overview_alt = 'products.pimm_machine.alt.30g.overview' | t | strip_html
-                  assign variant_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t | strip_html
-                  assign variant_tooling_alt = 'products.pimm_machine.alt.30g.tooling' | t | strip_html
-                when '50G'
-                  assign variant_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
-                  assign variant_overview_alt = 'products.pimm_machine.alt.50g.overview' | t | strip_html
-                  assign variant_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t | strip_html
-                  assign variant_tooling_alt = 'products.pimm_machine.alt.50g.tooling' | t | strip_html
-              endcase
-              if use_thai_alt
-                if variant_model_block.settings.hero_alt_th != blank
-                  assign variant_hero_alt = variant_model_block.settings.hero_alt_th | strip_html
-                endif
-              elsif variant_model_block.settings.hero_alt_en != blank
-                assign variant_hero_alt = variant_model_block.settings.hero_alt_en | strip_html
+  <script
+    type="application/json"
+    data-pimm-variant-data
+    data-pimm-invalid-message="{{ 'products.pimm_machine.status.unavailable' | t | escape }}"
+    data-pimm-taxes-included="{{ cart.taxes_included }}"
+    data-pimm-country="{{ localization.country.iso_code | escape }}"
+    data-pimm-currency="{{ cart.currency.iso_code | escape }}"
+  >
+    [
+      {%- for variant in product.variants -%}
+        {%- liquid
+          assign variant_model = variant.option1 | strip
+          assign variant_model_block = nil
+          assign variant_model_block_count = 0
+          for block in section.blocks
+            if block.type == 'model' and block.settings.model_code == variant_model
+              assign variant_model_block_count = variant_model_block_count | plus: 1
+              if variant_model_block == nil
+                assign variant_model_block = block
               endif
-              if use_thai_alt
-                if variant_model_block.settings.overview_alt_th != blank
-                  assign variant_overview_alt = variant_model_block.settings.overview_alt_th | strip_html
-                endif
-              elsif variant_model_block.settings.overview_alt_en != blank
-                assign variant_overview_alt = variant_model_block.settings.overview_alt_en | strip_html
-              endif
-              if use_thai_alt
-                if variant_model_block.settings.engineering_alt_th != blank
-                  assign variant_engineering_alt = variant_model_block.settings.engineering_alt_th | strip_html
-                endif
-              elsif variant_model_block.settings.engineering_alt_en != blank
-                assign variant_engineering_alt = variant_model_block.settings.engineering_alt_en | strip_html
-              endif
-              if use_thai_alt
-                if variant_model_block.settings.tooling_alt_th != blank
-                  assign variant_tooling_alt = variant_model_block.settings.tooling_alt_th | strip_html
-                endif
-              elsif variant_model_block.settings.tooling_alt_en != blank
-                assign variant_tooling_alt = variant_model_block.settings.tooling_alt_en | strip_html
-              endif
+            endif
+          endfor
 
-              if product_model_contract_valid
-                if variant_model == '30G' or variant_model == '50G'
-                  if variant_model_block != blank and variant_model_block_count == 1 and variant_specifications != blank
-                    if variant_specifications.schema_version == 1 and variant_specifications.model == variant_model
-                      if variant_specifications.shot_capacity_g > 0 and variant_specifications.max_melt_temperature_c > 0
-                        if variant_specifications.max_air_pressure_mpa > 0 and variant_specifications.mold_envelope_mm.width > 0
-                          if variant_specifications.mold_envelope_mm.height > 0 and variant_specifications.mold_envelope_mm.depth > 0
-                            if variant_full_price != blank and variant_lead_time_days > 0
-                              if variant_model_block.settings.hero_asset != blank and variant_hero_alt != blank
-                                assign variant_contract_valid = true
-                              endif
-                            endif
-                          endif
-                        endif
+          assign expected_variant_story_asset_set = ''
+          case variant_model
+            when '30G'
+              assign expected_variant_story_asset_set = 'pimm30-production-v13'
+            when '50G'
+              assign expected_variant_story_asset_set = 'pimm50-light-studio-v1'
+          endcase
+          assign variant_story_asset_set = variant_model_block.settings.story_asset_set
+          assign variant_specifications = variant.metafields.custom.pimm_specifications.value
+          assign variant_full_price = variant.metafields.custom.full_machine_price.value
+          assign variant_full_price_cents = variant.price | times: 2
+          assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
+          assign variant_contract_valid = false
+
+          if product_model_contract_valid and variant_model_block != blank and variant_model_block_count == 1
+            if variant_story_asset_set == expected_variant_story_asset_set and variant_specifications != blank
+              if variant_specifications.schema_version == 1 and variant_specifications.model == variant_model
+                if variant_specifications.shot_capacity_g > 0 and variant_specifications.max_melt_temperature_c > 0
+                  if variant_specifications.max_air_pressure_mpa > 0 and variant_specifications.mold_envelope_mm.width > 0
+                    if variant_specifications.mold_envelope_mm.height > 0 and variant_specifications.mold_envelope_mm.depth > 0
+                      if variant_full_price != blank and variant_lead_time_days > 0
+                        assign variant_contract_valid = true
                       endif
                     endif
                   endif
                 endif
               endif
+            endif
+          endif
 
-              assign variant_full_price_text = 'products.pimm_machine.status.unavailable' | t
-              if variant_contract_valid
-                assign variant_full_price_text = variant_full_price_cents | money_with_currency
-              endif
+          assign variant_full_price_text = 'products.pimm_machine.status.unavailable' | t
+          if variant_contract_valid
+            assign variant_full_price_text = variant_full_price_cents | money_with_currency
+          endif
 
-              capture variant_lead_time_text
-                if variant_lead_time_days > 0
-                  echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
-                else
-                  echo 'products.pimm_machine.status.unavailable' | t
-                endif
-              endcapture
+          capture variant_lead_time_text
+            if variant_lead_time_days > 0
+              echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
+            else
+              echo 'products.pimm_machine.status.unavailable' | t
+            endif
+          endcapture
 
-              assign variant_status_text = 'products.pimm_machine.status.unavailable' | t
-              if variant_contract_valid
-                if variant.available
-                  assign variant_status_text = 'products.pimm_machine.status.made_to_order' | t
-                else
-                  assign variant_status_text = 'products.pimm_machine.status.out_of_stock' | t
-                endif
-              endif
-
-              assign variant_announcement_text = variant_status_text
-
-              assign variant_hero_url = ''
-              assign variant_overview_url = ''
-              assign variant_engineering_url = ''
-              assign variant_tooling_url = ''
-              assign variant_hero_width = 1800
-              assign variant_hero_height = 2200
-              assign variant_overview_width = 2400
-              assign variant_overview_height = 1800
-              assign variant_engineering_width = 2400
-              assign variant_engineering_height = 1800
-              assign variant_tooling_width = 2400
-              assign variant_tooling_height = 1800
-              if variant_model_block != blank
-                if variant_model_block.settings.hero_asset != blank
-                  assign variant_hero_url = variant_model_block.settings.hero_asset | asset_url
-                endif
-                if variant_model_block.settings.overview_asset != blank
-                  assign variant_overview_url = variant_model_block.settings.overview_asset | asset_url
-                endif
-                if variant_model_block.settings.engineering_asset != blank
-                  assign variant_engineering_url = variant_model_block.settings.engineering_asset | asset_url
-                endif
-                if variant_model_block.settings.tooling_asset != blank
-                  assign variant_tooling_url = variant_model_block.settings.tooling_asset | asset_url
-                endif
-              endif
-              if variant_overview_url == blank
-                assign variant_overview_url = variant_hero_url
-                assign variant_overview_alt = variant_hero_alt
-                assign variant_overview_width = variant_hero_width
-                assign variant_overview_height = variant_hero_height
-              endif
-              if variant_engineering_url == blank
-                assign variant_engineering_url = variant_hero_url
-                assign variant_engineering_alt = variant_hero_alt
-                assign variant_engineering_width = variant_hero_width
-                assign variant_engineering_height = variant_hero_height
-              endif
-              if variant_tooling_url == blank
-                assign variant_tooling_url = variant_hero_url
-                assign variant_tooling_alt = variant_hero_alt
-                assign variant_tooling_width = variant_hero_width
-                assign variant_tooling_height = variant_hero_height
-              endif
-            -%}
-            {
-              "id": {{ variant.id | json }},
-              "model": {{ variant.option1 | strip_html | json }},
-              "fullPrice": {{ variant_full_price_text | strip_html | json }},
-              "available": {{ variant.available | json }},
-              "leadTime": {{ variant_lead_time_text | strip_html | strip | json }},
-              "specifications": {
-                {%- if variant_contract_valid -%}
-                  "schema_version": {{ variant_specifications.schema_version | plus: 0 | json }},
-                  "model": {{ variant_model | strip_html | json }},
-                  "shot_capacity_g": {{ variant_specifications.shot_capacity_g | plus: 0 | json }},
-                  "max_melt_temperature_c": {{ variant_specifications.max_melt_temperature_c | plus: 0 | json }},
-                  "mold_envelope_mm": {
-                    "width": {{ variant_specifications.mold_envelope_mm.width | plus: 0 | json }},
-                    "height": {{ variant_specifications.mold_envelope_mm.height | plus: 0 | json }},
-                    "depth": {{ variant_specifications.mold_envelope_mm.depth | plus: 0 | json }}
-                  },
-                  "max_air_pressure_mpa": {{ variant_specifications.max_air_pressure_mpa | plus: 0 | json }}
-                {%- else -%}
-                  "schema_version": null,
-                  "model": null,
-                  "shot_capacity_g": null,
-                  "max_melt_temperature_c": null,
-                  "mold_envelope_mm": { "width": null, "height": null, "depth": null },
-                  "max_air_pressure_mpa": null
-                {%- endif -%}
+          assign variant_status_text = 'products.pimm_machine.status.unavailable' | t
+          if variant_contract_valid
+            if variant.available
+              assign variant_status_text = 'products.pimm_machine.status.made_to_order' | t
+            else
+              assign variant_status_text = 'products.pimm_machine.status.out_of_stock' | t
+            endif
+          endif
+        -%}
+        {
+          "id": {{ variant.id | json }},
+          "model": {{ variant_model | strip_html | json }},
+          "storyAssetSet": {{ variant_story_asset_set | json }},
+          "fullPrice": {{ variant_full_price_text | strip_html | json }},
+          "available": {{ variant.available | json }},
+          "leadTime": {{ variant_lead_time_text | strip_html | strip | json }},
+          "specifications": {
+            {%- if variant_contract_valid -%}
+              "schema_version": {{ variant_specifications.schema_version | plus: 0 | json }},
+              "model": {{ variant_model | strip_html | json }},
+              "shot_capacity_g": {{ variant_specifications.shot_capacity_g | plus: 0 | json }},
+              "max_melt_temperature_c": {{ variant_specifications.max_melt_temperature_c | plus: 0 | json }},
+              "mold_envelope_mm": {
+                "width": {{ variant_specifications.mold_envelope_mm.width | plus: 0 | json }},
+                "height": {{ variant_specifications.mold_envelope_mm.height | plus: 0 | json }},
+                "depth": {{ variant_specifications.mold_envelope_mm.depth | plus: 0 | json }}
               },
-              "media": {
-                "hero": {
-                  "src": {{ variant_hero_url | json }},
-                  "alt": {{ variant_hero_alt | strip_html | json }},
-                  "width": {{ variant_hero_width | json }},
-                  "height": {{ variant_hero_height | json }}
-                },
-                "overview": {
-                  "src": {{ variant_overview_url | json }},
-                  "alt": {{ variant_overview_alt | strip_html | json }},
-                  "width": {{ variant_overview_width | json }},
-                  "height": {{ variant_overview_height | json }}
-                },
-                "engineering": {
-                  "src": {{ variant_engineering_url | json }},
-                  "alt": {{ variant_engineering_alt | strip_html | json }},
-                  "width": {{ variant_engineering_width | json }},
-                  "height": {{ variant_engineering_height | json }}
-                },
-                "tooling": {
-                  "src": {{ variant_tooling_url | json }},
-                  "alt": {{ variant_tooling_alt | strip_html | json }},
-                  "width": {{ variant_tooling_width | json }},
-                  "height": {{ variant_tooling_height | json }}
-                }
-              },
-              "statusText": {{ variant_status_text | strip_html | json }},
-              "announcementText": {{ variant_announcement_text | strip_html | strip | json }},
-              "contractValid": {{ variant_contract_valid | json }}
-            }{% unless forloop.last %},{% endunless %}
-          {%- endfor -%}
-        ]
-      </script>
+              "max_air_pressure_mpa": {{ variant_specifications.max_air_pressure_mpa | plus: 0 | json }}
+            {%- else -%}
+              "schema_version": null,
+              "model": null,
+              "shot_capacity_g": null,
+              "max_melt_temperature_c": null,
+              "mold_envelope_mm": { "width": null, "height": null, "depth": null },
+              "max_air_pressure_mpa": null
+            {%- endif -%}
+          },
+          "statusText": {{ variant_status_text | strip_html | json }},
+          "announcementText": {{ variant_status_text | strip_html | strip | json }},
+          "contractValid": {{ variant_contract_valid | json }}
+        }{% unless forloop.last %},{% endunless %}
+      {%- endfor -%}
+    ]
+  </script>
 </pimm-machine-product>
 
 {%- assign app_blocks = section.blocks | where: 'type', '@app' -%}
@@ -340,21 +228,9 @@
   "class": "section-pimm-machine-product",
   "max_blocks": 6,
   "settings": [
-    {
-      "type": "url",
-      "id": "factory_visit_url",
-      "label": "Demo session URL"
-    },
-    {
-      "type": "url",
-      "id": "document_url",
-      "label": "Documentation URL"
-    },
-    {
-      "type": "url",
-      "id": "support_url",
-      "label": "Support URL"
-    }
+    { "type": "url", "id": "factory_visit_url", "label": "Demo session URL" },
+    { "type": "url", "id": "document_url", "label": "Documentation URL" },
+    { "type": "url", "id": "support_url", "label": "Support URL" }
   ],
   "blocks": [
     {
@@ -372,28 +248,11 @@
           ],
           "default": "30G"
         },
-        { "type": "text", "id": "hero_asset", "label": "Hero asset filename" },
-        { "type": "text", "id": "overview_asset", "label": "Overview asset filename" },
-        { "type": "text", "id": "engineering_asset", "label": "Engineering asset filename" },
-        { "type": "text", "id": "tooling_asset", "label": "Tooling asset filename" },
-        { "type": "text", "id": "hero_alt_en", "label": "Hero alt text — English" },
-        { "type": "text", "id": "hero_alt_th", "label": "Hero alt text — Thai" },
-        { "type": "text", "id": "overview_alt_en", "label": "Overview alt text — English" },
-        { "type": "text", "id": "overview_alt_th", "label": "Overview alt text — Thai" },
-        { "type": "text", "id": "engineering_alt_en", "label": "Engineering alt text — English" },
-        { "type": "text", "id": "engineering_alt_th", "label": "Engineering alt text — Thai" },
-        { "type": "text", "id": "tooling_alt_en", "label": "Tooling alt text — English" },
-        { "type": "text", "id": "tooling_alt_th", "label": "Tooling alt text — Thai" }
+        { "type": "text", "id": "story_asset_set", "label": "Governed story asset set" }
       ]
     },
-    {
-      "type": "@app"
-    }
+    { "type": "@app" }
   ],
-  "presets": [
-    {
-      "name": "PIMM machine product"
-    }
-  ]
+  "presets": [{ "name": "PIMM machine product" }]
 }
 {% endschema %}
