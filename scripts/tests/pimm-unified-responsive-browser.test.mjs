@@ -643,6 +643,7 @@ const consoleGeometryProbe = `(() => {
     overlaps: {
       actionsEvidence: overlaps(actions, evidence),
       decisionStage: overlaps(decision, stage),
+      evidenceQualification: overlaps(evidence, qualification),
       stageEvidence: overlaps(stage, evidence),
     },
     qualification,
@@ -824,6 +825,11 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               false,
               `${language} ${model} ${width}x${height} hero actions must not overlap evidence`,
             );
+            assert.equal(
+              consoleGeometry.overlaps.evidenceQualification,
+              false,
+              `${language} ${model} ${width}x${height} evidence must not overlap qualification`,
+            );
             assert.equal(consoleGeometry.imageHasArea, true);
             assert.deepEqual(consoleGeometry.naturalSize, [1800, 2200]);
             assert.equal(consoleGeometry.visibleFactCount, 4);
@@ -855,6 +861,15 @@ test('unified PIMM Draft preview passes responsive browser acceptance', {
               consoleGeometry.overflowX <= 1,
               `${language} ${model} ${width}x${height} console must not overflow horizontally`,
             );
+            if (width <= 749) {
+              assert.ok(
+                consoleGeometry.image.top >= consoleGeometry.stage.top - 1
+                  && consoleGeometry.image.bottom <= consoleGeometry.stage.bottom + 1
+                  && consoleGeometry.image.left >= consoleGeometry.stage.left - 1
+                  && consoleGeometry.image.right <= consoleGeometry.stage.right + 1,
+                `${language} ${model} ${width}x${height} mobile hero must contain the complete machine render: ${JSON.stringify({ image: consoleGeometry.image, stage: consoleGeometry.stage })}`,
+              );
+            }
             assert.equal(state.selected, model);
             assert.match(state.url, new RegExp(`[?&]variant=${state.record.id}(?:&|$)`));
             assert.equal(state.visibleMedia, 4);

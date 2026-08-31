@@ -252,6 +252,21 @@ test('engineering console contains the first-screen qualification strip and lead
   assert.match(purchase, /<section[^>]*data-pimm-purchase-qualification/);
 });
 
+test('released product imagery follows the buyer decision instead of competing inside the hero', () => {
+  assert.equal(heroConsole.match(/data-pimm-media-slot="hero"/g)?.length, 1);
+  assert.doesNotMatch(heroConsole, /data-pimm-media-slot="engineering"/);
+  assert.match(heroConsole, /href="#PimmMachineEngineering-/);
+
+  assert.equal(bento.match(/data-pimm-media-slot="overview"/g)?.length, 1);
+  assert.equal(bento.match(/data-pimm-media-slot="engineering"/g)?.length, 1);
+  assert.match(bento, /class="pimm-machine__engineering-overview"/);
+  assert.match(bento, /class="pimm-machine__engineering-controls"/);
+  assert.match(bento, /class="pimm-machine__engineering-specs"/);
+
+  assert.equal(section.match(/data-pimm-media-slot="tooling"/g)?.length, 1);
+  assert.equal(editorial.match(/<article\b/g)?.length, 4);
+});
+
 test('one fixed editorial landmark follows tooling and precedes ownership and demo conversion', () => {
   const tooling = section.indexOf('pimm-machine__tooling');
   const editorialRender = section.indexOf("render 'pimm-editorial-chapters'");
@@ -297,7 +312,7 @@ test('editorial photography is intrinsic lazy localized and independent of selec
   assert.match(editorialCss, /\.pimm-machine__editorial/);
   assert.doesNotMatch(editorialCss, /object-fit:\s*cover|position:\s*absolute|100vw|margin-inline:\s*-/);
   assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-figure\s*\{[^}]*grid-column:\s*1\s*\/\s*6/s);
-  assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-copy\s*\{[^}]*grid-column:\s*6\s*\/\s*-1/s);
+  assert.match(css, /\.pimm-machine__editorial-chapter--process \.pimm-machine__editorial-copy\s*\{[^}]*grid-column:\s*7\s*\/\s*-1/s);
 });
 
 test('engineering console uses the approved open twelve-column product stage', () => {
@@ -317,19 +332,17 @@ test('engineering console uses the approved open twelve-column product stage', (
   assert.match(css, /\.pimm-machine__hero-console\s*>\s*\.pimm-machine__qualification-strip\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*grid-row:\s*2/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
-  assert.match(css, /\.pimm-machine__engineering-media\s*\{[^}]*grid-column:\s*1\s*\/\s*8[^}]*grid-row:\s*1\s*\/\s*5/s);
-  assert.match(css, /\.pimm-machine__specifications\s*\{[^}]*display:\s*contents/s);
-  assert.match(css, /\.pimm-machine__engineering-fact--capacity\s*\{[^}]*grid-column:\s*8\s*\/\s*11[^}]*grid-row:\s*1\s*\/\s*3/s);
-  assert.match(css, /\.pimm-machine__engineering-fact--temperature\s*\{[^}]*grid-column:\s*11\s*\/\s*13[^}]*grid-row:\s*1\s*\/\s*3/s);
-  assert.match(css, /\.pimm-machine__engineering-fact--mold\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*3/s);
-  assert.match(css, /\.pimm-machine__engineering-fact--pressure\s*\{[^}]*grid-column:\s*8\s*\/\s*13[^}]*grid-row:\s*4/s);
+  assert.match(css, /\.pimm-machine__engineering-overview\s*\{[^}]*grid-column:\s*1\s*\/\s*8[^}]*grid-row:\s*1\s*\/\s*3/s);
+  assert.match(css, /\.pimm-machine__engineering-controls\s*\{[^}]*grid-column:\s*8\s*\/\s*-1[^}]*grid-row:\s*1/s);
+  assert.match(css, /\.pimm-machine__engineering-specs\s*\{[^}]*grid-column:\s*8\s*\/\s*-1[^}]*grid-row:\s*2/s);
+  assert.match(css, /\.pimm-machine__specifications\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
   assert.match(css, /\.pimm-machine__hero-stage\s*\{[^}]*background:\s*transparent/s);
   assert.match(css, /\.pimm-machine__hero-stage img\s*\{[^}]*object-fit:\s*contain/s);
-  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*5\.4rem\)\s*!important[^}]*font-weight:\s*600/s);
+  assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*clamp\([^,]+,[^,]+,\s*6\.2rem\)\s*!important[^}]*font-weight:\s*600/s);
   assert.match(css, /body main \.section-pimm-machine-product \.pimm-machine__hero-evidence\s*>\s*h2\s*\{[^}]*font-size:\s*2\.2rem\s*!important/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__model-option\s*\{[^}]*flex-direction:\s*column[^}]*width:\s*100%/s);
   assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*\.pimm-machine__hero-facts dd,[\s\S]*\.pimm-machine__qualification-facts dd\s*\{[^}]*font-size:\s*1\.3rem/s);
-  assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*2\.4rem\s*!important[^}]*overflow-wrap:\s*normal[^}]*word-break:\s*normal/s);
+  assert.match(css, /@media \(max-width:\s*359px\)\s*\{[\s\S]*body main \.section-pimm-machine-product \.pimm-machine h1\s*\{[^}]*font-size:\s*2\.7rem\s*!important[^}]*overflow-wrap:\s*normal[^}]*word-break:\s*normal/s);
   assert.doesNotMatch(css, /\.pimm-machine\s*\{[^}]*display:\s*grid/s);
   assert.doesNotMatch(css, /box-shadow\s*:/);
   assert.doesNotMatch(css, /background-clip:\s*text|backdrop-filter|repeating-linear-gradient|linear-gradient|radial-gradient/);
@@ -347,9 +360,9 @@ test('responsive controls preserve focus touch size motion and 320px containment
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[^{]*\{[^}]*transition-duration:\s*0ms[^}]*transform:\s*none/s);
   assert.match(css, /@media\s*\(max-width:\s*1199px\)/);
   assert.match(css, /@media\s*\(max-width:\s*749px\)[^{]*\{[^}]*padding-inline:\s*20px/s);
-  assert.match(css, /@media\s*\(max-width:\s*359px\)[^{]*\{[\s\S]*\.pimm-machine__hero-facts,[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(css, /@media\s*\(max-width:\s*749px\)[^{]*\{[\s\S]*\.pimm-machine__engineering-bento\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
   assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-stage\s*\{[^}]*order:\s*1/s);
-  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-stage\s*\{[^}]*margin-bottom:\s*52px/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-stage\s*\{[^}]*height:\s*clamp\(320px,\s*43svh,\s*410px\)/s);
   assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__model-selector\s*\{[^}]*order:\s*2/s);
   assert.match(css, /\.pimm-machine__hero-actions\s*\{[^}]*order:\s*3/s);
   assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*\.pimm-machine__hero-title-group\s*\{[^}]*order:\s*4/s);
@@ -492,7 +505,8 @@ test('storefront copy never mentions a production deposit', () => {
 test('one asymmetric engineering bento exposes stable model media and semantic specifications', () => {
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
   assert.match(bento, /class="pimm-machine__engineering-bento"/);
-  assert.match(bento, /<figure[^>]*class="[^"]*pimm-machine__engineering-media/);
+  assert.match(bento, /<figure[^>]*class="[^"]*pimm-machine__engineering-overview/);
+  assert.match(bento, /<figure[^>]*class="[^"]*pimm-machine__engineering-controls/);
   assert.match(bento, /<dl[^>]*data-pimm-specifications/);
 
   for (const slot of ['hero', 'overview', 'engineering', 'tooling']) {
@@ -512,8 +526,8 @@ test('one asymmetric engineering bento exposes stable model media and semantic s
   assert.match(heroConsole, /width="1800"[\s\S]*height="2200"[\s\S]*data-pimm-media-image/);
   assert.match(bento, /assign block_overview_width = 2400[\s\S]*assign block_overview_height = 1800/);
   assert.match(bento, /data-pimm-media-slot="overview"[\s\S]*width="\{\{ block_overview_width \}\}"[\s\S]*height="\{\{ block_overview_height \}\}"/);
-  assert.match(heroConsole, /assign block_engineering_width = 2400[\s\S]*assign block_engineering_height = 1800/);
-  assert.match(heroConsole, /data-pimm-media-slot="engineering"[\s\S]*width="\{\{ block_engineering_width \}\}"[\s\S]*height="\{\{ block_engineering_height \}\}"/);
+  assert.match(bento, /assign block_engineering_width = 2400[\s\S]*assign block_engineering_height = 1800/);
+  assert.match(bento, /data-pimm-media-slot="engineering"[\s\S]*width="\{\{ block_engineering_width \}\}"[\s\S]*height="\{\{ block_engineering_height \}\}"/);
   assert.match(section, /assign block_tooling_width = 2400[\s\S]*assign block_tooling_height = 1800/);
   assert.match(section, /width="\{\{ block_tooling_width \}\}"[\s\S]*height="\{\{ block_tooling_height \}\}"[\s\S]*data-pimm-media-slot="tooling"/);
 });
@@ -521,8 +535,8 @@ test('one asymmetric engineering bento exposes stable model media and semantic s
 test('released media has one narrative owner for each selected-model slot', () => {
   assert.equal(renderedContract.match(/data-pimm-engineering-bento/g)?.length, 1);
   assert.match(heroConsole, /data-pimm-media-slot="hero"/);
-  assert.match(heroConsole, /data-pimm-media-slot="engineering"/);
   assert.match(bento, /data-pimm-media-slot="overview"/);
+  assert.match(bento, /data-pimm-media-slot="engineering"/);
   assert.match(section, /class="pimm-machine__tooling[\s\S]*data-pimm-media-slot="tooling"/);
   assert.equal(renderedContract.match(/data-pimm-media-slot="overview"/g)?.length, 1);
   assert.equal(renderedContract.match(/data-pimm-media-slot="engineering"/g)?.length, 1);
@@ -563,7 +577,7 @@ test('model media crossfade retains stable nodes and cleans rapid transitions', 
 
 test('only the selected hero is eager while below-fold model media stays lazy and async', () => {
   assert.match(heroConsole, /if media_is_selected[\s\S]*loading="eager"[\s\S]*fetchpriority="high"/);
-  const detailSources = { overview: bento, engineering: heroConsole, tooling: section };
+  const detailSources = { overview: bento, engineering: bento, tooling: section };
   for (const [slot, source] of Object.entries(detailSources)) {
     assert.match(source, new RegExp(`data-pimm-media-slot="${slot}"`));
     assert.match(source, /loading="lazy"/);
@@ -695,7 +709,7 @@ test('merchant model alt settings resolve initial and switched media with locale
     const initialSource = {
       hero: heroConsole,
       overview: bento,
-      engineering: heroConsole,
+      engineering: bento,
       tooling: sectionRuntime,
     }[slot];
     const initialVariable = `block_${slot}_alt`;

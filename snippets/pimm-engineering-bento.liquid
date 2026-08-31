@@ -21,7 +21,7 @@
   </header>
 
   <div class="pimm-machine__engineering-bento">
-    <figure class="pimm-machine__engineering-media">
+    <figure class="pimm-machine__engineering-overview">
       {%- for block in section.blocks -%}
         {%- if block.type == 'model' -%}
           {%- liquid
@@ -82,7 +82,69 @@
       {%- endfor -%}
     </figure>
 
-    <dl class="pimm-machine__specifications" data-pimm-specifications>
+    <figure class="pimm-machine__engineering-controls">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'model' -%}
+          {%- liquid
+            assign media_is_selected = false
+            if model_contract_valid and block.settings.model_code == selected_model_code
+              assign media_is_selected = true
+            endif
+            case block.settings.model_code
+              when '30G'
+                assign block_hero_alt = 'products.pimm_machine.alt.30g.hero' | t | strip_html
+                assign block_engineering_alt = 'products.pimm_machine.alt.30g.engineering' | t | strip_html
+              when '50G'
+                assign block_hero_alt = 'products.pimm_machine.alt.50g.hero' | t | strip_html
+                assign block_engineering_alt = 'products.pimm_machine.alt.50g.engineering' | t | strip_html
+            endcase
+            if use_thai_alt
+              if block.settings.hero_alt_th != blank
+                assign block_hero_alt = block.settings.hero_alt_th | strip_html
+              endif
+              if block.settings.engineering_alt_th != blank
+                assign block_engineering_alt = block.settings.engineering_alt_th | strip_html
+              endif
+            else
+              if block.settings.hero_alt_en != blank
+                assign block_hero_alt = block.settings.hero_alt_en | strip_html
+              endif
+              if block.settings.engineering_alt_en != blank
+                assign block_engineering_alt = block.settings.engineering_alt_en | strip_html
+              endif
+            endif
+            assign block_engineering_asset = block.settings.engineering_asset
+            assign block_engineering_width = 2400
+            assign block_engineering_height = 1800
+            if block_engineering_asset == blank
+              assign block_engineering_asset = block.settings.hero_asset
+              assign block_engineering_alt = block_hero_alt
+              assign block_engineering_width = 1800
+              assign block_engineering_height = 2200
+            endif
+          -%}
+          <picture
+            data-pimm-media-model="{{ block.settings.model_code }}"
+            data-pimm-media-slot="engineering"
+            aria-hidden="{% if media_is_selected %}false{% else %}true{% endif %}"
+            {% unless media_is_selected %}hidden inert{% endunless %}
+          >
+            <img
+              src="{{ block_engineering_asset | asset_url }}"
+              alt="{{ block_engineering_alt | escape }}"
+              width="{{ block_engineering_width }}"
+              height="{{ block_engineering_height }}"
+              loading="lazy"
+              decoding="async"
+              data-pimm-media-image
+            >
+          </picture>
+        {%- endif -%}
+      {%- endfor -%}
+    </figure>
+
+    <div class="pimm-machine__engineering-specs">
+      <dl class="pimm-machine__specifications" data-pimm-specifications>
       <div class="pimm-machine__engineering-fact pimm-machine__engineering-fact--capacity">
         <dt>{{ 'products.pimm_machine.specs.capacity.label' | t }}</dt>
         <dd>
@@ -127,6 +189,7 @@
         </dd>
         <p>{{ 'products.pimm_machine.specs.pressure.guidance' | t }}</p>
       </div>
-    </dl>
+      </dl>
+    </div>
   </div>
 </section>
