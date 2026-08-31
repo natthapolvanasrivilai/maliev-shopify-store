@@ -5,7 +5,10 @@ from __future__ import annotations
 from copy import deepcopy
 import unittest
 
-from scripts.blender.pimm_production.external_asset_manifest import validate_external_assets
+from scripts.blender.pimm_production.external_asset_manifest import (
+    scope_external_assets_to_campaign,
+    validate_external_assets,
+)
 
 
 CAMPAIGN_SHOTS = {
@@ -32,6 +35,21 @@ def _manifest() -> dict[str, object]:
 
 
 class ExternalAssetManifestTests(unittest.TestCase):
+    def test_scoping_ignores_legacy_campaign_ids_but_preserves_shared_assets(self):
+        manifest = _manifest()
+        manifest["assets"][0]["intended_shot_ids"] = [
+            "legacy-editorial-shot",
+            "pimm-50g--concept-modern-workshop",
+        ]
+
+        scoped = scope_external_assets_to_campaign(
+            manifest, {"pimm-50g--concept-modern-workshop"}
+        )
+
+        self.assertEqual(
+            scoped["assets"][0]["intended_shot_ids"],
+            ["pimm-50g--concept-modern-workshop"],
+        )
     def test_accepts_an_explicitly_empty_asset_list(self) -> None:
         """Catches a validator that forces decorative third-party props into workshop proofs."""
 

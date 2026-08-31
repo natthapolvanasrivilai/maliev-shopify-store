@@ -35,7 +35,10 @@ try:
         SHEET_WIDTH,
         build_editorial_contact_sheet,
     )
-    from .external_asset_manifest import validate_external_assets
+    from .external_asset_manifest import (
+        scope_external_assets_to_campaign,
+        validate_external_assets,
+    )
     from .io_contract import atomic_write_json, sha256_file
     from .paths import ASSET_ROOT, require_within
     from .tool_policy import validate_tool_lock
@@ -58,7 +61,10 @@ except ImportError:  # Blender executes this checked-in file outside package mod
         SHEET_WIDTH,
         build_editorial_contact_sheet,
     )
-    from scripts.blender.pimm_production.external_asset_manifest import validate_external_assets
+    from scripts.blender.pimm_production.external_asset_manifest import (
+        scope_external_assets_to_campaign,
+        validate_external_assets,
+    )
     from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
     from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
     from scripts.blender.pimm_production.tool_policy import validate_tool_lock
@@ -510,8 +516,10 @@ def _load_completion_authority(
     external_manifest, _external_bytes, external_manifest_sha = _load_json_bytes(
         external_manifest_path, "external asset manifest"
     )
+    campaign_shot_ids = {item.shot_id for item in _CAMPAIGN.shots}
     provenance_errors = validate_external_assets(
-        external_manifest, {item.shot_id for item in _CAMPAIGN.shots}
+        scope_external_assets_to_campaign(external_manifest, campaign_shot_ids),
+        campaign_shot_ids,
     )
     errors.extend(f"external provenance: {error}" for error in provenance_errors)
     manifest_assets = external_manifest.get("assets")

@@ -15,7 +15,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .editorial_concept_contract import EDITORIAL_CAMPAIGN_PATH, EditorialConceptShot, load_editorial_campaign
-from .external_asset_manifest import validate_external_assets
+from .external_asset_manifest import (
+    scope_external_assets_to_campaign,
+    validate_external_assets,
+)
 from .paths import ASSET_ROOT, require_within
 
 
@@ -395,7 +398,11 @@ def _external_records(shot: EditorialConceptShot) -> tuple[EditorialExternalAsse
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError(f"editorial external asset manifest cannot be read: {manifest_path}: {error}") from error
-    errors = validate_external_assets(payload, set(_CAMPAIGN.by_shot_id))
+    campaign_shot_ids = set(_CAMPAIGN.by_shot_id)
+    errors = validate_external_assets(
+        scope_external_assets_to_campaign(payload, campaign_shot_ids),
+        campaign_shot_ids,
+    )
     if errors:
         raise ValueError("editorial external asset manifest is invalid: " + "; ".join(errors))
     selected: dict[str, EditorialExternalAsset] = {}

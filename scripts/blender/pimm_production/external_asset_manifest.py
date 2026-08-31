@@ -128,3 +128,32 @@ def validate_external_assets(
         if asset.get("machine_master_modified") is not False:
             errors.append(f"{prefix} machine_master_modified must be false")
     return errors
+
+
+def scope_external_assets_to_campaign(
+    manifest: object, campaign_shot_ids: object
+) -> object:
+    """Return the manifest records relevant to one campaign, with legacy IDs removed."""
+
+    if not isinstance(manifest, Mapping):
+        return manifest
+    raw_ids = (
+        campaign_shot_ids
+        if isinstance(campaign_shot_ids, (set, frozenset, tuple, list))
+        else ()
+    )
+    valid_ids = {value for value in raw_ids if isinstance(value, str)}
+    assets = manifest.get("assets")
+    if not isinstance(assets, list):
+        return manifest
+    scoped_assets = []
+    for record in assets:
+        if not isinstance(record, Mapping):
+            continue
+        intended = record.get("intended_shot_ids")
+        if not isinstance(intended, list):
+            continue
+        scoped_ids = [shot_id for shot_id in intended if shot_id in valid_ids]
+        if scoped_ids:
+            scoped_assets.append({**record, "intended_shot_ids": scoped_ids})
+    return {"schema": manifest.get("schema"), "assets": scoped_assets}
