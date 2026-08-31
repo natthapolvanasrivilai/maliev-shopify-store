@@ -14,7 +14,7 @@
         "tertiary_label": "Sim racing? See SimMount",
         "tertiary_link": "#simmount",
         "layout": "overlay",
-        "asset_name": "pimm-master-20260831-r02-30g-hero.webp",
+        "asset_name": "pimm-master-20260831-r04-30g-hero.webp",
         "mobile_asset_name": "",
         "image_alt": "MALIEV compact pneumatic injection molding machine, three-quarter studio view",
         "note": "Built in-house. Supported in Thailand. One-year warranty.",
@@ -124,7 +124,7 @@
         "heading": "Real production. Workshop footprint.",
         "lead": "Every PIMM — our pneumatic injection molding machine — is engineered and assembled at the MALIEV factory. Pneumatic clamping and injection, precise heat control, and mold costs that make small-batch production practical.",
         "chips": "Made in Thailand | One-year warranty | Replacement parts in stock | Mold-making assistance",
-        "stage_asset_name": "pimm-master-20260831-r02-50g-three-quarter.webp",
+        "stage_asset_name": "pimm-master-20260831-r04-50g-three-quarter.webp",
         "stage_image_alt": "MALIEV PIMM 30G and PIMM 50G injection molding machines side by side in a bright studio",
         "primary_label": "Book a demo session",
         "primary_link": "/pages/contact",
@@ -143,7 +143,7 @@
             "description": "The entry point to in-house molding. Compact enough for a desk-height bench, capable enough for production parts up to 30 grams.",
             "spec": "30 g shot capacity",
             "price_note": "Made to order",
-            "asset_name": "pimm-master-20260831-r02-30g-three-quarter.webp",
+            "asset_name": "pimm-master-20260831-r04-30g-three-quarter.webp",
             "image_alt": "MALIEV PIMM 30G injection molding machine, three-quarter studio view"
           }
         },
@@ -155,7 +155,7 @@
             "description": "More shot volume, taller mold space, and the same footprint discipline — for bigger parts and longer production runs.",
             "spec": "50 g shot capacity",
             "price_note": "Made to order",
-            "asset_name": "pimm-master-20260831-r02-50g-three-quarter.webp",
+            "asset_name": "pimm-master-20260831-r04-50g-three-quarter.webp",
             "image_alt": "MALIEV PIMM 50G injection molding machine, three-quarter studio view"
           }
         }
@@ -231,7 +231,7 @@
         "lead": "The same factory that builds our machines makes molds, spare parts, and custom production runs. Bring a part, a drawing, or an idea — we will help you match it to the right process.",
         "media_side": "left",
         "background": "canvas",
-        "asset_name": "pimm-master-20260831-r02-30g-tooling.webp",
+        "asset_name": "pimm-master-20260831-r04-30g-tooling.webp",
         "media_alt": "Mold and clamping area of a MALIEV PIMM injection molding machine",
         "primary_label": "Talk to our engineers",
         "primary_link": "/pages/contact"

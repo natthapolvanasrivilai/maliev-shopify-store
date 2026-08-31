@@ -1,7 +1,14 @@
 {
   "schema_version": 1,
-  "release_id": "pimm-master-20260831-r02",
+  "release_id": "pimm-master-20260831-r04",
   "renderer": "scripts/blender/pimm_production/blender_master_storefront_render.py",
+  "lighting": {
+    "engine": "Cycles",
+    "samples": 256,
+    "hdri_filename": "studio_kontrast_04_4k.exr",
+    "hdri_sha256": "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06",
+    "camera": "perspective 85-105mm with f/8-f/11 depth of field"
+  },
   "masters": {
     "30g": {
       "filename": "PIMM-30G-MASTER.blend",
@@ -26,50 +33,50 @@
     {
       "model": "30g",
       "role": "controls",
-      "native": { "filename": "pimm-master-20260831-r02-30g-controls.png", "width": 1600, "height": 1248, "sha256": "6B4AB3ED61E234E0646FE8B6D134D869C6439BD1A6FF6719262BB3364064BD2A" },
-      "storefront": { "filename": "pimm-master-20260831-r02-30g-controls.webp", "width": 1600, "height": 1248, "sha256": "CC7968F972F0AB6EBEDF379FD12A8D7612830335C18F73E54F16DEC26136072D" }
+      "native": { "filename": "pimm-master-20260831-r04-30g-controls.png", "width": 1600, "height": 1248, "sha256": "D4B066C9062E3F11B00239F8F8620BE2532606E0C2C9A958945BA032CDDCAA5F" },
+      "storefront": { "filename": "pimm-master-20260831-r04-30g-controls.webp", "width": 1600, "height": 1248, "sha256": "F61DA99426D9FED205C9304A064C36E53400B8408965A49E43C9B7434D402632" }
     },
     {
       "model": "30g",
       "role": "hero",
-      "native": { "filename": "pimm-master-20260831-r02-30g-hero.png", "width": 1600, "height": 1920, "sha256": "B4A5BFA0331F99581611CCF225E61E07013062203BCDDCFDD82B31F0B3C0B624" },
-      "storefront": { "filename": "pimm-master-20260831-r02-30g-hero.webp", "width": 1600, "height": 1920, "sha256": "CC22015A11FA6DF21FBC54EDC1126C23EDF2380E4090E327318B99D6E864D8B2" }
+      "native": { "filename": "pimm-master-20260831-r04-30g-hero.png", "width": 1600, "height": 1920, "sha256": "BBE3064C9BED566B0C1F898770A0B9ECACA1691F7B5F989C0B447DA2A9F77087" },
+      "storefront": { "filename": "pimm-master-20260831-r04-30g-hero.webp", "width": 1600, "height": 1920, "sha256": "F9B9ABC57A602BEDFE3732489D3D3ABA4B1D957F67EC499F922695C64E5CA990" }
     },
     {
       "model": "30g",
       "role": "three-quarter",
-      "native": { "filename": "pimm-master-20260831-r02-30g-three-quarter.png", "width": 1600, "height": 1312, "sha256": "7C6C20804536AAC2FF9555E3767D3B3701ECB50DD212A7BBEBF8D8C0C89F8063" },
-      "storefront": { "filename": "pimm-master-20260831-r02-30g-three-quarter.webp", "width": 1600, "height": 1312, "sha256": "4A8D44900987E4CB11346CDA79E7019160BE9EE2A6B17C7CECB755E90B1D57BF" }
+      "native": { "filename": "pimm-master-20260831-r04-30g-three-quarter.png", "width": 1600, "height": 1312, "sha256": "C34319A5378AE8704E70F9BEB87E7403EA5228A716B6FFF4B61682A4699C2283" },
+      "storefront": { "filename": "pimm-master-20260831-r04-30g-three-quarter.webp", "width": 1600, "height": 1312, "sha256": "0EF11527E5DAF09C811CFB8AC9390B9766CE1B1F566553BFF915825A33CBAA71" }
     },
     {
       "model": "30g",
       "role": "tooling",
-      "native": { "filename": "pimm-master-20260831-r02-30g-tooling.png", "width": 1600, "height": 1248, "sha256": "A3ACE76004EC84BDEE569A520757EA5E035D02FEA677BA7CC68BB2C0440B1A47" },
-      "storefront": { "filename": "pimm-master-20260831-r02-30g-tooling.webp", "width": 1600, "height": 1248, "sha256": "D0B68CC0E367C32DCA287FD817B3AB64D41A91B5EE7DF0CE3F0E583552476A01" }
+      "native": { "filename": "pimm-master-20260831-r04-30g-tooling.png", "width": 1600, "height": 1248, "sha256": "5E37DA68584553D634D705134C5E04574E431C3240C412C1429C43FDAE8012CF" },
+      "storefront": { "filename": "pimm-master-20260831-r04-30g-tooling.webp", "width": 1600, "height": 1248, "sha256": "9DF1B9BED56DB7DC797BBA0DD262F37B326A3B45AD20CFEE6BBAA78468E980E5" }
     },
     {
       "model": "50g",
       "role": "controls",
-      "native": { "filename": "pimm-master-20260831-r02-50g-controls.png", "width": 1600, "height": 1248, "sha256": "2CC6C177A237F0F19B6245B23588E42C7CB26335F51E2F276B12A6F133B3A918" },
-      "storefront": { "filename": "pimm-master-20260831-r02-50g-controls.webp", "width": 1600, "height": 1248, "sha256": "35114745A5CA0D13B96E6826EE2531B589BD3E676EF6EF91E55404FDECE9B8ED" }
+      "native": { "filename": "pimm-master-20260831-r04-50g-controls.png", "width": 1600, "height": 1248, "sha256": "820EA96FAABF9833FDE60C94C62E9A4ECC3BAE0BC8787B1EDD2C0CF7557887C2" },
+      "storefront": { "filename": "pimm-master-20260831-r04-50g-controls.webp", "width": 1600, "height": 1248, "sha256": "F6D5D4D6EA51E6887DD63AC67E5B2CCE001A9EB0CDFF79EA6824B2153DD789C9" }
     },
     {
       "model": "50g",
       "role": "hero",
-      "native": { "filename": "pimm-master-20260831-r02-50g-hero.png", "width": 1600, "height": 1920, "sha256": "B31D864754E3E36898036E452A7EF0BEBD45D3C78E4CEF783CD3399B2F590A4F" },
-      "storefront": { "filename": "pimm-master-20260831-r02-50g-hero.webp", "width": 1600, "height": 1920, "sha256": "4BDDB97A705CA59FB7BF95A5DC1E190DDAE3BFCC63D7E42F2CBB945A2283A78C" }
+      "native": { "filename": "pimm-master-20260831-r04-50g-hero.png", "width": 1600, "height": 1920, "sha256": "3CF2E1CE2F9D27833C94A9EC78D52E2EE5AEBC6F0D5BF24E52880664922F452A" },
+      "storefront": { "filename": "pimm-master-20260831-r04-50g-hero.webp", "width": 1600, "height": 1920, "sha256": "37D5A27EFB41F04C66942C2B102952C9FB7811A59E2C211ECA911BEE7DCB2611" }
     },
     {
       "model": "50g",
       "role": "three-quarter",
-      "native": { "filename": "pimm-master-20260831-r02-50g-three-quarter.png", "width": 1600, "height": 1312, "sha256": "45D375C07B3A5151FD38638BC1E807A1026C247C4F3F2A79206002CAA4B98413" },
-      "storefront": { "filename": "pimm-master-20260831-r02-50g-three-quarter.webp", "width": 1600, "height": 1312, "sha256": "13C2DB76FEDF92AA4C89AE211AA93174CBF18732E2EEECAD895C27C1BF19CA57" }
+      "native": { "filename": "pimm-master-20260831-r04-50g-three-quarter.png", "width": 1600, "height": 1312, "sha256": "CB2DFD5E5F5628B5DF9926C2F22CFEA3E84C59DE176AAF7CA732B6D06BE829A6" },
+      "storefront": { "filename": "pimm-master-20260831-r04-50g-three-quarter.webp", "width": 1600, "height": 1312, "sha256": "19A231F63A1438D167BA2559DC3AD1AAA727078A2303110EB9519595CFEA653E" }
     },
     {
       "model": "50g",
       "role": "tooling",
-      "native": { "filename": "pimm-master-20260831-r02-50g-tooling.png", "width": 1600, "height": 1248, "sha256": "A39F27F92F25CB4D0C4C3D4216D136F62511C9AD4EE72D593562E14B72E26330" },
-      "storefront": { "filename": "pimm-master-20260831-r02-50g-tooling.webp", "width": 1600, "height": 1248, "sha256": "151FE649CFEA290B6A7CB87766CB986D9AD20CA52BEEFA75BDBF819E502C8ED0" }
+      "native": { "filename": "pimm-master-20260831-r04-50g-tooling.png", "width": 1600, "height": 1248, "sha256": "55338781A3FE372F4C08FCCABD1B496E54F3F258445996DA7559997E3DAD3926" },
+      "storefront": { "filename": "pimm-master-20260831-r04-50g-tooling.webp", "width": 1600, "height": 1248, "sha256": "160947AEBE2EC05ED036F04111728E40EEC376BE80433FB845E44DA4022302C8" }
     }
   ]
 }

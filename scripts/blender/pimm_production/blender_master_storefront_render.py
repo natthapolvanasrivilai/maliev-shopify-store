@@ -17,8 +17,12 @@ import sys
 from typing import Any, Sequence
 
 
-RELEASE_ID = "pimm-master-20260831-r02"
+RELEASE_ID = "pimm-master-20260831-r04"
 RESULT_MARKER = "PIMM_MASTER_STOREFRONT_RENDER_JSON="
+HDRI_PATH = Path(
+    r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\assets\hdri\studio_kontrast_04_4k.exr"
+)
+HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
 EXPECTED_MASTER_NAMES = {
     "30G": "PIMM-30G-MASTER.blend",
     "50G": "PIMM-50G-MASTER.blend",
@@ -117,6 +121,52 @@ def _material(bpy: Any, name: str, color: tuple[float, float, float, float], rou
     return material
 
 
+def _emissive_material(bpy: Any, name: str, color: tuple[float, float, float, float], strength: float) -> Any:
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+    nodes.clear()
+    output = nodes.new("ShaderNodeOutputMaterial")
+    emission = nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = color
+    emission.inputs["Strength"].default_value = strength
+    links.new(emission.outputs["Emission"], output.inputs["Surface"])
+    return material
+
+
+def _cyclorama_material(bpy: Any) -> Any:
+    """White wall with a shadow-receiving matte floor and seamless transition."""
+    material = bpy.data.materials.new("PIMM_WHITE_CYCLORAMA_MAT")
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+    nodes.clear()
+    output = nodes.new("ShaderNodeOutputMaterial")
+    diffuse = nodes.new("ShaderNodeBsdfPrincipled")
+    diffuse.inputs["Base Color"].default_value = (0.82, 0.82, 0.82, 1.0)
+    diffuse.inputs["Roughness"].default_value = 0.84
+    emission = nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    emission.inputs["Strength"].default_value = 3.5
+    geometry = nodes.new("ShaderNodeNewGeometry")
+    separate = nodes.new("ShaderNodeSeparateXYZ")
+    map_range = nodes.new("ShaderNodeMapRange")
+    map_range.inputs["From Min"].default_value = 0.0
+    map_range.inputs["From Max"].default_value = 1.0
+    map_range.inputs["To Min"].default_value = 1.0
+    map_range.inputs["To Max"].default_value = 0.0
+    map_range.clamp = True
+    mix = nodes.new("ShaderNodeMixShader")
+    links.new(geometry.outputs["Normal"], separate.inputs["Vector"])
+    links.new(separate.outputs["Z"], map_range.inputs["Value"])
+    links.new(map_range.outputs["Result"], mix.inputs[0])
+    links.new(diffuse.outputs["BSDF"], mix.inputs[1])
+    links.new(emission.outputs["Emission"], mix.inputs[2])
+    links.new(mix.outputs["Shader"], output.inputs["Surface"])
+    return material
+
+
 def _add_area_light(
     bpy: Any,
     collection: Any,
@@ -149,42 +199,115 @@ def _install_studio(
     width = bounds_max[0] - bounds_min[0]
     depth = bounds_max[1] - bounds_min[1]
     height = bounds_max[2] - bounds_min[2]
-    bpy.ops.mesh.primitive_plane_add(size=100_000.0, location=(center[0], center[1], 0.0))
-    floor = bpy.context.object
-    floor.name = "PIMM_STUDIO_FLOOR"
-    for owner in list(floor.users_collection):
-        owner.objects.unlink(floor)
-    collection.objects.link(floor)
-    floor.data.materials.append(_material(bpy, "PIMM_STUDIO_FLOOR_MAT", (0.46, 0.52, 0.60, 1.0), 0.88))
+    extent = max(width, depth, height)
+
+    # A real seamless sweep: the foot pads remain on z=0 and the curved wall
+    # removes the synthetic horizon line while still receiving physical shadows.
+    y_front = center[1] - extent * 5.5
+    y_back = center[1] + extent * 1.6
+    radius = extent * 0.9
+    arc_center_y = y_back - radius
+    arc_center_z = radius
+    profile = [(y_front, 0.0), (arc_center_y, 0.0)]
+    profile.extend(
+        (
+            arc_center_y + radius * math.sin(index * math.pi / 48.0),
+            arc_center_z - radius * math.cos(index * math.pi / 48.0),
+        )
+        for index in range(1, 25)
+    )
+    profile.append((y_back, bounds_max[2] + extent * 3.2))
+    half_width = extent * 7.0
+    vertices = []
+    for y, z in profile:
+        vertices.extend(((center[0] - half_width, y, z), (center[0] + half_width, y, z)))
+    faces = [(index * 2, index * 2 + 1, index * 2 + 3, index * 2 + 2) for index in range(len(profile) - 1)]
+    mesh = bpy.data.meshes.new("PIMM_WHITE_CYCLORAMA_MESH")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    for polygon in mesh.polygons:
+        polygon.use_smooth = True
+    cyclorama = bpy.data.objects.new("PIMM_WHITE_CYCLORAMA", mesh)
+    collection.objects.link(cyclorama)
+    cyclorama.data.materials.append(_cyclorama_material(bpy))
 
     target = (center[0], center[1], bounds_min[2] + height * 0.5)
-    scale = 6.0
     _add_area_light(
         bpy, collection, "KEY_SOFTBOX",
-        (center[0] - width * 2.0, center[1] - depth * 3.4, bounds_min[2] + height * 1.15),
-        target, 900_000.0 * scale, max(height * 0.9, 700.0), "RECTANGLE",
+        (center[0] - extent * 1.5, center[1] - extent * 1.1, bounds_min[2] + height * 1.45),
+        target, 110.0, extent * 1.3, "RECTANGLE",
     )
     _add_area_light(
         bpy, collection, "FILL_SOFTBOX",
-        (center[0] + width * 2.0, center[1] - depth * 2.5, bounds_min[2] + height * 0.7),
-        target, 280_000.0 * scale, max(height * 0.7, 600.0), "RECTANGLE",
+        (center[0] + extent * 1.8, center[1] - extent * 0.7, bounds_min[2] + height * 0.7),
+        target, 10.0, extent * 1.6, "RECTANGLE",
     )
     _add_area_light(
-        bpy, collection, "BASE_BOUNCE",
-        (center[0], center[1] - depth * 2.8, bounds_min[2] + height * 0.18),
-        (center[0], center[1], bounds_min[2] + height * 0.25),
-        240_000.0 * scale, max(width * 1.8, 800.0), "RECTANGLE",
+        bpy, collection, "OVERHEAD_SCRIM",
+        (center[0], center[1] - extent * 0.2, bounds_min[2] + height * 2.6),
+        target, 8.0, extent * 2.8, "RECTANGLE",
     )
     _add_area_light(
-        bpy, collection, "RIM_LEFT",
-        (center[0] - width * 1.7, center[1] + depth * 2.0, bounds_min[2] + height * 0.8),
-        target, 320_000.0 * scale, max(height * 0.35, 320.0), "RECTANGLE",
+        bpy, collection, "BACKGROUND_WASH",
+        (center[0], center[1] - extent * 0.4, bounds_min[2] + height * 1.9),
+        (center[0], center[1] + extent * 1.5, bounds_min[2] + height * 0.4),
+        1_000.0, extent * 3.0, "RECTANGLE",
     )
-    _add_area_light(
-        bpy, collection, "RIM_RIGHT",
-        (center[0] + width * 1.7, center[1] + depth * 2.0, bounds_min[2] + height * 0.7),
-        target, 240_000.0 * scale, max(height * 0.3, 280.0), "RECTANGLE",
-    )
+
+    # Camera-invisible emitter cards create the long, real softbox streaks
+    # that reveal curvature in polished shafts and the cylinder shell.
+    for name, x, y, z, card_width, card_height, strength in (
+        ("REFLECTION_CARD_LEFT", -1.7, -0.9, 0.55, 0.65, 3.2, 7.0),
+        ("REFLECTION_CARD_RIGHT", 1.8, -0.6, 0.50, 0.55, 3.0, 5.0),
+        ("REFLECTION_WALL_CAMERA", 0.0, -4.8, 1.0, 7.5, 4.5, 2.0),
+    ):
+        bpy.ops.mesh.primitive_plane_add(
+            size=1.0,
+            location=(center[0] + extent * x, center[1] + extent * y, bounds_min[2] + extent * z),
+        )
+        card = bpy.context.object
+        card.name = name
+        for owner in list(card.users_collection):
+            owner.objects.unlink(card)
+        collection.objects.link(card)
+        card.scale = (extent * card_width, extent * card_height, 1.0)
+        _look_at(card, target)
+        card.rotation_euler.rotate_axis("X", math.radians(180.0))
+        card.data.materials.append(_emissive_material(bpy, f"{name}_MAT", (1.0, 1.0, 1.0, 1.0), strength))
+        for attribute, value in (
+            ("visible_camera", False),
+            ("visible_shadow", False),
+            ("visible_diffuse", False),
+            ("visible_transmission", False),
+        ):
+            if hasattr(card, attribute):
+                setattr(card, attribute, value)
+
+    for name, x, y, z, card_width, card_height in (
+        ("NEGATIVE_FILL_LEFT", -1.05, 0.60, 0.35, 0.70, 3.2),
+        ("NEGATIVE_FILL_RIGHT", 1.10, 0.55, 0.35, 0.60, 3.2),
+    ):
+        bpy.ops.mesh.primitive_plane_add(
+            size=1.0,
+            location=(center[0] + extent * x, center[1] + extent * y, bounds_min[2] + extent * z),
+        )
+        flag = bpy.context.object
+        flag.name = name
+        for owner in list(flag.users_collection):
+            owner.objects.unlink(flag)
+        collection.objects.link(flag)
+        flag.scale = (extent * card_width, extent * card_height, 1.0)
+        _look_at(flag, target)
+        flag.rotation_euler.rotate_axis("X", math.radians(180.0))
+        flag.data.materials.append(_material(bpy, f"{name}_MAT", (0.01, 0.01, 0.012, 1.0), 1.0))
+        for attribute, value in (
+            ("visible_camera", False),
+            ("visible_shadow", False),
+            ("visible_diffuse", False),
+            ("visible_transmission", False),
+        ):
+            if hasattr(flag, attribute):
+                setattr(flag, attribute, value)
 
 
 def _shot_camera(
@@ -201,43 +324,52 @@ def _shot_camera(
     height = bounds_max[2] - bounds_min[2]
     if shot == "hero":
         aspect = (resolution, int(resolution * 1.2))
-        azimuth, elevation, target_z, ortho_scale = 0.0, 2.5, height * 0.50, height * 1.10
+        target_z, lens, fstop = height * 0.50, 95.0, 11.0
+        camera_offset = (0.0, -2.90, -0.03)
     elif shot == "three-quarter":
         aspect = (resolution, int(resolution * 0.82))
-        azimuth, elevation, target_z, ortho_scale = -28.0, 6.0, height * 0.50, height * 1.30
+        target_z, lens, fstop = height * 0.50, 85.0, 11.0
+        camera_offset = (-0.96, -3.35, 0.08)
     elif shot == "controls":
         aspect = (resolution, int(resolution * 0.78))
-        azimuth, elevation, target_z, ortho_scale = -8.0, 1.5, height * 0.70, height * 0.46
+        target_z, lens, fstop = height * 0.70, 105.0, 8.0
+        camera_offset = (-0.20, -1.40, 0.06)
     else:
         aspect = (resolution, int(resolution * 0.78))
-        azimuth, elevation, target_z, ortho_scale = 0.0, 1.5, height * 0.36, height * 0.47
+        target_z, lens, fstop = height * 0.36, 105.0, 8.0
+        camera_offset = (0.0, -1.42, 0.04)
 
     target = (center[0] + (width * 0.08 if shot == "controls" else 0.0), center[1], bounds_min[2] + target_z)
-    radius = max(width, depth, height) * 3.0
-    azimuth_radians = math.radians(azimuth)
-    elevation_radians = math.radians(elevation)
+    extent = max(width, depth, height)
     location = (
-        target[0] + math.sin(azimuth_radians) * radius * math.cos(elevation_radians),
-        target[1] - math.cos(azimuth_radians) * radius * math.cos(elevation_radians),
-        target[2] + math.sin(elevation_radians) * radius,
+        target[0] + extent * camera_offset[0],
+        target[1] + extent * camera_offset[1],
+        target[2] + extent * camera_offset[2],
     )
     data = bpy.data.cameras.new("CAM_STOREFRONT")
-    data.type = "ORTHO"
-    data.ortho_scale = ortho_scale
-    data.lens = 70.0
-    data.clip_start = 1.0
+    data.type = "PERSP"
+    data.lens = lens
+    data.sensor_width = 36.0
+    data.clip_start = 0.1
     data.clip_end = 20_000.0
+    data.dof.use_dof = True
+    data.dof.aperture_fstop = fstop
+    data.dof.aperture_blades = 11
     camera = bpy.data.objects.new("CAM_STOREFRONT", data)
     collection.objects.link(camera)
     camera.location = location
     _look_at(camera, target)
+    focus = bpy.data.objects.new("CAM_STOREFRONT_FOCUS", None)
+    focus.location = target
+    collection.objects.link(focus)
+    data.dof.focus_object = focus
     bpy.context.scene.camera = camera
     return camera, aspect
 
 
 def _configure_render(bpy: Any, width: int, height: int, samples: int, output: Path) -> None:
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE"
+    scene.render.engine = "CYCLES"
     scene.render.resolution_x = width
     scene.render.resolution_y = height
     scene.render.resolution_percentage = 100
@@ -248,26 +380,86 @@ def _configure_render(bpy: Any, width: int, height: int, samples: int, output: P
     scene.render.use_file_extension = True
     scene.render.image_settings.color_depth = "8"
     scene.render.image_settings.compression = 15
-    scene.render.engine = "BLENDER_EEVEE"
-    if hasattr(scene, "eevee"):
-        optional_eevee_settings = {
-            "taa_render_samples": samples,
-            "use_gtao": True,
-            "gtao_distance": 3.0,
-            "gtao_factor": 1.25,
-        }
-        for name, value in optional_eevee_settings.items():
-            if hasattr(scene.eevee, name):
-                setattr(scene.eevee, name, value)
-    scene.view_settings.look = "AgX - Medium High Contrast"
-    scene.view_settings.exposure = 0.65
+    scene.cycles.samples = samples
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = 0.008
+    scene.cycles.use_denoising = True
+    scene.cycles.max_bounces = 10
+    scene.cycles.glossy_bounces = 6
+    scene.render.use_persistent_data = True
+    try:
+        preferences = bpy.context.preferences.addons["cycles"].preferences
+        preferences.refresh_devices()
+        available = {device.type for device in preferences.devices}
+        backend = "OPTIX" if "OPTIX" in available else "CUDA" if "CUDA" in available else None
+        if backend is not None:
+            preferences.compute_device_type = backend
+            for device in preferences.devices:
+                device.use = device.type == backend
+            scene.cycles.device = "GPU"
+    except Exception:
+        scene.cycles.device = "CPU"
+    scene.view_settings.look = "AgX - High Contrast"
+    scene.view_settings.exposure = -0.85
     scene.view_settings.gamma = 1.0
+
+    if not HDRI_PATH.is_file() or sha256_file(HDRI_PATH) != HDRI_SHA256:
+        raise ValueError(f"approved studio HDRI is missing or changed: {HDRI_PATH}")
     world = scene.world or bpy.data.worlds.new("PIMM_STOREFRONT_WORLD")
     scene.world = world
     world.use_nodes = True
-    background = world.node_tree.nodes.get("Background")
-    background.inputs["Color"].default_value = (0.45, 0.52, 0.62, 1.0)
-    background.inputs["Strength"].default_value = 0.40
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+    nodes.clear()
+    output = nodes.new("ShaderNodeOutputWorld")
+    coordinates = nodes.new("ShaderNodeTexCoord")
+    mapping = nodes.new("ShaderNodeMapping")
+    mapping.inputs["Rotation"].default_value[2] = math.radians(18.0)
+    environment = nodes.new("ShaderNodeTexEnvironment")
+    environment.name = "PIMM_APPROVED_STUDIO_HDRI"
+    environment.image = bpy.data.images.load(str(HDRI_PATH), check_existing=True)
+    environment.interpolation = "Linear"
+    ambient = nodes.new("ShaderNodeBackground")
+    ambient.name = "PIMM_HDRI_LIGHTING"
+    ambient.inputs["Strength"].default_value = 0.35
+    camera_background = nodes.new("ShaderNodeBackground")
+    camera_background.name = "PIMM_WHITE_CAMERA_BACKGROUND"
+    camera_background.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    camera_background.inputs["Strength"].default_value = 1.0
+    light_path = nodes.new("ShaderNodeLightPath")
+    mix = nodes.new("ShaderNodeMixShader")
+    links.new(coordinates.outputs["Generated"], mapping.inputs["Vector"])
+    links.new(mapping.outputs["Vector"], environment.inputs["Vector"])
+    links.new(environment.outputs["Color"], ambient.inputs["Color"])
+    links.new(light_path.outputs["Is Camera Ray"], mix.inputs[0])
+    links.new(ambient.outputs["Background"], mix.inputs[1])
+    links.new(camera_background.outputs["Background"], mix.inputs[2])
+    links.new(mix.outputs["Shader"], output.inputs["Surface"])
+
+    # Subtle optical imperfections keep the render photographic without
+    # compromising catalogue accuracy: mild barrel distortion, restrained
+    # lateral chromatic aberration, and a tiny bloom around emissive displays.
+    compositor = bpy.data.node_groups.new("PIMM_STOREFRONT_COMPOSITOR", "CompositorNodeTree")
+    compositor.interface.new_socket(name="Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+    compositor_nodes = compositor.nodes
+    compositor_links = compositor.links
+    render_layers = compositor_nodes.new("CompositorNodeRLayers")
+    render_layers.scene = scene
+    lens = compositor_nodes.new("CompositorNodeLensdist")
+    lens.inputs["Distortion"].default_value = 0.0025
+    lens.inputs["Dispersion"].default_value = 0.0005
+    lens.inputs["Fit"].default_value = True
+    glare = compositor_nodes.new("CompositorNodeGlare")
+    glare.inputs["Type"].default_value = "Fog Glow"
+    glare.inputs["Quality"].default_value = "High"
+    glare.inputs["Threshold"].default_value = 1.4
+    glare.inputs["Size"].default_value = 0.35
+    glare.inputs["Strength"].default_value = 0.035
+    composite = compositor_nodes.new("NodeGroupOutput")
+    compositor_links.new(render_layers.outputs["Image"], lens.inputs["Image"])
+    compositor_links.new(lens.outputs["Image"], glare.inputs["Image"])
+    compositor_links.new(glare.outputs["Image"], composite.inputs["Image"])
+    scene.compositing_node_group = compositor
 
 
 def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:

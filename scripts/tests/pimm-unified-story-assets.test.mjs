@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const rootUrl = new URL('../../', import.meta.url);
 const assetsUrl = new URL('../../assets/', import.meta.url);
-const release = 'pimm-master-20260831-r02';
+const release = 'pimm-master-20260831-r04';
 const roles = ['controls', 'hero', 'three-quarter', 'tooling'];
 const expectedMedia = ['30g', '50g'].flatMap((model) => roles.flatMap((role) => [
   `${release}-${model}-${role}.png`,
