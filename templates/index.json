@@ -112,9 +112,21 @@
             "image_alt": "Natural white, black, and blue molding pellets with molded material samples",
             "theme": "light"
           }
+        },
+        "manufacturing_services": {
+          "type": "catalogue",
+          "settings": {
+            "title": "Manufacturing services",
+            "description": "Custom parts, tooling, and production support from MALIEV in Thailand.",
+            "link_label": "Explore services",
+            "link": "https://www.maliev.com/",
+            "asset_name": "maliev-catalogue-manufacturing-services.webp",
+            "image_alt": "Thai MALIEV technician inspecting a custom machined aluminum part in a CNC workshop",
+            "theme": "light"
+          }
         }
       },
-      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter", "printed_items", "digital_files", "molding_materials"]
+      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter", "printed_items", "digital_files", "molding_materials", "manufacturing_services"]
     },
     "keynote_machines": {
       "type": "maliev-keynote-machines",

@@ -188,3 +188,26 @@ test('catalogue PIMM card ends its text veil before the machine composition begi
   const styles = await readFile(new URL('assets/maliev-catalogue.css', root), 'utf8');
   assert.match(styles, /\.mcat__card--pimm-lineup::after\s*\{[\s\S]*transparent 48%/);
 });
+
+test('homepage catalogue ends with a distinct MALIEV manufacturing services card', async () => {
+  const template = JSON.parse(await readFile(new URL('templates/index.json', root), 'utf8'));
+  const catalogue = template.sections.catalogue;
+  const manufacturing = catalogue.blocks.manufacturing_services;
+
+  assert.equal(catalogue.block_order.at(-2), 'molding_materials');
+  assert.equal(catalogue.block_order.at(-1), 'manufacturing_services');
+  assert.equal(manufacturing.settings.link, 'https://www.maliev.com/');
+  assert.equal(manufacturing.settings.asset_name, 'maliev-catalogue-manufacturing-services.webp');
+  assert.equal(
+    new Set(Object.values(catalogue.blocks).map(({ settings }) => settings.asset_name)).size,
+    Object.keys(catalogue.blocks).length,
+    'catalogue cards must not reuse image assets',
+  );
+});
+
+test('footer social links use quiet borderless surfaces with a distinct hover state', async () => {
+  const chrome = await readFile(new URL('assets/maliev-chrome.css', root), 'utf8');
+
+  assert.match(chrome, /\.mc-footer__social \.list-social__link\s*\{[\s\S]*background: rgba\(255, 255, 255, 0\.06\);[\s\S]*border: 0;[\s\S]*opacity: 0\.72;/);
+  assert.match(chrome, /\.mc-footer__social \.list-social__link:hover\s*\{[\s\S]*background: rgba\(255, 255, 255, 0\.12\);[\s\S]*opacity: 1;/);
+});
