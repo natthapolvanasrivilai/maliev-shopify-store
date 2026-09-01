@@ -19,19 +19,21 @@ const chromeCandidates = [
 
 const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 
-async function eventually(action, { timeout = 30_000, interval = 100 } = {}) {
+async function eventually(action, { timeout = 30_000, interval = 100, message = 'Condition was not met' } = {}) {
   const started = Date.now();
   let lastError;
+  let lastValue;
   while (Date.now() - started < timeout) {
     try {
       const value = await action();
       if (value) return value;
+      lastValue = value;
     } catch (error) {
       lastError = error;
     }
     await delay(interval);
   }
-  throw lastError ?? new Error(`Condition was not met within ${timeout}ms`);
+  throw lastError ?? new Error(`${message} within ${timeout}ms (last value: ${JSON.stringify(lastValue)})`);
 }
 
 class CdpSession {
@@ -149,9 +151,9 @@ async function setViewport(session, width, height) {
 async function navigate(session, url) {
   const result = await session.send('Page.navigate', { url });
   if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
-  await eventually(() => evaluate(session, `document.readyState === 'complete'`));
-  await eventually(() => evaluate(session, `Boolean(document.querySelector('[data-pimm-machine-product]'))`));
-  await eventually(() => evaluate(session, `(() => { const image = document.querySelector('[data-pimm-media-model]:not([hidden]) img'); return image?.complete && image.naturalWidth > 0; })()`));
+  await eventually(() => evaluate(session, `document.readyState !== 'loading'`), { message: 'Preview document did not become DOM-ready' });
+  await eventually(() => evaluate(session, `Boolean(document.querySelector('[data-pimm-machine-product]'))`), { message: 'PIMM product root did not render' });
+  await eventually(() => evaluate(session, `(() => { const image = document.querySelector('[data-pimm-media-model]:not([hidden]) img'); return image?.complete && image.naturalWidth > 0; })()`), { message: 'Selected PIMM hero image did not load' });
 }
 
 function thaiUrlFrom(value) {

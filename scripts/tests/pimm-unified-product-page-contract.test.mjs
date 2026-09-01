@@ -97,11 +97,15 @@ test('model stories use only their authoritative production families', () => {
 });
 
 test('full-machine views use physical ground contact without CSS compensation', () => {
+  const desktopCss = css.split('@media (max-width: 1299px)')[0];
   assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-full-machine/g)?.length, 4);
   assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-physical-ground-contact/g)?.length, 4);
   assert.doesNotMatch([hero, story30G, story50G, css].join('\n'), /data-pimm-stage-baseline|pimm-ground-line-offset|translate[XY]?\(/);
   assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*object-fit:\s*contain/s);
   assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*transform:\s*none/s);
+  assert.match(desktopCss, /\.pimm-story__chapter--configuration \.pimm-story__media\s*\{[^}]*aspect-ratio:\s*5 \/ 6[^}]*min-height:\s*0/s);
+  assert.match(desktopCss, /\.pimm-story__chapter--configuration \.pimm-story__media img\s*\{[^}]*height:\s*100%[^}]*max-height:\s*none/s);
+  assert.doesNotMatch(desktopCss, /\.pimm-story__chapter--configuration[^}]*70rem/s);
   assert.doesNotMatch(css, /object-fit:\s*cover\s*!important/);
 });
 
