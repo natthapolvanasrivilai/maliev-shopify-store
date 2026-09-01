@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "release_id": "maliev-homepage-pimm-20260901-r04",
+  "release_id": "maliev-homepage-pimm-20260901-r05",
   "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
   "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
   "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",
@@ -18,8 +18,8 @@
   },
   "assets": [
     {
-      "filename": "maliev-homepage-pimm-20260901-r04-hero-desktop-alpha.webp",
-      "sha256": "E0389A17621FF8F96A1D61A349DC8064E663BA0185B320CE9CE2C8328883E2D2",
+      "filename": "maliev-homepage-pimm-20260901-r05-hero-desktop-alpha.webp",
+      "sha256": "D54E941921EAC6DCFE6E0E79FDC49EECDF0DE053500A256BDA24982A29A9304B",
       "width": 1800,
       "height": 1200,
       "alpha": true,
@@ -27,20 +27,20 @@
       "composition_id": "hero-pair-45",
       "alpha_bbox": {
         "pixels": [
-          726,
+          730,
           34,
-          1798,
-          1200
+          1712,
+          1171
         ],
         "top_ratio": 0.02833,
-        "bottom_ratio": 0.0,
-        "left_ratio": 0.40333,
-        "right_ratio": 0.00111
+        "bottom_ratio": 0.02417,
+        "left_ratio": 0.40556,
+        "right_ratio": 0.04889
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r04-hero-mobile-alpha.webp",
-      "sha256": "173DFF5E913D1EFEB21B9580BCE69EAC474CB3BF9DE44549FBD34554341BB867",
+      "filename": "maliev-homepage-pimm-20260901-r05-hero-mobile-alpha.webp",
+      "sha256": "3948EC949A221FCF668FFBDC67D9C0047D97F9D63D4FB5131036C7B6E40ED63B",
       "width": 1200,
       "height": 1500,
       "alpha": true,
@@ -48,20 +48,20 @@
       "composition_id": "hero-pair-45",
       "alpha_bbox": {
         "pixels": [
-          17,
+          30,
           89,
-          1200,
-          1500
+          1166,
+          1432
         ],
         "top_ratio": 0.05933,
-        "bottom_ratio": 0.0,
-        "left_ratio": 0.01417,
-        "right_ratio": 0.0
+        "bottom_ratio": 0.04533,
+        "left_ratio": 0.025,
+        "right_ratio": 0.02833
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r04-catalogue-alpha.webp",
-      "sha256": "F169CBE3ECD794948713CD9703128BBD6964E6C15E72F9A47C3010F807EB32AE",
+      "filename": "maliev-homepage-pimm-20260901-r05-catalogue-alpha.webp",
+      "sha256": "BCC28710DDCFBBBF8034FED29823D0AD57A9C77E93712C17F16ACC13F2ECE1CB",
       "width": 1086,
       "height": 1448,
       "alpha": true,
@@ -81,8 +81,8 @@
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r04-navigation-alpha.webp",
-      "sha256": "36AFD98EB725F573F728ABB18C38A60B3B1D8176F23CACFBD5CB79203B1A9789",
+      "filename": "maliev-homepage-pimm-20260901-r05-navigation-alpha.webp",
+      "sha256": "5CC0DBB5EB5C84259FF4342573C911C10477F9922D23E91483AD0DA4C85F8351",
       "width": 900,
       "height": 900,
       "alpha": true,

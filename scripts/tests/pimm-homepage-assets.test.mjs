@@ -9,7 +9,7 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r04');
+  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r05');
   assert.equal(manifest.renderer, 'scripts/blender/pimm_production/blender_homepage_alpha_render.py');
   assert.equal(manifest.composition, 'Purpose-staged 30G and 50G pair renders from one Blender scene per placement');
   assert.equal(manifest.masters['30g'].sha256, '98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA');
@@ -26,9 +26,14 @@ test('homepage PIMM media is derived from the two authoritative masters', async 
     assert.ok(asset.alpha_bbox, `${asset.filename} alpha bounds`);
     const portrait = asset.placement === 'hero-mobile' || asset.placement === 'catalogue';
     assert.ok(asset.alpha_bbox.top_ratio <= (portrait ? 0.1 : 0.04), `${asset.filename} top fill`);
-    assert.ok(asset.alpha_bbox.bottom_ratio <= 0.04, `${asset.filename} bottom fill`);
+    const bottomMaximum = asset.placement === 'hero-mobile' ? 0.05 : 0.04;
+    assert.ok(asset.alpha_bbox.bottom_ratio <= bottomMaximum, `${asset.filename} bottom fill`);
     assert.ok(asset.alpha_bbox.left_ratio <= (asset.placement === 'hero-desktop' ? 0.45 : 0.08), `${asset.filename} left fill`);
     assert.ok(asset.alpha_bbox.right_ratio <= (asset.placement === 'hero-desktop' ? 0.06 : 0.08), `${asset.filename} right fill`);
+    if (asset.placement.startsWith('hero-')) {
+      assert.ok(asset.alpha_bbox.bottom_ratio >= 0.015, `${asset.filename} shadow must fade before the lower render edge`);
+      assert.ok(asset.alpha_bbox.right_ratio >= 0.015, `${asset.filename} shadow must fade before the side render edge`);
+    }
   }
   assert.deepEqual(manifest.assets.map(({ placement }) => placement).toSorted(), ['catalogue', 'hero-desktop', 'hero-mobile', 'navigation']);
   assert.equal(new Set(manifest.assets.map(({ filename }) => filename)).size, manifest.assets.length);
@@ -48,9 +53,9 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   ]);
   const active = `${template}\n${menu}`;
   for (const placement of ['hero-desktop', 'hero-mobile', 'catalogue', 'navigation']) {
-    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r04-${placement}-alpha\\.webp`));
+    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r05-${placement}-alpha\\.webp`));
   }
-  const matches = active.match(/maliev-homepage-pimm-20260901-r04-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
+  const matches = active.match(/maliev-homepage-pimm-20260901-r05-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
   assert.equal(matches.length, 4, 'each homepage location must reference exactly one unique asset');
   assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
   assert.doesNotMatch(hero, /mkey__hero-machines|mkey__hero-machine--30g|mkey__hero-machine--50g/);
@@ -103,4 +108,7 @@ test('homepage finalizer never overlays separately rendered machine images', asy
   const finalizer = await readFile(new URL('scripts/blender/pimm_production/finalize_homepage_pimm_assets.py', root), 'utf8');
   assert.doesNotMatch(finalizer, /alpha_composite|_composite_pair|30g-alpha\.png|50g-alpha\.png/);
   assert.match(finalizer, /for placement, dimensions in PLACEMENTS\.items\(\)/);
+  assert.match(finalizer, /def _soften_ground_shadow/);
+  assert.match(finalizer, /GROUND_SHADOW_MAX_ALPHA = 220/);
+  assert.match(finalizer, /GROUND_SHADOW_OPACITY = 0\.42/);
 });
