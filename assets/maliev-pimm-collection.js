@@ -23,13 +23,13 @@
       this.controller = new AbortController();
       this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-      const records = this.parseRecords();
-      if (!this.hasExactRecordContract(records)) return;
-
       const presentations = this.capturePresentations();
       if (!presentations
         || !isNonEmptyString(this.dataset.availableLabel)
         || !isNonEmptyString(this.dataset.unavailableLabel)) return;
+
+      const records = this.parseRecords();
+      if (!this.hasExactRecordContract(records, presentations)) return;
 
       this.records = records;
       this.recordByModel = new Map(records.map((record) => [record.model, record]));
@@ -56,7 +56,7 @@
       }
     }
 
-    hasExactRecordContract(records) {
+    hasExactRecordContract(records, presentations) {
       if (!Array.isArray(records) || records.length !== MODELS.length) return false;
       if (new Set(records.map((record) => record?.model)).size !== MODELS.length) return false;
       if (!MODELS.every((model) => records.some((record) => record?.model === model))) return false;
@@ -68,13 +68,19 @@
         if (!isNonEmptyString(record.url) || !isNonEmptyString(record.fullPrice)) return false;
         if (typeof record.available !== 'boolean' || !isNonEmptyString(record.leadTime)) return false;
 
+        const trustedRoute = presentations.get(record.model)?.trustedRoute;
+        if (!trustedRoute || trustedRoute.variantId !== record.id) return false;
+
         let url;
         try {
-          url = new URL(record.url, 'https://maliev.invalid');
+          url = new URL(record.url, window.location.href);
         } catch (_error) {
           return false;
         }
-        if (url.searchParams.get('variant') !== String(record.id)) return false;
+        if (!this.isSafeHttpUrl(url)
+          || url.origin !== trustedRoute.origin
+          || this.normalizePath(url.pathname) !== trustedRoute.pathname
+          || !this.hasExactVariantQuery(url, record.id)) return false;
 
         const specifications = record.specifications;
         const envelope = specifications?.moldEnvelopeMm;
@@ -98,6 +104,8 @@
         const model = dossier.dataset.model;
         if (!MODELS.includes(model) || presentations.has(model)) return null;
 
+        const configure = dossier.querySelector('[data-pimm-dossier-configure]');
+        const trustedRoute = this.readTrustedRoute(configure);
         const presentation = {
           recommendation: this.readText(dossier, '[data-pimm-dossier-recommendation]'),
           compare: this.readText(dossier, '[data-pimm-dossier-compare]'),
@@ -105,9 +113,13 @@
           moldEnvelopeUnit: this.readEnvelopeUnit(dossier, '[data-pimm-dossier-mold-envelope]'),
           meltTemperatureUnit: this.readMeasurementUnit(dossier, '[data-pimm-dossier-melt-temperature]'),
           airPressureUnit: this.readMeasurementUnit(dossier, '[data-pimm-dossier-air-pressure]'),
-          configure: this.readText(dossier, '[data-pimm-dossier-configure]'),
+          configure: configure?.textContent?.trim() ?? '',
+          trustedRoute,
         };
-        if (Object.values(presentation).some((value) => !isNonEmptyString(value))) return null;
+        if (!trustedRoute
+          || Object.entries(presentation)
+            .filter(([key]) => key !== 'trustedRoute')
+            .some(([, value]) => !isNonEmptyString(value))) return null;
         presentations.set(model, presentation);
       }
 
@@ -126,6 +138,50 @@
       return this.readText(root, selector)
         .replace(/^[-+\d.,]+\s*[×x]\s*[-+\d.,]+\s*[×x]\s*[-+\d.,]+\s*/i, '')
         .trim();
+    }
+
+    readTrustedRoute(anchor) {
+      const href = anchor?.getAttribute?.('href') || anchor?.href;
+      if (!isNonEmptyString(href)) return null;
+
+      let url;
+      try {
+        url = new URL(href, window.location.href);
+      } catch (_error) {
+        return null;
+      }
+
+      const currentUrl = new URL(window.location.href);
+      if (!this.isSafeHttpUrl(url)
+        || url.origin !== currentUrl.origin
+        || !/(?:^|\/)products\/[^/]+\/?$/.test(url.pathname)
+        || !this.hasExactVariantQuery(url)) return null;
+
+      return {
+        href,
+        origin: url.origin,
+        pathname: this.normalizePath(url.pathname),
+        variantId: Number(url.searchParams.get('variant')),
+      };
+    }
+
+    isSafeHttpUrl(url) {
+      return (url.protocol === 'http:' || url.protocol === 'https:')
+        && url.username === ''
+        && url.password === ''
+        && url.hash === '';
+    }
+
+    hasExactVariantQuery(url, expectedId = null) {
+      const entries = [...url.searchParams.entries()];
+      if (entries.length !== 1 || entries[0][0] !== 'variant') return false;
+      const variantId = Number(entries[0][1]);
+      if (!Number.isSafeInteger(variantId) || variantId <= 0) return false;
+      return expectedId === null || variantId === expectedId;
+    }
+
+    normalizePath(pathname) {
+      return pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
     }
 
     bindCards() {
@@ -230,7 +286,7 @@
 
       const configure = dossier.querySelector('[data-pimm-dossier-configure]');
       if (configure) {
-        configure.href = record.url;
+        configure.href = presentation.trustedRoute.href;
         configure.textContent = presentation.configure;
       }
     }

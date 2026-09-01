@@ -145,14 +145,15 @@ const dossierValues = {
   },
 };
 
-function createDossier(model, { inline = false } = {}) {
+function createDossier(model, { inline = false, productPath = '/products/pimm' } = {}) {
   const values = dossierValues[model];
   const dossier = new FakeNode({
     dataset: { model, ...(inline ? { pimmCollectionInlineDossier: '' } : {}) },
     classes: inline && model === '30G' ? ['is-active'] : [],
   });
   const configure = new FakeNode({ textContent: values.configure });
-  configure.href = `/products/pimm?variant=${model === '30G' ? 30 : 50}`;
+  configure.href = `${productPath}?variant=${model === '30G' ? 30 : 50}`;
+  configure.setAttribute('href', configure.href);
   dossier.nodes = new Map([
     ['[data-pimm-dossier-model]', new FakeNode({ textContent: model })],
     ['[data-pimm-dossier-recommendation]', new FakeNode({ textContent: values.recommendation })],
@@ -189,12 +190,16 @@ function createCard(model) {
   return card;
 }
 
-async function loadController({ reducedMotion = false } = {}) {
+async function loadController({
+  reducedMotion = false,
+  pageUrl = 'https://shop.maliev.com/collections/pimm',
+} = {}) {
   const source = await readFile(controllerUrl, 'utf8');
   let Controller;
   let nextTimerId = 1;
   const timers = [];
   const window = {
+    location: new URL(pageUrl),
     matchMedia: () => ({ matches: reducedMotion }),
     setTimeout(callback, delay) {
       const timer = { id: nextTimerId++, callback, delay, active: true };
@@ -231,15 +236,21 @@ async function loadController({ reducedMotion = false } = {}) {
   };
 }
 
-function createComparison(Controller, { payload = JSON.stringify(records) } = {}) {
+function createComparison(Controller, {
+  payload = JSON.stringify(records),
+  productPath = '/products/pimm',
+} = {}) {
   const comparison = new Controller();
   comparison.dataset = {
     availableLabel: 'Made to order',
     unavailableLabel: 'Out of stock',
   };
   const cards = [createCard('30G'), createCard('50G')];
-  const inlineDossiers = [createDossier('30G', { inline: true }), createDossier('50G', { inline: true })];
-  const desktopDossier = createDossier('30G');
+  const inlineDossiers = [
+    createDossier('30G', { inline: true, productPath }),
+    createDossier('50G', { inline: true, productPath }),
+  ];
+  const desktopDossier = createDossier('30G', { productPath });
   const dossiers = [...inlineDossiers, desktopDossier];
   const announcement = new FakeNode({ dataset: { announcementTemplate: 'Now comparing __MODEL__' } });
   const payloadNode = new FakeNode({ textContent: payload });
@@ -384,6 +395,74 @@ test('strict record validation rejects incomplete, duplicate, and unbound model 
       assert.equal(cards.reduce((count, card) => count + card.activeListenerCount(), 0), 0);
     });
   }
+});
+
+test('routing validation rejects untrusted origins schemes and paths without binding listeners', async (context) => {
+  const unsafeCases = [
+    {
+      name: 'cross-origin https URL',
+      payload: [{ ...records[0], url: 'https://example.com/products/pimm?variant=30' }, records[1]],
+    },
+    {
+      name: 'non-product collection path',
+      payload: [{ ...records[0], url: '/collections/pimm?variant=30' }, records[1]],
+    },
+    {
+      name: 'javascript scheme',
+      payload: [{ ...records[0], url: 'javascript:alert(1)?variant=30' }, records[1]],
+    },
+    {
+      name: 'localized path does not match the canonical server path',
+      pageUrl: 'https://shop.maliev.com/th/collections/pimm',
+      productPath: '/th/products/pimm',
+      payload: records,
+    },
+  ];
+
+  for (const {
+    name,
+    payload,
+    pageUrl = 'https://shop.maliev.com/collections/pimm',
+    productPath = '/products/pimm',
+  } of unsafeCases) {
+    await context.test(name, async () => {
+      const { Controller } = await loadController({ pageUrl });
+      const { comparison, cards } = createComparison(Controller, {
+        payload: JSON.stringify(payload),
+        productPath,
+      });
+
+      comparison.connectedCallback();
+
+      assert.equal(comparison.committedModel, undefined);
+      assert.equal(cards[0].getAttribute('aria-current'), 'true');
+      assert.equal(cards.reduce((count, card) => count + card.activeListenerCount(), 0), 0);
+    });
+  }
+});
+
+test('localized same-origin product URLs bind but dossier routing keeps the trusted server href', async () => {
+  const pageUrl = 'https://shop.maliev.com/th/collections/pimm';
+  const productPath = '/th/products/pimm';
+  const localizedRecords = records.map((record) => ({
+    ...record,
+    url: `https://shop.maliev.com${productPath}?variant=${record.id}`,
+  }));
+  const { Controller } = await loadController({ pageUrl });
+  const { comparison, cards, desktopDossier } = createComparison(Controller, {
+    payload: JSON.stringify(localizedRecords),
+    productPath,
+  });
+
+  comparison.connectedCallback();
+  comparison.commitModel('50G');
+
+  assert.equal(comparison.committedModel, '50G');
+  assert.ok(cards.every((card) => card.activeListenerCount() > 0));
+  assert.equal(
+    desktopDossier.querySelector('[data-pimm-dossier-configure]').href,
+    '/th/products/pimm?variant=50',
+  );
 });
 
 test('disconnect clears timers and aborts all listeners', async () => {
