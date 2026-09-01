@@ -101,13 +101,13 @@
         "filename": "pimm-master-20260901-r05-30g-tooling.png",
         "width": 1600,
         "height": 1248,
-        "sha256": "89049803017E561AD7E323FC9C3A9F26580F2A960ADAA69605487A40EC6B2242"
+        "sha256": "6658C251898629B099FECC4B3D8F160B8EAFBEA22C0674A0DA69E928C9A780DC"
       },
       "storefront": {
         "filename": "pimm-master-20260901-r05-30g-tooling.webp",
         "width": 1600,
         "height": 1248,
-        "sha256": "16BA08E28A9E25BE694EB9A92FCD071B1D02CA80697FE5988D53DF6F9D4CC919"
+        "sha256": "68934DF2052BC08273328CE2AFBA55FE6C902458492DBD00B3409A340793D892"
       }
     },
     {
@@ -181,13 +181,13 @@
         "filename": "pimm-master-20260901-r05-50g-tooling.png",
         "width": 1600,
         "height": 1248,
-        "sha256": "15E25A36D41763759F3F5678D1AF6277030DDF561DE015B86C5B5D9CBE12C1EC"
+        "sha256": "27B8F63512767AAA07A0AF07D4990EAE72DD899C4B7A2C1376D143BAC144CAC1"
       },
       "storefront": {
         "filename": "pimm-master-20260901-r05-50g-tooling.webp",
         "width": 1600,
         "height": 1248,
-        "sha256": "BE45BD4BA3B869B7D246FE429D20D4E4E70C3B9F96C8FE00FBC0F38CAB508FFB"
+        "sha256": "71D9423785C86329E42F2FE4527C0BC2722EA68C1ADCCCD0839EFBD0C6B542A5"
       }
     }
   ]

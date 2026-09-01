@@ -336,8 +336,8 @@ def _shot_camera(
         camera_offset = (-0.20, -1.40, 0.06)
     elif shot == "tooling":
         aspect = (resolution, int(resolution * 0.78))
-        target_z, lens, fstop = height * 0.36, 105.0, 8.0
-        camera_offset = (0.0, -1.42, 0.04)
+        target_z, lens, fstop = height * 0.04, 105.0, 8.0
+        camera_offset = (0.0, -1.30, 0.65)
     else:
         aspect = (resolution, int(resolution * 1.2))
         target_z, lens, fstop = height * 0.48, 90.0, 11.0

@@ -37,3 +37,10 @@ test('master storefront renderer uses the locked physical studio and photographi
   assert.match(renderer, /CompositorNodeLensdist/);
   assert.match(renderer, /CompositorNodeGlare/);
 });
+
+test('tooling shot looks down at the M10 threaded base plate instead of the injection tube', () => {
+  assert.match(
+    renderer,
+    /elif shot == "tooling":\s+aspect = \(resolution, int\(resolution \* 0\.78\)\)\s+target_z, lens, fstop = height \* 0\.04, 105\.0, 8\.0\s+camera_offset = \(0\.0, -1\.30, 0\.65\)/,
+  );
+});
