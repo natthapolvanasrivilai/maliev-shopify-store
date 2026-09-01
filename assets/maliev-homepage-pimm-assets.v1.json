@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "release_id": "maliev-homepage-pimm-20260901-r01",
+  "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
+  "finalizer": "scripts/blender/pimm_production/compose_homepage_pimm_assets.py",
+  "masters": {
+    "30g": {
+      "filename": "PIMM-30G-MASTER.blend",
+      "sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "foot_contact_spread_m": 9.354237340623e-06
+    },
+    "50g": {
+      "filename": "PIMM-50G-MASTER.blend",
+      "sha256": "CC26246CD01956B1145B1AA5744B968918F956B667B720205723E6B60A252D90",
+      "foot_contact_spread_m": 9.354237340623e-06
+    }
+  },
+  "assets": [
+    {
+      "filename": "maliev-homepage-pimm-20260901-r01-30g-alpha.webp",
+      "sha256": "2B5763EFFC79D23A360D85C80BA663157DC73FAF1CC346650DA7656A09A03E8F",
+      "width": 1200,
+      "height": 1500,
+      "alpha": true
+    },
+    {
+      "filename": "maliev-homepage-pimm-20260901-r01-50g-alpha.webp",
+      "sha256": "323CACCC44DCE99842EC4E83E9193FAE69DBBEAE30807AE1432378358060E397",
+      "width": 1200,
+      "height": 1500,
+      "alpha": true
+    },
+    {
+      "filename": "maliev-homepage-pimm-20260901-r01-lineup-alpha.webp",
+      "sha256": "B79C27ECE71D3F76FC250C7B90806178158B2037A218F39FCBE6780779D2F3A0",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true
+    }
+  ]
+}
