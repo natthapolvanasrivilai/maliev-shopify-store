@@ -981,17 +981,19 @@
   width: auto;
 }
 
-/* Homepage presentation: a compact fixed top bar keeps the product stage clear. */
+/* Homepage presentation: the hero continues behind the fixed shell at page top. */
 .mc-header--home {
   background: transparent;
   border-bottom-color: transparent;
+  box-shadow: none;
   left: 0;
   position: fixed;
   right: 0;
   top: 0;
   transition:
     background-color 240ms var(--maliev-ease),
-    border-color 240ms var(--maliev-ease);
+    border-color 240ms var(--maliev-ease),
+    box-shadow 240ms var(--maliev-ease);
   z-index: 35;
 }
 
@@ -1078,8 +1080,15 @@
 .mc-header--home.is-solid,
 .mc-header--home.is-mega-open,
 .mc-header--home:has(.mc-mobile-menu[open]) {
-  background: var(--maliev-canvas);
+  background: var(--maliev-surface);
   border-bottom-color: rgba(17, 19, 21, 0.1);
+  box-shadow: 0 0.6rem 2.4rem rgba(17, 19, 21, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-header--home {
+    transition: none;
+  }
 }
 
 @media screen and (min-width: 1100px) {

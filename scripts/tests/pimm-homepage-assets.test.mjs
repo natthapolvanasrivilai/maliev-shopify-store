@@ -78,6 +78,25 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   assert.match(catalogue, /mcat__card--pimm-lineup/);
 });
 
+test('homepage header overlays the hero and becomes a white bar after a short scroll', async () => {
+  const [header, chrome, keynoteScript, keynoteStyles] = await Promise.all([
+    readFile(new URL('sections/maliev-header.liquid', root), 'utf8'),
+    readFile(new URL('assets/maliev-chrome.css', root), 'utf8'),
+    readFile(new URL('assets/maliev-keynote.js', root), 'utf8'),
+    readFile(new URL('assets/maliev-keynote.css', root), 'utf8'),
+  ]);
+
+  assert.match(header, /request\.page_type == 'index'[\s\S]*assign header_is_home = true/);
+  assert.match(header, /header_is_home[\s\S]*mc-header--home/);
+  assert.match(chrome, /\.mc-header--home\s*\{[\s\S]*background: transparent;[\s\S]*position: fixed;/);
+  assert.match(chrome, /\.mc-header--home\.is-solid[\s\S]*background: var\(--maliev-surface\);/);
+  assert.match(chrome, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.mc-header--home[\s\S]*transition: none;/);
+  assert.match(keynoteScript, /solidThreshold = Math\.max\(16, Math\.round\(header\.offsetHeight \* 0\.25\)\)/);
+  assert.match(keynoteScript, /window\.scrollY > solidThreshold/);
+  assert.match(keynoteScript, /addEventListener\('scroll', requestSync, \{ passive: true \}\)/);
+  assert.match(keynoteStyles, /\.mkey--hero-overlay \.mkey__frame\s*\{[\s\S]*min-height: 100svh;/);
+});
+
 test('homepage renderer gives each content location a purpose-specific staging contract', async () => {
   const renderer = await readFile(new URL('scripts/blender/pimm_production/blender_homepage_alpha_render.py', root), 'utf8');
   assert.match(renderer, /film_transparent = True/);
