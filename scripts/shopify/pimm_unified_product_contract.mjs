@@ -58,9 +58,6 @@ export function validateDesiredProduct(payload) {
     if (!isPositiveInteger(variant.full_price_minor)) {
       errors.push(`${model} full price must be a positive integer`);
     }
-    if (variant.deposit_price_minor * 2 !== variant.full_price_minor) {
-      errors.push(`${model} deposit must equal exactly 50% of full price`);
-    }
     if (typeof variant.available !== 'boolean') errors.push(`${model} availability must be boolean`);
     if (!isPositiveInteger(variant.lead_time_days)) {
       errors.push(`${model} lead time must be a positive integer`);

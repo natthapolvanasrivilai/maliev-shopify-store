@@ -33,7 +33,8 @@
             {% if variant.id == selected_variant.id %}checked{% endif %}
           >
           <span class="pimm-machine__model-name">{{ model_label }}</span>
-          <span class="pimm-machine__model-price">{{ variant.price | times: 2 | money_with_currency }}</span>
+          {%- assign model_full_price = variant.metafields.custom.full_machine_price.value -%}
+          <span class="pimm-machine__model-price">{{ model_full_price | money_with_currency }}</span>
         </label>
       {%- endif -%}
     {%- endfor -%}

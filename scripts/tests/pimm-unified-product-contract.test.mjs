@@ -88,10 +88,10 @@ test('rejects reversed variant order instead of normalizing it', () => {
   assert.ok(validateDesiredProduct(reversed).includes('variant models must equal ordered 30G,50G'));
 });
 
-test('rejects invalid money and a non-half deposit', () => {
-  const wrongPrice = structuredClone(valid);
-  wrongPrice.variants[0].deposit_price_minor = 4999;
-  assert.ok(validateDesiredProduct(wrongPrice).includes('30G deposit must equal exactly 50% of full price'));
+test('rejects invalid money while keeping deposit and displayed full price independent', () => {
+  const marketAdjusted = structuredClone(valid);
+  marketAdjusted.variants[0].deposit_price_minor = 4999;
+  assert.deepEqual(validateDesiredProduct(marketAdjusted), []);
 
   for (const [field, value] of [
     ['deposit_price_minor', 0],

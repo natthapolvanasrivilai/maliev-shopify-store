@@ -143,8 +143,12 @@ test('existing theme blocks migrate a blank story setting to the governed model 
 });
 
 test('variant payload preserves verified commerce and specification boundaries', () => {
-  assert.match(section, /assign selected_full_price_cents = selected_variant\.price \| times: 2/);
-  assert.match(section, /assign variant_full_price_cents = variant\.price \| times: 2/);
+  assert.match(section, /assign selected_full_price_cents = full_price/);
+  assert.match(section, /assign variant_full_price_cents = variant_full_price/);
+  assert.doesNotMatch(section, /variant\.price \| times: 2/);
+  assert.match(selector, /assign model_full_price = variant\.metafields\.custom\.full_machine_price\.value/);
+  assert.match(selector, /model_full_price \| money_with_currency/);
+  assert.doesNotMatch(selector, /variant\.price/);
   assert.match(section, /metafields\.custom\.full_machine_price\.value/);
   assert.match(section, /metafields\.custom\.lead_time_days\.value/);
   assert.match(section, /variant_specifications\.schema_version == 1/);

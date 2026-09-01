@@ -32,7 +32,7 @@
 
   assign specifications = selected_variant.metafields.custom.pimm_specifications.value
   assign full_price = selected_variant.metafields.custom.full_machine_price.value
-  assign selected_full_price_cents = selected_variant.price | times: 2
+  assign selected_full_price_cents = full_price
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
   assign model_contract_valid = false
   assign selected_story_binding_valid = false
@@ -139,7 +139,7 @@
           endif
           assign variant_specifications = variant.metafields.custom.pimm_specifications.value
           assign variant_full_price = variant.metafields.custom.full_machine_price.value
-          assign variant_full_price_cents = variant.price | times: 2
+          assign variant_full_price_cents = variant_full_price
           assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
           assign variant_contract_valid = false
 

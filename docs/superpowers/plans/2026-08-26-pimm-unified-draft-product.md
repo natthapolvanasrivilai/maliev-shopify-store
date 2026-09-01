@@ -4,7 +4,7 @@
 
 **Goal:** Create and verify one unpublished Shopify Draft product whose only option is `Model` with exact `30G` and `50G` deposit variants.
 
-The local Draft contract validates Admin-currency qualification evidence: variants remain in exact source order `30G`, then `50G`, and each `full_price_minor` metafield amount equals exactly twice its Admin `deposit_price_minor`. Storefront presentment is a separate theme responsibility and derives the displayed market-aware full price from contextual `variant.price * 2`; it does not format this base metafield directly.
+The local Draft contract validates Admin-currency qualification evidence: variants remain in exact source order `30G`, then `50G`, and both the checkout deposit and the customer-facing full-machine price remain positive THB amounts. The storefront renders `custom.full_machine_price` directly so the approved ฿120,000 / ฿170,000 machine prices are not inferred from tax-adjusted deposit variants.
 
 **Architecture:** First capture both existing products read-only and validate a local desired-state contract. Then duplicate the 30G product through the authenticated Shopify Admin, keep it Draft and unpublished, replace its variant structure, and populate versioned variant metafields from verified source data. Every external write is followed by explicit readback; missing source facts block the write rather than being guessed.
 
@@ -72,12 +72,12 @@ test('accepts one exact unpublished two-model contract', () => {
   assert.deepEqual(validateDesiredProduct(valid), []);
 });
 
-test('rejects publication, variant drift and a non-half deposit', () => {
+test('rejects publication and variant drift while allowing tax-adjusted deposits', () => {
   assert.ok(validateDesiredProduct({ ...valid, status: 'ACTIVE' }).length);
   assert.ok(validateDesiredProduct({ ...valid, option: { name: 'Model', values: ['30 G', '50G'] } }).length);
   const wrongPrice = structuredClone(valid);
   wrongPrice.variants[0].deposit_price_minor = 4999;
-  assert.ok(validateDesiredProduct(wrongPrice).includes('30G deposit must equal exactly 50% of full price'));
+  assert.deepEqual(validateDesiredProduct(wrongPrice), []);
 });
 ```
 
@@ -104,7 +104,6 @@ export function validateDesiredProduct(payload) {
     if (!variant) { errors.push(`${model} variant is required`); continue; }
     if (variant.currency_code !== 'THB') errors.push(`${model} currency must equal THB`);
     if (!Number.isInteger(variant.full_price_minor) || variant.full_price_minor <= 0) errors.push(`${model} full price must be a positive integer`);
-    if (variant.deposit_price_minor * 2 !== variant.full_price_minor) errors.push(`${model} deposit must equal exactly 50% of full price`);
     if (!Number.isInteger(variant.lead_time_days) || variant.lead_time_days <= 0) errors.push(`${model} lead time must be positive`);
     if (variant.specifications?.model !== model || variant.specifications?.schema_version !== 1) errors.push(`${model} specification identity mismatch`);
     for (const key of ['shot_capacity_g', 'max_melt_temperature_c', 'max_air_pressure_mpa']) {
