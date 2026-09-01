@@ -29,12 +29,14 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r10"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r11"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
 PAIR_GAP_RATIO = 0.04
 HERO_ROTATION_DEGREES = -45.0
+HERO_DESKTOP_CAMERA_DISTANCE_MULTIPLIER = 1.30
+HERO_DESKTOP_CAMERA_SHIFT_Y = 0.02
 CATALOGUE_ROTATION_DEGREES = -30.0
 CATALOGUE_DEPTH_STAGGER_RATIO = 0.0
 CATALOGUE_PAIR_GAP_RATIO = 0.08
@@ -249,7 +251,7 @@ def _placement_camera(
     framing_multiplier = (
         CATALOGUE_CAMERA_DISTANCE_MULTIPLIER
         if placement == "catalogue"
-        else 1.18
+        else HERO_DESKTOP_CAMERA_DISTANCE_MULTIPLIER
         if placement == "hero-desktop"
         else 1.06
     )
@@ -276,7 +278,7 @@ def _placement_camera(
     data.shift_y = (
         CATALOGUE_CAMERA_SHIFT_Y
         if placement == "catalogue"
-        else -0.02
+        else HERO_DESKTOP_CAMERA_SHIFT_Y
         if placement == "hero-desktop"
         else 0.0
     )
@@ -301,7 +303,7 @@ def _placement_camera(
     return camera
 
 
-def _tune_homepage_studio(runtime: Any, extent: float) -> None:
+def _tune_homepage_studio(runtime: Any, extent: float, placement: str) -> None:
     """Create broad physical penumbrae without editing the rendered alpha."""
     lights = {obj.name: obj.data for obj in runtime.objects if obj.type == "LIGHT"}
     key = lights.get("KEY_SOFTBOX")
@@ -309,16 +311,23 @@ def _tune_homepage_studio(runtime: Any, extent: float) -> None:
         key.energy = 82.0
         key.size = extent * 2.6
         key.size_y = extent * 3.4
+        if placement.startswith("hero-"):
+            key.use_shadow = False
     fill = lights.get("FILL_SOFTBOX")
     if fill is not None:
         fill.energy = 52.0
         fill.size = extent * 2.8
         fill.size_y = extent * 3.8
+        if placement.startswith("hero-"):
+            fill.use_shadow = False
     overhead = lights.get("OVERHEAD_SCRIM")
     if overhead is not None:
         overhead.energy = 28.0
-        overhead.size = extent * 3.4
-        overhead.size_y = extent * 4.4
+        overhead.size = extent * (2.0 if placement.startswith("hero-") else 3.4)
+        overhead.size_y = extent * (2.6 if placement.startswith("hero-") else 4.4)
+    background = lights.get("BACKGROUND_WASH")
+    if background is not None and placement.startswith("hero-"):
+        background.use_shadow = False
 
 
 def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
@@ -358,7 +367,7 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
             bounds_max[1] - bounds_min[1],
             bounds_max[2] - bounds_min[2],
         )
-        _tune_homepage_studio(runtime, extent)
+        _tune_homepage_studio(runtime, extent, placement)
         cyclorama = next((obj for obj in runtime.objects if obj.name.startswith("PIMM_WHITE_CYCLORAMA")), None)
         if cyclorama is None:
             raise ValueError("runtime studio did not create its physical ground surface")

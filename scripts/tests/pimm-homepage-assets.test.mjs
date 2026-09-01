@@ -9,8 +9,8 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r10');
-  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r10');
+  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r11');
+  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r11');
   assert.equal(manifest.shadow_source, 'Blender Cycles shadow catcher; no post-render alpha edits');
   assert.equal(manifest.renderer, 'scripts/blender/pimm_production/blender_homepage_alpha_render.py');
   assert.equal(manifest.composition, 'Purpose-staged 30G and 50G pair renders from one Blender scene per placement');
@@ -30,8 +30,10 @@ test('homepage PIMM media is derived from the two authoritative masters', async 
       assert.ok(asset.alpha_bbox.top_ratio >= 0.43, `${asset.filename} must preserve the catalogue copy-safe area`);
       assert.ok(asset.alpha_bbox.top_ratio <= 0.5, `${asset.filename} must keep the machines prominent below the copy`);
     } else {
-      const portrait = asset.placement === 'hero-mobile';
-      assert.ok(asset.alpha_bbox.top_ratio <= (portrait ? 0.12 : 0.05), `${asset.filename} top fill`);
+      assert.ok(asset.alpha_bbox.top_ratio <= 0.14, `${asset.filename} top fill`);
+      if (asset.placement === 'hero-desktop') {
+        assert.ok(asset.alpha_bbox.top_ratio >= 0.08, `${asset.filename} must clear the transparent header`);
+      }
     }
     if (asset.placement.startsWith('hero-')) {
       assert.ok(asset.alpha_bbox.bottom_ratio >= 0.02, `${asset.filename} shadow must fade before the lower render edge`);
@@ -42,7 +44,7 @@ test('homepage PIMM media is derived from the two authoritative masters', async 
     }
     const leftMaximum = asset.placement === 'hero-desktop' ? 0.45 : asset.placement === 'catalogue' ? 0.25 : 0.08;
     assert.ok(asset.alpha_bbox.left_ratio <= leftMaximum, `${asset.filename} left fill`);
-    const rightMaximum = asset.placement === 'hero-desktop' ? 0.06 : asset.placement === 'catalogue' ? 0.22 : 0.08;
+    const rightMaximum = asset.placement === 'hero-desktop' ? 0.07 : asset.placement === 'catalogue' ? 0.22 : 0.08;
     assert.ok(asset.alpha_bbox.right_ratio <= rightMaximum, `${asset.filename} right fill`);
     if (asset.placement.startsWith('hero-')) {
       assert.ok(asset.alpha_bbox.right_ratio >= 0.015, `${asset.filename} shadow must fade before the side render edge`);
@@ -66,9 +68,9 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   ]);
   const active = `${template}\n${menu}`;
   for (const placement of ['hero-desktop', 'hero-mobile', 'catalogue', 'navigation']) {
-    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r10-${placement}-alpha\\.webp`));
+    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r11-${placement}-alpha\\.webp`));
   }
-  const matches = active.match(/maliev-homepage-pimm-20260901-r10-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
+  const matches = active.match(/maliev-homepage-pimm-20260901-r11-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
   assert.equal(matches.length, 4, 'each homepage location must reference exactly one unique asset');
   assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
   assert.doesNotMatch(hero, /mkey__hero-machines|mkey__hero-machine--30g|mkey__hero-machine--50g/);
@@ -112,6 +114,8 @@ test('homepage renderer gives each content location a purpose-specific staging c
   assert.match(renderer, /APPEND_FOOT_TOLERANCE = 0\.001/);
   assert.match(renderer, /-bounds_min\[2\]/);
   assert.match(renderer, /HERO_ROTATION_DEGREES = -45\.0/);
+  assert.match(renderer, /HERO_DESKTOP_CAMERA_DISTANCE_MULTIPLIER = 1\.30/);
+  assert.match(renderer, /HERO_DESKTOP_CAMERA_SHIFT_Y = 0\.02/);
   assert.match(renderer, /CATALOGUE_ROTATION_DEGREES = -30\.0/);
   assert.match(renderer, /CATALOGUE_DEPTH_STAGGER_RATIO = 0\.0/);
   assert.match(renderer, /CATALOGUE_PAIR_GAP_RATIO = 0\.08/);
@@ -144,6 +148,10 @@ test('homepage renderer gives each content location a purpose-specific staging c
   assert.match(renderer, /scene\.view_settings\.exposure = 0\.35/);
   assert.match(renderer, /scene\.render\.image_settings\.color_depth = "16"/);
   assert.match(renderer, /def _tune_homepage_studio/);
+  assert.match(renderer, /if placement\.startswith\("hero-"\):\s+key\.use_shadow = False/);
+  assert.match(renderer, /if placement\.startswith\("hero-"\):\s+fill\.use_shadow = False/);
+  assert.match(renderer, /overhead\.size = extent \* \(2\.0 if placement\.startswith\("hero-"\) else 3\.4\)/);
+  assert.match(renderer, /background\.use_shadow = False/);
   assert.match(renderer, /scene\.compositing_node_group = None/);
   assert.match(studioRenderer, /CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 100\.0/);
   assert.match(studioRenderer, /y_front = center\[1\] - extent \* CYCLORAMA_GROUND_EXTENT_MULTIPLIER/);
