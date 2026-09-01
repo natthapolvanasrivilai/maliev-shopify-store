@@ -101,6 +101,15 @@ test('homepage header overlays the hero and becomes a white bar after a short sc
   assert.doesNotMatch(keynoteStyles, /\.template-index \.mkey--hero-overlay \.mkey__hero-bg\s*\{\s*top: var\(--maliev-header-h/);
 });
 
+test('desktop homepage studio render fills the full hero viewport without side gutters', async () => {
+  const keynoteStyles = await readFile(new URL('assets/maliev-keynote.css', root), 'utf8');
+
+  assert.match(
+    keynoteStyles,
+    /@media screen and \(min-width: 990px\)[\s\S]*\.template-index \.mkey--hero-overlay \.mkey__hero-bg--gallery > picture > img\s*\{[^}]*height:\s*100%;[^}]*object-fit:\s*cover;[^}]*object-position:\s*center bottom;[^}]*width:\s*100%;/,
+  );
+});
+
 test('homepage renderer gives each content location a purpose-specific staging contract', async () => {
   const [renderer, studioRenderer] = await Promise.all([
     readFile(new URL('scripts/blender/pimm_production/blender_homepage_alpha_render.py', root), 'utf8'),

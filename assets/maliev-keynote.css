@@ -469,7 +469,8 @@
 
   .template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture > img {
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
+    object-position: center bottom;
     width: 100%;
   }
 
