@@ -120,7 +120,7 @@ body main .mcat .mcat__title {
 .mcat__card--pimm-lineup .mcat__media img {
   object-fit: cover;
   object-position: center bottom;
-  transform: scale(1.035);
+  transform: none;
   transform-origin: center bottom;
 }
 
@@ -233,7 +233,7 @@ body main .mcat .mcat__title {
 }
 
 .mcat__card--pimm-lineup:hover .mcat__media img {
-  transform: scale(1.06);
+  transform: scale(1.02);
 }
 
 @media (max-width: 749px) {

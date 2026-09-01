@@ -29,7 +29,7 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r05"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r06"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
@@ -37,7 +37,11 @@ PAIR_GAP_RATIO = 0.04
 HERO_ROTATION_DEGREES = 45.0
 CATALOGUE_ROTATION_DEGREES = -32.0
 CATALOGUE_DEPTH_STAGGER_RATIO = 0.14
-CATALOGUE_PAIR_OVERLAP_RATIO = 0.18
+CATALOGUE_PAIR_GAP_RATIO = 0.04
+CATALOGUE_COPY_SAFE_RATIO = 0.36
+CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 1.30
+CATALOGUE_CAMERA_SHIFT_X = 0.02
+CATALOGUE_CAMERA_SHIFT_Y = 0.20
 NAVIGATION_ROTATION_DEGREES = 18.0
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
@@ -59,11 +63,11 @@ STAGING = {
         "depth_stagger_ratio": 0.0,
     },
     "catalogue": {
-        "composition_id": "catalogue-stagger-minus32",
+        "composition_id": "catalogue-copy-safe-minus32",
         "rotation_degrees": CATALOGUE_ROTATION_DEGREES,
         "reverse_order": True,
         "depth_stagger_ratio": CATALOGUE_DEPTH_STAGGER_RATIO,
-        "pair_gap_ratio": -CATALOGUE_PAIR_OVERLAP_RATIO,
+        "pair_gap_ratio": CATALOGUE_PAIR_GAP_RATIO,
     },
     "navigation": {
         "composition_id": "navigation-compact-18",
@@ -242,10 +246,17 @@ def _placement_camera(
     lens = 72.0 if placement == "catalogue" else 80.0 if placement == "navigation" else 85.0
     horizontal_fov = 2.0 * math.atan(36.0 / (2.0 * lens))
     vertical_fov = 2.0 * math.atan((36.0 / aspect) / (2.0 * lens))
+    framing_multiplier = (
+        CATALOGUE_CAMERA_DISTANCE_MULTIPLIER
+        if placement == "catalogue"
+        else 1.10
+        if placement == "hero-desktop"
+        else 1.06
+    )
     distance = max(
         width / (2.0 * math.tan(horizontal_fov / 2.0)),
         height / (2.0 * math.tan(vertical_fov / 2.0)),
-    ) * (1.10 if placement == "hero-desktop" else 1.06)
+    ) * framing_multiplier
     target = (
         (bounds_min[0] + bounds_max[0]) / 2,
         (bounds_min[1] + bounds_max[1]) / 2,
@@ -255,7 +266,14 @@ def _placement_camera(
     data = bpy.data.cameras.new(f"CAM_HOMEPAGE_{placement.upper()}")
     data.type = "PERSP"
     data.lens = lens
-    data.shift_x = -0.18 if placement == "hero-desktop" else 0.0
+    data.shift_x = (
+        -0.18
+        if placement == "hero-desktop"
+        else CATALOGUE_CAMERA_SHIFT_X
+        if placement == "catalogue"
+        else 0.0
+    )
+    data.shift_y = CATALOGUE_CAMERA_SHIFT_Y if placement == "catalogue" else 0.0
     data.sensor_width = 36.0
     data.sensor_fit = "HORIZONTAL"
     data.clip_start = 0.1

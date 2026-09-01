@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r05"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r06"
 GROUND_SHADOW_MAX_ALPHA = 220
 GROUND_SHADOW_FULL_WEIGHT_ALPHA = 128
 GROUND_SHADOW_OPACITY = 0.42
@@ -28,7 +28,7 @@ PLACEMENTS = {
 COMPOSITION_IDS = {
     "hero-desktop": "hero-pair-45",
     "hero-mobile": "hero-pair-45",
-    "catalogue": "catalogue-stagger-minus32",
+    "catalogue": "catalogue-copy-safe-minus32",
     "navigation": "navigation-compact-18",
 }
 MASTER_RECORDS = {
