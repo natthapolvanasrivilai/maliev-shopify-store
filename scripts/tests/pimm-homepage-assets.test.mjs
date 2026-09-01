@@ -190,7 +190,11 @@ test('catalogue PIMM card ends its text veil before the machine composition begi
 });
 
 test('homepage catalogue ends with a distinct MALIEV manufacturing services card', async () => {
-  const template = JSON.parse(await readFile(new URL('templates/index.json', root), 'utf8'));
+  const [templateSource, catalogueSection] = await Promise.all([
+    readFile(new URL('templates/index.json', root), 'utf8'),
+    readFile(new URL('sections/maliev-catalogue.liquid', root), 'utf8'),
+  ]);
+  const template = JSON.parse(templateSource);
   const catalogue = template.sections.catalogue;
   const manufacturing = catalogue.blocks.manufacturing_services;
 
@@ -203,6 +207,10 @@ test('homepage catalogue ends with a distinct MALIEV manufacturing services card
     Object.keys(catalogue.blocks).length,
     'catalogue cards must not reuse image assets',
   );
+  assert.match(catalogueSection, /if card_link contains 'www\.maliev\.com'/);
+  assert.match(catalogueSection, /if request\.locale\.iso_code contains 'th'[\s\S]*assign destination_culture = 'th'/);
+  assert.match(catalogueSection, /append: '[&?]culture=' \| append: destination_culture/);
+  assert.match(catalogueSection, /href="\{\{ card_link \}\}"/);
 });
 
 test('footer social links use quiet borderless surfaces with a distinct hover state', async () => {
