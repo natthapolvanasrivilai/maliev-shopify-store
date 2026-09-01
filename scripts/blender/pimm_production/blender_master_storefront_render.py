@@ -209,7 +209,10 @@ def _install_studio(
     # producing a hard diagonal seam in the finished hero even though the
     # physical light is soft.
     y_front = center[1] - extent * CYCLORAMA_GROUND_EXTENT_MULTIPLIER
-    y_back = center[1] + extent * CYCLORAMA_GROUND_EXTENT_MULTIPLIER
+    # Keep the rear sweep close enough to remain visible as a seamless wall.
+    # Only the camera-facing and lateral floor spans need effectively infinite
+    # reach to prevent a shadow-catcher edge from entering the frame.
+    y_back = center[1] + extent * 1.6
     radius = extent * 0.9
     arc_center_y = y_back - radius
     arc_center_z = radius

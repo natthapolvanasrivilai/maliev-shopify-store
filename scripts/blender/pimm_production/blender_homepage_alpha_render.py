@@ -29,7 +29,7 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r13"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r14"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
@@ -37,11 +37,11 @@ PAIR_GAP_RATIO = 0.04
 HERO_ROTATION_DEGREES = -45.0
 HERO_DESKTOP_CAMERA_DISTANCE_MULTIPLIER = 1.30
 HERO_DESKTOP_CAMERA_SHIFT_Y = 0.02
-CATALOGUE_ROTATION_DEGREES = -30.0
+CATALOGUE_ROTATION_DEGREES = 0.0
 CATALOGUE_DEPTH_STAGGER_RATIO = 0.0
 CATALOGUE_PAIR_GAP_RATIO = 0.08
 CATALOGUE_COPY_SAFE_RATIO = 0.46
-CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 1.60
+CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 2.00
 CATALOGUE_CAMERA_SHIFT_X = 0.02
 CATALOGUE_CAMERA_SHIFT_Y = CATALOGUE_COPY_SAFE_RATIO - 0.20
 NAVIGATION_ROTATION_DEGREES = 18.0
@@ -65,7 +65,7 @@ STAGING = {
         "depth_stagger_ratio": 0.0,
     },
     "catalogue": {
-        "composition_id": "catalogue-copy-safe-46-left-minus30",
+        "composition_id": "catalogue-copy-safe-46-front",
         "rotation_degrees": CATALOGUE_ROTATION_DEGREES,
         "reverse_order": True,
         "depth_stagger_ratio": CATALOGUE_DEPTH_STAGGER_RATIO,
@@ -312,19 +312,19 @@ def _tune_homepage_studio(bpy: Any, runtime: Any, extent: float, placement: str)
         key.size = extent * 2.6
         key.size_y = extent * 3.4
         if placement.startswith("hero-"):
-            key.use_shadow = False
+            key.use_shadow = True
     fill = lights.get("FILL_SOFTBOX")
     if fill is not None:
         fill.energy = 52.0
         fill.size = extent * 2.8
         fill.size_y = extent * 3.8
         if placement.startswith("hero-"):
-            fill.use_shadow = False
+            fill.use_shadow = True
     overhead = lights.get("OVERHEAD_SCRIM")
     if overhead is not None:
-        overhead.energy = 28.0
-        overhead.size = extent * (2.0 if placement.startswith("hero-") else 3.4)
-        overhead.size_y = extent * (2.6 if placement.startswith("hero-") else 4.4)
+        overhead.energy = 18.0 if placement.startswith("hero-") else 28.0
+        overhead.size = extent * (4.0 if placement.startswith("hero-") else 3.4)
+        overhead.size_y = extent * (5.2 if placement.startswith("hero-") else 4.4)
     background = lights.get("BACKGROUND_WASH")
     if background is not None and placement.startswith("hero-"):
         background.use_shadow = False
@@ -374,18 +374,20 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
         cyclorama = next((obj for obj in runtime.objects if obj.name.startswith("PIMM_WHITE_CYCLORAMA")), None)
         if cyclorama is None:
             raise ValueError("runtime studio did not create its physical ground surface")
-        cyclorama.is_shadow_catcher = True
+        hero_studio = placement.startswith("hero-")
+        cyclorama.is_shadow_catcher = not hero_studio
 
         native_dimensions = PLACEMENTS[placement]
         dimensions = tuple(max(1, round(value * arguments.scale)) for value in native_dimensions)
         camera = _placement_camera(bpy, runtime, placement, dimensions, bounds_min, bounds_max)
-        output = output_dir / f"{RELEASE_ID}-{placement}-alpha.png"
+        output_kind = "studio" if hero_studio else "alpha"
+        output = output_dir / f"{RELEASE_ID}-{placement}-{output_kind}.png"
         if output.exists() and not arguments.replace_working_output:
             raise FileExistsError(f"refusing to overwrite homepage pair render: {output}")
         _configure_render(bpy, dimensions[0], dimensions[1], arguments.samples, output)
         _tune_homepage_studio(bpy, runtime, extent, placement)
-        scene.render.film_transparent = True
-        scene.render.image_settings.color_mode = "RGBA"
+        scene.render.film_transparent = not hero_studio
+        scene.render.image_settings.color_mode = "RGB" if hero_studio else "RGBA"
         scene.render.image_settings.color_depth = "16"
         scene.view_settings.exposure = 0.35
         scene.compositing_node_group = None

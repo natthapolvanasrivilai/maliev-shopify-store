@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r13"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r14"
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
     "hero-mobile": (1200, 1500),
@@ -20,8 +20,14 @@ PLACEMENTS = {
 COMPOSITION_IDS = {
     "hero-desktop": "hero-pair-left-minus45",
     "hero-mobile": "hero-pair-left-minus45",
-    "catalogue": "catalogue-copy-safe-46-left-minus30",
+    "catalogue": "catalogue-copy-safe-46-front",
     "navigation": "navigation-compact-18",
+}
+OUTPUT_KINDS = {
+    "hero-desktop": "studio",
+    "hero-mobile": "studio",
+    "catalogue": "alpha",
+    "navigation": "alpha",
 }
 MASTER_RECORDS = {
     "30g": {
@@ -73,32 +79,37 @@ def main() -> int:
 
     records = []
     for placement, dimensions in PLACEMENTS.items():
-        source = arguments.render_dir / f"{arguments.source_release_id}-{placement}-alpha.png"
+        output_kind = OUTPUT_KINDS[placement]
+        source = arguments.render_dir / f"{arguments.source_release_id}-{placement}-{output_kind}.png"
         with Image.open(source) as opened:
-            image = opened.convert("RGBA")
+            image = opened.convert("RGB" if output_kind == "studio" else "RGBA")
         if image.size != dimensions:
             raise ValueError(f"unexpected Blender render dimensions for {placement}: {image.size}")
-        output = arguments.asset_dir / f"{RELEASE_ID}-{placement}-alpha.webp"
+        output = arguments.asset_dir / f"{RELEASE_ID}-{placement}-{output_kind}.webp"
         image.save(output, format="WEBP", lossless=True, method=6)
         with Image.open(output) as check:
-            if check.mode != "RGBA" or check.getchannel("A").getextrema() != (0, 255):
+            if output_kind == "studio" and check.mode != "RGB":
+                raise ValueError(f"opaque storefront derivative gained an alpha channel: {output}")
+            if output_kind == "alpha" and (check.mode != "RGBA" or check.getchannel("A").getextrema() != (0, 255)):
                 raise ValueError(f"storefront derivative lost useful alpha: {output}")
-        records.append({
+        record = {
             "filename": output.name,
             "sha256": sha256_file(output),
             "width": dimensions[0],
             "height": dimensions[1],
-            "alpha": True,
+            "alpha": output_kind == "alpha",
             "placement": placement,
             "composition_id": COMPOSITION_IDS[placement],
-            "alpha_bbox": _bounds_record(image),
-        })
+        }
+        if output_kind == "alpha":
+            record["alpha_bbox"] = _bounds_record(image)
+        records.append(record)
 
     manifest = {
         "schema_version": 1,
         "release_id": RELEASE_ID,
         "source_render_release_id": arguments.source_release_id,
-        "shadow_source": "Blender Cycles shadow catcher; no post-render alpha edits",
+        "shadow_source": "Blender Cycles physical studio for hero; shadow catcher for transparent placements; no post-render edits",
         "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
         "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
         "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",

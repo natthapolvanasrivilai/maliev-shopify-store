@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "release_id": "maliev-homepage-pimm-20260901-r13",
-  "source_render_release_id": "maliev-homepage-pimm-20260901-r13",
-  "shadow_source": "Blender Cycles shadow catcher; no post-render alpha edits",
+  "release_id": "maliev-homepage-pimm-20260901-r14",
+  "source_render_release_id": "maliev-homepage-pimm-20260901-r14",
+  "shadow_source": "Blender Cycles physical studio for hero; shadow catcher for transparent placements; no post-render edits",
   "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
   "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
   "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",
@@ -20,71 +20,47 @@
   },
   "assets": [
     {
-      "filename": "maliev-homepage-pimm-20260901-r13-hero-desktop-alpha.webp",
-      "sha256": "B3BBEDC2C20356FE40C2DC37F731EE80A569590F3AB552D323DA37F360BAE96A",
+      "filename": "maliev-homepage-pimm-20260901-r14-hero-desktop-studio.webp",
+      "sha256": "1ECF88BEE4DB5C58FEC87581B8F9C3963257872602B0D18CA25A2ABC0E50387E",
       "width": 1800,
       "height": 1200,
-      "alpha": true,
+      "alpha": false,
       "placement": "hero-desktop",
-      "composition_id": "hero-pair-left-minus45",
-      "alpha_bbox": {
-        "pixels": [
-          607,
-          162,
-          1688,
-          1111
-        ],
-        "top_ratio": 0.135,
-        "bottom_ratio": 0.07417,
-        "left_ratio": 0.33722,
-        "right_ratio": 0.06222
-      }
+      "composition_id": "hero-pair-left-minus45"
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r13-hero-mobile-alpha.webp",
-      "sha256": "BAAE133971B25219CCF08F6DEE9365D0F63E2BF6EAD4E8AA7C3EEB91F9759FDD",
+      "filename": "maliev-homepage-pimm-20260901-r14-hero-mobile-studio.webp",
+      "sha256": "24A8C722A6748A491246B3D022A7E62408108688B65EA413BF3AD86D04238C39",
       "width": 1200,
       "height": 1500,
-      "alpha": true,
+      "alpha": false,
       "placement": "hero-mobile",
-      "composition_id": "hero-pair-left-minus45",
-      "alpha_bbox": {
-        "pixels": [
-          0,
-          156,
-          1176,
-          1359
-        ],
-        "top_ratio": 0.104,
-        "bottom_ratio": 0.094,
-        "left_ratio": 0.0,
-        "right_ratio": 0.02
-      }
+      "composition_id": "hero-pair-left-minus45"
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r13-catalogue-alpha.webp",
-      "sha256": "A870608488A872372EE7EB10DBCC06DFAC7996CC9D35CFC2D1FC9DECB33F4573",
+      "filename": "maliev-homepage-pimm-20260901-r14-catalogue-alpha.webp",
+      "sha256": "866603C0EC6B02328C670ADC15D04A3194F1FF4965F86FDAFD8C02ECA3E8FA00",
       "width": 1086,
       "height": 1448,
       "alpha": true,
       "placement": "catalogue",
-      "composition_id": "catalogue-copy-safe-46-left-minus30",
+      "composition_id": "catalogue-copy-safe-46-front",
       "alpha_bbox": {
         "pixels": [
-          90,
-          652,
-          858,
-          1324
+          239,
+          671,
+          805,
+          1349
         ],
-        "top_ratio": 0.45028,
-        "bottom_ratio": 0.08564,
-        "left_ratio": 0.08287,
-        "right_ratio": 0.20994
+        "top_ratio": 0.4634,
+        "bottom_ratio": 0.06837,
+        "left_ratio": 0.22007,
+        "right_ratio": 0.25875
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r13-navigation-alpha.webp",
-      "sha256": "3E64400CDABE4B05721EDCD157986CC6E047EA0AA5744455C9703E4F3ED568E8",
+      "filename": "maliev-homepage-pimm-20260901-r14-navigation-alpha.webp",
+      "sha256": "8CAE314B46CA51F997A222753652A2E071ED4BD5EBADB14EC00FBC8FD2F22B50",
       "width": 900,
       "height": 900,
       "alpha": true,
@@ -92,14 +68,14 @@
       "composition_id": "navigation-compact-18",
       "alpha_bbox": {
         "pixels": [
-          0,
+          48,
           9,
           838,
           900
         ],
         "top_ratio": 0.01,
         "bottom_ratio": 0.0,
-        "left_ratio": 0.0,
+        "left_ratio": 0.05333,
         "right_ratio": 0.06889
       }
     }
