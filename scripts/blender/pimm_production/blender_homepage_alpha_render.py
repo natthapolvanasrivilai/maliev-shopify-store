@@ -29,7 +29,7 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r12"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r13"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
@@ -331,7 +331,7 @@ def _tune_homepage_studio(bpy: Any, runtime: Any, extent: float, placement: str)
     if placement.startswith("hero-"):
         ambient = bpy.context.scene.world.node_tree.nodes.get("PIMM_HDRI_LIGHTING")
         if ambient is not None:
-            ambient.inputs["Strength"].default_value = 0.08
+            ambient.inputs["Strength"].default_value = 0.35
 
 
 def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:

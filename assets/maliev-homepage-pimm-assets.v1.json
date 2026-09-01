@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "release_id": "maliev-homepage-pimm-20260901-r12",
-  "source_render_release_id": "maliev-homepage-pimm-20260901-r12",
+  "release_id": "maliev-homepage-pimm-20260901-r13",
+  "source_render_release_id": "maliev-homepage-pimm-20260901-r13",
   "shadow_source": "Blender Cycles shadow catcher; no post-render alpha edits",
   "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
   "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
@@ -20,8 +20,8 @@
   },
   "assets": [
     {
-      "filename": "maliev-homepage-pimm-20260901-r12-hero-desktop-alpha.webp",
-      "sha256": "0D001079F34BB5D7F874A6145D81160F25172BCB094158B6C6CC2879DBB1AB42",
+      "filename": "maliev-homepage-pimm-20260901-r13-hero-desktop-alpha.webp",
+      "sha256": "B3BBEDC2C20356FE40C2DC37F731EE80A569590F3AB552D323DA37F360BAE96A",
       "width": 1800,
       "height": 1200,
       "alpha": true,
@@ -29,20 +29,20 @@
       "composition_id": "hero-pair-left-minus45",
       "alpha_bbox": {
         "pixels": [
-          776,
+          607,
           162,
           1688,
           1111
         ],
         "top_ratio": 0.135,
         "bottom_ratio": 0.07417,
-        "left_ratio": 0.43111,
+        "left_ratio": 0.33722,
         "right_ratio": 0.06222
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r12-hero-mobile-alpha.webp",
-      "sha256": "EE57DF076444AE034ED73C19C8DD3BEF0D3BA3F7D256B6D451ADFB58F16AC166",
+      "filename": "maliev-homepage-pimm-20260901-r13-hero-mobile-alpha.webp",
+      "sha256": "BAAE133971B25219CCF08F6DEE9365D0F63E2BF6EAD4E8AA7C3EEB91F9759FDD",
       "width": 1200,
       "height": 1500,
       "alpha": true,
@@ -50,20 +50,20 @@
       "composition_id": "hero-pair-left-minus45",
       "alpha_bbox": {
         "pixels": [
-          50,
+          0,
           156,
           1176,
           1359
         ],
         "top_ratio": 0.104,
         "bottom_ratio": 0.094,
-        "left_ratio": 0.04167,
+        "left_ratio": 0.0,
         "right_ratio": 0.02
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r12-catalogue-alpha.webp",
-      "sha256": "E0A11571EA50F0AC0026755FD9F67C3310AED804994A0807464555D86559D9E6",
+      "filename": "maliev-homepage-pimm-20260901-r13-catalogue-alpha.webp",
+      "sha256": "A870608488A872372EE7EB10DBCC06DFAC7996CC9D35CFC2D1FC9DECB33F4573",
       "width": 1086,
       "height": 1448,
       "alpha": true,
@@ -71,20 +71,20 @@
       "composition_id": "catalogue-copy-safe-46-left-minus30",
       "alpha_bbox": {
         "pixels": [
-          89,
+          90,
           652,
           858,
           1324
         ],
         "top_ratio": 0.45028,
         "bottom_ratio": 0.08564,
-        "left_ratio": 0.08195,
+        "left_ratio": 0.08287,
         "right_ratio": 0.20994
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r12-navigation-alpha.webp",
-      "sha256": "13D3E5F1D15A8706FBF49E2A1A1ACD789D6E5546DDF221E27910E9C16128FBDF",
+      "filename": "maliev-homepage-pimm-20260901-r13-navigation-alpha.webp",
+      "sha256": "3E64400CDABE4B05721EDCD157986CC6E047EA0AA5744455C9703E4F3ED568E8",
       "width": 900,
       "height": 900,
       "alpha": true,

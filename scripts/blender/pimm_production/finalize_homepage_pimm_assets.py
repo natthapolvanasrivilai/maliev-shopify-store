@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r12"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r13"
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
     "hero-mobile": (1200, 1500),

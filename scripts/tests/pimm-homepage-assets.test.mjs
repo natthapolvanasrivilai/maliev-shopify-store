@@ -9,8 +9,8 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r12');
-  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r12');
+  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r13');
+  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r13');
   assert.equal(manifest.shadow_source, 'Blender Cycles shadow catcher; no post-render alpha edits');
   assert.equal(manifest.renderer, 'scripts/blender/pimm_production/blender_homepage_alpha_render.py');
   assert.equal(manifest.composition, 'Purpose-staged 30G and 50G pair renders from one Blender scene per placement');
@@ -68,9 +68,9 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   ]);
   const active = `${template}\n${menu}`;
   for (const placement of ['hero-desktop', 'hero-mobile', 'catalogue', 'navigation']) {
-    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r12-${placement}-alpha\\.webp`));
+    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r13-${placement}-alpha\\.webp`));
   }
-  const matches = active.match(/maliev-homepage-pimm-20260901-r12-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
+  const matches = active.match(/maliev-homepage-pimm-20260901-r13-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
   assert.equal(matches.length, 4, 'each homepage location must reference exactly one unique asset');
   assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
   assert.doesNotMatch(hero, /mkey__hero-machines|mkey__hero-machine--30g|mkey__hero-machine--50g/);
@@ -152,7 +152,7 @@ test('homepage renderer gives each content location a purpose-specific staging c
   assert.match(renderer, /if placement\.startswith\("hero-"\):\s+fill\.use_shadow = False/);
   assert.match(renderer, /overhead\.size = extent \* \(2\.0 if placement\.startswith\("hero-"\) else 3\.4\)/);
   assert.match(renderer, /background\.use_shadow = False/);
-  assert.match(renderer, /ambient\.inputs\["Strength"\]\.default_value = 0\.08/);
+  assert.match(renderer, /ambient\.inputs\["Strength"\]\.default_value = 0\.35/);
   assert.match(renderer, /_configure_render\([\s\S]*_tune_homepage_studio\(bpy, runtime, extent, placement\)/);
   assert.match(renderer, /scene\.compositing_node_group = None/);
   assert.match(studioRenderer, /CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 1_000\.0/);
