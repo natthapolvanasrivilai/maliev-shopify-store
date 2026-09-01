@@ -30,7 +30,7 @@
 
 .pimm-machine :is(h1, h2, h3, p, figure, fieldset, dl, dd) { margin: 0; }
 .pimm-machine :is(h1, h2, h3) { color: var(--pimm-ink); font-weight: 600; text-wrap: balance; }
-.pimm-machine .pimm-machine__title { font-size: clamp(3.6rem, 3.4vw, 5.2rem) !important; hyphens: none; letter-spacing: -.035em; line-height: .98; max-width: 100%; overflow-wrap: normal; word-break: normal; }
+.pimm-machine .pimm-machine__title { font-size: clamp(4rem, 4.8vw, 6rem) !important; hyphens: none; letter-spacing: -.035em; line-height: .96; max-width: 15ch; overflow-wrap: normal; word-break: normal; }
 .pimm-machine h2 { font-size: clamp(3rem, 4vw, 5.4rem); letter-spacing: -.035em; line-height: 1; }
 .pimm-machine h3 { font-size: clamp(2.4rem, 3vw, 4.2rem); letter-spacing: -.025em; line-height: 1.06; }
 .pimm-machine p { color: var(--pimm-muted); font-size: clamp(1.55rem, 1.3vw, 1.8rem); line-height: 1.58; text-wrap: pretty; }
@@ -53,10 +53,11 @@
   padding-block: clamp(5rem, 7vw, 9rem) clamp(3rem, 5vw, 6rem);
 }
 
-.pimm-machine__decision { display: grid; gap: 2.4rem; min-width: 0; position: relative; z-index: 2; }
-.pimm-machine__promise { color: var(--pimm-ink) !important; font-size: clamp(2rem, 2vw, 2.7rem) !important; font-weight: 600; line-height: 1.22 !important; }
-.pimm-machine__fit { max-width: 43ch; }
-.pimm-machine__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 1.4rem; }
+.pimm-machine__decision { display: grid; min-width: 0; position: relative; z-index: 2; }
+.pimm-machine__introduction { display: grid; gap: 1.6rem; }
+.pimm-machine__promise { color: var(--pimm-ink) !important; font-size: clamp(2.2rem, 2.2vw, 2.8rem) !important; font-weight: 500; line-height: 1.2 !important; max-width: 28ch; }
+.pimm-machine .pimm-machine__fit { font-size: 1.6rem; line-height: 1.6; margin-top: .8rem; max-width: 45ch; }
+.pimm-machine__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 1.4rem; margin-top: 1.6rem; }
 
 .pimm-machine .button,
 .pimm-machine__text-link {
@@ -75,7 +76,7 @@
 .pimm-machine .button--primary:hover { background: var(--pimm-blue-dark); border-color: var(--pimm-blue-dark); }
 .pimm-machine__text-link { border: 1px solid var(--pimm-line); color: var(--pimm-ink); }
 
-.pimm-machine__model-selector { border: 0; min-width: 0; padding: 0; }
+.pimm-machine .pimm-machine__model-selector { border: 0; margin-top: clamp(3.2rem, 4vw, 4.8rem); min-width: 0; padding: 0; }
 .pimm-machine__model-selector legend { color: var(--pimm-ink); font-size: 1.4rem; font-weight: 600; margin-bottom: 1.2rem; }
 .pimm-machine__selected-model { display: none; }
 .pimm-machine__model-options { display: grid; gap: .8rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -262,7 +263,7 @@
 
 @media (max-width: 359px) {
   .pimm-machine { padding-inline: 1.4rem; }
-  .pimm-machine .pimm-machine__title { font-size: 3.6rem !important; }
+  .pimm-machine .pimm-machine__title { font-size: 4rem !important; }
   .pimm-machine__actions { align-items: stretch; flex-direction: column; }
   .pimm-machine .button,
   .pimm-machine__text-link { width: 100%; }

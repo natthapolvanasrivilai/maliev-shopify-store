@@ -57,6 +57,14 @@ test('hero and stories use product-first hierarchy without decorative eyebrows',
   assert.doesNotMatch(css, /\.pimm-machine__eyebrow/);
 });
 
+test('hero introduction has a deliberate display hierarchy and reading measure', () => {
+  assert.match(hero, /<div class="pimm-machine__introduction">[\s\S]*?<h1 class="pimm-machine__title">[\s\S]*?pimm-machine__promise[\s\S]*?pimm-machine__fit[\s\S]*?<\/div>/);
+  assert.match(css, /\.pimm-machine \.pimm-machine__title[^}]*font-size:\s*clamp\(4rem, 4\.8vw, 6rem\)[^}]*max-width:\s*15ch/s);
+  assert.match(css, /\.pimm-machine__introduction[^}]*display:\s*grid[^}]*gap:\s*1\.6rem/s);
+  assert.match(css, /\.pimm-machine \.pimm-machine__fit[^}]*font-size:\s*1\.6rem[^}]*line-height:\s*1\.6[^}]*max-width:\s*45ch/s);
+  assert.match(css, /\.pimm-machine \.pimm-machine__model-selector[^}]*margin-top:\s*clamp\(3\.2rem, 4vw, 4\.8rem\)/s);
+});
+
 test('capacity selector and every engineering chapter expose deliberate type roles', () => {
   assert.equal(selector.match(/class="pimm-machine__model-name"/g)?.length, 1);
   assert.equal(selector.match(/class="pimm-machine__model-price"/g)?.length, 1);

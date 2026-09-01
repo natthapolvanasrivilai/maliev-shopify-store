@@ -16,9 +16,11 @@
 
 <header class="pimm-machine__hero" data-pimm-hero>
   <div class="pimm-machine__decision">
-    <h1 class="pimm-machine__title">{{ display_product_title | escape }}</h1>
-    <p class="pimm-machine__promise">{{ 'products.pimm_machine.hero.promise' | t }}</p>
-    <p class="pimm-machine__fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
+    <div class="pimm-machine__introduction">
+      <h1 class="pimm-machine__title">{{ display_product_title | escape }}</h1>
+      <p class="pimm-machine__promise">{{ 'products.pimm_machine.hero.promise' | t }}</p>
+      <p class="pimm-machine__fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
+    </div>
 
     {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
 
