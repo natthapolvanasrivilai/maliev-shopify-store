@@ -50,6 +50,8 @@ class CdpSession {
 
   #pending = new Map();
 
+  #listeners = new Map();
+
   static async connect(url) {
     const socket = new WebSocket(url);
     await new Promise((resolveOpen, reject) => {
@@ -63,7 +65,12 @@ class CdpSession {
     this.socket = socket;
     socket.addEventListener('message', (event) => {
       const message = JSON.parse(String(event.data));
-      if (!message.id) return;
+      if (!message.id) {
+        for (const listener of this.#listeners.get(message.method) ?? []) {
+          listener(message.params ?? {});
+        }
+        return;
+      }
       const pending = this.#pending.get(message.id);
       if (!pending) return;
       this.#pending.delete(message.id);
@@ -86,6 +93,13 @@ class CdpSession {
     });
   }
 
+  on(method, listener) {
+    const listeners = this.#listeners.get(method) ?? new Set();
+    listeners.add(listener);
+    this.#listeners.set(method, listeners);
+    return () => listeners.delete(listener);
+  }
+
   async close() {
     if (this.socket.readyState >= WebSocket.CLOSING) return;
     this.socket.close();
@@ -94,6 +108,123 @@ class CdpSession {
       delay(1_000),
     ]);
   }
+}
+
+function createBrowserDiagnostics(session) {
+  let entries = [];
+  let navigation = 'before navigation';
+  let navigationRetryCount = 0;
+
+  // Shopify injects immutable third-party/preview failures on localhost:
+  // Shop Pay cannot frame shop.app under its production frame-ancestors policy, and
+  // BUCKS dereferences absent production currency data inside its injected app SDK.
+  // The preview shell also requests unauthenticated /cart.js and parses its fixed
+  // "The access..." denial response as JSON. Shopify's preview telemetry exporter
+  // may also reject local synthetic metrics/logs with a fixed 503/OpenTelemetry pair.
+  // Finally, its hashed origin-trials bootstrap is emitted as HTTP on localhost,
+  // producing one exact CORS/ERR_FAILED pair before application code executes.
+  // The preview asset URLs also leave the owner-approved Latin/Thai preload hints
+  // unconsumed; only those two exact font warning signatures are exempted.
+  // All exemptions are restricted to /products_preview and exact source signatures.
+  const isImmutableShopifyPreviewNoise = (entry) => {
+    let isPreviewRoute = false;
+    try {
+      isPreviewRoute = new URL(navigation).pathname.endsWith('/products_preview');
+    } catch {
+      return false;
+    }
+    if (!isPreviewRoute) return false;
+    if (entry.level === 'warning') {
+      return entry.kind === 'browser log'
+        && /^The resource http:\/\/127\.0\.0\.1:\d+\/cdn\/shop\/t\/\d+\/assets\/(?:IBMPlexSans-Regular-Latin1|IBMPlexSansThai-Regular)\.woff2\?v=\d+ was preloaded using link preload but not used within a few seconds from the window's load event\. Please make sure it has an appropriate `as` value and it is preloaded intentionally\.\nSource: http:\/\/127\.0\.0\.1:\d+\/(?:th\/)?products_preview\?/.test(entry.text);
+    }
+    if (entry.level !== 'error') return false;
+    return (
+      entry.kind === 'browser log'
+        && /^Framing 'https:\/\/shop\.app\/' violates the following Content Security Policy directive: "frame-ancestors 'self' https:\/\/shop\.app https:\/\/admin\.shopify\.com"\. The request has been blocked\./.test(entry.text)
+    ) || (
+      entry.kind === 'runtime exception'
+        && /^TypeError: Cannot read properties of null \(reading '0'\)[\s\S]+127\.0\.0\.1:\d+\/apps\/buckscc\/sdk\.min\.js:2:/.test(entry.text)
+    ) || (
+      entry.kind === 'browser log'
+        && /^Failed to load resource: the server responded with a status of 401 \(Unauthorized\)\nSource: http:\/\/127\.0\.0\.1:\d+\/(?:th\/)?cart\.js$/.test(entry.text)
+    ) || (
+      entry.kind === 'runtime exception'
+        && /^Uncaught \(in promise\) SyntaxError: Unexpected token 'T', "The access"\.\.\. is not valid JSON\nhttp:\/\/127\.0\.0\.1:\d+\/(?:th\/)?products_preview\?/.test(entry.text)
+    ) || (
+      entry.kind === 'browser log'
+        && /^Failed to load resource: the server responded with a status of 503 \(\)\nSource: https:\/\/otlp-http-production\.shopifysvc\.com\/v1\/(?:metrics|logs)$/.test(entry.text)
+    ) || (
+      entry.kind === 'runtime exception'
+        && /^OpenTelemetryClientError: Server did not accept data[\s\S]+127\.0\.0\.1:\d+\/cdn\/shopifycloud\/shop-js\/modules\/v2\/chunk\.utils_[A-Za-z0-9_-]+\.esm\.js:1:/.test(entry.text)
+    ) || (
+      entry.kind === 'browser log'
+        && /^Access to script at 'http:\/\/cdn\.shopify\.com\/shopifycloud\/storefront\/assets\/storefront\/origin_trials-[A-Fa-f0-9]+\.js' from origin 'http:\/\/127\.0\.0\.1:\d+' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource\.\nSource: http:\/\/127\.0\.0\.1:\d+\/(?:th\/)?products_preview\?/.test(entry.text)
+    ) || (
+      entry.kind === 'browser log'
+        && /^Failed to load resource: net::ERR_FAILED\nSource: http:\/\/cdn\.shopify\.com\/shopifycloud\/storefront\/assets\/storefront\/origin_trials-[A-Fa-f0-9]+\.js$/.test(entry.text)
+    );
+  };
+
+  const record = (kind, level, textValue) => {
+    if (!['warning', 'error', 'assert'].includes(level)) return;
+    entries.push({ kind, level, text: String(textValue || '(no message)') });
+  };
+  session.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
+    const stack = exceptionDetails?.stackTrace?.callFrames
+      ?.map((frame) => `${frame.functionName || '(anonymous)'} at ${frame.url}:${frame.lineNumber + 1}:${frame.columnNumber + 1}`)
+      .join('\n');
+    record(
+      'runtime exception',
+      'error',
+      [exceptionDetails?.exception?.description
+        || exceptionDetails?.text
+        || 'Uncaught runtime exception', exceptionDetails?.url, stack]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  });
+  session.on('Runtime.consoleAPICalled', ({ type, args = [] }) => {
+    record(
+      'console',
+      type,
+      args.map((argument) => argument.value
+        ?? argument.unserializableValue
+        ?? argument.description
+        ?? '').join(' '),
+    );
+  });
+  session.on('Log.entryAdded', ({ entry }) => {
+    record(
+      'browser log',
+      entry?.level,
+      [entry?.text, entry?.url ? `Source: ${entry.url}` : ''].filter(Boolean).join('\n'),
+    );
+  });
+
+  return {
+    begin(nextNavigation) {
+      assert.deepEqual(entries, [], `Unasserted browser diagnostics before ${nextNavigation}`);
+      navigation = nextNavigation;
+    },
+    async assertClean(context = navigation) {
+      await delay(120);
+      const observed = entries;
+      entries = [];
+      const unexpected = observed.filter((entry) => !isImmutableShopifyPreviewNoise(entry));
+      assert.deepEqual(
+        unexpected,
+        [],
+        `${context} emitted unexpected runtime, console, or browser-log warnings/errors`,
+      );
+    },
+    recordNavigationRetry() {
+      navigationRetryCount += 1;
+    },
+    get navigationRetryCount() {
+      return navigationRetryCount;
+    },
+  };
 }
 
 async function stopBrowser(browser) {
@@ -185,11 +316,11 @@ async function evaluate(session, expression) {
   return response.result.value;
 }
 
-async function setViewport(session, width, height) {
+async function setViewport(session, width, height, mobile = false) {
   await session.send('Emulation.setDeviceMetricsOverride', {
     deviceScaleFactor: 1,
     height,
-    mobile: false,
+    mobile,
     screenHeight: height,
     screenWidth: width,
     width,
@@ -197,12 +328,54 @@ async function setViewport(session, width, height) {
   await delay(100);
 }
 
-async function navigate(session, url) {
-  const result = await session.send('Page.navigate', { url });
-  if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
-  await eventually(() => evaluate(session, `document.readyState === 'complete'`), {
-    message: 'Collection preview did not finish loading',
-  });
+async function assertNoStorefrontFailureSurface(session, url) {
+  const failure = await evaluate(session, `(() => {
+    const overlaySelectors = [
+      'vite-error-overlay',
+      '#webpack-dev-server-client-overlay',
+      '[data-nextjs-dialog-overlay]',
+      '#shopify-error-page',
+      '.shopify-error-page',
+      '[data-testid="error-boundary"]',
+    ];
+    const overlay = overlaySelectors.find((selector) => document.querySelector(selector));
+    const text = document.body?.innerText?.slice(0, 12000) ?? '';
+    const textPatterns = [
+      /Liquid error:/i,
+      /Application error: a client-side exception/i,
+      /There was a problem loading this website/i,
+      /This page is (?:not available|unavailable)/i,
+      /(?:500 Internal Server Error|502 Bad Gateway|503 Service Unavailable)/i,
+      /Shopify CLI (?:error|failed)/i,
+    ];
+    const textPattern = textPatterns.find((pattern) => pattern.test(text));
+    return overlay
+      ? { kind: 'overlay', detail: overlay }
+      : textPattern
+        ? { kind: 'page', detail: String(textPattern) }
+        : null;
+  })()`);
+  assert.equal(failure, null, `${url} rendered a storefront/framework failure surface`);
+}
+
+async function navigate(session, url, diagnostics) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    diagnostics.begin(`${url} (attempt ${attempt})`);
+    const result = await session.send('Page.navigate', { url });
+    if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
+    try {
+      await eventually(() => evaluate(session, `document.readyState === 'complete'`), {
+        message: 'Collection preview did not finish loading',
+      });
+      break;
+    } catch (error) {
+      if (attempt === 2) throw error;
+      await session.send('Page.stopLoading');
+      await diagnostics.assertClean(`${url} timed-out navigation attempt ${attempt}`);
+      diagnostics.recordNavigationRetry();
+    }
+  }
+  await assertNoStorefrontFailureSurface(session, url);
   await eventually(() => evaluate(
     session,
     `Boolean(document.querySelector('[data-pimm-collection-comparison][data-contract-valid="true"]'))`,
@@ -212,6 +385,13 @@ async function navigate(session, url) {
     `customElements.get('pimm-collection-comparison')
       && document.querySelector('[data-pimm-collection-comparison]')?.activeModel === '30G'`,
   ), { message: 'PIMM collection controller did not initialize' });
+  await evaluate(session, `(async () => {
+    if (!document.fonts) return true;
+    await document.fonts.load('400 16px "IBM Plex Sans"', 'MALIEV collection');
+    await document.fonts.ready;
+    return true;
+  })()`);
+  await assertNoStorefrontFailureSurface(session, url);
 }
 
 function thaiUrlFrom(value) {
@@ -390,6 +570,93 @@ async function assertGeometry(session, language, width, height) {
   if (width <= 749) assert.equal(probe.mobileOrder, true, `${context} mobile document order`);
 }
 
+async function dispatchTouchTap(session, selector) {
+  await evaluate(session, `(() => {
+    const target = document.querySelector(${JSON.stringify(selector)});
+    if (!target) throw new Error('Touch target was not found');
+    target.scrollIntoView({ block: 'center', inline: 'center' });
+    return true;
+  })()`);
+  await delay(180);
+  const point = await evaluate(session, `(() => {
+    const target = document.querySelector(${JSON.stringify(selector)});
+    const rect = target.getBoundingClientRect();
+    if (rect.width < 44 || rect.height < 44) {
+      throw new Error('Touch target is smaller than 44px');
+    }
+    return {
+      x: rect.left + (rect.width / 2),
+      y: rect.top + (rect.height / 2),
+    };
+  })()`);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{
+      id: 0,
+      x: point.x,
+      y: point.y,
+      radiusX: 1,
+      radiusY: 1,
+      force: 1,
+    }],
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+}
+
+async function mobileTouchProbe(session, diagnostics, language, url) {
+  await session.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+  });
+  await session.send('Emulation.setTouchEmulationEnabled', {
+    enabled: true,
+    maxTouchPoints: 1,
+  });
+  await setViewport(session, 390, 844, true);
+  await navigate(session, url, diagnostics);
+  await suppressCookieConsent(session);
+  await headerProbe(session, `${language} mobile touch`);
+
+  const selector = '[data-pimm-collection-card][data-model="50G"] [data-pimm-collection-select]';
+  await evaluate(session, `(() => {
+    const root = document.querySelector('[data-pimm-collection-comparison]');
+    const announcement = root.querySelector('[data-pimm-collection-announcement]');
+    const changes = [];
+    const observer = new MutationObserver(() => changes.push(announcement.textContent.trim()));
+    observer.observe(announcement, { childList: true, characterData: true, subtree: true });
+    window.__pimmMobileTouchProbe = { changes, observer };
+    return true;
+  })()`);
+  await dispatchTouchTap(session, selector);
+  await eventually(() => evaluate(
+    session,
+    `document.querySelector('[data-pimm-collection-comparison]')?.committedModel === '50G'`,
+  ), { message: `${language} real mobile touch did not commit 50G` });
+  await delay(80);
+  const result = await evaluate(session, `(() => {
+    const root = document.querySelector('[data-pimm-collection-comparison]');
+    const probe = window.__pimmMobileTouchProbe;
+    probe.observer.disconnect();
+    delete window.__pimmMobileTouchProbe;
+    return {
+      active: root.activeModel,
+      committed: root.committedModel,
+      announcement: root.querySelector('[data-pimm-collection-announcement]').textContent.trim(),
+      announcementChanges: probe.changes,
+      current: root.querySelector('[data-pimm-collection-card][data-model="50G"]')
+        .getAttribute('aria-current'),
+    };
+  })()`);
+  assert.equal(result.active, '50G', `${language} touch active model`);
+  assert.equal(result.committed, '50G', `${language} touch committed model`);
+  assert.equal(result.current, 'true', `${language} touch aria-current`);
+  assert.match(result.announcement, /50G/, `${language} touch announcement`);
+  assert.equal(result.announcementChanges.length, 1, `${language} touch announcement count`);
+  await diagnostics.assertClean(`${language} 390x844 real mobile touch`);
+}
+
 async function interactionProbe(session, language) {
   const preview = await evaluate(session, `(() => {
     const root = document.querySelector('[data-pimm-collection-comparison]');
@@ -543,13 +810,18 @@ async function headerProbe(session, language) {
   await evaluate(session, 'scrollTo(0, 0)');
 }
 
-async function reducedMotionProbe(session) {
+async function reducedMotionProbe(session, diagnostics) {
   await session.send('Emulation.setEmulatedMedia', {
     features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
   });
-  await navigate(session, previewUrl);
+  await session.send('Emulation.setTouchEmulationEnabled', {
+    enabled: true,
+    maxTouchPoints: 1,
+  });
+  await setViewport(session, 390, 844, true);
+  await navigate(session, previewUrl, diagnostics);
   await suppressCookieConsent(session);
-  const reduced = await evaluate(session, `(async () => {
+  await evaluate(session, `(() => {
     const root = document.querySelector('[data-pimm-collection-comparison]');
     const card = root.querySelector('[data-pimm-collection-card][data-model="50G"]');
     const observed = [];
@@ -558,29 +830,42 @@ async function reducedMotionProbe(session) {
         ?.dataset.pimmCollectionFrame);
     });
     observer.observe(card, { attributes: true, attributeFilter: ['hidden'], subtree: true });
-    card.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
-    await new Promise((resolveWait) => setTimeout(resolveWait, 900));
-    observer.disconnect();
+    window.__pimmReducedMotionTouchProbe = { card, observed, observer };
+    return true;
+  })()`);
+  await dispatchTouchTap(
+    session,
+    '[data-pimm-collection-card][data-model="50G"] [data-pimm-collection-select]',
+  );
+  await delay(900);
+  const reduced = await evaluate(session, `(() => {
+    const root = document.querySelector('[data-pimm-collection-comparison]');
+    const probe = window.__pimmReducedMotionTouchProbe;
+    probe.observer.disconnect();
+    delete window.__pimmReducedMotionTouchProbe;
     return {
       active: root.activeModel,
-      frame: card.querySelector('[data-pimm-collection-frame]:not([hidden])')
+      committed: root.committedModel,
+      frame: probe.card.querySelector('[data-pimm-collection-frame]:not([hidden])')
         ?.dataset.pimmCollectionFrame,
-      observed,
-      cardTransition: getComputedStyle(card).transitionDuration,
+      observed: probe.observed,
+      cardTransition: getComputedStyle(probe.card).transitionDuration,
     };
   })()`);
   assert.equal(reduced.active, '50G');
+  assert.equal(reduced.committed, '50G');
   assert.equal(reduced.frame, 'front');
   assert.ok(reduced.observed.every((frame) => frame === 'front'));
   assert.equal(new Set(reduced.observed).size <= 1, true);
   assert.match(reduced.cardTransition, /(?:^|, )0s(?:,|$)/);
+  await diagnostics.assertClean('EN 390x844 reduced-motion real mobile touch');
   await session.send('Emulation.setEmulatedMedia', {
     features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
   });
 }
 
-async function lifecycleProbe(session) {
-  await navigate(session, previewUrl);
+async function lifecycleProbe(session, diagnostics) {
+  await navigate(session, previewUrl, diagnostics);
   const lifecycle = await evaluate(session, `(async () => {
     const root = document.querySelector('[data-pimm-collection-comparison]');
     root.querySelector('[data-pimm-collection-card][data-model="50G"]')
@@ -602,6 +887,7 @@ async function lifecycleProbe(session) {
   assert.deepEqual(lifecycle.reset, { active: '30G', committed: '30G' });
   assert.equal(lifecycle.activeAfterClick, '50G');
   assert.equal(lifecycle.committedAfterClick, '50G');
+  await diagnostics.assertClean('EN section reconnect lifecycle');
 }
 
 test('missing preview URL is an intentional PIMM collection browser-matrix skip', {
@@ -613,53 +899,63 @@ test('missing preview URL is an intentional PIMM collection browser-matrix skip'
 test('dedicated PIMM collection passes responsive, interaction, and localization acceptance', {
   skip: previewUrl ? false : 'PIMM_COLLECTION_PREVIEW_URL is not set',
   timeout: 240_000,
-}, async () => {
+}, async (context) => {
   await mkdir(evidenceDir, { recursive: true });
   const browser = await launchBrowser();
   const { session } = browser;
+  const diagnostics = createBrowserDiagnostics(session);
   try {
     await session.send('Page.enable');
     await session.send('Runtime.enable');
+    await session.send('Log.enable');
     await session.send('Page.bringToFront');
     for (const [language, url] of [['en', previewUrl], ['th', thaiUrlFrom(previewUrl)]]) {
+      await session.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+      });
+      await setViewport(session, viewports[0][0], viewports[0][1]);
+      await navigate(session, url, diagnostics);
+      await suppressCookieConsent(session);
+      await decodeCollectionImages(session);
       for (const [width, height] of viewports) {
-        await session.send('Emulation.setEmulatedMedia', {
-          features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
-        });
         await setViewport(session, width, height);
-        await navigate(session, url);
-        await suppressCookieConsent(session);
-        await decodeCollectionImages(session);
+        await evaluate(session, 'scrollTo(0, 0)');
         await assertGeometry(session, language, width, height);
         await captureFullPageScreenshot(
           session,
           join(evidenceDir, `${language}-${width}x${height}.png`),
         );
+        await diagnostics.assertClean(`${language} ${width}x${height} matrix`);
       }
+      // Let Chrome finish its preload-use window before replacing the document;
+      // otherwise navigating away early creates a false late warning on the next locale.
+      await delay(4_000);
+      await diagnostics.assertClean(`${language} settled preview diagnostics`);
+      await setViewport(session, 1280, 800);
+      if (language === 'th') {
+        const thaiLabels = await evaluate(session, `(() => ({
+          lang: document.documentElement.lang,
+          dossierLabels: [...document.querySelectorAll(
+            '.pimm-collection__dossier--desktop dt',
+          )].map((node) => node.textContent.trim()),
+        }))()`);
+        assert.match(thaiLabels.lang, /^th(?:-|$)/i);
+        assert.ok(thaiLabels.dossierLabels.length >= 7);
+        assert.ok(thaiLabels.dossierLabels.every((label) => /[\u0E00-\u0E7F]/.test(label)));
+      }
+      await interactionProbe(session, language);
+      await headerProbe(session, `${language} desktop`);
+      await diagnostics.assertClean(`${language} desktop interaction and header`);
     }
 
+    await mobileTouchProbe(session, diagnostics, 'en', previewUrl);
+    await mobileTouchProbe(session, diagnostics, 'th', thaiUrlFrom(previewUrl));
+
+    await reducedMotionProbe(session, diagnostics);
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: false });
     await setViewport(session, 1280, 800);
-    await navigate(session, previewUrl);
-    await suppressCookieConsent(session);
-    await interactionProbe(session, 'en');
-    await headerProbe(session, 'en');
-
-    await navigate(session, thaiUrlFrom(previewUrl));
-    await suppressCookieConsent(session);
-    const thaiLabels = await evaluate(session, `(() => ({
-      lang: document.documentElement.lang,
-      dossierLabels: [...document.querySelectorAll(
-        '.pimm-collection__dossier--desktop dt',
-      )].map((node) => node.textContent.trim()),
-    }))()`);
-    assert.match(thaiLabels.lang, /^th(?:-|$)/i);
-    assert.ok(thaiLabels.dossierLabels.length >= 7);
-    assert.ok(thaiLabels.dossierLabels.every((label) => /[\u0E00-\u0E7F]/.test(label)));
-    await interactionProbe(session, 'th');
-    await headerProbe(session, 'th');
-
-    await reducedMotionProbe(session);
-    await lifecycleProbe(session);
+    await lifecycleProbe(session, diagnostics);
+    context.diagnostic(`bounded navigation retries: ${diagnostics.navigationRetryCount}`);
   } finally {
     await browser.close();
   }
