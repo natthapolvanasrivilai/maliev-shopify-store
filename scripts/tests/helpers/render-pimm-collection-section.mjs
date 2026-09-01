@@ -25,16 +25,25 @@ const engine = new Liquid({
 engine.registerFilter('asset_url', (value) => `/assets/${value}`);
 engine.registerFilter('escape', escapeHtml);
 engine.registerFilter('json', (value) => JSON.stringify(value));
-engine.registerFilter('money_with_currency', (value) => `THB ${Number(value).toFixed(2)}`);
+engine.registerFilter(
+  'money_with_currency',
+  (value) => `<span class="money">THB ${Number(value).toFixed(2)}</span>`,
+);
+engine.registerFilter('strip_html', (value) => String(value).replace(/<[^>]*>/g, ''));
 engine.registerFilter('stylesheet_tag', (value) => `<link href="${escapeHtml(value)}" rel="stylesheet" type="text/css" media="all">`);
 engine.registerFilter('t', translate);
 
-export const renderPimmCollectionSection = async (pimmProduct) => {
+export const renderPimmCollectionSection = async (pimmProduct, context = {}) => {
   const source = (await readFile(sectionUrl, 'utf8')).replace(schemaBlock, '');
 
   return engine.parseAndRender(source, {
     canonical_url: 'https://shop.example.test/collections/pimm',
-    request: { origin: 'https://shop.example.test' },
+    product: context.product,
+    request: {
+      origin: 'https://shop.example.test',
+      page_type: context.pageType,
+      path: context.path,
+    },
     section: {
       id: 'contract-fixture',
       settings: {
@@ -44,6 +53,7 @@ export const renderPimmCollectionSection = async (pimmProduct) => {
       },
     },
     shop: { name: 'MALIEV' },
+    template: { suffix: context.templateSuffix },
   });
 };
 

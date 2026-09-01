@@ -2,6 +2,15 @@
 
 {%- liquid
   assign pimm_product = section.settings.pimm_product
+  if pimm_product == blank and request.page_type == 'product'
+    if request.path contains '/products_preview'
+      if template.suffix == 'pimm-collection-preview'
+        if product.handle == 'pimm-pneumatic-injection-molding-machine-development'
+          assign pimm_product = product
+        endif
+      endif
+    endif
+  endif
   assign model_30g = nil
   assign model_50g = nil
   assign model_30g_count = 0
@@ -363,7 +372,7 @@
               "id": {{ variant.id | json }},
               "model": {{ variant_model | json }},
               "url": {{ variant_url | json }},
-              "fullPrice": {{ variant_full_price | money_with_currency | json }},
+              "fullPrice": {{ variant_full_price | money_with_currency | strip_html | json }},
               "available": {{ variant.available | json }},
               "leadTime": {{ variant_lead_time | strip | json }},
               "specifications": {

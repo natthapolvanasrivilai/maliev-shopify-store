@@ -28,6 +28,7 @@ const specificationsFor = (model) => ({
 });
 
 const productFixture = () => ({
+  handle: 'pimm-pneumatic-injection-molding-machine-development',
   url: '/products/pimm',
   options: ['Model'],
   variants: ['30G', '50G'].map((model, index) => ({
@@ -64,6 +65,53 @@ test('alternate collection template contains only the dedicated PIMM comparison 
   });
 });
 
+test('preview-only product template contains only the dedicated PIMM comparison section', async () => {
+  const source = await readThemeFile('templates/product.pimm-collection-preview.json');
+  const template = JSON.parse(stripShopifyComment(source));
+
+  assert.deepEqual(template.order, ['main']);
+  assert.deepEqual(Object.keys(template.sections), ['main']);
+  assert.equal(template.sections.main.type, 'maliev-pimm-collection');
+  assert.deepEqual(template.sections.main.settings, {
+    pimm_product: '',
+    support_url: '',
+    factory_visit_url: '',
+  });
+});
+
+test('draft product fallback requires every preview-only guard and otherwise fails closed', async (context) => {
+  const { renderPimmCollectionSection } = await loadLiquidHarness();
+  const draftProduct = productFixture();
+  const validContext = {
+    product: draftProduct,
+    pageType: 'product',
+    path: '/products_preview',
+    templateSuffix: 'pimm-collection-preview',
+  };
+
+  const previewOutput = await renderPimmCollectionSection(null, validContext);
+  assert.match(previewOutput, /data-contract-valid="true"/);
+
+  const missingGuards = [
+    ['page type', { ...validContext, pageType: 'collection' }],
+    ['preview path', { ...validContext, path: '/products/pimm' }],
+    ['preview suffix', { ...validContext, templateSuffix: 'pimm-configurator' }],
+    ['canonical handle', {
+      ...validContext,
+      product: { ...draftProduct, handle: 'another-product' },
+    }],
+  ];
+
+  for (const [name, guardContext] of missingGuards) {
+    await context.test(name, async () => {
+      const output = await renderPimmCollectionSection(null, guardContext);
+      assert.match(output, /data-contract-valid="false"/);
+      assert.equal((output.match(/PIMM_CONFIGURATION_ERROR/g) ?? []).length, 1);
+      assert.doesNotMatch(output, /data-pimm-collection-models|type="application\/ld\+json"/);
+    });
+  }
+});
+
 test('section resolves the exact two-model commerce contract and fails closed', async () => {
   const section = await readThemeFile('sections/maliev-pimm-collection.liquid');
 
@@ -93,6 +141,8 @@ test('executable Liquid contract emits exactly the governed 30G and 50G model re
 
   assert.deepEqual(records.map(({ model }) => model), ['30G', '50G']);
   assert.deepEqual(records.map(({ id }) => id), [300, 301]);
+  assert.deepEqual(records.map(({ fullPrice }) => fullPrice), ['THB 120000.00', 'THB 170000.00']);
+  assert.ok(records.every(({ fullPrice }) => !/[<>]/.test(fullPrice)));
   assert.match(output, /<link href="\/assets\/maliev-pimm-collection\.css" rel="stylesheet" type="text\/css" media="all">/);
   assert.match(output, /data-contract-valid="true"/);
   assert.equal((output.match(/data-pimm-collection-card(?:\s|>)/g) ?? []).length, 2);
@@ -143,6 +193,7 @@ test('valid server fallback exposes semantic cards dossiers payload and canonica
   assert.match(section, /"model":/);
   assert.match(section, /"url":/);
   assert.match(section, /"fullPrice":/);
+  assert.match(section, /money_with_currency \| strip_html \| json/);
   assert.match(section, /"available":/);
   assert.match(section, /"leadTime":/);
   assert.match(section, /"specifications":\s*\{/);
@@ -243,15 +294,20 @@ test('collection comparison owns the precision stage and transparent header cont
 
   assert.match(header, /assign header_overlay_is_bright = false/);
   assert.match(header, /request\.page_type == 'collection'[\s\S]*template\.suffix == 'pimm-machines'[\s\S]*assign header_overlay_is_bright = true/);
+  assert.match(
+    header,
+    /request\.page_type == 'product'[\s\S]*request\.path contains '\/products_preview'[\s\S]*template\.suffix == 'pimm-collection-preview'[\s\S]*product\.handle == 'pimm-pneumatic-injection-molding-machine-development'[\s\S]*assign header_has_overlay = true[\s\S]*assign header_overlay_is_bright = true/,
+  );
   assert.match(header, /\{% if header_overlay_is_bright %\} is-overlay-bright\{% endif %\}/);
 
   const productOverlayBranch = header.match(/if request\.page_type == 'product'[\s\S]*?\n  endif/)?.[0] ?? '';
-  assert.doesNotMatch(productOverlayBranch, /header_overlay_is_bright/);
+  assert.match(productOverlayBranch, /header_overlay_is_bright/);
 
   const css = await readThemeFile('assets/maliev-pimm-collection.css');
   assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.9fr\)\s+minmax\(28rem,\s*1fr\)/);
   assert.match(css, /\.pimm-collection__cards\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /\.pimm-collection__dossier--desktop\s*\{[\s\S]*position:\s*sticky/);
+  assert.match(css, /\.pimm-collection \.pimm-collection__dossier h2\s*\{[\s\S]*color:\s*var\(--pimm-collection-surface\)[\s\S]*font-size:[^;]+!important/);
   assert.match(css, /@media[^{}]*max-width:\s*989px[\s\S]*\.pimm-collection__dossier--desktop\s*\{[\s\S]*position:\s*static/);
   assert.match(css, /@media[^{}]*max-width:\s*749px[\s\S]*\.pimm-collection__cards\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(css, /\.pimm-collection__card:is\(:hover,\s*:focus-within\)\s*\{[\s\S]*transform:\s*translateY\(-0\.6rem\)/);

@@ -311,13 +311,13 @@
   top: calc(var(--maliev-header-h, var(--maliev-header-height, 7rem)) + 2.4rem);
 }
 
-.pimm-collection__dossier h2 {
+.pimm-collection .pimm-collection__dossier h2 {
   color: var(--pimm-collection-surface);
   font-family: var(--maliev-font-sans);
-  font-size: clamp(4.8rem, 5vw, 7.2rem);
+  font-size: clamp(4.8rem, 5vw, 7.2rem) !important;
   font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 0.9;
+  letter-spacing: -0.035em !important;
+  line-height: 0.9 !important;
 }
 
 .pimm-collection__dossier-label {
