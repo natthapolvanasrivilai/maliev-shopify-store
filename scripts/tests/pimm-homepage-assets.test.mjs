@@ -9,9 +9,9 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r03');
+  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r04');
   assert.equal(manifest.renderer, 'scripts/blender/pimm_production/blender_homepage_alpha_render.py');
-  assert.equal(manifest.composition, '30G and 50G rendered together in one Blender scene at 45 degrees');
+  assert.equal(manifest.composition, 'Purpose-staged 30G and 50G pair renders from one Blender scene per placement');
   assert.equal(manifest.masters['30g'].sha256, '98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA');
   assert.equal(manifest.masters['50g'].sha256, 'CC26246CD01956B1145B1AA5744B968918F956B667B720205723E6B60A252D90');
   assert.ok(manifest.masters['30g'].foot_contact_spread_m <= 0.0002);
@@ -32,6 +32,11 @@ test('homepage PIMM media is derived from the two authoritative masters', async 
   }
   assert.deepEqual(manifest.assets.map(({ placement }) => placement).toSorted(), ['catalogue', 'hero-desktop', 'hero-mobile', 'navigation']);
   assert.equal(new Set(manifest.assets.map(({ filename }) => filename)).size, manifest.assets.length);
+  const compositions = Object.fromEntries(manifest.assets.map(({ placement, composition_id }) => [placement, composition_id]));
+  assert.equal(compositions['hero-desktop'], compositions['hero-mobile'], 'responsive hero crops may share one staged shot');
+  assert.notEqual(compositions.catalogue, compositions['hero-desktop'], 'catalogue must not reuse the hero composition');
+  assert.notEqual(compositions.navigation, compositions['hero-desktop'], 'navigation must not reuse the hero composition');
+  assert.notEqual(compositions.navigation, compositions.catalogue, 'navigation must not reuse the catalogue composition');
 });
 
 test('homepage placements use distinct purpose-rendered assets', async () => {
@@ -43,9 +48,9 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   ]);
   const active = `${template}\n${menu}`;
   for (const placement of ['hero-desktop', 'hero-mobile', 'catalogue', 'navigation']) {
-    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r03-${placement}-alpha\\.webp`));
+    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r04-${placement}-alpha\\.webp`));
   }
-  const matches = active.match(/maliev-homepage-pimm-20260901-r03-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
+  const matches = active.match(/maliev-homepage-pimm-20260901-r04-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
   assert.equal(matches.length, 4, 'each homepage location must reference exactly one unique asset');
   assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
   assert.doesNotMatch(hero, /mkey__hero-machines|mkey__hero-machine--30g|mkey__hero-machine--50g/);
@@ -54,7 +59,7 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   assert.match(catalogue, /mcat__card--pimm-lineup/);
 });
 
-test('homepage renderer stages both authoritative machines together at 45 degrees', async () => {
+test('homepage renderer gives each content location a purpose-specific staging contract', async () => {
   const renderer = await readFile(new URL('scripts/blender/pimm_production/blender_homepage_alpha_render.py', root), 'utf8');
   assert.match(renderer, /film_transparent = True/);
   assert.match(renderer, /is_shadow_catcher = True/);
@@ -64,9 +69,15 @@ test('homepage renderer stages both authoritative machines together at 45 degree
   assert.match(renderer, /obj\.name\.startswith\("PIMM50_MASTER_"\)/);
   assert.match(renderer, /APPEND_FOOT_TOLERANCE = 0\.001/);
   assert.match(renderer, /-bounds_min\[2\]/);
-  assert.match(renderer, /math\.radians\(45\.0\)/);
+  assert.match(renderer, /HERO_ROTATION_DEGREES = 45\.0/);
+  assert.match(renderer, /CATALOGUE_ROTATION_DEGREES = -32\.0/);
+  assert.match(renderer, /CATALOGUE_DEPTH_STAGGER_RATIO = 0\.14/);
+  assert.match(renderer, /CATALOGUE_PAIR_OVERLAP_RATIO = 0\.18/);
+  assert.match(renderer, /NAVIGATION_ROTATION_DEGREES = 18\.0/);
+  assert.match(renderer, /_place_pair_for_placement/);
+  assert.match(renderer, /"catalogue-stagger-minus32"/);
+  assert.match(renderer, /"navigation-compact-18"/);
   assert.match(renderer, /PAIR_GAP_RATIO = 0\.04/);
-  assert.match(renderer, /_place_pair_side_by_side/);
   assert.match(renderer, /_stage_collection_root/);
   assert.match(renderer, /_hide_master_working_scene/);
   assert.match(renderer, /_flatten_published_meshes/);
@@ -80,7 +91,7 @@ test('homepage renderer stages both authoritative machines together at 45 degree
   assert.match(renderer, /"hero-desktop": \(1800, 1200\)/);
   assert.match(renderer, /"hero-mobile": \(1200, 1500\)/);
   assert.match(renderer, /data\.type = "PERSP"/);
-  assert.match(renderer, /data\.lens = 85\.0/);
+  assert.match(renderer, /data\.lens = lens/);
   assert.match(renderer, /data\.shift_x = -0\.18 if placement == "hero-desktop" else 0\.0/);
   assert.match(renderer, /data\.clip_end = distance \* 2\.5/);
   assert.match(renderer, /scene\.view_settings\.exposure = 0\.35/);

@@ -1,8 +1,8 @@
-"""Render the authoritative 30G and 50G together for each homepage placement.
+"""Render purpose-staged 30G and 50G pairs for each homepage location.
 
-The opened 30G master and appended 50G master remain read-only. Both machines
-are staged in one physical Blender scene, rotated 45 degrees, grounded on the
-same z=0 plane, and photographed by one perspective camera per placement.
+The opened 30G master and appended 50G master remain read-only. Each content
+location receives a separate physical staging and camera contract so a crop of
+the hero can never silently become catalogue or navigation media.
 """
 
 from __future__ import annotations
@@ -29,17 +29,52 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r03"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r04"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
 PAIR_GAP_RATIO = 0.04
+HERO_ROTATION_DEGREES = 45.0
+CATALOGUE_ROTATION_DEGREES = -32.0
+CATALOGUE_DEPTH_STAGGER_RATIO = 0.14
+CATALOGUE_PAIR_OVERLAP_RATIO = 0.18
+NAVIGATION_ROTATION_DEGREES = 18.0
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
     "hero-mobile": (1200, 1500),
     "catalogue": (1086, 1448),
     "navigation": (900, 900),
 }
+STAGING = {
+    "hero-desktop": {
+        "composition_id": "hero-pair-45",
+        "rotation_degrees": HERO_ROTATION_DEGREES,
+        "reverse_order": False,
+        "depth_stagger_ratio": 0.0,
+    },
+    "hero-mobile": {
+        "composition_id": "hero-pair-45",
+        "rotation_degrees": HERO_ROTATION_DEGREES,
+        "reverse_order": False,
+        "depth_stagger_ratio": 0.0,
+    },
+    "catalogue": {
+        "composition_id": "catalogue-stagger-minus32",
+        "rotation_degrees": CATALOGUE_ROTATION_DEGREES,
+        "reverse_order": True,
+        "depth_stagger_ratio": CATALOGUE_DEPTH_STAGGER_RATIO,
+        "pair_gap_ratio": -CATALOGUE_PAIR_OVERLAP_RATIO,
+    },
+    "navigation": {
+        "composition_id": "navigation-compact-18",
+        "rotation_degrees": NAVIGATION_ROTATION_DEGREES,
+        "reverse_order": False,
+        "depth_stagger_ratio": -0.08,
+        "pair_gap_ratio": 0.02,
+    },
+}
+for _hero_placement in ("hero-desktop", "hero-mobile"):
+    STAGING[_hero_placement]["pair_gap_ratio"] = PAIR_GAP_RATIO
 
 
 def _arguments(argv: Sequence[str]) -> argparse.Namespace:
@@ -143,14 +178,16 @@ def _instance_bounds(meshes: Sequence[Any], root: Any) -> tuple[tuple[float, flo
     )
 
 
-def _stage_machine(meshes: Sequence[Any], root: Any, target_x: float, target_y: float) -> None:
+def _stage_machine(
+    meshes: Sequence[Any], root: Any, target_x: float, target_y: float, rotation_degrees: float
+) -> None:
     from mathutils import Matrix
 
     bounds_min, bounds_max = _instance_bounds(meshes, root)
     center_x = (bounds_min[0] + bounds_max[0]) / 2
     center_y = (bounds_min[1] + bounds_max[1]) / 2
     pivot = Matrix.Translation((center_x, center_y, 0.0))
-    rotation = Matrix.Rotation(math.radians(45.0), 4, "Z")
+    rotation = Matrix.Rotation(math.radians(rotation_degrees), 4, "Z")
     placement = Matrix.Translation((target_x - center_x, target_y - center_y, -bounds_min[2]))
     transform = placement @ pivot @ rotation @ pivot.inverted()
     root.matrix_world = transform @ root.matrix_world
@@ -162,23 +199,32 @@ def _translate_machine(root: Any, x: float, y: float = 0.0) -> None:
     root.matrix_world = Matrix.Translation((x, y, 0.0)) @ root.matrix_world
 
 
-def _place_pair_side_by_side(
+def _place_pair_for_placement(
     bpy: Any,
+    placement: str,
     primary_meshes: Sequence[Any],
     primary_root: Any,
     secondary_meshes: Sequence[Any],
     secondary_root: Any,
 ) -> None:
-    _stage_machine(primary_meshes, primary_root, 0.0, 0.0)
-    _stage_machine(secondary_meshes, secondary_root, 0.0, 0.0)
+    staging = STAGING[placement]
+    rotation_degrees = float(staging["rotation_degrees"])
+    _stage_machine(primary_meshes, primary_root, 0.0, 0.0, rotation_degrees)
+    _stage_machine(secondary_meshes, secondary_root, 0.0, 0.0, rotation_degrees)
     bpy.context.view_layer.update()
     primary_min, primary_max = _instance_bounds(primary_meshes, primary_root)
     secondary_min, secondary_max = _instance_bounds(secondary_meshes, secondary_root)
     primary_width = primary_max[0] - primary_min[0]
     secondary_width = secondary_max[0] - secondary_min[0]
-    gap = (primary_width + secondary_width) * PAIR_GAP_RATIO
-    _translate_machine(primary_root, -gap / 2.0 - primary_max[0])
-    _translate_machine(secondary_root, gap / 2.0 - secondary_min[0])
+    gap = (primary_width + secondary_width) * float(staging["pair_gap_ratio"])
+    max_depth = max(primary_max[1] - primary_min[1], secondary_max[1] - secondary_min[1])
+    depth_stagger = max_depth * float(staging["depth_stagger_ratio"])
+    if staging["reverse_order"]:
+        _translate_machine(secondary_root, -gap / 2.0 - secondary_max[0], depth_stagger)
+        _translate_machine(primary_root, gap / 2.0 - primary_min[0], -depth_stagger)
+    else:
+        _translate_machine(primary_root, -gap / 2.0 - primary_max[0], depth_stagger)
+        _translate_machine(secondary_root, gap / 2.0 - secondary_min[0], -depth_stagger)
     bpy.context.view_layer.update()
 
 
@@ -193,7 +239,7 @@ def _placement_camera(
     width = bounds_max[0] - bounds_min[0]
     height = bounds_max[2] - bounds_min[2]
     aspect = dimensions[0] / dimensions[1]
-    lens = 85.0
+    lens = 72.0 if placement == "catalogue" else 80.0 if placement == "navigation" else 85.0
     horizontal_fov = 2.0 * math.atan(36.0 / (2.0 * lens))
     vertical_fov = 2.0 * math.atan((36.0 / aspect) / (2.0 * lens))
     distance = max(
@@ -203,12 +249,12 @@ def _placement_camera(
     target = (
         (bounds_min[0] + bounds_max[0]) / 2,
         (bounds_min[1] + bounds_max[1]) / 2,
-        bounds_min[2] + height * 0.49,
+        bounds_min[2] + height * (0.46 if placement == "catalogue" else 0.49),
     )
 
     data = bpy.data.cameras.new(f"CAM_HOMEPAGE_{placement.upper()}")
     data.type = "PERSP"
-    data.lens = 85.0
+    data.lens = lens
     data.shift_x = -0.18 if placement == "hero-desktop" else 0.0
     data.sensor_width = 36.0
     data.sensor_fit = "HORIZONTAL"
@@ -219,7 +265,8 @@ def _placement_camera(
     data.dof.aperture_blades = 11
     camera = bpy.data.objects.new(data.name, data)
     collection.objects.link(camera)
-    camera.location = (target[0], target[1] - distance, target[2] + height * 0.04)
+    camera_height = 0.13 if placement == "catalogue" else 0.075 if placement == "navigation" else 0.04
+    camera.location = (target[0], target[1] - distance, target[2] + height * camera_height)
     _look_at(camera, target)
 
     focus = bpy.data.objects.new(f"{data.name}_FOCUS", None)
@@ -242,29 +289,31 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
         bpy, secondary_source_meshes, "PIMM_50G_HOMEPAGE"
     )
     _hide_master_working_scene(bpy)
-    runtime = _runtime_collection(bpy)
-    primary_root = _stage_collection_root(bpy, runtime, primary_collection, "PIMM_30G_HOMEPAGE_STAGE")
-    secondary_root = _stage_collection_root(bpy, runtime, secondary_collection, "PIMM_50G_HOMEPAGE_STAGE")
-    _place_pair_side_by_side(bpy, primary_meshes, primary_root, secondary_meshes, secondary_root)
-    primary_min, primary_max = _instance_bounds(primary_meshes, primary_root)
-    secondary_min, secondary_max = _instance_bounds(secondary_meshes, secondary_root)
-    bounds_min = tuple(min(primary_min[axis], secondary_min[axis]) for axis in range(3))
-    bounds_max = tuple(max(primary_max[axis], secondary_max[axis]) for axis in range(3))
-    if abs(bounds_min[2]) > FOOT_TOLERANCE:
-        raise ValueError(f"paired machines do not meet the shared z=0 plane: {bounds_min[2]}")
-
-    _install_studio(bpy, runtime, bounds_min, bounds_max)
-    cyclorama = bpy.data.objects.get("PIMM_WHITE_CYCLORAMA")
-    if cyclorama is None:
-        raise ValueError("runtime studio did not create its physical ground surface")
-    cyclorama.is_shadow_catcher = True
-
     output_dir = arguments.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     selected = tuple(arguments.placement or PLACEMENTS)
     outputs = []
     scene = bpy.context.scene
     for placement in selected:
+        runtime = _runtime_collection(bpy)
+        primary_root = _stage_collection_root(bpy, runtime, primary_collection, "PIMM_30G_HOMEPAGE_STAGE")
+        secondary_root = _stage_collection_root(bpy, runtime, secondary_collection, "PIMM_50G_HOMEPAGE_STAGE")
+        _place_pair_for_placement(
+            bpy, placement, primary_meshes, primary_root, secondary_meshes, secondary_root
+        )
+        primary_min, primary_max = _instance_bounds(primary_meshes, primary_root)
+        secondary_min, secondary_max = _instance_bounds(secondary_meshes, secondary_root)
+        bounds_min = tuple(min(primary_min[axis], secondary_min[axis]) for axis in range(3))
+        bounds_max = tuple(max(primary_max[axis], secondary_max[axis]) for axis in range(3))
+        if abs(bounds_min[2]) > FOOT_TOLERANCE:
+            raise ValueError(f"paired machines do not meet the shared z=0 plane: {bounds_min[2]}")
+
+        _install_studio(bpy, runtime, bounds_min, bounds_max)
+        cyclorama = next((obj for obj in runtime.objects if obj.name.startswith("PIMM_WHITE_CYCLORAMA")), None)
+        if cyclorama is None:
+            raise ValueError("runtime studio did not create its physical ground surface")
+        cyclorama.is_shadow_catcher = True
+
         native_dimensions = PLACEMENTS[placement]
         dimensions = tuple(max(1, round(value * arguments.scale)) for value in native_dimensions)
         camera = _placement_camera(bpy, runtime, placement, dimensions, bounds_min, bounds_max)
@@ -285,13 +334,13 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
             "width": dimensions[0],
             "height": dimensions[1],
             "sha256": sha256_file(output),
+            "composition_id": STAGING[placement]["composition_id"],
         })
-        bpy.data.objects.remove(camera, do_unlink=True)
 
     return {
         "schema": "maliev.homepage-pimm-pair-render/v1",
         "release_id": RELEASE_ID,
-        "composition": "30G and 50G rendered together in one Blender scene at 45 degrees",
+        "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",
         "masters": {"30g": primary_provenance, "50g": secondary_provenance},
         "outputs": outputs,
     }

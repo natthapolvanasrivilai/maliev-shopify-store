@@ -10,12 +10,18 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r03"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r04"
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
     "hero-mobile": (1200, 1500),
     "catalogue": (1086, 1448),
     "navigation": (900, 900),
+}
+COMPOSITION_IDS = {
+    "hero-desktop": "hero-pair-45",
+    "hero-mobile": "hero-pair-45",
+    "catalogue": "catalogue-stagger-minus32",
+    "navigation": "navigation-compact-18",
 }
 MASTER_RECORDS = {
     "30g": {
@@ -85,6 +91,7 @@ def main() -> int:
             "height": dimensions[1],
             "alpha": True,
             "placement": placement,
+            "composition_id": COMPOSITION_IDS[placement],
             "alpha_bbox": _bounds_record(image),
         })
 
@@ -93,7 +100,7 @@ def main() -> int:
         "release_id": RELEASE_ID,
         "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
         "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
-        "composition": "30G and 50G rendered together in one Blender scene at 45 degrees",
+        "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",
         "masters": MASTER_RECORDS,
         "assets": records,
     }
