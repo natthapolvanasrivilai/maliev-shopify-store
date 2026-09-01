@@ -1,0 +1,470 @@
+.pimm-collection {
+  --pimm-collection-accent: #0879c9;
+  --pimm-collection-canvas: #eef1f4;
+  --pimm-collection-ink: #111315;
+  --pimm-collection-muted: #4d555e;
+  --pimm-collection-rule: #cbd2d9;
+  --pimm-collection-surface: #ffffff;
+  --pimm-collection-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--pimm-collection-canvas);
+  color: var(--pimm-collection-ink);
+  display: block;
+  min-height: 100svh;
+  min-width: 0;
+  overflow: clip;
+  width: 100%;
+}
+
+.pimm-collection,
+.pimm-collection *,
+.pimm-collection *::before,
+.pimm-collection *::after {
+  box-sizing: border-box;
+}
+
+.pimm-collection :where(a, button) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pimm-collection :where(a, button, [tabindex]):focus-visible {
+  outline: 0.3rem solid var(--maliev-focus, #ffd21c);
+  outline-offset: 0.3rem;
+}
+
+.pimm-collection__shell {
+  margin-inline: auto;
+  max-width: 168rem;
+  min-width: 0;
+  padding:
+    calc(var(--maliev-header-h, var(--maliev-header-height, 7rem)) + clamp(4.8rem, 7vw, 9.6rem))
+    clamp(2rem, 3.6vw, 6.4rem)
+    clamp(7.2rem, 10vw, 14rem);
+  width: 100%;
+}
+
+.pimm-collection__introduction {
+  display: grid;
+  gap: 1.6rem;
+  margin-bottom: clamp(3.2rem, 5vw, 7.2rem);
+  max-width: 78rem;
+  min-width: 0;
+}
+
+.pimm-collection__introduction h1,
+.pimm-collection__introduction p,
+.pimm-collection__card-copy h2,
+.pimm-collection__card-copy p,
+.pimm-collection__dossier h2,
+.pimm-collection__dossier p,
+.pimm-collection__dossier dl,
+.pimm-collection__card-facts {
+  margin: 0;
+}
+
+.pimm-collection__introduction h1 {
+  font-family: var(--maliev-font-sans);
+  font-size: clamp(4rem, 5.4vw, 7.6rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+
+.pimm-collection__introduction p {
+  color: var(--pimm-collection-muted);
+  font-size: clamp(1.7rem, 1.35vw, 2rem);
+  line-height: 1.55;
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.pimm-collection__configuration-error {
+  background: var(--pimm-collection-surface);
+  border-top: 0.1rem solid var(--maliev-danger, #b42318);
+  color: var(--pimm-collection-ink);
+  margin: 0;
+  max-width: 72rem;
+  padding: 2.4rem 0;
+}
+
+.pimm-collection__comparison-layout {
+  align-items: start;
+  display: grid;
+  gap: clamp(2.4rem, 3vw, 4.8rem);
+  grid-template-columns: minmax(0, 1.9fr) minmax(28rem, 1fr);
+  min-width: 0;
+}
+
+.pimm-collection__stage,
+.pimm-collection__cards,
+.pimm-collection__card,
+.pimm-collection__media,
+.pimm-collection__card-copy,
+.pimm-collection__inline-dossiers,
+.pimm-collection__dossier {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.pimm-collection__cards {
+  align-items: stretch;
+  display: grid;
+  gap: clamp(1.6rem, 2vw, 3.2rem);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pimm-collection__card {
+  background: var(--pimm-collection-surface);
+  border: 0.1rem solid transparent;
+  border-radius: var(--maliev-radius-card);
+  display: grid;
+  grid-template-areas:
+    'media'
+    'copy';
+  grid-template-rows: auto 1fr;
+  transition:
+    border-color 280ms var(--pimm-collection-ease),
+    box-shadow 280ms var(--pimm-collection-ease),
+    transform 280ms var(--pimm-collection-ease);
+}
+
+.pimm-collection__card.is-active,
+.pimm-collection__card[aria-current='true'] {
+  border-color: var(--pimm-collection-accent);
+}
+
+.pimm-collection__card:is(:hover, :focus-within) {
+  border-color: color-mix(in srgb, var(--pimm-collection-accent) 55%, transparent);
+  box-shadow: 0 1.8rem 4.8rem rgba(17, 19, 21, 0.14);
+  transform: translateY(-0.6rem);
+}
+
+.pimm-collection__media {
+  aspect-ratio: 3 / 4;
+  background: #e8ecef;
+  border-radius: var(--maliev-radius-card) var(--maliev-radius-card) 0 0;
+  grid-area: media;
+  overflow: hidden;
+  position: relative;
+}
+
+.pimm-collection__frame {
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 180ms var(--pimm-collection-ease);
+}
+
+.pimm-collection__frame.is-active {
+  opacity: 1;
+}
+
+.pimm-collection__frame[hidden] {
+  display: none !important;
+}
+
+.pimm-collection__frame img {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+}
+
+.pimm-collection__card-copy {
+  align-content: start;
+  display: grid;
+  gap: 1.6rem;
+  grid-area: copy;
+  padding: clamp(2rem, 2.4vw, 3.2rem);
+}
+
+.pimm-collection__model-designation,
+.pimm-collection__dossier-label {
+  color: var(--pimm-collection-muted);
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.pimm-collection__card-copy h2 {
+  font-family: var(--maliev-font-sans);
+  font-size: clamp(3.6rem, 4vw, 5.8rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.pimm-collection__card-copy > p:not(.pimm-collection__model-designation) {
+  color: var(--pimm-collection-muted);
+  line-height: 1.5;
+  max-width: 42ch;
+  text-wrap: pretty;
+}
+
+.pimm-collection__card-copy strong {
+  color: var(--pimm-collection-ink);
+  font-weight: 600;
+}
+
+.pimm-collection__card-facts {
+  border-top: 0.1rem solid var(--pimm-collection-rule);
+  display: grid;
+  margin-top: 0.4rem;
+}
+
+.pimm-collection__card-facts > div {
+  align-items: start;
+  border-bottom: 0.1rem solid var(--pimm-collection-rule);
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: minmax(8.8rem, 0.8fr) minmax(0, 1.2fr);
+  padding-block: 1.2rem;
+}
+
+.pimm-collection__card-facts dt,
+.pimm-collection__dossier dt {
+  color: var(--pimm-collection-muted);
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+
+.pimm-collection__card-facts dd,
+.pimm-collection__dossier dd {
+  color: var(--pimm-collection-ink);
+  font-family: var(--maliev-font-mono);
+  font-size: 1.3rem;
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pimm-collection__card-actions,
+.pimm-collection__dossier-actions {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.pimm-collection__card-actions {
+  align-self: end;
+  padding-top: 0.8rem;
+}
+
+.pimm-collection__card-actions :is(a, button),
+.pimm-collection__dossier-actions a,
+.pimm-collection__dossier > a[data-pimm-dossier-configure] {
+  align-items: center;
+  appearance: none;
+  background: var(--pimm-collection-ink);
+  border: 0.1rem solid var(--pimm-collection-ink);
+  border-radius: var(--maliev-radius-control);
+  color: var(--pimm-collection-surface);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 500;
+  justify-content: center;
+  line-height: 1.25;
+  min-height: 4.4rem;
+  padding: 1rem 1.5rem;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 180ms var(--pimm-collection-ease),
+    border-color 180ms var(--pimm-collection-ease),
+    color 180ms var(--pimm-collection-ease);
+}
+
+.pimm-collection__card-actions button,
+.pimm-collection__dossier-actions a:not([data-pimm-dossier-configure]) {
+  background: transparent;
+  border-color: var(--pimm-collection-rule);
+  color: var(--pimm-collection-ink);
+}
+
+.pimm-collection__card-actions :is(a, button):hover,
+.pimm-collection__dossier-actions a:hover,
+.pimm-collection__dossier > a[data-pimm-dossier-configure]:hover {
+  background: var(--pimm-collection-accent);
+  border-color: var(--pimm-collection-accent);
+  color: var(--pimm-collection-surface);
+}
+
+.pimm-collection__dossier {
+  background: var(--pimm-collection-ink);
+  border-radius: var(--maliev-radius-panel);
+  color: var(--pimm-collection-surface);
+  display: grid;
+  gap: 1.8rem;
+  padding: clamp(2.4rem, 2.8vw, 4rem);
+}
+
+.pimm-collection__dossier--desktop {
+  max-height: calc(100svh - var(--maliev-header-h, var(--maliev-header-height, 7rem)) - 4.8rem);
+  overflow-y: auto;
+  position: sticky;
+  top: calc(var(--maliev-header-h, var(--maliev-header-height, 7rem)) + 2.4rem);
+}
+
+.pimm-collection__dossier h2 {
+  color: var(--pimm-collection-surface);
+  font-family: var(--maliev-font-sans);
+  font-size: clamp(4.8rem, 5vw, 7.2rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+}
+
+.pimm-collection__dossier-label {
+  color: var(--maliev-rule);
+}
+
+.pimm-collection__dossier > p:not(.pimm-collection__dossier-label) {
+  color: #e4e8eb;
+  line-height: 1.5;
+  max-width: 40ch;
+  text-wrap: pretty;
+}
+
+.pimm-collection__dossier dl {
+  border-top: 0.1rem solid #40464d;
+  display: grid;
+}
+
+.pimm-collection__dossier dl > div {
+  align-items: start;
+  border-bottom: 0.1rem solid #40464d;
+  display: grid;
+  gap: 1.6rem;
+  grid-template-columns: minmax(10rem, 0.9fr) minmax(0, 1.1fr);
+  padding-block: 1.2rem;
+}
+
+.pimm-collection__dossier dt {
+  color: var(--maliev-rule);
+}
+
+.pimm-collection__dossier dd,
+.pimm-collection__dossier-value {
+  color: var(--pimm-collection-surface);
+  transition: opacity 180ms var(--pimm-collection-ease);
+}
+
+.pimm-collection__dossier-actions a,
+.pimm-collection__dossier > a[data-pimm-dossier-configure] {
+  background: var(--pimm-collection-surface);
+  border-color: var(--pimm-collection-surface);
+  color: var(--pimm-collection-ink);
+}
+
+.pimm-collection__inline-dossiers {
+  display: none;
+  margin-top: 2.4rem;
+}
+
+.pimm-collection__dossier--inline:not(.is-active) {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .pimm-collection__comparison-layout {
+    gap: 2.4rem;
+  }
+
+  .pimm-collection__card-copy {
+    padding: 2rem;
+  }
+
+  .pimm-collection__card-facts > div,
+  .pimm-collection__dossier dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+  }
+}
+
+@media (max-width: 989px) {
+  .pimm-collection__shell {
+    padding-top: calc(var(--maliev-header-h, var(--maliev-header-height, 6.4rem)) + clamp(4rem, 8vw, 7.2rem));
+  }
+
+  .pimm-collection__comparison-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pimm-collection__dossier--desktop {
+    display: none;
+    max-height: none;
+    overflow-y: visible;
+    position: static;
+  }
+
+  .pimm-collection__inline-dossiers {
+    display: grid;
+  }
+
+  .pimm-collection__dossier--inline {
+    position: static;
+  }
+}
+
+@media (max-width: 749px) {
+  .pimm-collection__shell {
+    padding-inline: 2rem;
+    padding-bottom: 7.2rem;
+  }
+
+  .pimm-collection__introduction {
+    margin-bottom: 3.2rem;
+  }
+
+  .pimm-collection__introduction h1 {
+    font-size: clamp(3.6rem, 12vw, 5.2rem);
+    line-height: 1;
+  }
+
+  .pimm-collection__cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pimm-collection__card:is(:hover, :focus-within) {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .pimm-collection__card-actions,
+  .pimm-collection__dossier-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pimm-collection__card-actions :is(a, button),
+  .pimm-collection__dossier-actions a,
+  .pimm-collection__dossier > a[data-pimm-dossier-configure] {
+    width: 100%;
+  }
+
+  .pimm-collection__dossier {
+    padding: 2.4rem 2rem;
+  }
+
+  .pimm-collection__dossier dl > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pimm-collection__card,
+  .pimm-collection__frame,
+  .pimm-collection__dossier-value {
+    transition: none !important;
+  }
+
+  .pimm-collection__card:is(:hover, :focus-within) {
+    transform: none;
+  }
+}

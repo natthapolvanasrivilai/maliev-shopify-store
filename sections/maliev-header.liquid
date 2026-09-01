@@ -24,6 +24,9 @@
       assign header_has_overlay = true
     endif
   endif
+  if request.page_type == 'collection' and template.suffix == 'pimm-machines'
+    assign header_has_overlay = true
+  endif
   if customer == blank
     assign account_url = routes.account_login_url
   endif

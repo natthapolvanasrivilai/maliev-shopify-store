@@ -93,6 +93,7 @@ test('executable Liquid contract emits exactly the governed 30G and 50G model re
 
   assert.deepEqual(records.map(({ model }) => model), ['30G', '50G']);
   assert.deepEqual(records.map(({ id }) => id), [300, 301]);
+  assert.match(output, /<link href="\/assets\/maliev-pimm-collection\.css" rel="stylesheet" type="text\/css" media="all">/);
   assert.match(output, /data-contract-valid="true"/);
   assert.equal((output.match(/data-pimm-collection-card(?:\s|>)/g) ?? []).length, 2);
   assert.equal((output.match(/type="application\/ld\+json"/g) ?? []).length, 1);
@@ -218,4 +219,27 @@ test('section schema exposes only the canonical product and optional support des
   assert.deepEqual(schema.settings.map((setting) => setting.id), ['pimm_product', 'support_url', 'factory_visit_url']);
   assert.equal(schema.settings[0].type, 'product');
   assert.deepEqual(schema.settings.slice(1).map((setting) => setting.type), ['url', 'url']);
+});
+
+test('collection comparison owns the precision stage and transparent header contract', async () => {
+  const [section, header] = await Promise.all([
+    readThemeFile('sections/maliev-pimm-collection.liquid'),
+    readThemeFile('sections/maliev-header.liquid'),
+  ]);
+
+  assert.match(section, /\{\{ 'maliev-pimm-collection\.css' \| asset_url \| stylesheet_tag \}\}/);
+  assert.match(header, /request\.page_type == 'collection'[\s\S]*template\.suffix == 'pimm-machines'[\s\S]*assign header_has_overlay = true/);
+
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.9fr\)\s+minmax\(28rem,\s*1fr\)/);
+  assert.match(css, /\.pimm-collection__cards\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.pimm-collection__dossier--desktop\s*\{[\s\S]*position:\s*sticky/);
+  assert.match(css, /@media[^{}]*max-width:\s*989px[\s\S]*\.pimm-collection__dossier--desktop\s*\{[\s\S]*position:\s*static/);
+  assert.match(css, /@media[^{}]*max-width:\s*749px[\s\S]*\.pimm-collection__cards\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.pimm-collection__card:is\(:hover,\s*:focus-within\)\s*\{[\s\S]*transform:\s*translateY\(-0\.6rem\)/);
+  assert.match(css, /\.pimm-collection__card-actions\s+:is\(a,\s*button\)[\s\S]*min-height:\s*4\.4rem/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(css, /\.pimm-collection__card,[\s\S]*\.pimm-collection__frame,[\s\S]*\.pimm-collection__dossier-value[\s\S]*transition:\s*none !important/);
+  assert.doesNotMatch(css, /overflow-x:\s*(?:scroll|auto)/);
+  assert.doesNotMatch(css, /\.pimm-collection__frame\s+img[^{}]*\{[^}]*transform\s*:/);
 });

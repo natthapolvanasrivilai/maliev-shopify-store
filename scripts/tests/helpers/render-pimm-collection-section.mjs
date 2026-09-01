@@ -26,6 +26,7 @@ engine.registerFilter('asset_url', (value) => `/assets/${value}`);
 engine.registerFilter('escape', escapeHtml);
 engine.registerFilter('json', (value) => JSON.stringify(value));
 engine.registerFilter('money_with_currency', (value) => `THB ${Number(value).toFixed(2)}`);
+engine.registerFilter('stylesheet_tag', (value) => `<link href="${escapeHtml(value)}" rel="stylesheet" type="text/css" media="all">`);
 engine.registerFilter('t', translate);
 
 export const renderPimmCollectionSection = async (pimmProduct) => {
