@@ -67,8 +67,10 @@ test('hero introduction has a deliberate display hierarchy and reading measure',
 
 test('engineering summary uses a responsive technical ledger instead of equal cards', () => {
   assert.match(hero, /<aside class="pimm-machine__specifications"[\s\S]*?<h2[^>]*>[\s\S]*?<dl>[\s\S]*?<dt>[\s\S]*?<dd>/);
-  assert.match(css, /\.pimm-machine__specifications dd\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
-  assert.match(css, /@media \(max-width:\s*1299px\)[\s\S]*?\.pimm-machine__specifications\s*\{[^}]*border-block:[^}]*grid-template-columns:\s*minmax\(18rem, \.6fr\) minmax\(0, 1\.4fr\)[^}]*padding-block:/s);
+  assert.match(css, /\.pimm-machine__specifications\s*\{[^}]*background:\s*var\(--pimm-ink\)[^}]*border-radius:\s*1\.4rem[^}]*padding:\s*clamp\(2\.8rem, 3vw, 4\.8rem\)/s);
+  assert.match(css, /\.pimm-machine \.pimm-machine__specifications h2\s*\{[^}]*color:\s*#fff[^}]*font-size:\s*clamp\(3\.2rem, 2\.8vw, 4\.2rem\)/s);
+  assert.match(css, /\.pimm-machine__specifications dd\s*\{[^}]*color:\s*#fff[^}]*font-size:\s*clamp\(2\.2rem, 2vw, 3rem\)[^}]*font-variant-numeric:\s*tabular-nums/s);
+  assert.match(css, /@media \(max-width:\s*1299px\)[\s\S]*?\.pimm-machine__specifications\s*\{[^}]*grid-template-columns:\s*minmax\(20rem, \.55fr\) minmax\(0, 1\.45fr\)/s);
   assert.match(css, /@media \(max-width:\s*1299px\)[\s\S]*?\.pimm-machine__specifications dl\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*?\.pimm-machine__specifications\s*\{[^}]*grid-template-columns:\s*1fr/s);
   assert.match(css, /@media \(max-width:\s*479px\)[\s\S]*?\.pimm-machine__specifications dl\s*\{[^}]*grid-template-columns:\s*1fr/s);
