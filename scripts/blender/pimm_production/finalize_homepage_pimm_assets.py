@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r09"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r10"
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
     "hero-mobile": (1200, 1500),
@@ -20,7 +20,7 @@ PLACEMENTS = {
 COMPOSITION_IDS = {
     "hero-desktop": "hero-pair-left-minus45",
     "hero-mobile": "hero-pair-left-minus45",
-    "catalogue": "catalogue-copy-safe-left-minus30",
+    "catalogue": "catalogue-copy-safe-46-left-minus30",
     "navigation": "navigation-compact-18",
 }
 MASTER_RECORDS = {

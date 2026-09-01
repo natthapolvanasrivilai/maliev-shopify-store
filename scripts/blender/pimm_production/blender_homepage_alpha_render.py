@@ -29,7 +29,7 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r09"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r10"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
@@ -38,10 +38,10 @@ HERO_ROTATION_DEGREES = -45.0
 CATALOGUE_ROTATION_DEGREES = -30.0
 CATALOGUE_DEPTH_STAGGER_RATIO = 0.0
 CATALOGUE_PAIR_GAP_RATIO = 0.08
-CATALOGUE_COPY_SAFE_RATIO = 0.36
-CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 1.32
+CATALOGUE_COPY_SAFE_RATIO = 0.46
+CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 1.60
 CATALOGUE_CAMERA_SHIFT_X = 0.02
-CATALOGUE_CAMERA_SHIFT_Y = 0.16
+CATALOGUE_CAMERA_SHIFT_Y = CATALOGUE_COPY_SAFE_RATIO - 0.20
 NAVIGATION_ROTATION_DEGREES = 18.0
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
@@ -63,7 +63,7 @@ STAGING = {
         "depth_stagger_ratio": 0.0,
     },
     "catalogue": {
-        "composition_id": "catalogue-copy-safe-left-minus30",
+        "composition_id": "catalogue-copy-safe-46-left-minus30",
         "rotation_degrees": CATALOGUE_ROTATION_DEGREES,
         "reverse_order": True,
         "depth_stagger_ratio": CATALOGUE_DEPTH_STAGGER_RATIO,

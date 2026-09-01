@@ -124,6 +124,10 @@ body main .mcat .mcat__title {
   transform-origin: center bottom;
 }
 
+.mcat__card--pimm-lineup::after {
+  background: linear-gradient(180deg, rgba(247, 248, 249, .99) 0%, rgba(247, 248, 249, .96) 30%, rgba(247, 248, 249, .42) 40%, transparent 48%);
+}
+
 .mcat__copy {
   padding: clamp(2rem, 2.2vw, 2.8rem);
   position: relative;
