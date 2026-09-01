@@ -65,6 +65,15 @@ test('hero introduction has a deliberate display hierarchy and reading measure',
   assert.match(css, /\.pimm-machine \.pimm-machine__model-selector[^}]*margin-top:\s*clamp\(3\.2rem, 4vw, 4\.8rem\)/s);
 });
 
+test('engineering summary uses a responsive technical ledger instead of equal cards', () => {
+  assert.match(hero, /<aside class="pimm-machine__specifications"[\s\S]*?<h2[^>]*>[\s\S]*?<dl>[\s\S]*?<dt>[\s\S]*?<dd>/);
+  assert.match(css, /\.pimm-machine__specifications dd\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
+  assert.match(css, /@media \(max-width:\s*1299px\)[\s\S]*?\.pimm-machine__specifications\s*\{[^}]*border-block:[^}]*grid-template-columns:\s*minmax\(18rem, \.6fr\) minmax\(0, 1\.4fr\)[^}]*padding-block:/s);
+  assert.match(css, /@media \(max-width:\s*1299px\)[\s\S]*?\.pimm-machine__specifications dl\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*?\.pimm-machine__specifications\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  assert.match(css, /@media \(max-width:\s*479px\)[\s\S]*?\.pimm-machine__specifications dl\s*\{[^}]*grid-template-columns:\s*1fr/s);
+});
+
 test('capacity selector and every engineering chapter expose deliberate type roles', () => {
   assert.equal(selector.match(/class="pimm-machine__model-name"/g)?.length, 1);
   assert.equal(selector.match(/class="pimm-machine__model-price"/g)?.length, 1);
