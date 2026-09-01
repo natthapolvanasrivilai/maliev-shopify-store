@@ -414,7 +414,7 @@
   }
 
   .template-index .mkey--hero-overlay .mkey__hero-bg {
-    top: var(--maliev-header-h, 7.3rem);
+    top: 0;
   }
 
   .template-index .mkey--hero-overlay .mkey__frame {

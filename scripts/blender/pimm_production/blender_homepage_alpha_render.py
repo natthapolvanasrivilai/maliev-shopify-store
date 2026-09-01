@@ -29,19 +29,19 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r07"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r08"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
 PAIR_GAP_RATIO = 0.04
-HERO_ROTATION_DEGREES = 45.0
-CATALOGUE_ROTATION_DEGREES = -32.0
-CATALOGUE_DEPTH_STAGGER_RATIO = 0.14
-CATALOGUE_PAIR_GAP_RATIO = 0.04
+HERO_ROTATION_DEGREES = -45.0
+CATALOGUE_ROTATION_DEGREES = -30.0
+CATALOGUE_DEPTH_STAGGER_RATIO = 0.0
+CATALOGUE_PAIR_GAP_RATIO = 0.08
 CATALOGUE_COPY_SAFE_RATIO = 0.36
-CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 1.30
+CATALOGUE_CAMERA_DISTANCE_MULTIPLIER = 1.32
 CATALOGUE_CAMERA_SHIFT_X = 0.02
-CATALOGUE_CAMERA_SHIFT_Y = 0.20
+CATALOGUE_CAMERA_SHIFT_Y = 0.16
 NAVIGATION_ROTATION_DEGREES = 18.0
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
@@ -51,19 +51,19 @@ PLACEMENTS = {
 }
 STAGING = {
     "hero-desktop": {
-        "composition_id": "hero-pair-45",
+        "composition_id": "hero-pair-left-minus45",
         "rotation_degrees": HERO_ROTATION_DEGREES,
         "reverse_order": False,
         "depth_stagger_ratio": 0.0,
     },
     "hero-mobile": {
-        "composition_id": "hero-pair-45",
+        "composition_id": "hero-pair-left-minus45",
         "rotation_degrees": HERO_ROTATION_DEGREES,
         "reverse_order": False,
         "depth_stagger_ratio": 0.0,
     },
     "catalogue": {
-        "composition_id": "catalogue-copy-safe-minus32",
+        "composition_id": "catalogue-copy-safe-left-minus30",
         "rotation_degrees": CATALOGUE_ROTATION_DEGREES,
         "reverse_order": True,
         "depth_stagger_ratio": CATALOGUE_DEPTH_STAGGER_RATIO,
@@ -249,7 +249,7 @@ def _placement_camera(
     framing_multiplier = (
         CATALOGUE_CAMERA_DISTANCE_MULTIPLIER
         if placement == "catalogue"
-        else 1.10
+        else 1.18
         if placement == "hero-desktop"
         else 1.06
     )
@@ -273,7 +273,13 @@ def _placement_camera(
         if placement == "catalogue"
         else 0.0
     )
-    data.shift_y = CATALOGUE_CAMERA_SHIFT_Y if placement == "catalogue" else 0.0
+    data.shift_y = (
+        CATALOGUE_CAMERA_SHIFT_Y
+        if placement == "catalogue"
+        else -0.02
+        if placement == "hero-desktop"
+        else 0.0
+    )
     data.sensor_width = 36.0
     data.sensor_fit = "HORIZONTAL"
     data.clip_start = 0.1
@@ -293,6 +299,26 @@ def _placement_camera(
     data.dof.focus_object = focus
     bpy.context.scene.camera = camera
     return camera
+
+
+def _tune_homepage_studio(runtime: Any, extent: float) -> None:
+    """Create broad physical penumbrae without editing the rendered alpha."""
+    lights = {obj.name: obj.data for obj in runtime.objects if obj.type == "LIGHT"}
+    key = lights.get("KEY_SOFTBOX")
+    if key is not None:
+        key.energy = 82.0
+        key.size = extent * 2.6
+        key.size_y = extent * 3.4
+    fill = lights.get("FILL_SOFTBOX")
+    if fill is not None:
+        fill.energy = 52.0
+        fill.size = extent * 2.8
+        fill.size_y = extent * 3.8
+    overhead = lights.get("OVERHEAD_SCRIM")
+    if overhead is not None:
+        overhead.energy = 28.0
+        overhead.size = extent * 3.4
+        overhead.size_y = extent * 4.4
 
 
 def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
@@ -327,6 +353,12 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
             raise ValueError(f"paired machines do not meet the shared z=0 plane: {bounds_min[2]}")
 
         _install_studio(bpy, runtime, bounds_min, bounds_max)
+        extent = max(
+            bounds_max[0] - bounds_min[0],
+            bounds_max[1] - bounds_min[1],
+            bounds_max[2] - bounds_min[2],
+        )
+        _tune_homepage_studio(runtime, extent)
         cyclorama = next((obj for obj in runtime.objects if obj.name.startswith("PIMM_WHITE_CYCLORAMA")), None)
         if cyclorama is None:
             raise ValueError("runtime studio did not create its physical ground surface")
@@ -341,6 +373,7 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
         _configure_render(bpy, dimensions[0], dimensions[1], arguments.samples, output)
         scene.render.film_transparent = True
         scene.render.image_settings.color_mode = "RGBA"
+        scene.render.image_settings.color_depth = "16"
         scene.view_settings.exposure = 0.35
         scene.compositing_node_group = None
         bpy.ops.render.render(write_still=True)

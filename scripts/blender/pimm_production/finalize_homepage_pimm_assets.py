@@ -10,15 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r07"
-GROUND_SHADOW_MAX_ALPHA = 254
-GROUND_SHADOW_FULL_WEIGHT_ALPHA = 220
-GROUND_SHADOW_OPACITY = 0.14
-GROUND_SHADOW_START_RATIO = 0.80
-GROUND_SHADOW_END_RATIO = 0.985
-GROUND_SHADOW_EDGE_RATIO = 0.06
-GROUND_SHADOW_LEFT_OUTSET_RATIO = 0.08
-GROUND_SHADOW_RIGHT_OUTSET_RATIO = 0.05
+RELEASE_ID = "maliev-homepage-pimm-20260901-r08"
 PLACEMENTS = {
     "hero-desktop": (1800, 1200),
     "hero-mobile": (1200, 1500),
@@ -26,9 +18,9 @@ PLACEMENTS = {
     "navigation": (900, 900),
 }
 COMPOSITION_IDS = {
-    "hero-desktop": "hero-pair-45",
-    "hero-mobile": "hero-pair-45",
-    "catalogue": "catalogue-copy-safe-minus32",
+    "hero-desktop": "hero-pair-left-minus45",
+    "hero-mobile": "hero-pair-left-minus45",
+    "catalogue": "catalogue-copy-safe-left-minus30",
     "navigation": "navigation-compact-18",
 }
 MASTER_RECORDS = {
@@ -71,52 +63,6 @@ def _bounds_record(image: Image.Image) -> dict[str, object]:
     }
 
 
-def _smoothstep(value: float) -> float:
-    value = max(0.0, min(1.0, value))
-    return value * value * (3.0 - 2.0 * value)
-
-
-def _soften_ground_shadow(image: Image.Image, placement: str) -> Image.Image:
-    """Keep contact shadows while feathering the broad catcher before frame edges."""
-    if not placement.startswith("hero-"):
-        alpha = image.getchannel("A").point(lambda value: 0 if value < 64 else value)
-        image.putalpha(alpha)
-        return image
-
-    softened = image.copy()
-    pixels = softened.load()
-    width, height = softened.size
-    subject_bbox = softened.getchannel("A").point(
-        lambda value: 255 if value >= GROUND_SHADOW_MAX_ALPHA else 0
-    ).getbbox()
-    if subject_bbox is None:
-        raise ValueError(f"{placement} render has no opaque machine subject")
-    subject_left, _subject_top, subject_right, _subject_bottom = subject_bbox
-    start_y = round(height * GROUND_SHADOW_START_RATIO)
-    end_y = round(height * GROUND_SHADOW_END_RATIO)
-    edge_width = max(1, round(width * GROUND_SHADOW_EDGE_RATIO))
-    shadow_left = max(0, subject_left - round(width * GROUND_SHADOW_LEFT_OUTSET_RATIO))
-    shadow_right = min(width - 1, subject_right + round(width * GROUND_SHADOW_RIGHT_OUTSET_RATIO))
-    fade_height = max(1, end_y - start_y)
-    weight_range = max(1, GROUND_SHADOW_MAX_ALPHA - GROUND_SHADOW_FULL_WEIGHT_ALPHA)
-
-    for y in range(start_y, height):
-        vertical_fade = 1.0 - _smoothstep((y - start_y) / fade_height)
-        for x in range(width):
-            red, green, blue, alpha = pixels[x, y]
-            if alpha == 0 or alpha >= GROUND_SHADOW_MAX_ALPHA:
-                continue
-            shadow_weight = _smoothstep((GROUND_SHADOW_MAX_ALPHA - alpha) / weight_range)
-            edge_fade = min(
-                _smoothstep((x - shadow_left) / edge_width),
-                _smoothstep((shadow_right - x) / edge_width),
-            )
-            retained = (1.0 - shadow_weight) + shadow_weight * GROUND_SHADOW_OPACITY * vertical_fade * edge_fade
-            new_alpha = round(alpha * retained)
-            pixels[x, y] = (red, green, blue, new_alpha if new_alpha >= 3 else 0)
-    return softened
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--render-dir", type=Path, required=True)
@@ -132,7 +78,6 @@ def main() -> int:
             image = opened.convert("RGBA")
         if image.size != dimensions:
             raise ValueError(f"unexpected Blender render dimensions for {placement}: {image.size}")
-        image = _soften_ground_shadow(image, placement)
         output = arguments.asset_dir / f"{RELEASE_ID}-{placement}-alpha.webp"
         image.save(output, format="WEBP", lossless=True, method=6)
         with Image.open(output) as check:
@@ -153,12 +98,7 @@ def main() -> int:
         "schema_version": 1,
         "release_id": RELEASE_ID,
         "source_render_release_id": arguments.source_release_id,
-        "hero_ground_shadow": {
-            "broad_opacity": GROUND_SHADOW_OPACITY,
-            "max_alpha": GROUND_SHADOW_MAX_ALPHA,
-            "full_weight_alpha": GROUND_SHADOW_FULL_WEIGHT_ALPHA,
-            "start_ratio": GROUND_SHADOW_START_RATIO,
-        },
+        "shadow_source": "Blender Cycles shadow catcher; no post-render alpha edits",
         "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
         "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
         "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",

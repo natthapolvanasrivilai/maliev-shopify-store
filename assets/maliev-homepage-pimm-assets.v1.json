@@ -1,13 +1,8 @@
 {
   "schema_version": 1,
-  "release_id": "maliev-homepage-pimm-20260901-r07",
-  "source_render_release_id": "maliev-homepage-pimm-20260901-r06",
-  "hero_ground_shadow": {
-    "broad_opacity": 0.14,
-    "max_alpha": 254,
-    "full_weight_alpha": 220,
-    "start_ratio": 0.8
-  },
+  "release_id": "maliev-homepage-pimm-20260901-r08",
+  "source_render_release_id": "maliev-homepage-pimm-20260901-r08",
+  "shadow_source": "Blender Cycles shadow catcher; no post-render alpha edits",
   "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
   "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
   "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",
@@ -25,71 +20,71 @@
   },
   "assets": [
     {
-      "filename": "maliev-homepage-pimm-20260901-r07-hero-desktop-alpha.webp",
-      "sha256": "36B380C0BE2EDC8659E9959724E8419773851B46437728A00996B21525664A20",
+      "filename": "maliev-homepage-pimm-20260901-r08-hero-desktop-alpha.webp",
+      "sha256": "81E35D32502C6F2FEDFF812745390FBB63361C04DA28C16D58F151C1F433591A",
       "width": 1800,
       "height": 1200,
       "alpha": true,
       "placement": "hero-desktop",
-      "composition_id": "hero-pair-45",
+      "composition_id": "hero-pair-left-minus45",
       "alpha_bbox": {
         "pixels": [
-          730,
-          34,
-          1712,
-          1170
+          727,
+          40,
+          1736,
+          1140
         ],
-        "top_ratio": 0.02833,
-        "bottom_ratio": 0.025,
-        "left_ratio": 0.40556,
-        "right_ratio": 0.04889
+        "top_ratio": 0.03333,
+        "bottom_ratio": 0.05,
+        "left_ratio": 0.40389,
+        "right_ratio": 0.03556
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r07-hero-mobile-alpha.webp",
-      "sha256": "7944D745DD98E6D4FE4CEBCB8D9148DD62ED3E5293957880203A5989C6A1FF56",
+      "filename": "maliev-homepage-pimm-20260901-r08-hero-mobile-alpha.webp",
+      "sha256": "250A435E0632538D3A4015814FE0747FBD3C930B9A97F174D59114CCC114519A",
       "width": 1200,
       "height": 1500,
       "alpha": true,
       "placement": "hero-mobile",
-      "composition_id": "hero-pair-45",
+      "composition_id": "hero-pair-left-minus45",
       "alpha_bbox": {
         "pixels": [
-          31,
-          89,
-          1166,
-          1431
+          47,
+          156,
+          1176,
+          1467
         ],
-        "top_ratio": 0.05933,
-        "bottom_ratio": 0.046,
-        "left_ratio": 0.02583,
-        "right_ratio": 0.02833
+        "top_ratio": 0.104,
+        "bottom_ratio": 0.022,
+        "left_ratio": 0.03917,
+        "right_ratio": 0.02
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r07-catalogue-alpha.webp",
-      "sha256": "DEB4ECCEDF6F29F15EFE9D743855D8D6F4F7FDF90D1A5CE4F0FD59AE11B297D5",
+      "filename": "maliev-homepage-pimm-20260901-r08-catalogue-alpha.webp",
+      "sha256": "2FC5B9927EFCB3D339D808AAE192D8C6D334CEB1A7C2BF95D31085D4AD35016F",
       "width": 1086,
       "height": 1448,
       "alpha": true,
       "placement": "catalogue",
-      "composition_id": "catalogue-copy-safe-minus32",
+      "composition_id": "catalogue-copy-safe-left-minus30",
       "alpha_bbox": {
         "pixels": [
-          119,
-          493,
-          945,
-          1448
+          115,
+          465,
+          928,
+          1360
         ],
-        "top_ratio": 0.34047,
-        "bottom_ratio": 0.0,
-        "left_ratio": 0.10958,
-        "right_ratio": 0.12983
+        "top_ratio": 0.32113,
+        "bottom_ratio": 0.06077,
+        "left_ratio": 0.10589,
+        "right_ratio": 0.14549
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r07-navigation-alpha.webp",
-      "sha256": "133FE31FFB419E9F65361D3514C6DACFFC153A7FC141682D0E7393F000E296ED",
+      "filename": "maliev-homepage-pimm-20260901-r08-navigation-alpha.webp",
+      "sha256": "6030C429CA2DCB82C43789C3D5CBEEFB08AC81A4CA1D12F3A5CFF163D7522CEC",
       "width": 900,
       "height": 900,
       "alpha": true,
@@ -97,14 +92,14 @@
       "composition_id": "navigation-compact-18",
       "alpha_bbox": {
         "pixels": [
-          45,
+          46,
           9,
           838,
           900
         ],
         "top_ratio": 0.01,
         "bottom_ratio": 0.0,
-        "left_ratio": 0.05,
+        "left_ratio": 0.05111,
         "right_ratio": 0.06889
       }
     }
