@@ -29,7 +29,7 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r01"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r02"
 RESULT_MARKER = "MALIEV_HOMEPAGE_ALPHA_RENDER_JSON="
 FRAME_HEIGHT_M = 1014.5
 FRAME_WIDTH = 1200

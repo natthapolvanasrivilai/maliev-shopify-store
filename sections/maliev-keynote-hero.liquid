@@ -4,10 +4,10 @@
 {%- liquid
   assign homepage_30g_asset = section.settings.asset_name_30g
   assign homepage_50g_asset = section.settings.asset_name_50g
-  if homepage_30g_asset == blank and section.settings.asset_name contains 'maliev-homepage-pimm'
+  if homepage_30g_asset == blank and section.settings.asset_name contains '-30g-alpha'
     assign homepage_30g_asset = section.settings.asset_name
   endif
-  if homepage_50g_asset == blank and section.settings.mobile_asset_name contains 'maliev-homepage-pimm'
+  if homepage_50g_asset == blank and section.settings.mobile_asset_name contains '-50g-alpha'
     assign homepage_50g_asset = section.settings.mobile_asset_name
   endif
 -%}
@@ -35,7 +35,7 @@
         {%- if section.settings.image != blank -%}
           <img src="{{ section.settings.image | image_url: width: 2600 }}" alt="" width="2600" height="1463" fetchpriority="high">
         {%- elsif section.settings.asset_name != blank -%}
-          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="2200" fetchpriority="high">
+          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="1200" fetchpriority="high">
         {%- elsif section.settings.image_url != blank -%}
           <img src="{{ section.settings.image_url }}" alt="" width="2592" height="1458" fetchpriority="high">
         {%- endif -%}

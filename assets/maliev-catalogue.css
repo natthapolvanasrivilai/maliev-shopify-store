@@ -118,7 +118,7 @@ body main .mcat .mcat__title {
 }
 
 .mcat__card--pimm-lineup .mcat__media img {
-  object-fit: contain;
+  object-fit: cover;
   object-position: center bottom;
   transform: scale(1.035);
   transform-origin: center bottom;

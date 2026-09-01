@@ -28,8 +28,8 @@ test('unified template declares governed model story sets and no retired media s
   assert.equal(template.sections.main.type, 'maliev-pimm-machine-product');
   const blocks = template.sections.main.blocks;
   assert.deepEqual(template.sections.main.block_order, ['model_30g', 'model_50g']);
-  assert.equal(blocks.model_30g.settings.story_asset_set, 'pimm-master-20260831-r04-30g');
-  assert.equal(blocks.model_50g.settings.story_asset_set, 'pimm-master-20260831-r04-50g');
+  assert.equal(blocks.model_30g.settings.story_asset_set, 'pimm-master-20260901-r05-30g');
+  assert.equal(blocks.model_50g.settings.story_asset_set, 'pimm-master-20260901-r05-50g');
   for (const block of Object.values(blocks)) {
     for (const retired of ['hero_asset', 'overview_asset', 'engineering_asset', 'tooling_asset']) {
       assert.equal(Object.hasOwn(block.settings, retired), false);
@@ -89,12 +89,12 @@ test('capacity selector and every engineering chapter expose deliberate type rol
 
 test('model stories use only their authoritative production families', () => {
   for (const model of ['30g', '50g']) {
-    for (const role of ['hero', 'three-quarter', 'controls', 'tooling']) {
-      assert.match([hero, model === '30g' ? story30G : story50G].join('\n'), new RegExp(`pimm-master-20260831-r04-${model}-${role}\\.webp`));
+    for (const role of ['hero', 'overview', 'controls', 'tooling', 'configuration']) {
+      assert.match([hero, model === '30g' ? story30G : story50G].join('\n'), new RegExp(`pimm-master-20260901-r05-${model}-${role}\\.webp`));
     }
   }
-  assert.doesNotMatch(story30G, /pimm-master-20260831-r04-50g/);
-  assert.doesNotMatch(story50G, /pimm-master-20260831-r04-30g/);
+  assert.doesNotMatch(story30G, /pimm-master-20260901-r05-50g/);
+  assert.doesNotMatch(story50G, /pimm-master-20260901-r05-30g/);
   assert.doesNotMatch(renderedContract, /(?:(?:pimm30-|pimm50-|pimm-(?:machine|editorial)-|maliev-pimm-)[^'"\s)]+\.(?:png|webp|webm|mp4))/i);
 });
 
@@ -103,7 +103,7 @@ test('full-machine views use physical ground contact without CSS compensation', 
   assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-full-machine/g)?.length, 4);
   assert.equal([hero, story30G, story50G].join('\n').match(/data-pimm-physical-ground-contact/g)?.length, 4);
   assert.doesNotMatch([hero, story30G, story50G, css].join('\n'), /data-pimm-stage-baseline|pimm-ground-line-offset|translate[XY]?\(/);
-  assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*object-fit:\s*contain/s);
+  assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*object-fit:\s*cover/s);
   assert.match(css, /\[data-pimm-full-machine\][^{]*img[^}]*transform:\s*none/s);
   assert.match(desktopCss, /\.pimm-story__chapter--configuration \.pimm-story__media\s*\{[^}]*aspect-ratio:\s*5 \/ 6[^}]*min-height:\s*0/s);
   assert.match(desktopCss, /\.pimm-story__chapter--configuration \.pimm-story__media img\s*\{[^}]*height:\s*100%[^}]*max-height:\s*none/s);
@@ -127,13 +127,13 @@ test('normal-scroll responsive CSS contains no legacy slide or editorial cascade
 });
 
 test('model records bind exact story sets and fail closed on identity drift', () => {
-  assert.match(section, /assign expected_variant_story_asset_set = 'pimm-master-20260831-r04-30g'/);
-  assert.match(section, /assign expected_variant_story_asset_set = 'pimm-master-20260831-r04-50g'/);
+  assert.match(section, /assign expected_variant_story_asset_set = 'pimm-master-20260901-r05-30g'/);
+  assert.match(section, /assign expected_variant_story_asset_set = 'pimm-master-20260901-r05-50g'/);
   assert.match(section, /if variant_story_binding_valid and variant_specifications != blank/);
   assert.match(section, /"storyAssetSet":\s*\{\{ variant_story_asset_set \| json \}\}/);
   assert.match(js, /variant\.storyAssetSet === expectedStoryAssetSet/);
-  assert.match(js, /variant\?\.model === '30G'[\s\S]*?'pimm-master-20260831-r04-30g'/);
-  assert.match(js, /variant\?\.model === '50G'[\s\S]*?'pimm-master-20260831-r04-50g'/);
+  assert.match(js, /variant\?\.model === '30G'[\s\S]*?'pimm-master-20260901-r05-30g'/);
+  assert.match(js, /variant\?\.model === '50G'[\s\S]*?'pimm-master-20260901-r05-50g'/);
   assert.match(js, /showOnlyStory\(contractValid \? variant\.model : ''\)/);
 });
 

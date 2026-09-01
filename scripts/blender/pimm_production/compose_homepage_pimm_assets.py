@@ -1,4 +1,4 @@
-"""Finalize transparent PIMM homepage renders and build the catalogue lineup."""
+"""Build unique, tightly art-directed homepage composites from master renders."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r01"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r02"
 MASTER_RECORDS = {
     "30g": {
         "filename": "PIMM-30G-MASTER.blend",
@@ -34,7 +34,7 @@ def sha256_file(path: Path) -> str:
 
 
 def _alpha_bbox(image: Image.Image) -> tuple[int, int, int, int]:
-    bbox = image.getchannel("A").getbbox()
+    bbox = image.getchannel("A").point(lambda value: 255 if value >= 64 else 0).getbbox()
     if bbox is None:
         raise ValueError("render has no visible alpha content")
     if bbox[3] < int(image.height * 0.70):
@@ -42,7 +42,18 @@ def _alpha_bbox(image: Image.Image) -> tuple[int, int, int, int]:
     return bbox
 
 
-def _save_webp(image: Image.Image, output: Path) -> dict[str, object]:
+def _bounds_record(image: Image.Image) -> dict[str, object]:
+    left, top, right, bottom = _alpha_bbox(image)
+    return {
+        "pixels": [left, top, right, bottom],
+        "top_ratio": round(top / image.height, 5),
+        "bottom_ratio": round((image.height - bottom) / image.height, 5),
+        "left_ratio": round(left / image.width, 5),
+        "right_ratio": round((image.width - right) / image.width, 5),
+    }
+
+
+def _save_webp(image: Image.Image, output: Path, placement: str) -> dict[str, object]:
     image.save(output, format="WEBP", lossless=True, method=6)
     with Image.open(output) as check:
         if check.mode != "RGBA" or check.getchannel("A").getextrema() != (0, 255):
@@ -54,7 +65,34 @@ def _save_webp(image: Image.Image, output: Path) -> dict[str, object]:
         "width": width,
         "height": height,
         "alpha": True,
+        "placement": placement,
+        "alpha_bbox": _bounds_record(image),
     }
+
+
+def _visible(image: Image.Image) -> Image.Image:
+    return image.crop(_alpha_bbox(image))
+
+
+def _sanitize_alpha(image: Image.Image) -> Image.Image:
+    clean = image.copy()
+    alpha = clean.getchannel("A").point(lambda value: 0 if value < 64 else value)
+    clean.putalpha(alpha)
+    return clean
+
+
+def _composite_pair(sources: dict[str, Image.Image], size: tuple[int, int], height_ratio: float, centers: tuple[float, float]) -> Image.Image:
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    visible = {model: _visible(image) for model, image in sources.items()}
+    target_height = round(size[1] * height_ratio)
+    baseline = size[1] - round(size[1] * 0.015)
+    for model, center_ratio in zip(("30g", "50g"), centers, strict=True):
+        image = visible[model]
+        scale = target_height / image.height
+        resized = image.resize((round(image.width * scale), target_height), Image.Resampling.LANCZOS)
+        x = round(size[0] * center_ratio - resized.width / 2)
+        canvas.alpha_composite(resized, (x, baseline - resized.height))
+    return canvas
 
 
 def main() -> int:
@@ -69,32 +107,20 @@ def main() -> int:
     for model in ("30g", "50g"):
         source = arguments.render_dir / f"{RELEASE_ID}-{model}-alpha.png"
         with Image.open(source) as opened:
-            image = opened.convert("RGBA")
+            image = _sanitize_alpha(opened.convert("RGBA"))
         if image.size != (1200, 1500):
             raise ValueError(f"unexpected shared render frame for {model}: {image.size}")
         _alpha_bbox(image)
         sources[model] = image
-        output = arguments.asset_dir / f"{RELEASE_ID}-{model}-alpha.webp"
-        records.append(_save_webp(image, output))
-
-    bboxes = {model: _alpha_bbox(image) for model, image in sources.items()}
-    tallest = max(bbox[3] - bbox[1] for bbox in bboxes.values())
-    scale = 930 / tallest
-    lineup = Image.new("RGBA", (1086, 1448), (0, 0, 0, 0))
-    baseline = 1420
-    centers = {"30g": 318, "50g": 770}
-    for model in ("30g", "50g"):
-        image = sources[model]
-        resized = image.resize((round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS)
-        bbox = resized.getchannel("A").getbbox()
-        if bbox is None:
-            raise ValueError(f"resized {model} render lost alpha")
-        x = round(centers[model] - (bbox[0] + bbox[2]) / 2)
-        y = baseline - bbox[3]
-        lineup.alpha_composite(resized, (x, y))
-
-    lineup_output = arguments.asset_dir / f"{RELEASE_ID}-lineup-alpha.webp"
-    records.append(_save_webp(lineup, lineup_output))
+    compositions = {
+        "hero-desktop": _composite_pair(sources, (1800, 1200), 0.96, (0.58, 0.84)),
+        "hero-mobile": _composite_pair(sources, (1200, 1500), 0.96, (0.34, 0.72)),
+        "catalogue": _composite_pair(sources, (1086, 1448), 0.96, (0.30, 0.72)),
+        "navigation": _composite_pair(sources, (900, 900), 0.96, (0.18, 0.77)),
+    }
+    for placement, image in compositions.items():
+        output = arguments.asset_dir / f"{RELEASE_ID}-{placement}-alpha.webp"
+        records.append(_save_webp(image, output, placement))
     manifest = {
         "schema_version": 1,
         "release_id": RELEASE_ID,

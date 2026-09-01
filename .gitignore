@@ -4,6 +4,7 @@
 .shopify/
 .worktrees/
 /.codex-tmp/
+/.render-output/
 node_modules/
 npm-debug.log*
 theme-check-results.json

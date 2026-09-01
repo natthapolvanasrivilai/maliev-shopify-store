@@ -290,9 +290,9 @@ test('unified PIMM preview passes selected-story responsive and grounding accept
           assert.ok(probe.status.length > 0, `${language} ${width}x${height} ${model} status`);
           for (const machine of probe.fullMachines) {
             assert.equal(machine.physicalGroundContact, true, `${language} ${width}x${height} ${model} ${machine.source} physical contact marker`);
-            assert.match(machine.source, /^pimm-master-20260831-r04-(?:30g|50g)-(?:hero|three-quarter)\.webp$/, `${language} ${width}x${height} ${model} source`);
+            assert.match(machine.source, /^pimm-master-20260901-r05-(?:30g|50g)-(?:hero|configuration)\.webp$/, `${language} ${width}x${height} ${model} source`);
             assert.equal(machine.transform, 'none', `${language} ${width}x${height} ${model} ${machine.source} transform`);
-            assert.equal(machine.objectFit, 'contain', `${language} ${width}x${height} ${model} ${machine.source} object fit`);
+            assert.equal(machine.objectFit, 'cover', `${language} ${width}x${height} ${model} ${machine.source} object fit`);
             assert.ok(machine.imageHeight >= machine.stageHeight * .5, `${language} ${width}x${height} ${model} ${machine.source} is undersized`);
           }
           await captureScreenshot(session, join(evidenceDir, `${language}-${width}x${height}-${model.toLowerCase()}.png`));

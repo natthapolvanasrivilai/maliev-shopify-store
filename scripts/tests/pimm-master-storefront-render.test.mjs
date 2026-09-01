@@ -14,8 +14,8 @@ test('master storefront renderer accepts only the two authoritative machine mast
 });
 
 test('master storefront renderer creates a new isolated release family', () => {
-  assert.match(renderer, /RELEASE_ID = "pimm-master-20260831-r04"/);
-  assert.match(renderer, /SHOT_NAMES = \("hero", "three-quarter", "controls", "tooling"\)/);
+  assert.match(renderer, /RELEASE_ID = "pimm-master-20260901-r05"/);
+  assert.match(renderer, /SHOT_NAMES = \("hero", "overview", "controls", "tooling", "configuration"\)/);
   assert.doesNotMatch(renderer, /pimm30-v\d|light-studio|red-stage|editorial-concepts|pimm-machine-/i);
 });
 

@@ -5,8 +5,8 @@ import test from 'node:test';
 
 const rootUrl = new URL('../../', import.meta.url);
 const assetsUrl = new URL('../../assets/', import.meta.url);
-const release = 'pimm-master-20260831-r04';
-const roles = ['controls', 'hero', 'three-quarter', 'tooling'];
+const release = 'pimm-master-20260901-r05';
+const roles = ['configuration', 'controls', 'hero', 'overview', 'tooling'];
 const expectedMedia = ['30g', '50g'].flatMap((model) => roles.flatMap((role) => [
   `${release}-${model}-${role}.png`,
   `${release}-${model}-${role}.webp`,
@@ -30,7 +30,7 @@ test('manifest locks every native render and storefront derivative to exact hash
   assert.equal(manifest.masters['50g'].foot_count, 4);
   assert.ok(manifest.masters['30g'].foot_contact_spread_m <= 0.0002);
   assert.ok(manifest.masters['50g'].foot_contact_spread_m <= 0.0002);
-  assert.equal(manifest.assets.length, 8);
+  assert.equal(manifest.assets.length, 10);
 
   const declared = [];
   for (const asset of manifest.assets) {
@@ -45,7 +45,7 @@ test('manifest locks every native render and storefront derivative to exact hash
   assert.deepEqual(declared.toSorted(), expectedMedia.toSorted());
 });
 
-test('active configurator references all and only release WebP assets', async () => {
+test('active configurator gives every media placement its own release WebP asset', async () => {
   const paths = [
     'sections/maliev-pimm-machine-product.liquid',
     'snippets/pimm-hero-console.liquid',
@@ -55,8 +55,10 @@ test('active configurator references all and only release WebP assets', async ()
     'assets/maliev-pimm-machine.js',
   ];
   const source = (await Promise.all(paths.map((path) => readFile(new URL(path, rootUrl), 'utf8')))).join('\n');
-  const referenced = [...new Set(source.match(new RegExp(`${release}-(?:30g|50g)-(?:controls|hero|three-quarter|tooling)\\.webp`, 'g')))].sort();
+  const matches = source.match(new RegExp(`${release}-(?:30g|50g)-(?:configuration|controls|hero|overview|tooling)\\.webp`, 'g')) ?? [];
+  const referenced = [...new Set(matches)].sort();
   const expectedWebp = expectedMedia.filter((name) => name.endsWith('.webp')).sort();
   assert.deepEqual(referenced, expectedWebp);
+  assert.equal(matches.length, expectedWebp.length, 'a rendered asset must not be reused by two placements');
   assert.doesNotMatch(source, /(?:(?:pimm30-|pimm50-|pimm-(?:machine|editorial)-|maliev-pimm-)[^'"\s)]+\.(?:png|webp|webm|mp4))/i);
 });

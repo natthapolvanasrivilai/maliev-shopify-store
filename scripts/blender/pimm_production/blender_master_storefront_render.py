@@ -17,7 +17,7 @@ import sys
 from typing import Any, Sequence
 
 
-RELEASE_ID = "pimm-master-20260831-r04"
+RELEASE_ID = "pimm-master-20260901-r05"
 RESULT_MARKER = "PIMM_MASTER_STOREFRONT_RENDER_JSON="
 HDRI_PATH = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\assets\hdri\studio_kontrast_04_4k.exr"
@@ -29,7 +29,7 @@ EXPECTED_MASTER_NAMES = {
 }
 EXPECTED_OBJECT_COUNT = 556
 FOOT_TOLERANCE = 0.0002
-SHOT_NAMES = ("hero", "three-quarter", "controls", "tooling")
+SHOT_NAMES = ("hero", "overview", "controls", "tooling", "configuration")
 
 
 def sha256_file(path: Path) -> str:
@@ -325,19 +325,23 @@ def _shot_camera(
     if shot == "hero":
         aspect = (resolution, int(resolution * 1.2))
         target_z, lens, fstop = height * 0.50, 95.0, 11.0
-        camera_offset = (0.0, -2.90, -0.03)
-    elif shot == "three-quarter":
+        camera_offset = (0.0, -2.88, -0.03)
+    elif shot == "overview":
         aspect = (resolution, int(resolution * 0.82))
         target_z, lens, fstop = height * 0.50, 85.0, 11.0
-        camera_offset = (-0.96, -3.35, 0.08)
+        camera_offset = (-0.62, -2.25, 0.04)
     elif shot == "controls":
         aspect = (resolution, int(resolution * 0.78))
         target_z, lens, fstop = height * 0.70, 105.0, 8.0
         camera_offset = (-0.20, -1.40, 0.06)
-    else:
+    elif shot == "tooling":
         aspect = (resolution, int(resolution * 0.78))
         target_z, lens, fstop = height * 0.36, 105.0, 8.0
         camera_offset = (0.0, -1.42, 0.04)
+    else:
+        aspect = (resolution, int(resolution * 1.2))
+        target_z, lens, fstop = height * 0.48, 90.0, 11.0
+        camera_offset = (0.24, -2.84, 0.01)
 
     target = (center[0] + (width * 0.08 if shot == "controls" else 0.0), center[1], bounds_min[2] + target_z)
     extent = max(width, depth, height)
@@ -400,7 +404,7 @@ def _configure_render(bpy: Any, width: int, height: int, samples: int, output: P
     except Exception:
         scene.cycles.device = "CPU"
     scene.view_settings.look = "AgX - High Contrast"
-    scene.view_settings.exposure = -0.85
+    scene.view_settings.exposure = -0.15
     scene.view_settings.gamma = 1.0
 
     if not HDRI_PATH.is_file() or sha256_file(HDRI_PATH) != HDRI_SHA256:
