@@ -12,6 +12,43 @@ const flattenKeys = (value, prefix = '') => Object.entries(value ?? {}).flatMap(
 const interpolationVariables = (value) => [...String(value).matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)]
   .map((match) => match[1])
   .sort();
+const loadLiquidHarness = () => import('./helpers/render-pimm-collection-section.mjs');
+
+const specificationsFor = (model) => ({
+  schema_version: 1,
+  model,
+  shot_capacity_g: model === '30G' ? 30 : 50,
+  max_melt_temperature_c: 300,
+  mold_envelope_mm: {
+    width: model === '30G' ? 240 : 300,
+    height: model === '30G' ? 240 : 300,
+    depth: model === '30G' ? 150 : 200,
+  },
+  max_air_pressure_mpa: 0.7,
+});
+
+const productFixture = () => ({
+  url: '/products/pimm',
+  options: ['Model'],
+  variants: ['30G', '50G'].map((model, index) => ({
+    id: 300 + index,
+    option1: model,
+    available: true,
+    metafields: {
+      custom: {
+        full_machine_price: { value: model === '30G' ? 120000 : 170000 },
+        pimm_specifications: { value: specificationsFor(model) },
+        lead_time_days: { value: model === '30G' ? 30 : 45 },
+      },
+    },
+  })),
+});
+
+const mutateFirstVariant = (mutator) => {
+  const product = productFixture();
+  mutator(product.variants[0]);
+  return product;
+};
 
 test('alternate collection template contains only the dedicated PIMM comparison section', async () => {
   const source = await readThemeFile('templates/collection.pimm-machines.json');
@@ -47,6 +84,46 @@ test('section resolves the exact two-model commerce contract and fails closed', 
   assert.match(section, /if contract_valid[\s\S]*application\/ld\+json/);
   assert.match(section, /unless contract_valid[\s\S]*products\.pimm_collection\.configuration_error/);
   assert.doesNotMatch(section, /120[,.]000|170[,.]000|variant\.price\s*\|\s*times/);
+});
+
+test('executable Liquid contract emits exactly the governed 30G and 50G model records', async () => {
+  const { renderPimmCollectionSection, readModelRecords } = await loadLiquidHarness();
+  const output = await renderPimmCollectionSection(productFixture());
+  const records = readModelRecords(output);
+
+  assert.deepEqual(records.map(({ model }) => model), ['30G', '50G']);
+  assert.deepEqual(records.map(({ id }) => id), [300, 301]);
+  assert.match(output, /data-contract-valid="true"/);
+  assert.equal((output.match(/data-pimm-collection-card(?:\s|>)/g) ?? []).length, 2);
+  assert.equal((output.match(/type="application\/ld\+json"/g) ?? []).length, 1);
+});
+
+test('executable Liquid contract fails closed for every invalid governed metafield boundary', async (context) => {
+  const { renderPimmCollectionSection } = await loadLiquidHarness();
+  const invalidProducts = [
+    ['missing specification', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value = null; })],
+    ['malformed specification', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value = 'not-an-object'; })],
+    ['schema mismatch', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.schema_version = 2; })],
+    ['specification model mismatch', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.model = '50G'; })],
+    ['nonpositive shot capacity', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.shot_capacity_g = 0; })],
+    ['nonpositive melt temperature', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.max_melt_temperature_c = -1; })],
+    ['nonpositive mold width', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.mold_envelope_mm.width = 0; })],
+    ['nonpositive mold height', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.mold_envelope_mm.height = -1; })],
+    ['nonpositive mold depth', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.mold_envelope_mm.depth = 0; })],
+    ['nonpositive air pressure', mutateFirstVariant((variant) => { variant.metafields.custom.pimm_specifications.value.max_air_pressure_mpa = -0.1; })],
+    ['nonpositive full price', mutateFirstVariant((variant) => { variant.metafields.custom.full_machine_price.value = 0; })],
+    ['nonpositive lead time', mutateFirstVariant((variant) => { variant.metafields.custom.lead_time_days.value = 0; })],
+  ];
+
+  for (const [name, product] of invalidProducts) {
+    await context.test(name, async () => {
+      const output = await renderPimmCollectionSection(product);
+
+      assert.match(output, /data-contract-valid="false"/);
+      assert.equal((output.match(/PIMM_CONFIGURATION_ERROR/g) ?? []).length, 1);
+      assert.doesNotMatch(output, /<article\b|<dl\b|data-pimm-collection-models|type="application\/json"|type="application\/ld\+json"|"fullPrice"|"shotCapacityG"/);
+    });
+  }
 });
 
 test('valid server fallback exposes semantic cards dossiers payload and canonical variant routes', async () => {

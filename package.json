@@ -11,7 +11,8 @@
     "sync:live": "shopify theme pull --store 10b918-e4.myshopify.com --theme 190305730839 --nodelete"
   },
   "devDependencies": {
-    "@shopify/cli": "4.5.1"
+    "@shopify/cli": "4.5.1",
+    "liquidjs": "10.29.0"
   },
   "engines": {
     "node": ">=20"
