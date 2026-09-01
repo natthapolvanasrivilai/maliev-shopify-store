@@ -9,7 +9,14 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r06');
+  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r07');
+  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r06');
+  assert.deepEqual(manifest.hero_ground_shadow, {
+    broad_opacity: 0.14,
+    max_alpha: 254,
+    full_weight_alpha: 220,
+    start_ratio: 0.8,
+  });
   assert.equal(manifest.renderer, 'scripts/blender/pimm_production/blender_homepage_alpha_render.py');
   assert.equal(manifest.composition, 'Purpose-staged 30G and 50G pair renders from one Blender scene per placement');
   assert.equal(manifest.masters['30g'].sha256, '98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA');
@@ -60,9 +67,9 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   ]);
   const active = `${template}\n${menu}`;
   for (const placement of ['hero-desktop', 'hero-mobile', 'catalogue', 'navigation']) {
-    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r06-${placement}-alpha\\.webp`));
+    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r07-${placement}-alpha\\.webp`));
   }
-  const matches = active.match(/maliev-homepage-pimm-20260901-r06-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
+  const matches = active.match(/maliev-homepage-pimm-20260901-r07-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
   assert.equal(matches.length, 4, 'each homepage location must reference exactly one unique asset');
   assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
   assert.doesNotMatch(hero, /mkey__hero-machines|mkey__hero-machine--30g|mkey__hero-machine--50g/);
@@ -119,6 +126,7 @@ test('homepage finalizer never overlays separately rendered machine images', asy
   assert.doesNotMatch(finalizer, /alpha_composite|_composite_pair|30g-alpha\.png|50g-alpha\.png/);
   assert.match(finalizer, /for placement, dimensions in PLACEMENTS\.items\(\)/);
   assert.match(finalizer, /def _soften_ground_shadow/);
-  assert.match(finalizer, /GROUND_SHADOW_MAX_ALPHA = 220/);
-  assert.match(finalizer, /GROUND_SHADOW_OPACITY = 0\.42/);
+  assert.match(finalizer, /GROUND_SHADOW_MAX_ALPHA = 254/);
+  assert.match(finalizer, /GROUND_SHADOW_OPACITY = 0\.14/);
+  assert.match(finalizer, /--source-release-id/);
 });

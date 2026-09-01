@@ -10,11 +10,11 @@ from pathlib import Path
 from PIL import Image
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r06"
-GROUND_SHADOW_MAX_ALPHA = 220
-GROUND_SHADOW_FULL_WEIGHT_ALPHA = 128
-GROUND_SHADOW_OPACITY = 0.42
-GROUND_SHADOW_START_RATIO = 0.82
+RELEASE_ID = "maliev-homepage-pimm-20260901-r07"
+GROUND_SHADOW_MAX_ALPHA = 254
+GROUND_SHADOW_FULL_WEIGHT_ALPHA = 220
+GROUND_SHADOW_OPACITY = 0.14
+GROUND_SHADOW_START_RATIO = 0.80
 GROUND_SHADOW_END_RATIO = 0.985
 GROUND_SHADOW_EDGE_RATIO = 0.06
 GROUND_SHADOW_LEFT_OUTSET_RATIO = 0.08
@@ -121,12 +121,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--render-dir", type=Path, required=True)
     parser.add_argument("--asset-dir", type=Path, required=True)
+    parser.add_argument("--source-release-id", default=RELEASE_ID)
     arguments = parser.parse_args()
     arguments.asset_dir.mkdir(parents=True, exist_ok=True)
 
     records = []
     for placement, dimensions in PLACEMENTS.items():
-        source = arguments.render_dir / f"{RELEASE_ID}-{placement}-alpha.png"
+        source = arguments.render_dir / f"{arguments.source_release_id}-{placement}-alpha.png"
         with Image.open(source) as opened:
             image = opened.convert("RGBA")
         if image.size != dimensions:
@@ -151,6 +152,13 @@ def main() -> int:
     manifest = {
         "schema_version": 1,
         "release_id": RELEASE_ID,
+        "source_render_release_id": arguments.source_release_id,
+        "hero_ground_shadow": {
+            "broad_opacity": GROUND_SHADOW_OPACITY,
+            "max_alpha": GROUND_SHADOW_MAX_ALPHA,
+            "full_weight_alpha": GROUND_SHADOW_FULL_WEIGHT_ALPHA,
+            "start_ratio": GROUND_SHADOW_START_RATIO,
+        },
         "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
         "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
         "composition": "Purpose-staged 30G and 50G pair renders from one Blender scene per placement",
