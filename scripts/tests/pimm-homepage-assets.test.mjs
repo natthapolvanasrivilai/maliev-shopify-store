@@ -9,8 +9,8 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r08');
-  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r08');
+  assert.equal(manifest.release_id, 'maliev-homepage-pimm-20260901-r09');
+  assert.equal(manifest.source_render_release_id, 'maliev-homepage-pimm-20260901-r09');
   assert.equal(manifest.shadow_source, 'Blender Cycles shadow catcher; no post-render alpha edits');
   assert.equal(manifest.renderer, 'scripts/blender/pimm_production/blender_homepage_alpha_render.py');
   assert.equal(manifest.composition, 'Purpose-staged 30G and 50G pair renders from one Blender scene per placement');
@@ -66,9 +66,9 @@ test('homepage placements use distinct purpose-rendered assets', async () => {
   ]);
   const active = `${template}\n${menu}`;
   for (const placement of ['hero-desktop', 'hero-mobile', 'catalogue', 'navigation']) {
-    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r08-${placement}-alpha\\.webp`));
+    assert.match(active, new RegExp(`maliev-homepage-pimm-20260901-r09-${placement}-alpha\\.webp`));
   }
-  const matches = active.match(/maliev-homepage-pimm-20260901-r08-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
+  const matches = active.match(/maliev-homepage-pimm-20260901-r09-(?:hero-desktop|hero-mobile|catalogue|navigation)-alpha\.webp/g) ?? [];
   assert.equal(matches.length, 4, 'each homepage location must reference exactly one unique asset');
   assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
   assert.doesNotMatch(hero, /mkey__hero-machines|mkey__hero-machine--30g|mkey__hero-machine--50g/);
@@ -99,7 +99,10 @@ test('homepage header overlays the hero and becomes a white bar after a short sc
 });
 
 test('homepage renderer gives each content location a purpose-specific staging contract', async () => {
-  const renderer = await readFile(new URL('scripts/blender/pimm_production/blender_homepage_alpha_render.py', root), 'utf8');
+  const [renderer, studioRenderer] = await Promise.all([
+    readFile(new URL('scripts/blender/pimm_production/blender_homepage_alpha_render.py', root), 'utf8'),
+    readFile(new URL('scripts/blender/pimm_production/blender_master_storefront_render.py', root), 'utf8'),
+  ]);
   assert.match(renderer, /film_transparent = True/);
   assert.match(renderer, /is_shadow_catcher = True/);
   assert.match(renderer, /bpy\.data\.libraries\.load/);
@@ -140,6 +143,9 @@ test('homepage renderer gives each content location a purpose-specific staging c
   assert.match(renderer, /scene\.render\.image_settings\.color_depth = "16"/);
   assert.match(renderer, /def _tune_homepage_studio/);
   assert.match(renderer, /scene\.compositing_node_group = None/);
+  assert.match(studioRenderer, /CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 100\.0/);
+  assert.match(studioRenderer, /y_front = center\[1\] - extent \* CYCLORAMA_GROUND_EXTENT_MULTIPLIER/);
+  assert.match(studioRenderer, /half_width = extent \* CYCLORAMA_GROUND_EXTENT_MULTIPLIER/);
   assert.doesNotMatch(renderer, /save_as_mainfile|open_mainfile|maliev-catalogue-machines/i);
 });
 

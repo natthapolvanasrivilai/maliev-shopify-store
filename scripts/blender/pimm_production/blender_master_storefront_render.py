@@ -18,6 +18,7 @@ from typing import Any, Sequence
 
 
 RELEASE_ID = "pimm-master-20260901-r05"
+CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 100.0
 RESULT_MARKER = "PIMM_MASTER_STOREFRONT_RENDER_JSON="
 HDRI_PATH = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\assets\hdri\studio_kontrast_04_4k.exr"
@@ -203,7 +204,11 @@ def _install_studio(
 
     # A real seamless sweep: the foot pads remain on z=0 and the curved wall
     # removes the synthetic horizon line while still receiving physical shadows.
-    y_front = center[1] - extent * 5.5
+    # Keep the floor effectively infinite for every storefront camera. A small
+    # catcher can project its finite edge into transparent shadow-catcher alpha,
+    # producing a hard diagonal seam in the finished hero even though the
+    # physical light is soft.
+    y_front = center[1] - extent * CYCLORAMA_GROUND_EXTENT_MULTIPLIER
     y_back = center[1] + extent * 1.6
     radius = extent * 0.9
     arc_center_y = y_back - radius
@@ -217,7 +222,7 @@ def _install_studio(
         for index in range(1, 25)
     )
     profile.append((y_back, bounds_max[2] + extent * 3.2))
-    half_width = extent * 7.0
+    half_width = extent * CYCLORAMA_GROUND_EXTENT_MULTIPLIER
     vertices = []
     for y, z in profile:
         vertices.extend(((center[0] - half_width, y, z), (center[0] + half_width, y, z)))
