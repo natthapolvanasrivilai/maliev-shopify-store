@@ -85,6 +85,25 @@ def _render_sidecar_path(render_dir: Path, model: str) -> Path:
     return render_dir / f"{RELEASE_ID}-{model}-render.v1.json"
 
 
+def _release_destinations(asset_dir: Path) -> list[Path]:
+    outputs = [
+        asset_dir / f"{RELEASE_ID}-{model}-{angle}.{extension}"
+        for model in ("30g", "50g")
+        for angle in ANGLE_DEGREES
+        for extension in ("png", "webp")
+    ]
+    return [*outputs, asset_dir / MANIFEST_FILENAME]
+
+
+def _preflight_release_destinations(asset_dir: Path) -> None:
+    existing = [path for path in _release_destinations(asset_dir) if path.exists()]
+    if existing:
+        names = ", ".join(path.name for path in existing)
+        raise FileExistsError(
+            f"refusing to overwrite existing collection release destinations: {names}"
+        )
+
+
 def _read_sidecar(render_dir: Path, model: str) -> dict[str, object]:
     sidecar_path = _render_sidecar_path(render_dir, model)
     if not sidecar_path.is_file():
@@ -163,6 +182,7 @@ def publish(render_dir: Path, asset_dir: Path, samples: int) -> dict[str, object
         for model in ("30g", "50g")
         for record in _validated_sidecar_records(render_dir, model)
     ]
+    _preflight_release_destinations(asset_dir)
     asset_dir.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, object]] = []
     for source_record in source_records:

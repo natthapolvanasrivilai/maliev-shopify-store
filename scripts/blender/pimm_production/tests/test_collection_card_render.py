@@ -183,6 +183,34 @@ class CollectionCardContractTests(unittest.TestCase):
         self.assertEqual({record["angle_degrees"] for record in manifest["assets"]}, {0.0, -12.0, 12.0})
         self.assertEqual(len({record["storefront"]["filename"] for record in manifest["assets"]}), 6)
 
+    def test_finalizer_preflights_every_destination_before_writing(self) -> None:
+        """Catches publication replacing any file from an existing collection release."""
+        self._write_complete_fixture()
+        destination_names = [
+            f"{finalizer.RELEASE_ID}-{model}-{angle}.{extension}"
+            for model in ("30g", "50g")
+            for angle in ("front", "left", "right")
+            for extension in ("png", "webp")
+        ] + [finalizer.MANIFEST_FILENAME]
+        self.assertEqual(len(destination_names), 13)
+
+        for destination_name in destination_names:
+            with self.subTest(destination=destination_name), TemporaryDirectory() as directory:
+                asset_dir = Path(directory) / "assets"
+                asset_dir.mkdir()
+                existing = asset_dir / destination_name
+                existing.write_bytes(b"existing release sentinel")
+
+                with self.assertRaisesRegex(FileExistsError, destination_name):
+                    finalizer.publish(self.render_dir, asset_dir, samples=256)
+
+                self.assertEqual(existing.read_bytes(), b"existing release sentinel")
+                self.assertEqual(
+                    {path.name for path in asset_dir.iterdir()},
+                    {destination_name},
+                    "preflight failure must not create any other release destination",
+                )
+
     def test_finalizer_rejects_wrong_dimensions(self) -> None:
         """Catches an undersized native render before it can enter the collection release."""
         self._write_complete_fixture()
