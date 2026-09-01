@@ -25,6 +25,22 @@ test('homepage PIMM media is derived from the two authoritative masters', async 
   }
 });
 
+test('homepage hero presents both models and catalogue no longer references the deprecated composite', async () => {
+  const [template, hero, catalogue, menu] = await Promise.all([
+    readFile(new URL('templates/index.json', root), 'utf8'),
+    readFile(new URL('sections/maliev-keynote-hero.liquid', root), 'utf8'),
+    readFile(new URL('sections/maliev-catalogue.liquid', root), 'utf8'),
+    readFile(new URL('snippets/maliev-menu-link.liquid', root), 'utf8'),
+  ]);
+  assert.match(template, /maliev-homepage-pimm-20260901-r01-30g-alpha\.webp/);
+  assert.match(template, /maliev-homepage-pimm-20260901-r01-50g-alpha\.webp/);
+  assert.match(template, /maliev-homepage-pimm-20260901-r01-lineup-alpha\.webp/);
+  assert.doesNotMatch(`${template}\n${menu}`, /maliev-catalogue-machines\.webp/);
+  assert.match(hero, /mkey__hero-machine--30g/);
+  assert.match(hero, /mkey__hero-machine--50g/);
+  assert.match(catalogue, /mcat__card--pimm-lineup/);
+});
+
 test('homepage alpha renderer locks shared perspective and a common ground plane', async () => {
   const renderer = await readFile(new URL('scripts/blender/pimm_production/blender_homepage_alpha_render.py', root), 'utf8');
   assert.match(renderer, /film_transparent = True/);

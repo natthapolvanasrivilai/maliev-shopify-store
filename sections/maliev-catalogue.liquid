@@ -21,7 +21,7 @@
         <ul class="mcat__track" data-mcat-track aria-label="{{ section.settings.aria_label | escape }}">
           {%- for block in section.blocks -%}
             <li class="mcat__item" data-mcat-card data-index="{{ forloop.index0 }}" {{ block.shopify_attributes }}>
-              <a class="mcat__card mcat__card--{{ block.settings.theme }}" href="{{ block.settings.link | default: routes.root_url }}">
+              <a class="mcat__card mcat__card--{{ block.settings.theme }}{% if block.settings.asset_name contains 'homepage-pimm' %} mcat__card--pimm-lineup{% endif %}" href="{{ block.settings.link | default: routes.root_url }}">
                 <div class="mcat__media">
                   {%- if block.settings.image != blank -%}
                     {{
