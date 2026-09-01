@@ -88,13 +88,15 @@
 <pimm-collection-comparison
   class="pimm-collection"
   data-pimm-collection-comparison
-  data-header-overlay-sentinel
-  data-header-overlay-tone="bright"
   data-section-id="{{ section.id }}"
   data-contract-valid="{{ contract_valid }}"
 >
   <div class="pimm-collection__shell">
-    <header class="pimm-collection__introduction">
+    <header
+      class="pimm-collection__introduction"
+      data-header-overlay-sentinel
+      data-header-overlay-tone="bright"
+    >
       <h1>{{ 'products.pimm_collection.title' | t }}</h1>
       <p>{{ 'products.pimm_collection.intro' | t }}</p>
     </header>

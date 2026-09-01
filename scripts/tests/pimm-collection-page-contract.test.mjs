@@ -230,6 +230,24 @@ test('collection comparison owns the precision stage and transparent header cont
   assert.match(section, /\{\{ 'maliev-pimm-collection\.css' \| asset_url \| stylesheet_tag \}\}/);
   assert.match(header, /request\.page_type == 'collection'[\s\S]*template\.suffix == 'pimm-machines'[\s\S]*assign header_has_overlay = true/);
 
+  const comparisonTag = section.match(/<pimm-collection-comparison[\s\S]*?>/)?.[0] ?? '';
+  const introductionTag = section.match(/<header[\s\S]*?class="pimm-collection__introduction"[\s\S]*?>/)?.[0] ?? '';
+  const introductionEnd = section.indexOf('</header>', section.indexOf(introductionTag));
+  const comparisonLayoutStart = section.indexOf('<div class="pimm-collection__comparison-layout">');
+
+  assert.doesNotMatch(comparisonTag, /data-header-overlay-sentinel|data-header-overlay-tone/);
+  assert.match(introductionTag, /data-header-overlay-sentinel/);
+  assert.match(introductionTag, /data-header-overlay-tone="bright"/);
+  assert.equal(section.match(/data-header-overlay-sentinel/g)?.length, 1);
+  assert.ok(introductionEnd > 0 && introductionEnd < comparisonLayoutStart, 'overlay sentinel must end before the long comparison stage');
+
+  assert.match(header, /assign header_overlay_is_bright = false/);
+  assert.match(header, /request\.page_type == 'collection'[\s\S]*template\.suffix == 'pimm-machines'[\s\S]*assign header_overlay_is_bright = true/);
+  assert.match(header, /\{% if header_overlay_is_bright %\} is-overlay-bright\{% endif %\}/);
+
+  const productOverlayBranch = header.match(/if request\.page_type == 'product'[\s\S]*?\n  endif/)?.[0] ?? '';
+  assert.doesNotMatch(productOverlayBranch, /header_overlay_is_bright/);
+
   const css = await readThemeFile('assets/maliev-pimm-collection.css');
   assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.9fr\)\s+minmax\(28rem,\s*1fr\)/);
   assert.match(css, /\.pimm-collection__cards\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
