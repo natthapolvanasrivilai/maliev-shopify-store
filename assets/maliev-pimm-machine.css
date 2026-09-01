@@ -30,7 +30,7 @@
 
 .pimm-machine :is(h1, h2, h3, p, figure, fieldset, dl, dd) { margin: 0; }
 .pimm-machine :is(h1, h2, h3) { color: var(--pimm-ink); font-weight: 600; text-wrap: balance; }
-.pimm-machine .pimm-machine__title { font-size: clamp(36px, 2.5vw, 44px) !important; hyphens: none; letter-spacing: -.045em; line-height: .96; max-width: 100%; overflow-wrap: normal; word-break: normal; }
+.pimm-machine .pimm-machine__title { font-size: clamp(3.6rem, 3.4vw, 5.2rem) !important; hyphens: none; letter-spacing: -.035em; line-height: .98; max-width: 100%; overflow-wrap: normal; word-break: normal; }
 .pimm-machine h2 { font-size: clamp(3rem, 4vw, 5.4rem); letter-spacing: -.035em; line-height: 1; }
 .pimm-machine h3 { font-size: clamp(2.4rem, 3vw, 4.2rem); letter-spacing: -.025em; line-height: 1.06; }
 .pimm-machine p { color: var(--pimm-muted); font-size: clamp(1.55rem, 1.3vw, 1.8rem); line-height: 1.58; text-wrap: pretty; }
@@ -53,8 +53,7 @@
   padding-block: clamp(5rem, 7vw, 9rem) clamp(3rem, 5vw, 6rem);
 }
 
-.pimm-machine__decision { display: grid; gap: 2rem; min-width: 0; position: relative; z-index: 2; }
-.pimm-machine__eyebrow { color: var(--pimm-blue) !important; font-size: 1.3rem !important; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+.pimm-machine__decision { display: grid; gap: 2.4rem; min-width: 0; position: relative; z-index: 2; }
 .pimm-machine__promise { color: var(--pimm-ink) !important; font-size: clamp(2rem, 2vw, 2.7rem) !important; font-weight: 600; line-height: 1.22 !important; }
 .pimm-machine__fit { max-width: 43ch; }
 .pimm-machine__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 1.4rem; }
@@ -64,20 +63,20 @@
   align-items: center;
   border-radius: .5rem;
   display: inline-flex;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 600;
   justify-content: center;
-  min-height: 4.8rem;
-  padding: 1.2rem 2rem;
+  min-height: 5.2rem;
+  padding: 1.4rem 2.4rem;
   text-decoration: none;
 }
 
-.pimm-machine .button--primary { background: var(--pimm-blue); border: 1px solid var(--pimm-blue); color: #fff; }
+.pimm-machine .button--primary { background: var(--pimm-blue); border: 1px solid var(--pimm-blue); color: #fff; min-width: 20rem; }
 .pimm-machine .button--primary:hover { background: var(--pimm-blue-dark); border-color: var(--pimm-blue-dark); }
 .pimm-machine__text-link { border: 1px solid var(--pimm-line); color: var(--pimm-ink); }
 
 .pimm-machine__model-selector { border: 0; min-width: 0; padding: 0; }
-.pimm-machine__model-selector legend { color: var(--pimm-muted); font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; }
+.pimm-machine__model-selector legend { color: var(--pimm-ink); font-size: 1.4rem; font-weight: 600; margin-bottom: 1.2rem; }
 .pimm-machine__selected-model { display: none; }
 .pimm-machine__model-options { display: grid; gap: .8rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pimm-machine__model-option {
@@ -88,13 +87,15 @@
   color: var(--pimm-ink);
   cursor: pointer;
   display: grid;
-  font-size: 1.3rem;
-  gap: .2rem;
-  min-height: 6.4rem;
-  padding: 1rem 1.2rem;
+  gap: .6rem;
+  min-height: 7.6rem;
+  padding: 1.4rem 1.6rem;
 }
 .pimm-machine__model-option:has(input:checked) { background: var(--pimm-blue); border-color: var(--pimm-blue); color: #fff; }
 .pimm-machine__model-option input { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; }
+.pimm-machine__model-name { font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
+.pimm-machine__model-price { font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.4rem; font-variant-numeric: tabular-nums; font-weight: 600; line-height: 1.3; opacity: .72; }
+.pimm-machine__model-option:has(input:checked) .pimm-machine__model-price { opacity: 1; }
 .pimm-machine :is(a, button, input):focus-visible,
 .pimm-machine__model-option:has(input:focus-visible) { box-shadow: inset 0 0 0 .3rem #ffd21c; outline: .3rem solid var(--pimm-ink); outline-offset: .3rem; }
 
@@ -142,10 +143,10 @@
 .pimm-story__chapter:nth-child(odd) .pimm-story__media { order: 2; }
 .pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 1.4rem; display: grid; min-height: 48rem; overflow: hidden; position: relative; }
 .pimm-story__media img { height: 100%; max-height: 68rem; object-fit: contain; width: 100%; }
-.pimm-story__copy { display: grid; gap: 1.8rem; max-width: 52rem; }
-.pimm-story__copy h3 { max-width: 14ch; }
-.pimm-story__copy p:last-child { max-width: 48ch; }
-.pimm-story__index { color: var(--pimm-blue) !important; font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.3rem !important; font-weight: 600; }
+.pimm-story__copy { column-gap: 2.4rem; display: grid; grid-template-columns: 4.8rem minmax(0, 1fr); max-width: 64rem; row-gap: 1.4rem; }
+.pimm-story__copy h3 { font-size: clamp(2.8rem, 4vw, 5.2rem); grid-column: 2; letter-spacing: -.025em; line-height: 1.04; max-width: 14ch; }
+.pimm-story__copy p:last-child { font-size: 1.6rem; grid-column: 2; line-height: 1.55; max-width: 60ch; }
+.pimm-story__index { align-self: start; color: var(--pimm-blue) !important; font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.4rem !important; font-variant-numeric: tabular-nums; font-weight: 600; grid-column: 1; grid-row: 1 / span 2; line-height: 1.3; padding-top: .8rem; }
 
 /* Precision reveal: the static page remains complete until the controller confirms
    motion support, then each engineering view resolves from a soft optical mask. */
@@ -235,12 +236,15 @@
 
 @media (max-width: 749px) {
   .pimm-machine { padding-inline: 2rem; }
-  .pimm-machine__hero { display: flex; flex-direction: column; min-height: 0; padding-block: 4rem; }
+  .pimm-machine__hero { display: flex; flex-direction: column; min-height: 0; padding-block: 9rem 4rem; }
   .pimm-machine__decision,
   .pimm-machine__hero-stage,
   .pimm-machine__specifications { width: 100%; }
   .pimm-machine__hero-stage { aspect-ratio: 5 / 6; min-height: 0; }
   .pimm-machine__model-options { grid-template-columns: 1fr; }
+  .pimm-machine__actions { align-items: stretch; flex-direction: column; }
+  .pimm-machine .button,
+  .pimm-machine__text-link { width: 100%; }
   .pimm-machine__qualification-facts,
   .pimm-machine__specifications dl { grid-template-columns: 1fr; }
   .pimm-machine__specifications dl > div { border-bottom: 1px solid var(--pimm-line); border-right: 0; padding-inline: 0; }
@@ -258,7 +262,7 @@
 
 @media (max-width: 359px) {
   .pimm-machine { padding-inline: 1.4rem; }
-  .pimm-machine .pimm-machine__title { font-size: 36px !important; }
+  .pimm-machine .pimm-machine__title { font-size: 3.6rem !important; }
   .pimm-machine__actions { align-items: stretch; flex-direction: column; }
   .pimm-machine .button,
   .pimm-machine__text-link { width: 100%; }

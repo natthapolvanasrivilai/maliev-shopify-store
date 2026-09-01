@@ -50,6 +50,24 @@ test('one controller owns one decision header two stories and singular conversio
   assert.match(section, /hidden inert aria-hidden="true"/);
 });
 
+test('hero and stories use product-first hierarchy without decorative eyebrows', () => {
+  assert.match(hero, /assign display_product_title = product\.title \| remove: ' \(Development\)' \| strip/);
+  assert.match(hero, /<h1 class="pimm-machine__title">\{\{ display_product_title \| escape \}\}<\/h1>/);
+  assert.doesNotMatch(renderedContract, /pimm-machine__eyebrow/);
+  assert.doesNotMatch(css, /\.pimm-machine__eyebrow/);
+});
+
+test('capacity selector and every engineering chapter expose deliberate type roles', () => {
+  assert.equal(selector.match(/class="pimm-machine__model-name"/g)?.length, 1);
+  assert.equal(selector.match(/class="pimm-machine__model-price"/g)?.length, 1);
+  assert.match(css, /\.pimm-machine__model-name[^}]*font-size:\s*1\.6rem[^}]*font-weight:\s*600/s);
+  assert.match(css, /\.pimm-machine__model-price[^}]*font-family:\s*var\(--maliev-font-mono/s);
+  assert.equal([story30G, story50G].join('\n').match(/class="pimm-story__index"/g)?.length, 8);
+  assert.match(css, /\.pimm-story__copy[^}]*grid-template-columns:\s*4\.8rem minmax\(0, 1fr\)/s);
+  assert.match(css, /\.pimm-story__copy h3[^}]*font-size:\s*clamp\(2\.8rem, 4vw, 5\.2rem\)/s);
+  assert.match(css, /\.pimm-story__copy p:last-child[^}]*max-width:\s*60ch/s);
+});
+
 test('model stories use only their authoritative production families', () => {
   for (const model of ['30g', '50g']) {
     for (const role of ['hero', 'three-quarter', 'controls', 'tooling']) {
