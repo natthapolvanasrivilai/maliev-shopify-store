@@ -1,16 +1,6 @@
 {{ 'maliev-keynote.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'maliev-keynote.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Hero supports split and overlay layouts. {%- endcomment -%}
-{%- liquid
-  assign homepage_30g_asset = section.settings.asset_name_30g
-  assign homepage_50g_asset = section.settings.asset_name_50g
-  if homepage_30g_asset == blank and section.settings.asset_name contains '-30g-alpha'
-    assign homepage_30g_asset = section.settings.asset_name
-  endif
-  if homepage_50g_asset == blank and section.settings.mobile_asset_name contains '-50g-alpha'
-    assign homepage_50g_asset = section.settings.mobile_asset_name
-  endif
--%}
 
 <section
   class="mkey mkey--hero{% if section.settings.layout == 'overlay' %} mkey--hero-overlay{% endif %}"
@@ -18,16 +8,6 @@
 >
   {%- if section.settings.layout == 'overlay' -%}
     <div class="mkey__hero-bg mkey__hero-bg--gallery" aria-hidden="true">
-      {%- if homepage_30g_asset != blank and homepage_50g_asset != blank -%}
-        <div class="mkey__hero-machines">
-          <picture class="mkey__hero-machine mkey__hero-machine--30g">
-            <img src="{{ homepage_30g_asset | asset_url }}" alt="" width="1200" height="1500" fetchpriority="high">
-          </picture>
-          <picture class="mkey__hero-machine mkey__hero-machine--50g">
-            <img src="{{ homepage_50g_asset | asset_url }}" alt="" width="1200" height="1500" fetchpriority="high">
-          </picture>
-        </div>
-      {%- else -%}
       <picture>
         {%- if section.settings.mobile_asset_name != blank -%}
           <source media="(max-width: 989px)" srcset="{{ section.settings.mobile_asset_name | asset_url }}">
@@ -40,7 +20,6 @@
           <img src="{{ section.settings.image_url }}" alt="" width="2592" height="1458" fetchpriority="high">
         {%- endif -%}
       </picture>
-      {%- endif -%}
     </div>
   {%- endif -%}
   <div class="mkey__frame mkey__frame--motion-wipe" data-mkr-group>
@@ -172,18 +151,6 @@
       "id": "asset_name",
       "label": "Theme asset filename",
       "info": "Used when no image is picked, for example pimm-50g-wide-hero.png"
-    },
-    {
-      "type": "text",
-      "id": "asset_name_30g",
-      "label": "30G transparent asset filename",
-      "info": "Overlay layout only. When both model assets are set, they replace the single hero image."
-    },
-    {
-      "type": "text",
-      "id": "asset_name_50g",
-      "label": "50G transparent asset filename",
-      "info": "Overlay layout only. Uses the same rendered frame as the 30G asset to preserve relative scale."
     },
     {
       "type": "text",

@@ -314,34 +314,6 @@
   width: 100%;
 }
 
-.mkey--hero-overlay .mkey__hero-machines {
-  align-items: end;
-  aspect-ratio: 8 / 5;
-  bottom: clamp(1rem, 2vh, 2.4rem);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  position: absolute;
-  right: clamp(-2rem, 1vw, 2rem);
-  width: min(69vw, 110rem);
-}
-
-.mkey--hero-overlay .mkey__hero-machine {
-  display: grid;
-  height: 100%;
-  place-items: end center;
-  width: 100%;
-}
-
-.mkey--hero-overlay .mkey__hero-bg--gallery .mkey__hero-machine img {
-  bottom: auto;
-  height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
-  position: static;
-  right: auto;
-  width: 100%;
-}
-
 /* Fill the viewport below the shell header. */
 .mkey--hero-overlay .mkey__frame {
   grid-template-columns: minmax(0, 1fr);
@@ -488,17 +460,6 @@
     object-position: center bottom;
     right: clamp(4rem, 8vw, 13rem);
     width: auto;
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-machines {
-    bottom: clamp(1rem, 2vh, 2.4rem);
-    right: clamp(-4rem, -1vw, -1rem);
-    width: min(69vw, 110rem);
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery .mkey__hero-machine img {
-    height: 100%;
-    width: 100%;
   }
 
   .template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture {
@@ -1440,20 +1401,6 @@
   .template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture > img {
     height: 100%;
     object-fit: contain;
-    width: 100%;
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-machines {
-    aspect-ratio: 8 / 5;
-    bottom: 0;
-    left: -8%;
-    right: auto;
-    width: 116%;
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery .mkey__hero-machine img {
-    height: 100%;
-    position: static;
     width: 100%;
   }
 

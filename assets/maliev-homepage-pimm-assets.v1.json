@@ -1,8 +1,9 @@
 {
   "schema_version": 1,
-  "release_id": "maliev-homepage-pimm-20260901-r02",
+  "release_id": "maliev-homepage-pimm-20260901-r03",
   "renderer": "scripts/blender/pimm_production/blender_homepage_alpha_render.py",
-  "finalizer": "scripts/blender/pimm_production/compose_homepage_pimm_assets.py",
+  "finalizer": "scripts/blender/pimm_production/finalize_homepage_pimm_assets.py",
+  "composition": "30G and 50G rendered together in one Blender scene at 45 degrees",
   "masters": {
     "30g": {
       "filename": "PIMM-30G-MASTER.blend",
@@ -17,83 +18,83 @@
   },
   "assets": [
     {
-      "filename": "maliev-homepage-pimm-20260901-r02-hero-desktop-alpha.webp",
-      "sha256": "47F9F6E3C5258B3000B73408D479E38E47CDF5360C772C6EF1E8255E79CDD4BD",
+      "filename": "maliev-homepage-pimm-20260901-r03-hero-desktop-alpha.webp",
+      "sha256": "3ED5E3DDCF0BB5C21990D9B6A807C9D3BDE4F23BDCB3698474ACA991B0D91FF1",
       "width": 1800,
       "height": 1200,
       "alpha": true,
       "placement": "hero-desktop",
       "alpha_bbox": {
         "pixels": [
-          775,
-          30,
-          1750,
-          1182
+          726,
+          34,
+          1798,
+          1200
         ],
-        "top_ratio": 0.025,
-        "bottom_ratio": 0.015,
-        "left_ratio": 0.43056,
-        "right_ratio": 0.02778
+        "top_ratio": 0.02833,
+        "bottom_ratio": 0.0,
+        "left_ratio": 0.40333,
+        "right_ratio": 0.00111
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r02-hero-mobile-alpha.webp",
-      "sha256": "096CA1415C47D8E267D6EB04285FAB3BDC5DAEC6A93777AAF9500B912F289C8F",
+      "filename": "maliev-homepage-pimm-20260901-r03-hero-mobile-alpha.webp",
+      "sha256": "2AEBF45C5825CAC9742E0223ECA1B48497E70488448C050858BAD3E6BABA256E",
       "width": 1200,
       "height": 1500,
       "alpha": true,
       "placement": "hero-mobile",
       "alpha_bbox": {
         "pixels": [
-          72,
-          38,
-          1161,
-          1478
+          17,
+          89,
+          1200,
+          1500
         ],
-        "top_ratio": 0.02533,
-        "bottom_ratio": 0.01467,
-        "left_ratio": 0.06,
-        "right_ratio": 0.0325
+        "top_ratio": 0.05933,
+        "bottom_ratio": 0.0,
+        "left_ratio": 0.01417,
+        "right_ratio": 0.0
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r02-catalogue-alpha.webp",
-      "sha256": "A1E48D7A2826448BB47D97A88B71A9D57E7640C83B33FFE52425FD3991809ADF",
+      "filename": "maliev-homepage-pimm-20260901-r03-catalogue-alpha.webp",
+      "sha256": "9051BA017A46DF1A37F458013BC2F580768AED86A4E818A338FD0C640B9065E4",
       "width": 1086,
       "height": 1448,
       "alpha": true,
       "placement": "catalogue",
       "alpha_bbox": {
         "pixels": [
-          2,
-          36,
-          1069,
-          1426
+          15,
+          125,
+          1086,
+          1448
         ],
-        "top_ratio": 0.02486,
-        "bottom_ratio": 0.01519,
-        "left_ratio": 0.00184,
-        "right_ratio": 0.01565
+        "top_ratio": 0.08633,
+        "bottom_ratio": 0.0,
+        "left_ratio": 0.01381,
+        "right_ratio": 0.0
       }
     },
     {
-      "filename": "maliev-homepage-pimm-20260901-r02-navigation-alpha.webp",
-      "sha256": "20F59690C4A713FF253A6526A2D9F70BF1D4265501744B4C84C224F84425DA37",
+      "filename": "maliev-homepage-pimm-20260901-r03-navigation-alpha.webp",
+      "sha256": "E92318ABB763F6624F1B7DBC551751691FC76DC970248B730849C0C6C35E50BD",
       "width": 900,
       "height": 900,
       "alpha": true,
       "placement": "navigation",
       "alpha_bbox": {
         "pixels": [
-          0,
-          22,
-          871,
-          886
+          57,
+          1,
+          835,
+          900
         ],
-        "top_ratio": 0.02444,
-        "bottom_ratio": 0.01556,
-        "left_ratio": 0.0,
-        "right_ratio": 0.03222
+        "top_ratio": 0.00111,
+        "bottom_ratio": 0.0,
+        "left_ratio": 0.06333,
+        "right_ratio": 0.07222
       }
     }
   ]

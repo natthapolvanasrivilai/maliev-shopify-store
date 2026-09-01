@@ -14,11 +14,9 @@
         "tertiary_label": "Sim racing? See SimMount",
         "tertiary_link": "#simmount",
         "layout": "overlay",
-        "asset_name": "maliev-homepage-pimm-20260901-r02-hero-desktop-alpha.webp",
-        "asset_name_30g": "",
-        "asset_name_50g": "",
-        "mobile_asset_name": "maliev-homepage-pimm-20260901-r02-hero-mobile-alpha.webp",
-        "image_alt": "MALIEV compact pneumatic injection molding machine, three-quarter studio view",
+        "asset_name": "maliev-homepage-pimm-20260901-r03-hero-desktop-alpha.webp",
+        "mobile_asset_name": "maliev-homepage-pimm-20260901-r03-hero-mobile-alpha.webp",
+        "image_alt": "MALIEV PIMM 30G and 50G injection molding machines side by side in a 45-degree studio view",
         "note": "Built in-house. Supported in Thailand. One-year warranty.",
         "show_social": false
       }
@@ -38,7 +36,7 @@
             "description": "Compact molding machines, built in Thailand.",
             "link_label": "Compare machines",
             "link": "/collections/เครื่องฉีดพลาสติก",
-            "asset_name": "maliev-homepage-pimm-20260901-r02-catalogue-alpha.webp",
+            "asset_name": "maliev-homepage-pimm-20260901-r03-catalogue-alpha.webp",
             "image_alt": "MALIEV PIMM 30G and 50G compact injection molding machines side by side with all feet grounded",
             "theme": "light"
           }
