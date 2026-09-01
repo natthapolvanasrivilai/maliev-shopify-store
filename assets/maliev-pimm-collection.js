@@ -1,0 +1,311 @@
+(() => {
+  const ELEMENT_NAME = 'pimm-collection-comparison';
+  const MODELS = ['30G', '50G'];
+  const FRAME_SEQUENCE = ['front', 'left', 'front', 'right', 'front'];
+  const FRAME_DELAYS = [0, 180, 360, 540, 720];
+
+  const isPositiveNumber = (value) => Number.isFinite(value) && value > 0;
+  const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+  const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+  class PimmCollectionComparison extends HTMLElement {
+    connectedCallback() {
+      if (this.recordByModel?.has('30G') && this.presentations?.has('30G')) {
+        this.committedModel = '30G';
+        this.applyModel('30G', false);
+      }
+      this.releaseRuntime();
+      this.records = null;
+      this.recordByModel = null;
+      this.presentations = null;
+      this.activeModel = undefined;
+      this.committedModel = undefined;
+      this.controller = new AbortController();
+      this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      const records = this.parseRecords();
+      if (!this.hasExactRecordContract(records)) return;
+
+      const presentations = this.capturePresentations();
+      if (!presentations
+        || !isNonEmptyString(this.dataset.availableLabel)
+        || !isNonEmptyString(this.dataset.unavailableLabel)) return;
+
+      this.records = records;
+      this.recordByModel = new Map(records.map((record) => [record.model, record]));
+      this.presentations = presentations;
+      this.committedModel = '30G';
+      this.applyModel('30G', false);
+      this.bindCards();
+      this.preloadDeferredFrames();
+    }
+
+    disconnectedCallback() {
+      this.releaseRuntime();
+      this.controller = null;
+    }
+
+    parseRecords() {
+      const payload = this.querySelector('[data-pimm-collection-models]');
+      if (!payload) return null;
+
+      try {
+        return JSON.parse(payload.textContent);
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    hasExactRecordContract(records) {
+      if (!Array.isArray(records) || records.length !== MODELS.length) return false;
+      if (new Set(records.map((record) => record?.model)).size !== MODELS.length) return false;
+      if (!MODELS.every((model) => records.some((record) => record?.model === model))) return false;
+
+      return records.every((record) => {
+        if (!isObject(record)) return false;
+        if (!Number.isSafeInteger(record.id) || record.id <= 0) return false;
+        if (!MODELS.includes(record.model)) return false;
+        if (!isNonEmptyString(record.url) || !isNonEmptyString(record.fullPrice)) return false;
+        if (typeof record.available !== 'boolean' || !isNonEmptyString(record.leadTime)) return false;
+
+        let url;
+        try {
+          url = new URL(record.url, 'https://maliev.invalid');
+        } catch (_error) {
+          return false;
+        }
+        if (url.searchParams.get('variant') !== String(record.id)) return false;
+
+        const specifications = record.specifications;
+        const envelope = specifications?.moldEnvelopeMm;
+        return isObject(specifications)
+          && isPositiveNumber(specifications.shotCapacityG)
+          && isPositiveNumber(specifications.maxMeltTemperatureC)
+          && isObject(envelope)
+          && isPositiveNumber(envelope.width)
+          && isPositiveNumber(envelope.height)
+          && isPositiveNumber(envelope.depth)
+          && isPositiveNumber(specifications.maxAirPressureMpa);
+      });
+    }
+
+    capturePresentations() {
+      const dossiers = [...this.querySelectorAll('[data-pimm-collection-inline-dossier]')];
+      if (dossiers.length !== MODELS.length) return null;
+
+      const presentations = new Map();
+      for (const dossier of dossiers) {
+        const model = dossier.dataset.model;
+        if (!MODELS.includes(model) || presentations.has(model)) return null;
+
+        const presentation = {
+          recommendation: this.readText(dossier, '[data-pimm-dossier-recommendation]'),
+          compare: this.readText(dossier, '[data-pimm-dossier-compare]'),
+          shotCapacityUnit: this.readMeasurementUnit(dossier, '[data-pimm-dossier-shot-capacity]'),
+          moldEnvelopeUnit: this.readEnvelopeUnit(dossier, '[data-pimm-dossier-mold-envelope]'),
+          meltTemperatureUnit: this.readMeasurementUnit(dossier, '[data-pimm-dossier-melt-temperature]'),
+          airPressureUnit: this.readMeasurementUnit(dossier, '[data-pimm-dossier-air-pressure]'),
+          configure: this.readText(dossier, '[data-pimm-dossier-configure]'),
+        };
+        if (Object.values(presentation).some((value) => !isNonEmptyString(value))) return null;
+        presentations.set(model, presentation);
+      }
+
+      return MODELS.every((model) => presentations.has(model)) ? presentations : null;
+    }
+
+    readText(root, selector) {
+      return root.querySelector(selector)?.textContent?.trim() ?? '';
+    }
+
+    readMeasurementUnit(root, selector) {
+      return this.readText(root, selector).replace(/^[-+\d.,]+\s*/, '').trim();
+    }
+
+    readEnvelopeUnit(root, selector) {
+      return this.readText(root, selector)
+        .replace(/^[-+\d.,]+\s*[×x]\s*[-+\d.,]+\s*[×x]\s*[-+\d.,]+\s*/i, '')
+        .trim();
+    }
+
+    bindCards() {
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        const model = card.dataset.model;
+        if (!this.recordByModel.has(model)) continue;
+        const signal = this.controller.signal;
+
+        card.addEventListener('pointerenter', (event) => {
+          if (event.pointerType === 'touch') return;
+          this.previewModel(model);
+          this.playSequence(card);
+        }, { signal });
+
+        card.addEventListener('pointerleave', (event) => {
+          if (event.pointerType === 'touch') return;
+          this.restoreCommittedModel();
+          this.stopSequence(card, true);
+        }, { signal });
+
+        card.addEventListener('focusin', () => {
+          this.previewModel(model);
+          this.playSequence(card);
+        }, { signal });
+
+        card.addEventListener('focusout', (event) => {
+          if (card.contains(event.relatedTarget)) return;
+          this.restoreCommittedModel();
+          this.stopSequence(card, true);
+        }, { signal });
+
+        card.addEventListener('click', () => {
+          this.commitModel(model);
+          this.playSequence(card);
+        }, { signal });
+      }
+    }
+
+    commitModel(model, announce = true) {
+      if (!this.recordByModel?.has(model)) return;
+      this.committedModel = model;
+      this.applyModel(model, announce);
+    }
+
+    previewModel(model) {
+      if (!this.recordByModel?.has(model)) return;
+      this.applyModel(model, false);
+    }
+
+    restoreCommittedModel() {
+      if (!this.committedModel) return;
+      this.applyModel(this.committedModel, false);
+    }
+
+    applyModel(model, announce = false) {
+      const record = this.recordByModel?.get(model);
+      const presentation = this.presentations?.get(model);
+      if (!record || !presentation) return;
+      this.activeModel = model;
+
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        const active = card.dataset.model === model;
+        card.classList.toggle('is-active', active);
+        card.setAttribute('aria-current', active ? 'true' : 'false');
+      }
+
+      for (const dossier of this.querySelectorAll('[data-pimm-collection-dossier]')) {
+        const inline = Object.hasOwn(dossier.dataset, 'pimmCollectionInlineDossier');
+        if (inline) {
+          const active = dossier.dataset.model === model;
+          dossier.classList.toggle('is-active', active);
+          dossier.hidden = !active;
+          if (!active) continue;
+        } else {
+          dossier.dataset.model = model;
+        }
+        this.updateDossier(dossier, record, presentation);
+      }
+
+      if (announce) this.announceModel(model);
+    }
+
+    updateDossier(dossier, record, presentation) {
+      this.writeText(dossier, '[data-pimm-dossier-model]', record.model);
+      this.writeText(dossier, '[data-pimm-dossier-recommendation]', presentation.recommendation);
+      this.writeText(dossier, '[data-pimm-dossier-compare]', presentation.compare);
+      this.writeText(dossier, '[data-pimm-dossier-price]', record.fullPrice);
+      this.writeText(
+        dossier,
+        '[data-pimm-dossier-availability]',
+        record.available ? this.dataset.availableLabel : this.dataset.unavailableLabel,
+      );
+      this.writeText(dossier, '[data-pimm-dossier-lead-time]', record.leadTime);
+      this.writeText(dossier, '[data-pimm-dossier-shot-capacity]', `${record.specifications.shotCapacityG} ${presentation.shotCapacityUnit}`);
+      this.writeText(
+        dossier,
+        '[data-pimm-dossier-mold-envelope]',
+        `${record.specifications.moldEnvelopeMm.width} × ${record.specifications.moldEnvelopeMm.height} × ${record.specifications.moldEnvelopeMm.depth} ${presentation.moldEnvelopeUnit}`,
+      );
+      this.writeText(dossier, '[data-pimm-dossier-melt-temperature]', `${record.specifications.maxMeltTemperatureC} ${presentation.meltTemperatureUnit}`);
+      this.writeText(dossier, '[data-pimm-dossier-air-pressure]', `${record.specifications.maxAirPressureMpa} ${presentation.airPressureUnit}`);
+
+      const configure = dossier.querySelector('[data-pimm-dossier-configure]');
+      if (configure) {
+        configure.href = record.url;
+        configure.textContent = presentation.configure;
+      }
+    }
+
+    writeText(root, selector, value) {
+      const target = root.querySelector(selector);
+      if (target) target.textContent = value;
+    }
+
+    announceModel(model) {
+      const announcement = this.querySelector('[data-pimm-collection-announcement]');
+      const template = announcement?.dataset.announcementTemplate;
+      if (!announcement || !isNonEmptyString(template)) return;
+      announcement.textContent = template.replace('__MODEL__', model);
+    }
+
+    playSequence(card) {
+      this.stopSequence(card, true);
+      if (this.reduceMotion?.matches) return;
+
+      this.timerSets ??= new Map();
+      const timerSet = new Set();
+      this.timerSets.set(card, timerSet);
+
+      FRAME_SEQUENCE.forEach((frame, index) => {
+        let timerId;
+        timerId = window.setTimeout(() => {
+          timerSet.delete(timerId);
+          this.exposeFrame(card, frame);
+          if (index === FRAME_SEQUENCE.length - 1) this.timerSets.delete(card);
+        }, FRAME_DELAYS[index]);
+        timerSet.add(timerId);
+      });
+    }
+
+    stopSequence(card, reset = true) {
+      const timerSet = this.timerSets?.get(card);
+      if (timerSet) {
+        for (const timerId of timerSet) window.clearTimeout(timerId);
+        this.timerSets.delete(card);
+      }
+      if (reset) this.exposeFrame(card, 'front');
+    }
+
+    exposeFrame(card, requestedFrame) {
+      const frames = [...card.querySelectorAll('[data-pimm-collection-frame]')];
+      const target = frames.find((frame) => frame.dataset.pimmCollectionFrame === requestedFrame)
+        ?? frames.find((frame) => frame.dataset.pimmCollectionFrame === 'front');
+      if (!target) return;
+
+      for (const frame of frames) {
+        const active = frame === target;
+        frame.hidden = !active;
+        frame.setAttribute('aria-hidden', active ? 'false' : 'true');
+        frame.classList.toggle('is-active', active);
+      }
+    }
+
+    preloadDeferredFrames() {
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        for (const image of card.querySelectorAll('img[loading="lazy"]')) {
+          if (typeof image.decode === 'function') image.decode().catch(() => {});
+        }
+      }
+    }
+
+    releaseRuntime() {
+      this.controller?.abort();
+      for (const card of this.querySelectorAll?.('[data-pimm-collection-card]') ?? []) {
+        this.stopSequence(card, true);
+      }
+    }
+  }
+
+  if (!customElements.get(ELEMENT_NAME)) {
+    customElements.define(ELEMENT_NAME, PimmCollectionComparison);
+  }
+})();

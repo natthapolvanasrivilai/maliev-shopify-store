@@ -90,6 +90,8 @@
   data-pimm-collection-comparison
   data-section-id="{{ section.id }}"
   data-contract-valid="{{ contract_valid }}"
+  data-available-label="{{ 'products.pimm_machine.status.made_to_order' | t | escape }}"
+  data-unavailable-label="{{ 'products.pimm_machine.status.out_of_stock' | t | escape }}"
 >
   <div class="pimm-collection__shell">
     <header
@@ -274,7 +276,7 @@
             >
               <h2 data-pimm-dossier-model>30G</h2>
               <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
-              <p>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
+              <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
               <dl>
                 <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
@@ -295,7 +297,7 @@
             >
               <h2 data-pimm-dossier-model>50G</h2>
               <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.50g.choose_this' | t }}</p>
-              <p>{{ 'products.pimm_collection.compare_with' | t: model: '30G' }}</p>
+              <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '30G' }}</p>
               <dl>
                 <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_full_price | money_with_currency }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_50g_status_key | t }}</dd></div>
@@ -336,7 +338,13 @@
         </aside>
       </div>
 
-      <p class="visually-hidden" aria-live="polite" aria-atomic="true" data-pimm-collection-announcement></p>
+      <p
+        class="visually-hidden"
+        aria-live="polite"
+        aria-atomic="true"
+        data-pimm-collection-announcement
+        data-announcement-template="{{ 'products.pimm_collection.updated_announcement' | t: model: '__MODEL__' | escape }}"
+      ></p>
 
       <script type="application/json" data-pimm-collection-models>
         [
@@ -408,6 +416,8 @@
     {%- endif -%}
   </div>
 </pimm-collection-comparison>
+
+<script src="{{ 'maliev-pimm-collection.js' | asset_url }}" defer="defer"></script>
 
 {% schema %}
 {
