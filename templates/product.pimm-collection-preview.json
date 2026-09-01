@@ -11,8 +11,8 @@
       "type": "maliev-pimm-collection",
       "settings": {
         "pimm_product": "",
-        "support_url": "",
-        "factory_visit_url": ""
+        "support_url": "/pages/contact?intent=general#ContactForm",
+        "factory_visit_url": "/pages/contact?intent=demo#ContactVisitTitle"
       }
     }
   },

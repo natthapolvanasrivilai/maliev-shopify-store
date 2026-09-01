@@ -74,8 +74,8 @@ test('preview-only product template contains only the dedicated PIMM comparison 
   assert.equal(template.sections.main.type, 'maliev-pimm-collection');
   assert.deepEqual(template.sections.main.settings, {
     pimm_product: '',
-    support_url: '',
-    factory_visit_url: '',
+    support_url: '/pages/contact?intent=general#ContactForm',
+    factory_visit_url: '/pages/contact?intent=demo#ContactVisitTitle',
   });
 });
 
@@ -206,6 +206,36 @@ test('valid server fallback exposes semantic cards dossiers payload and canonica
   assert.match(section, /"@type": "CollectionPage"/);
   assert.match(section, /"@type": "ItemList"/);
   assert.equal(section.match(/"@type": "ListItem"/g)?.length, 2);
+});
+
+test('server fallback keeps cards out of the tab order and compare controls unavailable until enhancement', async () => {
+  const { renderPimmCollectionSection } = await loadLiquidHarness();
+  const output = await renderPimmCollectionSection(productFixture());
+  const cards = [...output.matchAll(/<article\b([\s\S]*?)<\/article>/g)].map((match) => match[0]);
+
+  assert.equal(cards.length, 2);
+  for (const [index, card] of cards.entries()) {
+    const expectedVariant = 300 + index;
+    assert.doesNotMatch(card.match(/<article\b[\s\S]*?>/)?.[0] ?? '', /\btabindex=/);
+    assert.match(card, new RegExp(`<a href="/products/pimm\\?variant=${expectedVariant}">`));
+    assert.match(card, /<button\b[^>]*data-pimm-collection-select[^>]*\bhidden\b[^>]*\bdisabled\b/);
+  }
+});
+
+test('configured support actions render with exact labels and targets in desktop and both inline dossiers', async () => {
+  const { renderPimmCollectionSection } = await loadLiquidHarness();
+  const supportUrl = '/pages/contact?intent=general#ContactForm';
+  const factoryVisitUrl = '/pages/contact?intent=demo#ContactVisitTitle';
+  const output = await renderPimmCollectionSection(productFixture(), { supportUrl, factoryVisitUrl });
+  const inlineDossiers = [...output.matchAll(/<aside\b[^>]*data-pimm-collection-inline-dossier[\s\S]*?<\/aside>/g)]
+    .map((match) => match[0]);
+  const desktopDossier = output.match(/<aside\b[^>]*pimm-collection__dossier--desktop[\s\S]*?<\/aside>/)?.[0] ?? '';
+
+  assert.equal(inlineDossiers.length, 2);
+  for (const dossier of [...inlineDossiers, desktopDossier]) {
+    assert.match(dossier, new RegExp(`<a href="${factoryVisitUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">products\\.pimm_collection\\.factory_visit<\\/a>`));
+    assert.match(dossier, new RegExp(`<a href="${supportUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">products\\.pimm_collection\\.support<\\/a>`));
+  }
 });
 
 test('cards own six unique collection-only physical render frames', async () => {

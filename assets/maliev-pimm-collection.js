@@ -10,11 +10,8 @@
 
   class PimmCollectionComparison extends HTMLElement {
     connectedCallback() {
-      if (this.recordByModel?.has('30G') && this.presentations?.has('30G')) {
-        this.committedModel = '30G';
-        this.applyModel('30G', false);
-      }
       this.releaseRuntime();
+      this.restoreFallback();
       this.records = null;
       this.recordByModel = null;
       this.presentations = null;
@@ -36,12 +33,14 @@
       this.presentations = presentations;
       this.committedModel = '30G';
       this.applyModel('30G', false);
+      this.setEnhancedState(true);
       this.bindCards();
       this.preloadDeferredFrames();
     }
 
     disconnectedCallback() {
       this.releaseRuntime();
+      this.restoreFallback();
       this.controller = null;
     }
 
@@ -218,6 +217,37 @@
           this.playSequence(card);
         }, { signal });
       }
+    }
+
+    setEnhancedState(enhanced) {
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        if (enhanced) card.setAttribute('tabindex', '0');
+        else card.removeAttribute('tabindex');
+
+        const select = card.querySelector('[data-pimm-collection-select]');
+        if (!select) continue;
+        select.hidden = !enhanced;
+        select.disabled = !enhanced;
+      }
+    }
+
+    restoreFallback() {
+      if (this.recordByModel?.has('30G') && this.presentations?.has('30G')) {
+        this.committedModel = '30G';
+        this.applyModel('30G', false);
+      } else {
+        for (const card of this.querySelectorAll?.('[data-pimm-collection-card]') ?? []) {
+          const active = card.dataset.model === '30G';
+          card.classList.toggle('is-active', active);
+          card.setAttribute('aria-current', active ? 'true' : 'false');
+        }
+        for (const dossier of this.querySelectorAll?.('[data-pimm-collection-inline-dossier]') ?? []) {
+          const active = dossier.dataset.model === '30G';
+          dossier.classList.toggle('is-active', active);
+          dossier.hidden = !active;
+        }
+      }
+      this.setEnhancedState(false);
     }
 
     commitModel(model, announce = true) {

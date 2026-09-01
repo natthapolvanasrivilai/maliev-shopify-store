@@ -105,6 +105,10 @@ class FakeNode {
     this.attributes.set(name, String(value));
   }
 
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
   getAttribute(name) {
     return this.attributes.get(name) ?? null;
   }
@@ -176,6 +180,12 @@ function createCard(model) {
     classes: model === '30G' ? ['is-active'] : [],
   });
   card.setAttribute('aria-current', model === '30G' ? 'true' : 'false');
+  const configure = new FakeNode({ textContent: `View ${model} machine` });
+  configure.href = `/products/pimm?variant=${model === '30G' ? 30 : 50}`;
+  configure.setAttribute('href', configure.href);
+  const select = new FakeNode({ textContent: `Compare ${model}` });
+  select.hidden = true;
+  select.disabled = true;
   const frames = ['front', 'left', 'right'].map((angle) => {
     const frame = new FakeNode({
       dataset: { pimmCollectionFrame: angle },
@@ -187,6 +197,8 @@ function createCard(model) {
   });
   card.nodes.set('[data-pimm-collection-frame]', frames);
   card.nodes.set('img[loading="lazy"]', []);
+  card.nodes.set('[data-pimm-collection-select]', select);
+  card.nodes.set('.pimm-collection__card-actions a', configure);
   return card;
 }
 
@@ -284,6 +296,20 @@ test('30G is committed initially and a preview does not overwrite the committed 
   assert.equal(comparison.activeModel, '30G');
 });
 
+test('valid enhancement alone makes cards and compare controls interactive', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+
+  comparison.connectedCallback();
+
+  for (const card of cards) {
+    const select = card.querySelector('[data-pimm-collection-select]');
+    assert.equal(card.getAttribute('tabindex'), '0');
+    assert.equal(select.hidden, false);
+    assert.equal(select.disabled, false);
+  }
+});
+
 test('committing 50G updates aria state, both dossier instances, and one announcement', async () => {
   const { Controller } = await loadController();
   const { comparison, cards, inlineDossiers, desktopDossier, announcement } = createComparison(Controller);
@@ -366,6 +392,14 @@ test('invalid records preserve the server fallback and attach no playback listen
   assert.equal(cards[0].getAttribute('aria-current'), 'true');
   assert.equal(cards.reduce((count, card) => count + card.activeListenerCount(), 0), 0);
   assert.equal(comparison.committedModel, undefined);
+  for (const card of cards) {
+    const configure = card.querySelector('.pimm-collection__card-actions a');
+    const select = card.querySelector('[data-pimm-collection-select]');
+    assert.equal(card.getAttribute('tabindex'), null);
+    assert.equal(select.hidden, true);
+    assert.equal(select.disabled, true);
+    assert.equal(configure.getAttribute('href'), `/products/pimm?variant=${card.dataset.model === '30G' ? 30 : 50}`);
+  }
 });
 
 test('strict record validation rejects incomplete, duplicate, and unbound model records', async (context) => {
@@ -478,6 +512,12 @@ test('disconnect clears timers and aborts all listeners', async () => {
   assert.equal(controller.signal.aborted, true);
   assert.equal(cards.reduce((count, card) => count + card.activeListenerCount(), 0), 0);
   assert.equal(visibleFrame(cards[0]), 'front');
+  for (const card of cards) {
+    const select = card.querySelector('[data-pimm-collection-select]');
+    assert.equal(card.getAttribute('tabindex'), null);
+    assert.equal(select.hidden, true);
+    assert.equal(select.disabled, true);
+  }
 });
 
 test('reconnect restores the 30G fallback before rejecting a newly invalid payload', async () => {
@@ -494,4 +534,10 @@ test('reconnect restores the 30G fallback before rejecting a newly invalid paylo
   assert.equal(cards[1].getAttribute('aria-current'), 'false');
   assert.equal(cards.reduce((count, card) => count + card.activeListenerCount(), 0), 0);
   assert.equal(comparison.committedModel, undefined);
+  for (const card of cards) {
+    const select = card.querySelector('[data-pimm-collection-select]');
+    assert.equal(card.getAttribute('tabindex'), null);
+    assert.equal(select.hidden, true);
+    assert.equal(select.disabled, true);
+  }
 });

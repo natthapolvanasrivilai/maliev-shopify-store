@@ -254,6 +254,10 @@
   padding-top: 0.8rem;
 }
 
+.pimm-collection__card-actions [data-pimm-collection-select][hidden] {
+  display: none !important;
+}
+
 .pimm-collection__card-actions :is(a, button),
 .pimm-collection__dossier-actions a,
 .pimm-collection__dossier > a[data-pimm-dossier-configure] {
@@ -280,11 +284,16 @@
     color 180ms var(--pimm-collection-ease);
 }
 
-.pimm-collection__card-actions button,
-.pimm-collection__dossier-actions a:not([data-pimm-dossier-configure]) {
+.pimm-collection__card-actions button {
   background: transparent;
   border-color: var(--pimm-collection-rule);
   color: var(--pimm-collection-ink);
+}
+
+.pimm-collection__dossier-actions a:not([data-pimm-dossier-configure]) {
+  background: transparent;
+  border-color: #606870;
+  color: var(--pimm-collection-surface);
 }
 
 .pimm-collection__card-actions :is(a, button):hover,

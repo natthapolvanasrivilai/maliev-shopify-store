@@ -13,6 +13,17 @@ const evidenceDir = resolve(
 );
 const viewports = [[1536, 1024], [1280, 800], [1024, 768], [390, 844], [360, 800]];
 const desktopMinimum = 990;
+const inlineActionViewports = [[989, 800], [390, 844]];
+const expectedActionLabels = {
+  en: {
+    factoryVisit: 'Book a factory visit',
+    support: 'Contact machine support',
+  },
+  th: {
+    factoryVisit: 'จองเข้าชมโรงงาน',
+    support: 'ติดต่อฝ่ายบริการเครื่อง',
+  },
+};
 const chromeCandidates = [
   process.env.PIMM_COLLECTION_CHROME_PATH,
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -394,6 +405,20 @@ async function navigate(session, url, diagnostics) {
   await assertNoStorefrontFailureSurface(session, url);
 }
 
+async function navigateWithoutJavaScript(session, url, diagnostics) {
+  diagnostics.begin(`${url} (JavaScript disabled)`);
+  const result = await session.send('Page.navigate', { url });
+  if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
+  await eventually(() => evaluate(session, `document.readyState === 'complete'`), {
+    message: 'No-JavaScript collection preview did not finish loading',
+  });
+  await assertNoStorefrontFailureSurface(session, url);
+  await eventually(() => evaluate(
+    session,
+    `Boolean(document.querySelector('[data-pimm-collection-comparison][data-contract-valid="true"]'))`,
+  ), { message: 'No-JavaScript dedicated PIMM collection did not render' });
+}
+
 function thaiUrlFrom(value) {
   const url = new URL(value);
   if (!url.pathname.startsWith('/th/')) {
@@ -655,6 +680,117 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
   assert.match(result.announcement, /50G/, `${language} touch announcement`);
   assert.equal(result.announcementChanges.length, 1, `${language} touch announcement count`);
   await diagnostics.assertClean(`${language} 390x844 real mobile touch`);
+}
+
+async function inlineSupportActionProbe(session, diagnostics, language) {
+  const labels = expectedActionLabels[language];
+  for (const [width, height] of inlineActionViewports) {
+    await setViewport(session, width, height, width < 500);
+    const result = await evaluate(session, `(() => {
+      const root = document.querySelector('[data-pimm-collection-comparison]');
+      const desktop = root.querySelector('.pimm-collection__dossier--desktop');
+      const inline = [...root.querySelectorAll('[data-pimm-collection-inline-dossier]')];
+      const active = inline.find((dossier) => !dossier.hidden && dossier.classList.contains('is-active'));
+      const inactive = inline.find((dossier) => dossier !== active);
+      const links = [...active.querySelectorAll('.pimm-collection__dossier-actions a')];
+      const actions = links.slice(1).map((link) => {
+        const url = new URL(link.href);
+        link.focus({ preventScroll: true });
+        return {
+          color: getComputedStyle(link).color,
+          focused: document.activeElement === link,
+          hash: url.hash,
+          label: link.textContent.trim(),
+          pathname: url.pathname,
+          search: url.search,
+          visible: link.getClientRects().length > 0,
+        };
+      });
+      return {
+        actions,
+        activeModel: active?.dataset.model,
+        committedModel: root.committedModel,
+        activeVisible: active?.getClientRects().length > 0,
+        cardTabindexes: [...root.querySelectorAll('[data-pimm-collection-card]')]
+          .map((card) => card.getAttribute('tabindex')),
+        compareControls: [...root.querySelectorAll('[data-pimm-collection-select]')]
+          .map((button) => ({ disabled: button.disabled, hidden: button.hidden })),
+        desktopHidden: getComputedStyle(desktop).display === 'none',
+        inactiveHidden: inactive?.hidden && inactive.getClientRects().length === 0,
+      };
+    })()`);
+    const context = `${language} ${width}x${height} inline support actions`;
+    assert.equal(result.activeModel, result.committedModel, `${context} active dossier`);
+    assert.equal(result.activeVisible, true, `${context} active dossier visibility`);
+    assert.equal(result.desktopHidden, true, `${context} desktop dossier hidden`);
+    assert.equal(result.inactiveHidden, true, `${context} inactive dossier hidden`);
+    assert.deepEqual(result.cardTabindexes, ['0', '0'], `${context} enhanced card focusability`);
+    assert.ok(result.compareControls.every(({ disabled, hidden }) => !disabled && !hidden), `${context} compare controls`);
+    assert.deepEqual(result.actions, [
+      {
+        color: 'rgb(255, 255, 255)',
+        focused: true,
+        hash: '#ContactVisitTitle',
+        label: labels.factoryVisit,
+        pathname: '/pages/contact',
+        search: '?intent=demo',
+        visible: true,
+      },
+      {
+        color: 'rgb(255, 255, 255)',
+        focused: true,
+        hash: '#ContactForm',
+        label: labels.support,
+        pathname: '/pages/contact',
+        search: '?intent=general',
+        visible: true,
+      },
+    ], `${context} exact actions`);
+    await diagnostics.assertClean(context);
+  }
+}
+
+async function noJavaScriptFallbackProbe(session, diagnostics, language, url) {
+  await session.send('Emulation.setScriptExecutionDisabled', { value: true });
+  try {
+    await setViewport(session, 989, 800);
+    await navigateWithoutJavaScript(session, url, diagnostics);
+    for (const [width, height] of inlineActionViewports) {
+      await setViewport(session, width, height, width < 500);
+      const result = await evaluate(session, `(() => {
+        const root = document.querySelector('[data-pimm-collection-comparison]');
+        const cards = [...root.querySelectorAll('[data-pimm-collection-card]')];
+        const links = cards.map((card) => card.querySelector('.pimm-collection__card-actions a'));
+        const compareControls = cards.map((card) => card.querySelector('[data-pimm-collection-select]'));
+        return {
+          controllerDefined: Boolean(customElements.get('pimm-collection-comparison')),
+          cardTabindexes: cards.map((card) => card.getAttribute('tabindex')),
+          compareControls: compareControls.map((button) => ({
+            disabled: button.disabled,
+            hidden: button.hidden,
+            visible: button.getClientRects().length > 0,
+          })),
+          canonicalLinks: links.map((link) => {
+            link.focus({ preventScroll: true });
+            return {
+              focused: document.activeElement === link,
+              variant: new URL(link.href).searchParams.get('variant'),
+              visible: link.getClientRects().length > 0,
+            };
+          }),
+        };
+      })()`);
+      const context = `${language} ${width}x${height} no-JavaScript fallback`;
+      assert.equal(result.controllerDefined, false, `${context} controller absence`);
+      assert.deepEqual(result.cardTabindexes, [null, null], `${context} card tab order`);
+      assert.ok(result.compareControls.every(({ disabled, hidden, visible }) => disabled && hidden && !visible), `${context} compare controls`);
+      assert.deepEqual(result.canonicalLinks.map(({ variant }) => variant), ['54823758627095', '54823758659863'], `${context} canonical variants`);
+      assert.ok(result.canonicalLinks.every(({ focused, visible }) => focused && visible), `${context} canonical link keyboard use`);
+      await diagnostics.assertClean(context);
+    }
+  } finally {
+    await session.send('Emulation.setScriptExecutionDisabled', { value: false });
+  }
 }
 
 async function interactionProbe(session, language) {
@@ -945,8 +1081,12 @@ test('dedicated PIMM collection passes responsive, interaction, and localization
       }
       await interactionProbe(session, language);
       await headerProbe(session, `${language} desktop`);
+      await inlineSupportActionProbe(session, diagnostics, language);
       await diagnostics.assertClean(`${language} desktop interaction and header`);
     }
+
+    await noJavaScriptFallbackProbe(session, diagnostics, 'en', previewUrl);
+    await noJavaScriptFallbackProbe(session, diagnostics, 'th', thaiUrlFrom(previewUrl));
 
     await mobileTouchProbe(session, diagnostics, 'en', previewUrl);
     await mobileTouchProbe(session, diagnostics, 'th', thaiUrlFrom(previewUrl));

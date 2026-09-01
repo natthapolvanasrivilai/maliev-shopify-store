@@ -48,8 +48,8 @@ export const renderPimmCollectionSection = async (pimmProduct, context = {}) => 
       id: 'contract-fixture',
       settings: {
         pimm_product: pimmProduct,
-        support_url: '',
-        factory_visit_url: '',
+        support_url: context.supportUrl ?? '',
+        factory_visit_url: context.factoryVisitUrl ?? '',
       },
     },
     shop: { name: 'MALIEV' },

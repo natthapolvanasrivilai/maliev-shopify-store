@@ -127,7 +127,6 @@
               data-pimm-collection-card
               data-model="30G"
               aria-current="true"
-              tabindex="0"
             >
               <div class="pimm-collection__media" aria-label="{{ 'products.pimm_collection.models.30g.media_label' | t }}">
                 <div class="pimm-collection__frame is-active" data-pimm-collection-frame="front" aria-hidden="false">
@@ -192,7 +191,7 @@
                 </dl>
                 <div class="pimm-collection__card-actions">
                   <a href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
-                  <button type="button" data-pimm-collection-select aria-label="{{ 'products.pimm_collection.select_model' | t: model: '30G' | escape }}">
+                  <button type="button" data-pimm-collection-select hidden disabled aria-label="{{ 'products.pimm_collection.select_model' | t: model: '30G' | escape }}">
                     {{ 'products.pimm_collection.select_model' | t: model: '30G' }}
                   </button>
                 </div>
@@ -204,7 +203,6 @@
               data-pimm-collection-card
               data-model="50G"
               aria-current="false"
-              tabindex="0"
             >
               <div class="pimm-collection__media" aria-label="{{ 'products.pimm_collection.models.50g.media_label' | t }}">
                 <div class="pimm-collection__frame is-active" data-pimm-collection-frame="front" aria-hidden="false">
@@ -268,7 +266,7 @@
                 </dl>
                 <div class="pimm-collection__card-actions">
                   <a href="{{ model_50g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '50G' }}</a>
-                  <button type="button" data-pimm-collection-select aria-label="{{ 'products.pimm_collection.select_model' | t: model: '50G' | escape }}">
+                  <button type="button" data-pimm-collection-select hidden disabled aria-label="{{ 'products.pimm_collection.select_model' | t: model: '50G' | escape }}">
                     {{ 'products.pimm_collection.select_model' | t: model: '50G' }}
                   </button>
                 </div>
@@ -295,7 +293,15 @@
                 <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_specifications.max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
               </dl>
-              <a data-pimm-dossier-configure href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
+              <div class="pimm-collection__dossier-actions">
+                <a data-pimm-dossier-configure href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
+                {%- if section.settings.factory_visit_url != blank -%}
+                  <a href="{{ section.settings.factory_visit_url }}">{{ 'products.pimm_collection.factory_visit' | t }}</a>
+                {%- endif -%}
+                {%- if section.settings.support_url != blank -%}
+                  <a href="{{ section.settings.support_url }}">{{ 'products.pimm_collection.support' | t }}</a>
+                {%- endif -%}
+              </div>
             </aside>
 
             <aside
@@ -316,7 +322,15 @@
                 <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_50g_specifications.max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_50g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
               </dl>
-              <a data-pimm-dossier-configure href="{{ model_50g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '50G' }}</a>
+              <div class="pimm-collection__dossier-actions">
+                <a data-pimm-dossier-configure href="{{ model_50g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '50G' }}</a>
+                {%- if section.settings.factory_visit_url != blank -%}
+                  <a href="{{ section.settings.factory_visit_url }}">{{ 'products.pimm_collection.factory_visit' | t }}</a>
+                {%- endif -%}
+                {%- if section.settings.support_url != blank -%}
+                  <a href="{{ section.settings.support_url }}">{{ 'products.pimm_collection.support' | t }}</a>
+                {%- endif -%}
+              </div>
             </aside>
           </div>
         </div>
