@@ -115,7 +115,13 @@ test('normal-scroll responsive CSS contains no legacy slide or editorial cascade
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.doesNotMatch(css, /height:\s*100s?vh|scroll-snap|position:\s*sticky/);
   assert.doesNotMatch(css, /\.pimm-machine__editorial|\.pimm-machine__bento/);
-  assert.doesNotMatch(css, /object-fit:\s*cover/);
+  assert.equal([story30G, story50G].join('\n').match(/data-pimm-media-shot="(?:overview|controls|tooling)"/g)?.length, 6);
+  assert.match(css, /\.pimm-story__media\[data-pimm-media-shot\] img\s*\{[^}]*object-fit:\s*cover[^}]*transform:\s*scale\(var\(--pimm-media-scale\)\)/s);
+  assert.match(css, /\.pimm-story__chapter:nth-child\(odd\)\s*\{[^}]*grid-template-columns:\s*minmax\(24rem, \.85fr\) minmax\(0, 1\.15fr\)/s);
+  assert.match(css, /\[data-pimm-media-shot="overview"\][^{]*\{[^}]*--pimm-media-scale:\s*1\.07/s);
+  assert.match(css, /\[data-pimm-media-shot="controls"\][^{]*\{[^}]*--pimm-media-scale:\s*1\.02/s);
+  assert.match(css, /\[data-pimm-media-shot="tooling"\][^{]*\{[^}]*--pimm-media-scale:\s*1\.02/s);
+  assert.match(css, /@media \(max-width:\s*749px\)[\s\S]*?\.pimm-story__media\[data-pimm-media-shot\]\s*\{[^}]*aspect-ratio:\s*4 \/ 3[^}]*min-height:\s*0/s);
 });
 
 test('model records bind exact story sets and fail closed on identity drift', () => {
