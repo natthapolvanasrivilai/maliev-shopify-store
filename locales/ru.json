@@ -116,6 +116,42 @@
     "collection_title": "Название коллекции"
   },
   "products": {
+    "pimm_collection": {
+      "title": "Choose the machine for your workshop",
+      "intro": "Compare the compact 30G and extended-capacity 50G before opening the full machine configurator.",
+      "best_for": "Best for",
+      "price": "Full machine price",
+      "availability": "Availability",
+      "lead_time": "Lead time",
+      "shot_capacity": "Shot capacity",
+      "mold_envelope": "Mold envelope (W × H × D)",
+      "melt_temperature": "Maximum melt temperature",
+      "air_pressure": "Maximum air pressure",
+      "compare_with": "Compared with {{ model }}",
+      "configure": "View {{ model }} machine",
+      "select_model": "Compare {{ model }}",
+      "configuration_error": "Machine comparison is not configured.",
+      "updated_announcement": "Now comparing {{ model }}",
+      "dossier_heading": "Machine comparison",
+      "factory_visit": "Book a factory visit",
+      "support": "Contact machine support",
+      "models": {
+        "30g": {
+          "designation": "Compact capacity",
+          "best_for": "prototypes, replacement parts, and focused small-batch production",
+          "choose_this": "Choose 30G when workshop footprint and compact shot capacity are the priority.",
+          "media_label": "30G machine views",
+          "alt": "MALIEV 30G pneumatic injection molding machine in a purpose-rendered studio front view"
+        },
+        "50g": {
+          "designation": "Extended capacity",
+          "best_for": "larger parts, heavier runners, and expanded small-batch production",
+          "choose_this": "Choose 50G when the mold and total shot need additional capacity.",
+          "media_label": "50G machine views",
+          "alt": "MALIEV 50G pneumatic injection molding machine in a purpose-rendered studio front view"
+        }
+      }
+    },
     "pimm30_story": {
       "aria_label": "PIMM 30G machine presentation",
       "media_stage": "PIMM 30G feature media",
