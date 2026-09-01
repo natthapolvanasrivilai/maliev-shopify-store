@@ -122,9 +122,11 @@ def _collection_stage(
     stage = bpy.data.objects.new("PIMM_COLLECTION_STAGE", None)
     collection.objects.link(stage)
     stage.location = center
+    bpy.context.view_layer.update()
     for mesh in meshes:
+        world_matrix = mesh.matrix_world.copy()
         mesh.parent = stage
-        mesh.matrix_parent_inverse = stage.matrix_world.inverted()
+        mesh.matrix_world = world_matrix
     return stage
 
 

@@ -103,6 +103,76 @@ class CollectionCardContractTests(unittest.TestCase):
         self.assertEqual(renderer.ANGLE_DEGREES, {"front": 0.0, "left": -12.0, "right": 12.0})
         self.assertEqual(renderer.OUTPUT_DIMENSIONS, (1200, 1600))
 
+    def test_collection_stage_preserves_mesh_world_transforms_before_rotation(self) -> None:
+        """Catches parenting translating the machine away from its validated bounds."""
+        class Matrix:
+            def __init__(self, value: str) -> None:
+                self.value = value
+
+            def copy(self) -> "Matrix":
+                return Matrix(self.value)
+
+        class Mesh:
+            def __init__(self, name: str) -> None:
+                self.name = name
+                self._parent = None
+                self._matrix_world = Matrix(f"world({name})")
+
+            @property
+            def parent(self):
+                return self._parent
+
+            @parent.setter
+            def parent(self, value) -> None:
+                self._parent = value
+                self._matrix_world = Matrix(f"translated({self.name})")
+
+            @property
+            def matrix_world(self) -> Matrix:
+                return self._matrix_world
+
+            @matrix_world.setter
+            def matrix_world(self, value: Matrix) -> None:
+                if self._parent is not None and self._parent.matrix_world.value != "stage-updated":
+                    self._matrix_world = Matrix(f"translated({self.name})")
+                else:
+                    self._matrix_world = value
+
+        class Stage:
+            def __init__(self) -> None:
+                self.location = None
+                self.matrix_world = Matrix("stage")
+
+        class Objects:
+            def __init__(self) -> None:
+                self.stage = Stage()
+
+            def new(self, _name: str, _data) -> Stage:
+                return self.stage
+
+        class Links:
+            def link(self, _obj) -> None:
+                return None
+
+        class Bpy:
+            def __init__(self) -> None:
+                objects = Objects()
+                self.data = type("Data", (), {"objects": objects})()
+
+                class ViewLayer:
+                    @staticmethod
+                    def update() -> None:
+                        objects.stage.matrix_world = Matrix("stage-updated")
+
+                self.context = type("Context", (), {"view_layer": ViewLayer()})()
+
+        meshes = [Mesh("one"), Mesh("two")]
+        original = [mesh.matrix_world.value for mesh in meshes]
+
+        renderer._collection_stage(Bpy(), type("Collection", (), {"objects": Links()})(), meshes, (1, 2, 3))
+
+        self.assertEqual([mesh.matrix_world.value for mesh in meshes], original)
+
     def test_finalizer_publishes_lossless_native_and_storefront_records(self) -> None:
         """Catches a complete render set failing to yield uniquely addressable store assets."""
         self._write_complete_fixture()

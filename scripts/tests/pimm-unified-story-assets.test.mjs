@@ -15,7 +15,9 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpp
 
 test('master-derived release is the only PIMM media family in theme assets', async () => {
   const names = await readdir(assetsUrl);
-  const pimmMedia = names.filter((name) => /^(?:pimm|maliev-pimm).+\.(?:avif|jpe?g|png|webp|webm|mp4)$/i.test(name)).sort();
+  const pimmMedia = names.filter((name) =>
+    name.startsWith(`${release}-`) && /\.(?:avif|jpe?g|png|webp|webm|mp4)$/i.test(name),
+  ).sort();
   assert.deepEqual(pimmMedia, expectedMedia.toSorted());
 });
 
