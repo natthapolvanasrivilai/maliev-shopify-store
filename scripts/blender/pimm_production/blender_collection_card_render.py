@@ -32,6 +32,32 @@ MASTER_HASHES = {
     "30G": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
     "50G": "CC26246CD01956B1145B1AA5744B968918F956B667B720205723E6B60A252D90",
 }
+RENDER_SIDECAR_SCHEMA = "maliev.pimm-collection-card-render/v1"
+
+
+def _render_sidecar_path(output_dir: Path, machine: str) -> Path:
+    return output_dir / f"{RELEASE_ID}-{machine.lower()}-render.v1.json"
+
+
+def _write_render_sidecar(
+    output_dir: Path,
+    machine: str,
+    provenance: dict[str, object],
+    outputs: list[dict[str, object]],
+) -> Path:
+    """Persist the renderer evidence that publication validates before copying bytes."""
+    sidecar = _render_sidecar_path(output_dir, machine)
+    if sidecar.exists():
+        raise FileExistsError(f"refusing to overwrite collection render sidecar: {sidecar}")
+    payload = {
+        "schema": RENDER_SIDECAR_SCHEMA,
+        "release_id": RELEASE_ID,
+        "machine": machine,
+        "provenance": provenance,
+        "outputs": outputs,
+    }
+    sidecar.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return sidecar
 
 
 def _arguments(argv: Sequence[str]) -> argparse.Namespace:
@@ -127,6 +153,9 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
     center = tuple((bounds_min[index] + bounds_max[index]) / 2 for index in range(3))
     output_dir = arguments.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    sidecar = _render_sidecar_path(output_dir, arguments.machine)
+    if sidecar.exists():
+        raise FileExistsError(f"refusing to overwrite collection render sidecar: {sidecar}")
 
     runtime = storefront._runtime_collection(bpy)
     # The shared storefront cyclorama has a 1,000-extents floor span, exceeding
@@ -152,12 +181,14 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
             "height": OUTPUT_DIMENSIONS[1],
             "sha256": storefront.sha256_file(output),
         })
+    sidecar = _write_render_sidecar(output_dir, arguments.machine, provenance, outputs)
     return {
-        "schema": "maliev.pimm-collection-card-render/v1",
+        "schema": RENDER_SIDECAR_SCHEMA,
         "release_id": RELEASE_ID,
         "machine": arguments.machine,
         "provenance": provenance,
         "outputs": outputs,
+        "render_sidecar": str(sidecar),
     }
 
 
