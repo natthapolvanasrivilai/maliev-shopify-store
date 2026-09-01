@@ -29,7 +29,7 @@ from blender_master_storefront_render import (  # noqa: E402
 )
 
 
-RELEASE_ID = "maliev-homepage-pimm-20260901-r11"
+RELEASE_ID = "maliev-homepage-pimm-20260901-r12"
 RESULT_MARKER = "MALIEV_HOMEPAGE_PAIR_RENDER_JSON="
 SECONDARY_MASTER_NAME = "PIMM-50G-MASTER.blend"
 APPEND_FOOT_TOLERANCE = 0.001
@@ -303,7 +303,7 @@ def _placement_camera(
     return camera
 
 
-def _tune_homepage_studio(runtime: Any, extent: float, placement: str) -> None:
+def _tune_homepage_studio(bpy: Any, runtime: Any, extent: float, placement: str) -> None:
     """Create broad physical penumbrae without editing the rendered alpha."""
     lights = {obj.name: obj.data for obj in runtime.objects if obj.type == "LIGHT"}
     key = lights.get("KEY_SOFTBOX")
@@ -328,6 +328,10 @@ def _tune_homepage_studio(runtime: Any, extent: float, placement: str) -> None:
     background = lights.get("BACKGROUND_WASH")
     if background is not None and placement.startswith("hero-"):
         background.use_shadow = False
+    if placement.startswith("hero-"):
+        ambient = bpy.context.scene.world.node_tree.nodes.get("PIMM_HDRI_LIGHTING")
+        if ambient is not None:
+            ambient.inputs["Strength"].default_value = 0.08
 
 
 def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
@@ -367,7 +371,6 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
             bounds_max[1] - bounds_min[1],
             bounds_max[2] - bounds_min[2],
         )
-        _tune_homepage_studio(runtime, extent, placement)
         cyclorama = next((obj for obj in runtime.objects if obj.name.startswith("PIMM_WHITE_CYCLORAMA")), None)
         if cyclorama is None:
             raise ValueError("runtime studio did not create its physical ground surface")
@@ -380,6 +383,7 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
         if output.exists() and not arguments.replace_working_output:
             raise FileExistsError(f"refusing to overwrite homepage pair render: {output}")
         _configure_render(bpy, dimensions[0], dimensions[1], arguments.samples, output)
+        _tune_homepage_studio(bpy, runtime, extent, placement)
         scene.render.film_transparent = True
         scene.render.image_settings.color_mode = "RGBA"
         scene.render.image_settings.color_depth = "16"

@@ -18,7 +18,7 @@ from typing import Any, Sequence
 
 
 RELEASE_ID = "pimm-master-20260901-r05"
-CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 100.0
+CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 1_000.0
 RESULT_MARKER = "PIMM_MASTER_STOREFRONT_RENDER_JSON="
 HDRI_PATH = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders\assets\hdri\studio_kontrast_04_4k.exr"
@@ -209,7 +209,7 @@ def _install_studio(
     # producing a hard diagonal seam in the finished hero even though the
     # physical light is soft.
     y_front = center[1] - extent * CYCLORAMA_GROUND_EXTENT_MULTIPLIER
-    y_back = center[1] + extent * 1.6
+    y_back = center[1] + extent * CYCLORAMA_GROUND_EXTENT_MULTIPLIER
     radius = extent * 0.9
     arc_center_y = y_back - radius
     arc_center_z = radius

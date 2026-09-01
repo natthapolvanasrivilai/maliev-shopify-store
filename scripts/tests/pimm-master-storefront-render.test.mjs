@@ -33,8 +33,9 @@ test('master storefront renderer uses the locked physical studio and photographi
   assert.match(renderer, /data\.dof\.use_dof = True/);
   assert.match(renderer, /data\.dof\.aperture_fstop = fstop/);
   assert.match(renderer, /PIMM_WHITE_CYCLORAMA/);
-  assert.match(renderer, /CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 100\.0/);
+  assert.match(renderer, /CYCLORAMA_GROUND_EXTENT_MULTIPLIER = 1_000\.0/);
   assert.match(renderer, /y_front = center\[1\] - extent \* CYCLORAMA_GROUND_EXTENT_MULTIPLIER/);
+  assert.match(renderer, /y_back = center\[1\] \+ extent \* CYCLORAMA_GROUND_EXTENT_MULTIPLIER/);
   assert.match(renderer, /half_width = extent \* CYCLORAMA_GROUND_EXTENT_MULTIPLIER/);
   assert.match(renderer, /NEGATIVE_FILL_LEFT/);
   assert.match(renderer, /CompositorNodeLensdist/);

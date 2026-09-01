@@ -14,8 +14,8 @@
         "tertiary_label": "Sim racing? See SimMount",
         "tertiary_link": "#simmount",
         "layout": "overlay",
-        "asset_name": "maliev-homepage-pimm-20260901-r11-hero-desktop-alpha.webp",
-        "mobile_asset_name": "maliev-homepage-pimm-20260901-r11-hero-mobile-alpha.webp",
+        "asset_name": "maliev-homepage-pimm-20260901-r12-hero-desktop-alpha.webp",
+        "mobile_asset_name": "maliev-homepage-pimm-20260901-r12-hero-mobile-alpha.webp",
         "image_alt": "MALIEV PIMM 30G and 50G injection molding machines side by side, turned left toward the page introduction",
         "note": "Built in-house. Supported in Thailand. One-year warranty.",
         "show_social": false
@@ -36,7 +36,7 @@
             "description": "Compact molding machines, built in Thailand.",
             "link_label": "Compare machines",
             "link": "/collections/เครื่องฉีดพลาสติก",
-            "asset_name": "maliev-homepage-pimm-20260901-r11-catalogue-alpha.webp",
+            "asset_name": "maliev-homepage-pimm-20260901-r12-catalogue-alpha.webp",
             "image_alt": "MALIEV PIMM 50G and 30G compact injection molding machines in a separated left-facing comparison view with all feet grounded",
             "theme": "light"
           }
