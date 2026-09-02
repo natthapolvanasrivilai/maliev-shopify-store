@@ -1,0 +1,433 @@
+{
+  "release_id": "pimm-30g-hero-reveal-20260902-r01",
+  "proof": false,
+  "fps": 24,
+  "width": 1440,
+  "height": 1920,
+  "resolution_percentage": 100,
+  "samples": 128,
+  "exposure": -0.15000000596046448,
+  "camera_scale": 1.08,
+  "provenance": {
+    "master_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\masters\\PIMM-30G-MASTER.blend",
+    "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+    "published_meshes": 556,
+    "foot_contact_levels": [
+      -3.45456282957457e-06,
+      -8.131681170198135e-06,
+      1.222555511048995e-06,
+      1.222555511048995e-06
+    ],
+    "foot_contact_spread": 9.35423668124713e-06
+  },
+  "frames": [
+    {
+      "index": 0,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-000.png",
+      "sha256": "2E888335AC62270F2147873DDEC69ABD2C115D133D0B8998FAC14797DE14A8CC",
+      "angle": -12.0,
+      "light": 0.3,
+      "background": 0.75
+    },
+    {
+      "index": 1,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-001.png",
+      "sha256": "7453154A9468F35F6306CF3124B723C1AC01C1F929E1CB987D793877AD1CD2AE",
+      "angle": -11.983934195698449,
+      "light": 0.3017977005208836,
+      "background": 0.7506420359003155
+    },
+    {
+      "index": 2,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-002.png",
+      "sha256": "4AD95F138F34978A97E0391198F1FC6DBE12ADFDBC4D8167497FCA47022DDFFF",
+      "angle": -11.936661433401078,
+      "light": 0.30704629239536047,
+      "background": 0.752516532998343
+    },
+    {
+      "index": 3,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-003.png",
+      "sha256": "A06FC2E850D2F5C87DF6BAB645A92981D63F665F4622BFEDA31F6F5B1017415E",
+      "angle": -11.859568689018811,
+      "light": 0.31552901109116976,
+      "background": 0.7555460753897035
+    },
+    {
+      "index": 4,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-004.png",
+      "sha256": "059E65D13027C6A5B76761774D2E2A793D24D33FD73FF2A7173C21EEDCD0E080",
+      "angle": -11.754042938462575,
+      "light": 0.3270290920760506,
+      "background": 0.759653247170018
+    },
+    {
+      "index": 5,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-005.png",
+      "sha256": "5AE5C178899B77C90557073B81FA3E65CFCC2062564AA4D95567024E1F04F96E",
+      "angle": -11.621471157643297,
+      "light": 0.34132977081774196,
+      "background": 0.7647606324349079
+    },
+    {
+      "index": 6,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-006.png",
+      "sha256": "C481E04F1C0B30BDB9BCAE900760CA89DFC116D85A4DB5E086B9CA8A76825F8E",
+      "angle": -11.463240322471899,
+      "light": 0.35821428278398315,
+      "background": 0.7707908152799939
+    },
+    {
+      "index": 7,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-007.png",
+      "sha256": "C852F5B27A3810054890C45863CC353DCA1F19789D78321F3CFDE906BE2C47C9",
+      "angle": -11.28073740885931,
+      "light": 0.37746586344251315,
+      "background": 0.7776663798008976
+    },
+    {
+      "index": 8,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-008.png",
+      "sha256": "04455E00507B2AFA9DFF16A922FEA0A1E92E9EED8ECC92F64BE1CB0543AA6D6B",
+      "angle": -11.07534939271645,
+      "light": 0.3988677482610712,
+      "background": 0.7853099100932397
+    },
+    {
+      "index": 9,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-009.png",
+      "sha256": "432854490B556D6FD144CEBF1F40993433663B7FFADF22689EECD24FD97E3F9F",
+      "angle": -10.84846324995425,
+      "light": 0.4222031727073962,
+      "background": 0.7936439902526415
+    },
+    {
+      "index": 10,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-010.png",
+      "sha256": "EBD683CE4049E035EB84607C5E28C55E690C1A1DE608E0E6C6274F40D2586BE9",
+      "angle": -10.601465956483631,
+      "light": 0.4472553722492275,
+      "background": 0.8025912043747241
+    },
+    {
+      "index": 11,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-011.png",
+      "sha256": "77A0B63DA650C68F6402AF83016A0C2E3568579AE144D8A353CABD4D3B02A1C3",
+      "angle": -10.335744488215521,
+      "light": 0.47380758235430415,
+      "background": 0.8120741365551086
+    },
+    {
+      "index": 12,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-012.png",
+      "sha256": "CB3F5D6D22B2593DD4E6BFE05FAE8DEA54A64C84A4343CEE1A9B730E33B0A0CE",
+      "angle": -10.052685821060845,
+      "light": 0.5016430384903652,
+      "background": 0.8220153708894161
+    },
+    {
+      "index": 13,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-013.png",
+      "sha256": "F42639C6F2114ED079E061E007718139DC926A0F3DAFA7720514E999D2B445F5",
+      "angle": -9.753676930930526,
+      "light": 0.5305449761251498,
+      "background": 0.8323374914732677
+    },
+    {
+      "index": 14,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-014.png",
+      "sha256": "79E8ED3E3CB01D790F34EE6D89B27127A08817659FCD39E679AE1E20749E6327",
+      "angle": -9.440104793735493,
+      "light": 0.560296630726397,
+      "background": 0.8429630824022847
+    },
+    {
+      "index": 15,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-015.png",
+      "sha256": "73FEC69C9E9DB3E0EECFD89CD8663D7EB929BE4D32C787F36C8A80C198310328",
+      "angle": -9.113356385386666,
+      "light": 0.5906812377618461,
+      "background": 0.8538147277720879
+    },
+    {
+      "index": 16,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-016.png",
+      "sha256": "D40478310B3F0014108F864C5BE6DA69395C8EB83DEB53ECFCB928B18ABEA341",
+      "angle": -8.77481868179498,
+      "light": 0.6214820326992361,
+      "background": 0.8648150116782987
+    },
+    {
+      "index": 17,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-017.png",
+      "sha256": "CC0B27ABB3C37BBBCBFACCB3B583D3F2C58E23C2403BF6735C4FAF64FBD8C739",
+      "angle": -8.425878658871348,
+      "light": 0.652482251006306,
+      "background": 0.8758865182165378
+    },
+    {
+      "index": 18,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-018.png",
+      "sha256": "5D279734126247E901E04F320F3DE9D3D3D74806DF8677F4AD2F01051757F78C",
+      "angle": -8.067923292526704,
+      "light": 0.6834651281507951,
+      "background": 0.8869518314824268
+    },
+    {
+      "index": 19,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-019.png",
+      "sha256": "440714C53534E5E96B89842525D83A18E774503C927AA7D2EE2C229288AF0B0B",
+      "angle": -7.702339558671971,
+      "light": 0.7142138996004423,
+      "background": 0.8979335355715865
+    },
+    {
+      "index": 20,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-020.png",
+      "sha256": "FAD1F994A8391F604C85CE809A55F1A306BCD45616B16C753EFB092E21101786",
+      "angle": -7.330514433218074,
+      "light": 0.7445118008229872,
+      "background": 0.9087542145796383
+    },
+    {
+      "index": 21,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-021.png",
+      "sha256": "EF70E1232DAF4E5E47A04D1F1259AF332874D964679C28DA35C00B8A2209B827",
+      "angle": -6.953834892075937,
+      "light": 0.7741420672861683,
+      "background": 0.919336452602203
+    },
+    {
+      "index": 22,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-022.png",
+      "sha256": "AB2361081535219ABE25F76A7EB73E8D5C86955183BE0FB58A75C94912D7AB58",
+      "angle": -6.573687911156487,
+      "light": 0.8028879344577251,
+      "background": 0.9296028337349018
+    },
+    {
+      "index": 23,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-023.png",
+      "sha256": "0F006249C81491808437B8D902DE28BDAB6C21891391D3F43D14C4B23F7024E8",
+      "angle": -6.191460466370651,
+      "light": 0.8305326378053965,
+      "background": 0.9394759420733559
+    },
+    {
+      "index": 24,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-024.png",
+      "sha256": "827224DD7D03B623C0A3BB112BAF48F332D3FB5EEAD5C6A5DA65257A77416BB7",
+      "angle": -5.80853953362935,
+      "light": 0.8568594127969218,
+      "background": 0.9488783617131864
+    },
+    {
+      "index": 25,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-025.png",
+      "sha256": "635AC9BCCD0B9C19AB45BF8944A2F23A5A0B8A972931D374399C1C9344195C77",
+      "angle": -5.426312088843513,
+      "light": 0.88165149490004,
+      "background": 0.9577326767500143
+    },
+    {
+      "index": 26,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-026.png",
+      "sha256": "C313212F7640876BAD810DA970EC669CB291726A5C3EBFC0F55FA239A4E58ACF",
+      "angle": -5.046165107924062,
+      "light": 0.9046921195824904,
+      "background": 0.9659614712794609
+    },
+    {
+      "index": 27,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-027.png",
+      "sha256": "AD5656B874A0C11C5BFD73F4DF96188F4D893181E00EC46F0CC0A8AB9F545993",
+      "angle": -4.669485566781926,
+      "light": 0.9257645223120119,
+      "background": 0.9734873293971471
+    },
+    {
+      "index": 28,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-028.png",
+      "sha256": "52966586CFC1E8FAA92B88AB423FD3009A0C26B6D3B0D15A9DC9C50741E29A15",
+      "angle": -4.297660441328031,
+      "light": 0.9446519385563434,
+      "background": 0.9802328351986941
+    },
+    {
+      "index": 29,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-029.png",
+      "sha256": "CB59598CCC69CBAEA501B3A1583D5CB4059D37C2798A688A45D9AB3EDFE11D51",
+      "angle": -3.932076707473296,
+      "light": 0.9611376037832247,
+      "background": 0.9861205727797231
+    },
+    {
+      "index": 30,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-030.png",
+      "sha256": "0F02F574F0348D78491B910B71329E20A6E5582D6EE0593503030AFB69433515",
+      "angle": -3.574121341128651,
+      "light": 0.9750047534603943,
+      "background": 0.9910731262358552
+    },
+    {
+      "index": 31,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-031.png",
+      "sha256": "E813551DB1A4056821536811A86B49C24C2579904C085B1735705A5B8281532E",
+      "angle": -3.225181318205023,
+      "light": 0.9860366230555915,
+      "background": 0.9950130796627112
+    },
+    {
+      "index": 32,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-032.png",
+      "sha256": "574E35D18C9661866F8F776E98F8CC65F4D1B7405D880D69B6441403ECF4B093",
+      "angle": -2.886643614613332,
+      "light": 0.9940164480365556,
+      "background": 0.9978630171559127
+    },
+    {
+      "index": 33,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-033.png",
+      "sha256": "553A3B88434A736D507C4E3AC562A3261A164D9044296267692F6718C8250E43",
+      "angle": -2.5598952062645073,
+      "light": 0.9987274638710255,
+      "background": 0.9995455228110806
+    },
+    {
+      "index": 34,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-034.png",
+      "sha256": "8E0F00FDA31521F7D7D2CCFB09882D38441D3EC74C59F9807BD052BF7C8F8DE2",
+      "angle": -2.246323069069473,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 35,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-035.png",
+      "sha256": "11BC9B245F5348AECA6006334A9205BB31F4C46C7BF391BE56F9C0BB1909EADF",
+      "angle": -1.9473141789391568,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 36,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-036.png",
+      "sha256": "73438BDF3CDC970C201B8BCE8B2C6E310D767C4F06A630B3E5FE309885AD596F",
+      "angle": -1.6642555117844804,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 37,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-037.png",
+      "sha256": "E2E9599ADF9759ED1D7071BDD5293F66D007EFF006098658794FC99FD6039392",
+      "angle": -1.3985340435163685,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 38,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-038.png",
+      "sha256": "32B87D0CB0835AA2A435465143FBB446C3D1B56CA6995288634B7C2F5FC4F3FA",
+      "angle": -1.1515367500457523,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 39,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-039.png",
+      "sha256": "CEB54A8D000A8D8CA1CBEA4632A76D7118774FC6129E02E3B0D8DF2E153B1BDB",
+      "angle": -0.9246506072835499,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 40,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-040.png",
+      "sha256": "5BD683EBB167C96EA9C9388A673B24DFDAC2143782680E1E7374EAEAF2AA7472",
+      "angle": -0.7192625911406925,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 41,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-041.png",
+      "sha256": "9B3D6CC6DDED18FF88D95BE1560AD777969FEFB85D4BD1FE02021C2F9FE41CA9",
+      "angle": -0.5367596775281007,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 42,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-042.png",
+      "sha256": "1D701341EB62FBCA37675CB5757D4E9D8980A56C2E7951541AAE399956895421",
+      "angle": -0.3785288423567046,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 43,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-043.png",
+      "sha256": "F9E2D89F7663F2898508266AC60B16DFD9CA7D3C40D8E3A85199B3462F0F7851",
+      "angle": -0.2459570615374247,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 44,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-044.png",
+      "sha256": "CD047AB801D4FF13C639AD6A26C2BEF26F638FC7A4E1D6A14599B8D4CA091458",
+      "angle": -0.14043131098118966,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 45,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-045.png",
+      "sha256": "84AA7982A81A3B95D73E113B81549552709BF6C34D0ACB417DF1E0551030A986",
+      "angle": -0.06333856659892279,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 46,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-046.png",
+      "sha256": "60DCBA9518F32A5CDD1A34239624261BF65C865894B2530A75DC85FEA8315A25",
+      "angle": -0.016065804301551356,
+      "light": 1.0,
+      "background": 1.0
+    },
+    {
+      "index": 47,
+      "filename": "pimm-30g-hero-reveal-20260902-r01-047.png",
+      "sha256": "8F14BD21E98DDB1152A246CB2D3FD3F6972526AEC041D2DA0F03DF0A3059ED17",
+      "angle": -0.0,
+      "light": 1.0,
+      "background": 1.0
+    }
+  ],
+  "outputs": [
+    {
+      "filename": "pimm-30g-hero-reveal-20260902-r01.mp4",
+      "sha256": "58795EEE925331B2D0AFB359BC635CC9560F1171CE022599DB654C472D85F58D",
+      "bytes": 939969
+    },
+    {
+      "filename": "pimm-30g-hero-reveal-20260902-r01-rest.webp",
+      "sha256": "E45488B362C5A642CA63395B10B00F477834C2B9BAF0EC0F7E2C5ED99D413D82",
+      "bytes": 338192
+    },
+    {
+      "filename": "pimm-30g-hero-reveal-20260902-r01-start.webp",
+      "sha256": "9B30A2CBD1484AAAA4F0733FC04CF9E9675EE4DA482EB62EE712F308CCB4624F",
+      "bytes": 419358
+    }
+  ],
+  "video": {
+    "width": 1440,
+    "height": 1920,
+    "r_frame_rate": "24/1",
+    "duration": "2.000000",
+    "nb_frames": "48"
+  }
+}
