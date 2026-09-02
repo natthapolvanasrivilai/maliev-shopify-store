@@ -560,6 +560,13 @@ const geometryProbe = `(() => {
       fontSize: dossierHeadingStyle.fontSize,
     } : null,
     dossierPriceHasLiteralMarkup: /[<>]/.test(dossierPrice?.textContent ?? ''),
+    proportionalPrices: [...root.querySelectorAll('[data-pimm-card-price], [data-pimm-dossier-price]')]
+      .every(price => {
+        const style = getComputedStyle(price);
+        return style.fontFamily.startsWith('"IBM Plex Sans"')
+          && style.fontWeight === '600'
+          && style.fontVariantNumeric.includes('proportional-nums');
+      }),
     activeModel: root.activeModel,
     committedModel: root.committedModel,
     visibleDossierModel: visibleDossierRect?.height > 0
@@ -585,6 +592,7 @@ async function assertGeometry(session, language, width, height) {
     `${context} dossier heading visibility ${JSON.stringify(probe.dossierHeadingDiagnostic)}`,
   );
   assert.equal(probe.dossierPriceHasLiteralMarkup, false, `${context} dossier price markup`);
+  assert.equal(probe.proportionalPrices, true, `${context} proportional semibold price typography`);
   assert.equal(probe.activeModel, '30G', `${context} initial active model`);
   assert.equal(probe.committedModel, '30G', `${context} initial committed model`);
   assert.equal(probe.visibleDossierModel, '30G', `${context} initial dossier`);

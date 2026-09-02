@@ -3,6 +3,16 @@ import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 
 const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
+
+test('collection prices use the proportional brand sans instead of coding typography', async () => {
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  const priceRule = css.match(/\.pimm-collection \[data-pimm-card-price\],[\s\S]*?\}/)?.[0] ?? '';
+  assert.match(priceRule, /font-family:\s*var\(--maliev-font-sans\)/);
+  assert.match(priceRule, /font-variant-numeric:\s*lining-nums proportional-nums/);
+  assert.match(priceRule, /font-weight:\s*600/);
+  const section = await readThemeFile('sections/maliev-pimm-collection.liquid');
+  assert.equal(section.match(/<dd data-pimm-card-price>/g)?.length, 2);
+});
 const stripShopifyComment = (source) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '');
 const getPath = (value, path) => path.split('.').reduce((current, key) => current?.[key], value);
 const flattenKeys = (value, prefix = '') => Object.entries(value ?? {}).flatMap(([key, child]) => {

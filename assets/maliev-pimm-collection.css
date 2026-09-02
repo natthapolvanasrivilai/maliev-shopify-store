@@ -261,6 +261,20 @@
   gap: 0.8rem;
 }
 
+/* Prices belong to the storefront's reading typography, not its technical data. */
+.pimm-collection [data-pimm-card-price],
+.pimm-collection [data-pimm-dossier-price] {
+  font-family: var(--maliev-font-sans);
+  font-weight: 600;
+  font-variant-numeric: lining-nums proportional-nums;
+  font-kerning: normal;
+  letter-spacing: -0.015em;
+}
+
+.pimm-collection [data-pimm-dossier-price] {
+  font-size: 1.6rem;
+}
+
 .pimm-collection__card-actions {
   align-self: end;
   padding-top: 0.8rem;
