@@ -68,6 +68,22 @@ use this same formatter. Product prices, deposits and checkout are unchanged.
 
 ## Layout and validation
 
+The desktop detail panel reads model/recommendation → full-width machine price →
+availability/lead-time pair → capacity/mold-envelope pair → temperature/pressure
+pair. Its action group is anchored to the bottom: the full-width machine link
+leads, followed by equal-width factory-visit and support text links with a quiet
+separator. DOM reading/focus order, translated labels, optional-link settings,
+and destination URLs remain unchanged. At 900px height and above the panel uses
+larger model/price type and more space; 720–800px desktops compress vertical
+padding instead of clipping controls. Inline mobile dossiers are unchanged.
+Panel-layout validation: 76 regression tests passed via `npm run verify`; Theme
+Check has zero errors and the same three dependency warnings. The English/Thai
+ten-viewport browser suite passed (one intentional sentinel skip, zero retries),
+including full-width price, bottom-aligned action hierarchy, 44px targets,
+support destinations, keyboard, touch and reduced motion. Desktop English,
+short-desktop Thai and mobile English screenshots were reviewed. Impeccable's
+layout detector returned no findings before or after the scoped CSS changes.
+
 At 1280×720 and larger, the comparison and compact legal footer occupy one
 viewport. Two poster cards sit left; the introduction and selected-model dossier
 sit right. Smaller windows and mobile keep natural document scrolling.

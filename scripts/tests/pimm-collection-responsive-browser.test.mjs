@@ -580,6 +580,21 @@ const geometryProbe = `(() => {
         && actions.top >= price.bottom + 4
         && actions.bottom <= media.bottom - 8;
     }),
+    dossierActionHierarchy: innerWidth < 1280 || innerHeight < 720 || (() => {
+      const list = dossier.querySelector('dl').getBoundingClientRect();
+      const price = dossier.querySelector('[data-pimm-dossier-price]').parentElement.getBoundingClientRect();
+      const actions = dossier.querySelector('.pimm-collection__dossier-actions');
+      const primary = actions.querySelector('[data-pimm-dossier-configure]').getBoundingClientRect();
+      const secondary = [...actions.querySelectorAll('a:not([data-pimm-dossier-configure])')];
+      return Math.abs(price.width - list.width) <= 1
+        && Math.abs(primary.width - list.width) <= 1
+        && primary.top >= list.bottom
+        && secondary.every(link => link.getBoundingClientRect().top >= primary.bottom + 4
+          && getComputedStyle(link).backgroundColor === 'rgba(0, 0, 0, 0)'
+          && getComputedStyle(link).textDecorationLine.includes('underline'))
+        && Math.abs(actions.getBoundingClientRect().bottom
+          - (dossierRect.bottom - parseFloat(getComputedStyle(dossier).paddingBottom))) <= 1;
+    })(),
     localizedPrices: [...root.querySelectorAll('[data-pimm-card-price], [data-pimm-dossier-price]')]
       .every(price => {
         const model = price.closest('[data-model]').dataset.model;
@@ -625,6 +640,7 @@ async function assertGeometry(session, language, width, height) {
   assert.equal(probe.proportionalPrices, true, `${context} proportional semibold price typography`);
   assert.equal(probe.shortDesktopContentContained, true, `${context} dossier content remains inside its panel`);
   assert.equal(probe.machineFooterClearance, true, `${context} full-height r02 render clears price and buttons`);
+  assert.equal(probe.dossierActionHierarchy, true, `${context} dossier price and bottom support hierarchy`);
   assert.equal(probe.localizedPrices, true, `${context} trailing localized currency without redundant decimals`);
   assert.equal(probe.distinctTypeRoles, true, `${context} loaded model and heading font roles`);
   assert.equal(probe.activeModel, '30G', `${context} initial active model`);

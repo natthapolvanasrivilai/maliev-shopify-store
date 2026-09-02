@@ -4,6 +4,14 @@ import test from 'node:test';
 
 const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 
+test('desktop dossier separates its full-width price from the bottom action group', async () => {
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  assert.match(css, /dossier--desktop dl > div:first-child \{ grid-column: 1 \/ -1/);
+  assert.match(css, /dossier--desktop \.pimm-collection__dossier-actions \{[^}]*margin-top: auto/);
+  assert.match(css, /dossier--desktop \[data-pimm-dossier-configure\] \{ grid-column: 1 \/ -1/);
+  assert.match(css, /dossier-actions a:not\(\[data-pimm-dossier-configure\]\) \{[^}]*text-align: left;[^}]*text-decoration: underline/);
+});
+
 test('short desktop controls reserve the native render floor without shortening the image', async () => {
   const css = await readThemeFile('assets/maliev-pimm-collection.css');
   assert.match(css, /\.pimm-collection__media \{ position: absolute; inset: 0;/);
