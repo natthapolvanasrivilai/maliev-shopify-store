@@ -24,6 +24,34 @@ const interpolationVariables = (value) => [...String(value).matchAll(/\{\{\s*([a
   .sort();
 const loadLiquidHarness = () => import('./helpers/render-pimm-collection-section.mjs');
 
+test('collection price formatter groups baht amounts and localizes the trailing unit', async () => {
+  const { renderPimmCollectionPrice } = await loadLiquidHarness();
+  for (const [amount, formatted] of [[12000000, '120,000'], [17000000, '170,000'], [123456789, '1,234,567.89'], [99900, '999'], [105, '1.05']]) {
+    assert.equal((await renderPimmCollectionPrice(amount, 'en')).trim(), `${formatted} THB`);
+    assert.equal((await renderPimmCollectionPrice(amount, 'th')).trim(), `${formatted} บาท`);
+  }
+});
+
+test('localized prices match between both cards, fallback dossiers, and interactive records', async () => {
+  const { renderPimmCollectionSection, readModelRecords } = await loadLiquidHarness();
+  for (const [language, unit] of [['en', 'THB'], ['th', 'บาท']]) {
+    const output = await renderPimmCollectionSection(productFixture(), { language });
+    const records = readModelRecords(output);
+    assert.deepEqual(records.map(record => record.fullPrice), [`120,000 ${unit}`, `170,000 ${unit}`]);
+    const shown = [...output.matchAll(/<dd data-pimm-(?:card|dossier)-price>(.*?)<\/dd>/g)].map(match => match[1].trim());
+    assert.equal(shown.length, 5);
+    assert.ok(shown.every(price => records.some(record => record.fullPrice === price)));
+    assert.doesNotMatch(shown.join(' '), /฿|\.00/);
+  }
+});
+
+test('collection type roles contrast model display, headings, and reading text', async () => {
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  assert.match(css, /--pimm-font-model:\s*'Antonio'/);
+  assert.match(css, /--pimm-font-heading:\s*'PIMM Chakra Petch'/);
+  assert.doesNotMatch(css, /var\(--maliev-font-mono\)/);
+});
+
 const specificationsFor = (model) => ({
   schema_version: 1,
   model,
@@ -47,7 +75,7 @@ const productFixture = () => ({
     available: true,
     metafields: {
       custom: {
-        full_machine_price: { value: model === '30G' ? 120000 : 170000 },
+        full_machine_price: { value: model === '30G' ? 12000000 : 17000000 },
         pimm_specifications: { value: specificationsFor(model) },
         lead_time_days: { value: model === '30G' ? 30 : 45 },
       },
@@ -151,7 +179,7 @@ test('executable Liquid contract emits exactly the governed 30G and 50G model re
 
   assert.deepEqual(records.map(({ model }) => model), ['30G', '50G']);
   assert.deepEqual(records.map(({ id }) => id), [300, 301]);
-  assert.deepEqual(records.map(({ fullPrice }) => fullPrice), ['THB 120000.00', 'THB 170000.00']);
+  assert.deepEqual(records.map(({ fullPrice }) => fullPrice), ['120,000 THB', '170,000 THB']);
   assert.ok(records.every(({ fullPrice }) => !/[<>]/.test(fullPrice)));
   assert.match(output, /<link href="\/assets\/maliev-pimm-collection\.css" rel="stylesheet" type="text\/css" media="all">/);
   assert.match(output, /data-contract-valid="true"/);
@@ -203,7 +231,7 @@ test('valid server fallback exposes semantic cards dossiers payload and canonica
   assert.match(section, /"model":/);
   assert.match(section, /"url":/);
   assert.match(section, /"fullPrice":/);
-  assert.match(section, /money_with_currency \| strip_html \| json/);
+  assert.match(section, /variant_price_label \| strip \| json/);
   assert.match(section, /"available":/);
   assert.match(section, /"leadTime":/);
   assert.match(section, /"specifications":\s*\{/);
@@ -298,6 +326,8 @@ test('every installed locale carries the collection key and interpolation contra
   }
   assert.equal(englishCollection.title, 'Choose the machine for your workshop');
   assert.equal(thaiCollection.title, 'เลือกเครื่องที่เหมาะกับเวิร์กช็อปของคุณ');
+  assert.equal(englishCollection.currency_unit, 'THB');
+  assert.equal(thaiCollection.currency_unit, 'บาท');
 });
 
 test('section schema exposes only the canonical product and optional support destinations', async () => {

@@ -83,6 +83,12 @@
   capture model_50g_lead_time
     echo 'products.pimm_machine.purchase.lead_time' | t: days: model_50g_lead_time_days
   endcapture
+  capture model_30g_price_label
+    render 'pimm-collection-price', amount_cents: model_30g_full_price
+  endcapture
+  capture model_50g_price_label
+    render 'pimm-collection-price', amount_cents: model_50g_full_price
+  endcapture
 
   assign model_30g_status_key = 'products.pimm_machine.status.out_of_stock'
   if model_30g.available
@@ -152,7 +158,7 @@
                 <dl class="pimm-collection__card-facts">
                   <div>
                     <dt>{{ 'products.pimm_collection.price' | t }}</dt>
-                    <dd data-pimm-card-price>{{ model_30g_full_price | money_with_currency }}</dd>
+                    <dd data-pimm-card-price>{{ model_30g_price_label | strip }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.availability' | t }}</dt>
@@ -213,7 +219,7 @@
                 <dl class="pimm-collection__card-facts">
                   <div>
                     <dt>{{ 'products.pimm_collection.price' | t }}</dt>
-                    <dd data-pimm-card-price>{{ model_50g_full_price | money_with_currency }}</dd>
+                    <dd data-pimm-card-price>{{ model_50g_price_label | strip }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.availability' | t }}</dt>
@@ -257,7 +263,7 @@
               <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
               <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
               <dl>
-                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_price_label | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
@@ -286,7 +292,7 @@
               <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.50g.choose_this' | t }}</p>
               <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '30G' }}</p>
               <dl>
-                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_full_price | money_with_currency }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_price_label | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_50g_status_key | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_50g_lead_time | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_50g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
@@ -313,7 +319,7 @@
           <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
           <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
           <dl>
-            <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_price_label | strip }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
@@ -353,12 +359,15 @@
               capture variant_lead_time
                 echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
               endcapture
+              capture variant_price_label
+                render 'pimm-collection-price', amount_cents: variant_full_price
+              endcapture
             -%}
             {
               "id": {{ variant.id | json }},
               "model": {{ variant_model | json }},
               "url": {{ variant_url | json }},
-              "fullPrice": {{ variant_full_price | money_with_currency | strip_html | json }},
+              "fullPrice": {{ variant_price_label | strip | json }},
               "available": {{ variant.available | json }},
               "leadTime": {{ variant_lead_time | strip | json }},
               "specifications": {

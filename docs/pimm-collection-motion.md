@@ -31,9 +31,17 @@ frame, encodes H.264 at 24fps without interpolating frames, checks the encoded
 dimensions/duration/frame count, and converts the first frame to lossless WebP.
 It refuses to overwrite an existing release.
 
-Prices use the existing IBM Plex Sans family at semibold weight with proportional
-lining numerals; the technical specification values keep their existing styling.
-No extra font download or commerce-formatting change is required.
+The collection uses three existing local type families with distinct roles:
+Antonio for model names, Chakra Petch for headings and technical measurements,
+and IBM Plex Sans/Thai for prose, availability and prices. Prices use semibold
+proportional lining numerals. No new font assets or external font requests are
+introduced; a collection-only Chakra Petch face enables both Latin and Thai.
+
+`pimm-collection-price.liquid` formats the governed full-machine price in satang
+as grouped baht, with the translated unit after the amount: `120,000 บาท` in
+Thai and `120,000 THB` in English. Whole prices omit `.00`; nonzero satang are
+preserved. Cards, server-rendered dossiers and the interactive model payload
+use this same formatter. Product prices, deposits and checkout are unchanged.
 
 ## Layout and validation
 
@@ -69,3 +77,14 @@ The full responsive/interaction/localization browser acceptance test passed;
 its no-URL sentinel was intentionally skipped because a preview URL was supplied.
 Price font assertions passed in-browser. Both encoded videos are under 1 MB.
 Fresh screenshots were visually reviewed; `git diff --check` passed.
+
+Typesetting follow-up on 2026-09-02: 73 regression tests passed, including exact
+localized price strings, fractional satang, all 31 locale contracts and matching
+server/interactive prices. English/Thai browser acceptance passed at seven sizes,
+including 1280×720 and 640×360 reflow, with loaded font-role checks and contained
+desktop dossier content. The existing twelve-case 2× image-density probe also
+passed. Text contrast checks measured 6.67:1 for muted text on the page and
+15.11:1 for light body text in the dossier. Theme Check had zero errors and the
+same three dependency warnings. The Shopify skill's separate validator could not
+start because its installed package lacks `@shopify/theme-check-common`; the
+repository's Shopify CLI Theme Check and executable Liquid tests ran instead.

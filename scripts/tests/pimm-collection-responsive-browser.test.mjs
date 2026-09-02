@@ -11,7 +11,7 @@ const evidenceDir = resolve(
   process.env.PIMM_COLLECTION_EVIDENCE_DIR?.trim()
     || '.codex-tmp/pimm-collection/browser-evidence',
 );
-const viewports = [[1536, 1024], [1280, 800], [1024, 768], [390, 844], [360, 800]];
+const viewports = [[1536, 1024], [1280, 800], [1280, 720], [1024, 768], [640, 360], [390, 844], [360, 800]];
 const desktopMinimum = 990;
 const inlineActionViewports = [[989, 800], [390, 844]];
 const expectedActionLabels = {
@@ -560,6 +560,19 @@ const geometryProbe = `(() => {
       fontSize: dossierHeadingStyle.fontSize,
     } : null,
     dossierPriceHasLiteralMarkup: /[<>]/.test(dossierPrice?.textContent ?? ''),
+    shortDesktopContentContained: innerWidth < 1280 || innerHeight < 720
+      || [...dossier.querySelectorAll('a,dd,p,h2')].every(element =>
+        element.getBoundingClientRect().bottom <= dossier.getBoundingClientRect().bottom),
+    localizedPrices: [...root.querySelectorAll('[data-pimm-card-price], [data-pimm-dossier-price]')]
+      .every(price => {
+        const model = price.closest('[data-model]').dataset.model;
+        const unit = document.documentElement.lang.startsWith('th') ? 'บาท' : 'THB';
+        return price.textContent.trim() === (model === '30G' ? '120,000 ' : '170,000 ') + unit;
+      }),
+    distinctTypeRoles: getComputedStyle(root.querySelector('h1')).fontFamily.startsWith('"PIMM Chakra Petch"')
+      && getComputedStyle(root.querySelector('.pimm-collection__card-copy h2')).fontFamily.startsWith('Antonio')
+      && document.fonts.check('600 20px "PIMM Chakra Petch"')
+      && document.fonts.check('600 20px Antonio'),
     proportionalPrices: [...root.querySelectorAll('[data-pimm-card-price], [data-pimm-dossier-price]')]
       .every(price => {
         const style = getComputedStyle(price);
@@ -593,6 +606,9 @@ async function assertGeometry(session, language, width, height) {
   );
   assert.equal(probe.dossierPriceHasLiteralMarkup, false, `${context} dossier price markup`);
   assert.equal(probe.proportionalPrices, true, `${context} proportional semibold price typography`);
+  assert.equal(probe.shortDesktopContentContained, true, `${context} dossier content remains inside its panel`);
+  assert.equal(probe.localizedPrices, true, `${context} trailing localized currency without redundant decimals`);
+  assert.equal(probe.distinctTypeRoles, true, `${context} loaded model and heading font roles`);
   assert.equal(probe.activeModel, '30G', `${context} initial active model`);
   assert.equal(probe.committedModel, '30G', `${context} initial committed model`);
   assert.equal(probe.visibleDossierModel, '30G', `${context} initial dossier`);
@@ -898,6 +914,7 @@ async function interactionProbe(session, language) {
   assert.equal(committed.committed, '50G', `${language} committed state`);
   assert.equal(committed.dossierModel, '50G', `${language} dossier model`);
   assert.equal(committed.dossierPrice, committed.expectedPrice, `${language} dossier price`);
+  assert.equal(committed.dossierPrice, language === 'th' ? '170,000 บาท' : '170,000 THB', `${language} localized committed price`);
   assert.equal(committed.dossierLeadTime, committed.expectedLeadTime, `${language} dossier lead time`);
   assert.equal(committed.announcementChanges.length, 1, `${language} announcement count`);
   assert.match(committed.announcement, /50G/, `${language} localized announcement`);

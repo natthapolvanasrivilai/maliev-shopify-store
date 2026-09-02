@@ -121,6 +121,7 @@
       "intro": "Compare the compact 30G and extended-capacity 50G before opening the full machine configurator.",
       "best_for": "Best for",
       "price": "Full machine price",
+      "currency_unit": "THB",
       "availability": "Availability",
       "lead_time": "Lead time",
       "shot_capacity": "Shot capacity",
