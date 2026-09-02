@@ -1,0 +1,945 @@
+{
+  "schema_version": 1,
+  "release_id": "maliev-pimm-collection-motion-20260902-r01",
+  "shadow_source": "Native Blender Cycles physical studio floor",
+  "assets": [
+    {
+      "schema": "maliev.pimm-collection-motion/v1",
+      "release_id": "maliev-pimm-collection-motion-20260902-r01",
+      "machine": "30G",
+      "fps": 24,
+      "frame_count": 72,
+      "width": 720,
+      "height": 960,
+      "samples": 128,
+      "provenance": {
+        "master_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\masters\\PIMM-30G-MASTER.blend",
+        "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+        "published_meshes": 556,
+        "foot_contact_levels": [
+          -3.45456282957457e-06,
+          -8.131681170198135e-06,
+          1.222555511048995e-06,
+          1.222555511048995e-06
+        ],
+        "foot_contact_spread": 9.35423668124713e-06
+      },
+      "frames": [
+        {
+          "index": 0,
+          "angle_degrees": 0.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-000.png",
+          "sha256": "16EE48E2A0C7393AAF2949118D4CD8E1252FE6D78E35404B30E9355B77A2970F"
+        },
+        {
+          "index": 1,
+          "angle_degrees": -0.06076388888888888,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-001.png",
+          "sha256": "864F835624BB13279433DA7F78213AE215942654AEA8DDE6F9386246207B96CC"
+        },
+        {
+          "index": 2,
+          "angle_degrees": -0.2361111111111111,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-002.png",
+          "sha256": "153F4BAA5151473B60F01F5BB91AE1E588438E85FA9B6F8A1FA55EE2817CC0B1"
+        },
+        {
+          "index": 3,
+          "angle_degrees": -0.515625,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-003.png",
+          "sha256": "B994FFA78F4E625B1C3912AC472CDD6B50B802D35527DDB4309900D570C3C3B4"
+        },
+        {
+          "index": 4,
+          "angle_degrees": -0.8888888888888888,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-004.png",
+          "sha256": "35727B587BAB340BFC129E9EF5E654EAFC3A9AA5577BA4361571E5CED03D5591"
+        },
+        {
+          "index": 5,
+          "angle_degrees": -1.3454861111111114,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-005.png",
+          "sha256": "873738F7A3FA2C7490DDC38A8CA01D2B8A6DBD886D34A8B427DC3E70FF863903"
+        },
+        {
+          "index": 6,
+          "angle_degrees": -1.875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-006.png",
+          "sha256": "7C26895B674FB4CCBE74A180106274B946E595D1A375D28D2C59D8EFDEA3C1D8"
+        },
+        {
+          "index": 7,
+          "angle_degrees": -2.4670138888888893,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-007.png",
+          "sha256": "BFFBF092927754D2A040FD9B970910576FC8844FE3CB407317E89F0F52808013"
+        },
+        {
+          "index": 8,
+          "angle_degrees": -3.1111111111111107,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-008.png",
+          "sha256": "BC749AACC9938699D1DF8D6AAD6D836F8EBB87C09ED2E8C62D7B165665835D7D"
+        },
+        {
+          "index": 9,
+          "angle_degrees": -3.796875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-009.png",
+          "sha256": "6381FD51BB151E902F40DC593C5768E7C8E2C98C8399A5F97EDECF2DCCDE3D27"
+        },
+        {
+          "index": 10,
+          "angle_degrees": -4.513888888888889,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-010.png",
+          "sha256": "5D2BD4D7A6282F09CB85208C48F5F350E3AF03B5000BBEB2B065C0F85C83F79D"
+        },
+        {
+          "index": 11,
+          "angle_degrees": -5.251736111111111,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-011.png",
+          "sha256": "BFD9D1D50910E1530E51B0E6174AE33F95CE7C0A6381C23BD4BD7E9F51186264"
+        },
+        {
+          "index": 12,
+          "angle_degrees": -6.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-012.png",
+          "sha256": "FC3CE655387530FA0CDF7821D4A031DECAA596492D56AB8ABC374D14D6F93860"
+        },
+        {
+          "index": 13,
+          "angle_degrees": -6.7482638888888875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-013.png",
+          "sha256": "37E713BA38E4D5D9C79F87AE22730842682D66DFFEC5B6D4945C9520ABF229C7"
+        },
+        {
+          "index": 14,
+          "angle_degrees": -7.4861111111111125,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-014.png",
+          "sha256": "97802FF5B74EAD345AE1EE36E271CADCB6A5FBF5BF793878F694F138932C6DE0"
+        },
+        {
+          "index": 15,
+          "angle_degrees": -8.203125,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-015.png",
+          "sha256": "0507D0626B07F573BFC10B40920E1FE007C2C8A859588986E67B59CDB2DFC488"
+        },
+        {
+          "index": 16,
+          "angle_degrees": -8.88888888888889,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-016.png",
+          "sha256": "73EE25D6146E23A34703582C24CBA93461CC4D063087E79FB3C27A1BC23ACA07"
+        },
+        {
+          "index": 17,
+          "angle_degrees": -9.53298611111111,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-017.png",
+          "sha256": "E968C14E6F2B910849E9E64543FF151E6BD690F5F22E95A40C15F6A36118C976"
+        },
+        {
+          "index": 18,
+          "angle_degrees": -10.125,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-018.png",
+          "sha256": "9B67721FB4BC1D0E9C9476C4C202ADC6CD88623B48F50CC55C491E523B19659F"
+        },
+        {
+          "index": 19,
+          "angle_degrees": -10.654513888888888,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-019.png",
+          "sha256": "EAFCB447ED14C5515966D5EAE183150EC0B335E378AECAD5E3360E87732C56C2"
+        },
+        {
+          "index": 20,
+          "angle_degrees": -11.111111111111112,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-020.png",
+          "sha256": "115A7ABBDE8F3BFA6A6811C296C70DD5085F65A6D6AB05E78F705105ADCCA10B"
+        },
+        {
+          "index": 21,
+          "angle_degrees": -11.484375,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-021.png",
+          "sha256": "87A77D6FE07C180B05B91DF84691C9F96B6CDF139AE5CA978BFAF6C0D64C9C0C"
+        },
+        {
+          "index": 22,
+          "angle_degrees": -11.76388888888889,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-022.png",
+          "sha256": "8616FDDD83E30F48D91F7BC4EDCCA91235AC4C9FD9906BB4984EA8FCBE4E4003"
+        },
+        {
+          "index": 23,
+          "angle_degrees": -11.939236111111112,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-023.png",
+          "sha256": "831A3F1749686D54BED835DDF88047A704DEE8E1AF2E428C07C500A6F18B66B6"
+        },
+        {
+          "index": 24,
+          "angle_degrees": -12.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-024.png",
+          "sha256": "505A8BEC30F1A6AED71DAC6FA2932752658A2A32819C2B6BBA4C3CCF192C0F06"
+        },
+        {
+          "index": 25,
+          "angle_degrees": -11.878472222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-025.png",
+          "sha256": "702707C8A05F1D5F68EB9C50396D0BB4E37FEA56DF9A2E6EF85804AC17E90314"
+        },
+        {
+          "index": 26,
+          "angle_degrees": -11.527777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-026.png",
+          "sha256": "DCF7A881DF4586EF63D9083E0823FB0F1ED0953127CA9F44B263E2695D9B3002"
+        },
+        {
+          "index": 27,
+          "angle_degrees": -10.96875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-027.png",
+          "sha256": "3D3CD60D9C650B38EF75CAB9685AC5895C632B42A6FA624341FBE1360CF4F902"
+        },
+        {
+          "index": 28,
+          "angle_degrees": -10.222222222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-028.png",
+          "sha256": "4CEE2E61A84F5258AE201046E3BE159EE7B7E6C927296825C7AF7508CD2D13F5"
+        },
+        {
+          "index": 29,
+          "angle_degrees": -9.309027777777777,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-029.png",
+          "sha256": "800A1D21B4BA40E01A4F70E9D005A9EF4B04F7111EDCF6E3E701833DFB46846A"
+        },
+        {
+          "index": 30,
+          "angle_degrees": -8.25,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-030.png",
+          "sha256": "1552A0580D363B9AEF8A171726F61564328C46CECF1CF8BA5DEA23373B6D58E3"
+        },
+        {
+          "index": 31,
+          "angle_degrees": -7.065972222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-031.png",
+          "sha256": "6E2F790D509AC2726DDB9A1428262F7A8D84E6A49D4054C483A2543A56453824"
+        },
+        {
+          "index": 32,
+          "angle_degrees": -5.777777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-032.png",
+          "sha256": "06FEE6070B7A9422F6B336F7C9CCC9BC97A295A5380FCF57A6502D3B23D0D099"
+        },
+        {
+          "index": 33,
+          "angle_degrees": -4.40625,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-033.png",
+          "sha256": "C3B58B5A4356C38B80F5BB3E5CD19362783F58B940A582A184DED4D1DDA66E35"
+        },
+        {
+          "index": 34,
+          "angle_degrees": -2.9722222222222214,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-034.png",
+          "sha256": "90850E709ACC2C3B632A5FF19EF80587CAA0CC870E80A398358FE2D38910FB1C"
+        },
+        {
+          "index": 35,
+          "angle_degrees": -1.4965277777777786,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-035.png",
+          "sha256": "2343566404D9535E9A3C1F23BACA992E44A402888998D0A624B1C7DECC6220BE"
+        },
+        {
+          "index": 36,
+          "angle_degrees": 0.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-036.png",
+          "sha256": "4096D3037EB134D1BC2ED7C743E1840580F8D2B0083233642308E545F90799E4"
+        },
+        {
+          "index": 37,
+          "angle_degrees": 1.496527777777775,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-037.png",
+          "sha256": "94485AE665FCC74BA4647CAA7F12960342AD8FA481948CF8ADE85AB4C9205248"
+        },
+        {
+          "index": 38,
+          "angle_degrees": 2.972222222222225,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-038.png",
+          "sha256": "4430084393181C6DD4CD7B3614ACDFD560332401652C36C9FCC447DA0856FBB0"
+        },
+        {
+          "index": 39,
+          "angle_degrees": 4.40625,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-039.png",
+          "sha256": "ECD5206D22FCCA969CD89BF08CFACF822D844237D4BAB4B866FACA907255EE03"
+        },
+        {
+          "index": 40,
+          "angle_degrees": 5.777777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-040.png",
+          "sha256": "3A37D4B4ABB3514ED81322ABA854AE171D2EE82C46D364E12F436636D635A631"
+        },
+        {
+          "index": 41,
+          "angle_degrees": 7.065972222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-041.png",
+          "sha256": "970CB91590574934F1A722F1ABAE893CA575E8795376E1884702F11DBDD26ECE"
+        },
+        {
+          "index": 42,
+          "angle_degrees": 8.25,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-042.png",
+          "sha256": "25D113B57E8DBD8B0CA2C09F53ED81D814CFD207EF8836FAB129323BE52397EC"
+        },
+        {
+          "index": 43,
+          "angle_degrees": 9.309027777777775,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-043.png",
+          "sha256": "470597AE2655A02122F01F41ED4AC86E05508500378BCD832F9C44A25C51E611"
+        },
+        {
+          "index": 44,
+          "angle_degrees": 10.222222222222225,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-044.png",
+          "sha256": "9F0D5C0F061EACFD1A6E04E91DD3408F6362817664B664BB0469E141D6006A53"
+        },
+        {
+          "index": 45,
+          "angle_degrees": 10.96875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-045.png",
+          "sha256": "DF7D88B4DACE1AACDA209E3E8F045B2A01710F83598E2A58DE774EA194F7E843"
+        },
+        {
+          "index": 46,
+          "angle_degrees": 11.527777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-046.png",
+          "sha256": "9E786A2ADD8C904B172F24E26803718BE6F5C1BF9A4B9729107F387097747E6B"
+        },
+        {
+          "index": 47,
+          "angle_degrees": 11.878472222222225,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-047.png",
+          "sha256": "B186A575F8AE897E50B535026598651EDA40177DEF37900968992C93898688F3"
+        },
+        {
+          "index": 48,
+          "angle_degrees": 12.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-048.png",
+          "sha256": "0F0871199833009E84184C57AE6ACEAA090FFA72A77F17E2F2FA17D611A19AF2"
+        },
+        {
+          "index": 49,
+          "angle_degrees": 11.933919618640585,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-049.png",
+          "sha256": "BF2B30C4A17F2C27DD8090F659633691A43D2C5B3B4DDB41FC49493D1D3B54AA"
+        },
+        {
+          "index": 50,
+          "angle_degrees": 11.743568669351525,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-050.png",
+          "sha256": "DD55F3AE60055B47BC43860B6EFBCA52F782ED9192981AC0A41023A8CE24FF5C"
+        },
+        {
+          "index": 51,
+          "angle_degrees": 11.440782444316595,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-051.png",
+          "sha256": "0875A2E9386512C04A318861B294F29FB9F195A299A209917222E3D36AAFD00B"
+        },
+        {
+          "index": 52,
+          "angle_degrees": 11.03739623571957,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-052.png",
+          "sha256": "6DF6E571AAAA4822B9A7142E342FDD6A10590ED1B0B1A6F29C6D0AE6ADA2F417"
+        },
+        {
+          "index": 53,
+          "angle_degrees": 10.545245335744227,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-053.png",
+          "sha256": "17B04063369BA413D92ED9F2A17C2BA04101BF00447AB5F07636D95FEDBDDE97"
+        },
+        {
+          "index": 54,
+          "angle_degrees": 9.97616503657434,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-054.png",
+          "sha256": "DA837B4BDB83CA1B5246BDEC5B56A5371D523F1E2FCAD5B313ADCC05A12480BB"
+        },
+        {
+          "index": 55,
+          "angle_degrees": 9.341990630393688,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-055.png",
+          "sha256": "1DEACF2C0C090902294DF7D29DBC7D77DACDDE6D41EFD07EE569553AD55E766F"
+        },
+        {
+          "index": 56,
+          "angle_degrees": 8.654557409386044,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-056.png",
+          "sha256": "42410C425D852E64DC18D07C1DDA1A856A498E759BFD0E462F73A9117A1C09F3"
+        },
+        {
+          "index": 57,
+          "angle_degrees": 7.925700665735185,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-057.png",
+          "sha256": "296F6EAE88361D83774D742F243586E524AD1ABE14D73D01E1BA9D25CA7367C1"
+        },
+        {
+          "index": 58,
+          "angle_degrees": 7.167255691624886,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-058.png",
+          "sha256": "57D9440C48EBE2CA2E650833375BC28B0199D25C8ED7C556F22FBDDFB5CF7CAB"
+        },
+        {
+          "index": 59,
+          "angle_degrees": 6.391057779238924,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-059.png",
+          "sha256": "DA1CB655CFABA4A8CE52710C736CFBEE7E73A06D551662E305B026F8EA1F3F47"
+        },
+        {
+          "index": 60,
+          "angle_degrees": 5.608942220761075,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-060.png",
+          "sha256": "32C67EB191B7B1D244CE0E5E5A388272C3176D781B2732D90F9C3461D8587D96"
+        },
+        {
+          "index": 61,
+          "angle_degrees": 4.832744308375114,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-061.png",
+          "sha256": "F5F27C52144B75F6F04ECE1B7A1D7F92846C0710E56AAC2FCFD579EB2F6E928F"
+        },
+        {
+          "index": 62,
+          "angle_degrees": 4.074299334264814,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-062.png",
+          "sha256": "B10849892645BC7560DB513339C618C2557BD449DE7ABA99629A1E437A4A32E2"
+        },
+        {
+          "index": 63,
+          "angle_degrees": 3.345442590613956,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-063.png",
+          "sha256": "FDB3DBFDD4AF7FDBCCD93F0F9E9EBE779D18440AF36A84952856A76E27E5BA81"
+        },
+        {
+          "index": 64,
+          "angle_degrees": 2.6580093696063116,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-064.png",
+          "sha256": "A1BC3C396C4DC7239F710DA04C52568E06B25A46906B60D566A951E0A9C49679"
+        },
+        {
+          "index": 65,
+          "angle_degrees": 2.02383496342566,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-065.png",
+          "sha256": "AA3B77EEE7717535122D3DE5DACCC4629F6E5B891717CA19B657FFAD5A7226F8"
+        },
+        {
+          "index": 66,
+          "angle_degrees": 1.4547546642557734,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-066.png",
+          "sha256": "320360C8954CFC09E49B4C7462AF3EA9C8426C124E30CBB4459C402CE544F44B"
+        },
+        {
+          "index": 67,
+          "angle_degrees": 0.9626037642804324,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-067.png",
+          "sha256": "BB9821825D4A45182E50EC90DBEC14952CD4714102A961FFDD1631EFB3657A9A"
+        },
+        {
+          "index": 68,
+          "angle_degrees": 0.5592175556834054,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-068.png",
+          "sha256": "DC9694F5E58C0B280EF62C324CE1D54AE4AAD341EBBE10CFB94320B2B7C86A6D"
+        },
+        {
+          "index": 69,
+          "angle_degrees": 0.2564313306484767,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-069.png",
+          "sha256": "65702A35D30D35E5D1A1FD4E602BE0E845C6C879ADC33E858685E1BC6A094746"
+        },
+        {
+          "index": 70,
+          "angle_degrees": 0.06608038135941463,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-070.png",
+          "sha256": "356890CB58EDCFEC0EE14EF42D6F72BDBD98A9257F3A626B691536A1B2B670AC"
+        },
+        {
+          "index": 71,
+          "angle_degrees": 0.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-30g-071.png",
+          "sha256": "7FDC588DD050BF02C88CD87922B2E45C9B7D3EED8750B68909169CE875BFEB26"
+        }
+      ],
+      "video": {
+        "filename": "maliev-pimm-collection-motion-20260902-r01-30g.mp4",
+        "sha256": "74FCC2C75EC9CD69D25011D714F14A1725D4DAE4F53CB7344716769797285B0A",
+        "width": 720,
+        "height": 960,
+        "r_frame_rate": "24/1",
+        "duration": "3.000000",
+        "nb_frames": "72"
+      },
+      "poster": {
+        "filename": "maliev-pimm-collection-motion-20260902-r01-30g-poster.webp",
+        "sha256": "DD47EB30C876EB9DDCDD76BA76339295DEEC51A8272A7BF84C650D02DDDDC831"
+      }
+    },
+    {
+      "schema": "maliev.pimm-collection-motion/v1",
+      "release_id": "maliev-pimm-collection-motion-20260902-r01",
+      "machine": "50G",
+      "fps": 24,
+      "frame_count": 72,
+      "width": 720,
+      "height": 960,
+      "samples": 128,
+      "provenance": {
+        "master_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\masters\\PIMM-50G-MASTER.blend",
+        "master_sha256": "CC26246CD01956B1145B1AA5744B968918F956B667B720205723E6B60A252D90",
+        "published_meshes": 556,
+        "foot_contact_levels": [
+          -3.45456282957457e-06,
+          -8.131681170198135e-06,
+          1.222555511048995e-06,
+          1.222555511048995e-06
+        ],
+        "foot_contact_spread": 9.35423668124713e-06
+      },
+      "frames": [
+        {
+          "index": 0,
+          "angle_degrees": 0.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-000.png",
+          "sha256": "C73CCE9C044865125ED8BCF26A84F7FB04C7B265551D3733B7AFA74A6BA86697"
+        },
+        {
+          "index": 1,
+          "angle_degrees": -0.06076388888888888,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-001.png",
+          "sha256": "14369343ACC1E275C5E4D2BE1D6612998761CE2271888FDE5002CC14C195CAE6"
+        },
+        {
+          "index": 2,
+          "angle_degrees": -0.2361111111111111,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-002.png",
+          "sha256": "5F5F575B83F1B1B1689E21B35B153640FB8BAE51132173D029F86DFA94E40715"
+        },
+        {
+          "index": 3,
+          "angle_degrees": -0.515625,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-003.png",
+          "sha256": "6F401B2B7F235A7D5E83A7B30AD889A5E9A80826ACEF34BB0B3006571F512AA3"
+        },
+        {
+          "index": 4,
+          "angle_degrees": -0.8888888888888888,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-004.png",
+          "sha256": "BB212DA8BC8453BBB36543DEF5D68515F95E6B3259D9D9892A185C739F53A08D"
+        },
+        {
+          "index": 5,
+          "angle_degrees": -1.3454861111111114,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-005.png",
+          "sha256": "813437121A1AB32D9F8979EEBF403A5E3DC4964B0D6E50D7218DE959913E8637"
+        },
+        {
+          "index": 6,
+          "angle_degrees": -1.875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-006.png",
+          "sha256": "E838F03503B26501EDD9D65D6DF3DADD7C86F8F002F5D6D9C7687DF919457E34"
+        },
+        {
+          "index": 7,
+          "angle_degrees": -2.4670138888888893,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-007.png",
+          "sha256": "7A56137D9C6C735F9A81EFDD5C2ADA6E048751EB43049AF6B1C355FD69289F25"
+        },
+        {
+          "index": 8,
+          "angle_degrees": -3.1111111111111107,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-008.png",
+          "sha256": "A6536531AF74235696693FFBE875CBF8B6EBFEF1D0CBC195D50C67A32819EED0"
+        },
+        {
+          "index": 9,
+          "angle_degrees": -3.796875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-009.png",
+          "sha256": "B200D0D0A00466A94B4E9F5FF2C8ABEC11F1194C5CB02D997014D692647CFF12"
+        },
+        {
+          "index": 10,
+          "angle_degrees": -4.513888888888889,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-010.png",
+          "sha256": "C7AAECC04D4EBEDFD9D2831C01E1FEECF9751BCA9641E755370750C85F761A2E"
+        },
+        {
+          "index": 11,
+          "angle_degrees": -5.251736111111111,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-011.png",
+          "sha256": "3A8619EF428A6D4E03ADB7C1613DAB0AE30CF0225B0C2AC335C5C07895793955"
+        },
+        {
+          "index": 12,
+          "angle_degrees": -6.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-012.png",
+          "sha256": "D6516CDFA561CAE345AB70B0242DB975C7DCC3560D25287D5A8A52686F1E0B1C"
+        },
+        {
+          "index": 13,
+          "angle_degrees": -6.7482638888888875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-013.png",
+          "sha256": "1FBBADFDCDC55FCBE42CF93AB9255395E5B8ADBF5995C6868FF69E13B810AA7A"
+        },
+        {
+          "index": 14,
+          "angle_degrees": -7.4861111111111125,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-014.png",
+          "sha256": "2D57727A7D94E1BC4A79C98A0CF20AFFB34B116F93056481BAD817D8BB2DD04B"
+        },
+        {
+          "index": 15,
+          "angle_degrees": -8.203125,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-015.png",
+          "sha256": "81FDC8A0CEDE8714BBAEF41D69CB86ADB73AE05A41A7280BD127819665A3672F"
+        },
+        {
+          "index": 16,
+          "angle_degrees": -8.88888888888889,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-016.png",
+          "sha256": "70AE9FADABEA81B0A6862E0C84E4B86913FDAFDA40A7C90F0F7E23A3A0850637"
+        },
+        {
+          "index": 17,
+          "angle_degrees": -9.53298611111111,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-017.png",
+          "sha256": "3F898AFCA3730FC77D9B22150BB678BDCB7A079F441213600802ADD39CD51397"
+        },
+        {
+          "index": 18,
+          "angle_degrees": -10.125,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-018.png",
+          "sha256": "897BF6E51F83348F3E6D05DE3107B70DCD9F53B50B7D11966E6C16E51EE92168"
+        },
+        {
+          "index": 19,
+          "angle_degrees": -10.654513888888888,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-019.png",
+          "sha256": "5FC62AAE8B4155E1FAFAC1AAD095059F5664E8E1D1462DAA9B520024FDF1717D"
+        },
+        {
+          "index": 20,
+          "angle_degrees": -11.111111111111112,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-020.png",
+          "sha256": "F08900B27F1BA7CADC81144C6570A0AB7D0D8F683CF73B9FACDE4FB0A128AB33"
+        },
+        {
+          "index": 21,
+          "angle_degrees": -11.484375,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-021.png",
+          "sha256": "EFEB5AADC8D3DB1C47818EB412C71C60B797898C57F911171DAE4D3D232E3875"
+        },
+        {
+          "index": 22,
+          "angle_degrees": -11.76388888888889,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-022.png",
+          "sha256": "01AACEE58C7159D1E8E2AC5C580BD361F73E0C28AF6B9E0BA757FA057BD12F07"
+        },
+        {
+          "index": 23,
+          "angle_degrees": -11.939236111111112,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-023.png",
+          "sha256": "C6960A1E4884AAED8AC1A5E2D33EF336CFF44CE4DDC1D72F7B3BEE8D06DDF8A0"
+        },
+        {
+          "index": 24,
+          "angle_degrees": -12.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-024.png",
+          "sha256": "022ED17C371C133A55CAFD1B242A02C1CAD8054A943BC62B5F69F5C40E456DDB"
+        },
+        {
+          "index": 25,
+          "angle_degrees": -11.878472222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-025.png",
+          "sha256": "8B6686CB499EF6B9ADB73C15CA7B4C381004AE499315F3F82CD7941A8A5AFCD9"
+        },
+        {
+          "index": 26,
+          "angle_degrees": -11.527777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-026.png",
+          "sha256": "2C5A213E7A334C170F96572AD0E8675F600C0DF57AF190D9D78FC406C72484C6"
+        },
+        {
+          "index": 27,
+          "angle_degrees": -10.96875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-027.png",
+          "sha256": "15DFC8F247CF5DC4EE3A110ACD6E33151A3F726D125FED4C1BA223317929DF71"
+        },
+        {
+          "index": 28,
+          "angle_degrees": -10.222222222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-028.png",
+          "sha256": "A694A00652035F79A6B4E3B6D4385ABF51B8A0F46B0C94AB752F971D33B17910"
+        },
+        {
+          "index": 29,
+          "angle_degrees": -9.309027777777777,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-029.png",
+          "sha256": "2FB72578FD946FF0BB51404A8C1F6583A5D85BAF534228907A894CE9D8A6C0FE"
+        },
+        {
+          "index": 30,
+          "angle_degrees": -8.25,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-030.png",
+          "sha256": "91A79B8060F0B11DB22D9AD9FFFBF8376720B405EA1080D9EE95C00CAFEFBACA"
+        },
+        {
+          "index": 31,
+          "angle_degrees": -7.065972222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-031.png",
+          "sha256": "82F9E9A3EACC3223B9392941E52F7D5B4FB90D4557831BE257CC1F20063C044F"
+        },
+        {
+          "index": 32,
+          "angle_degrees": -5.777777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-032.png",
+          "sha256": "E493D4AC4CA2F56472D614FE9E69E088C12A4FFA23B0C54A769DCF6BF006DD3D"
+        },
+        {
+          "index": 33,
+          "angle_degrees": -4.40625,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-033.png",
+          "sha256": "0A23B812B02FE733543864192BA727CD9BBA12D967A8D5DF33950E3C1593BC7D"
+        },
+        {
+          "index": 34,
+          "angle_degrees": -2.9722222222222214,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-034.png",
+          "sha256": "03297A6519282AADBA9C622A4C4CA9DBD203D4254DF350DFEA4B18532B190449"
+        },
+        {
+          "index": 35,
+          "angle_degrees": -1.4965277777777786,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-035.png",
+          "sha256": "39A2DB24498F6340EAF9D1984BECF01E6DF68A3F6BE3C509489B76CD99AD04BC"
+        },
+        {
+          "index": 36,
+          "angle_degrees": 0.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-036.png",
+          "sha256": "A010670014EE437E45DF663F31091855817727897E2128365D16EE293A5BE8B3"
+        },
+        {
+          "index": 37,
+          "angle_degrees": 1.496527777777775,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-037.png",
+          "sha256": "CDEA49B04B6E73CBF1A0CF37549DA5DF199B68A768915A875128CDBF5B2D8B06"
+        },
+        {
+          "index": 38,
+          "angle_degrees": 2.972222222222225,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-038.png",
+          "sha256": "FB094F3A57D52481F1FE35A6FB761F63683460DE9B37A1ACCACCB60A1E3AC79A"
+        },
+        {
+          "index": 39,
+          "angle_degrees": 4.40625,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-039.png",
+          "sha256": "645E809F89DED18DF7184858BDFAB962A3D0B203A91EBF17B31B579BD2B73B2C"
+        },
+        {
+          "index": 40,
+          "angle_degrees": 5.777777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-040.png",
+          "sha256": "7E45451545A81E9969812A600634820A16E802750E916AD589BBAE4C858358F1"
+        },
+        {
+          "index": 41,
+          "angle_degrees": 7.065972222222221,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-041.png",
+          "sha256": "9E566F91E0651DEB37AE48CA0CC770B46948CF4077AFF6336337EE0BC1EA0C21"
+        },
+        {
+          "index": 42,
+          "angle_degrees": 8.25,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-042.png",
+          "sha256": "362B98CF6A6F8EF41AB0661756AD18ACC2DD7DA37800A6E9EB79B60CE4249E30"
+        },
+        {
+          "index": 43,
+          "angle_degrees": 9.309027777777775,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-043.png",
+          "sha256": "156DBD8ED7851EBC1BA9E00BFC5D64D5125DAD1658CE59F1770F6D4F0740CE4C"
+        },
+        {
+          "index": 44,
+          "angle_degrees": 10.222222222222225,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-044.png",
+          "sha256": "E236D457097CB0764D6417945857E6AA9409A0C898719ACEDC033F1E5FC44C9B"
+        },
+        {
+          "index": 45,
+          "angle_degrees": 10.96875,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-045.png",
+          "sha256": "B93AD5D5DFA6344319290AEF3982826260FCF0079A83060B87E88A99A540C699"
+        },
+        {
+          "index": 46,
+          "angle_degrees": 11.527777777777779,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-046.png",
+          "sha256": "3457FA1D9E01705173738522142D0E4B2B8BD23C14C64C4DC89D7199F0ABB155"
+        },
+        {
+          "index": 47,
+          "angle_degrees": 11.878472222222225,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-047.png",
+          "sha256": "78085D1B4D32D1400A45A26F5BA861956379953131E8F723556F0324DCB6B18A"
+        },
+        {
+          "index": 48,
+          "angle_degrees": 12.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-048.png",
+          "sha256": "B3C4057A436F82C39B0EB81EA5AF11A7038D43C112BFE470A8B41921E4094917"
+        },
+        {
+          "index": 49,
+          "angle_degrees": 11.933919618640585,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-049.png",
+          "sha256": "787307AAD1D44C33CABB0EF95A7CF4A00CCA36E15454412B3B68F517D8AF6C88"
+        },
+        {
+          "index": 50,
+          "angle_degrees": 11.743568669351525,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-050.png",
+          "sha256": "6F06297D01E2A7D929D5D7434C96CBC25A4B145DC467287112D8CDD23E13D28B"
+        },
+        {
+          "index": 51,
+          "angle_degrees": 11.440782444316595,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-051.png",
+          "sha256": "BD4271999CB1B7F82BB8414F79529FCD852C520282EEC22AE88E7E2108FDFAE0"
+        },
+        {
+          "index": 52,
+          "angle_degrees": 11.03739623571957,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-052.png",
+          "sha256": "B7D634583609C43EA733A52E3B2AFD7011796C69C0280722F50497042BA63056"
+        },
+        {
+          "index": 53,
+          "angle_degrees": 10.545245335744227,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-053.png",
+          "sha256": "5AD5075812F2082258A4A562EED7B43C5246B8E8AA99B3ACED65927418FF6094"
+        },
+        {
+          "index": 54,
+          "angle_degrees": 9.97616503657434,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-054.png",
+          "sha256": "DCF037FE9ABC50DFB5DAFCAC9E461F1E70B18CB826BEE678EA6A83EFA3E7103A"
+        },
+        {
+          "index": 55,
+          "angle_degrees": 9.341990630393688,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-055.png",
+          "sha256": "750F50574C43033677C3F4FA2719CE92C6292CEC6F2B04C9A7FF447378D08594"
+        },
+        {
+          "index": 56,
+          "angle_degrees": 8.654557409386044,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-056.png",
+          "sha256": "E46E949726B858E249261A80F5EF2487D45E9FECA44743B6B8D446829E1E9906"
+        },
+        {
+          "index": 57,
+          "angle_degrees": 7.925700665735185,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-057.png",
+          "sha256": "5C82EC52EF2285266E831A1519C4CE3606757B5704633E619C6CD0951D7D6EE3"
+        },
+        {
+          "index": 58,
+          "angle_degrees": 7.167255691624886,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-058.png",
+          "sha256": "C0DEF3C36BF574683A67BA3A4E21AE0397D3661AE54F468A32EA787A65A8CDC5"
+        },
+        {
+          "index": 59,
+          "angle_degrees": 6.391057779238924,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-059.png",
+          "sha256": "A9C14A531A1A299A4BE4569022CB33AF77D4E352BAF205D885C103CEC48284B5"
+        },
+        {
+          "index": 60,
+          "angle_degrees": 5.608942220761075,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-060.png",
+          "sha256": "1C15CF908D7EC99D2CF1A8CC9753CBEFDD820A301BDAE9B6CECFFDDC0487FC74"
+        },
+        {
+          "index": 61,
+          "angle_degrees": 4.832744308375114,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-061.png",
+          "sha256": "1C19970D60C26E8C2D468B66516ECC999D4E4B27C774172619CABB1ADAA09212"
+        },
+        {
+          "index": 62,
+          "angle_degrees": 4.074299334264814,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-062.png",
+          "sha256": "DD4175C7340F772F6715A2558FA0C96CC3448AB4F2B905730B8AFD087A525ECD"
+        },
+        {
+          "index": 63,
+          "angle_degrees": 3.345442590613956,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-063.png",
+          "sha256": "B746EB8630FAE3187168F3D3D96B4EA3BFFB99EB0D206050D9BA8D88E4889CB0"
+        },
+        {
+          "index": 64,
+          "angle_degrees": 2.6580093696063116,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-064.png",
+          "sha256": "895D3F2DC79D9E08B3255D88CB3877C53405AFE11B8FE0EB7AEED30E0EDDBA38"
+        },
+        {
+          "index": 65,
+          "angle_degrees": 2.02383496342566,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-065.png",
+          "sha256": "75A1D2D744575FB9858DFC4511BB912F8B2E860F2CCAEA2CE210E2F97684ED9E"
+        },
+        {
+          "index": 66,
+          "angle_degrees": 1.4547546642557734,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-066.png",
+          "sha256": "10E8BC82BC8D9A20BFCB73F049A38C1913364087AAE9F26155E49E697E86AEF2"
+        },
+        {
+          "index": 67,
+          "angle_degrees": 0.9626037642804324,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-067.png",
+          "sha256": "F4D05A1C0E16AC26BC596938A60574EC784BE45FB0D9066B1B6F26B0F6CB5ABB"
+        },
+        {
+          "index": 68,
+          "angle_degrees": 0.5592175556834054,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-068.png",
+          "sha256": "301A60B0A562DA06BB43423E126D416128DBA9BF31ED800A245EDA95AC2880BC"
+        },
+        {
+          "index": 69,
+          "angle_degrees": 0.2564313306484767,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-069.png",
+          "sha256": "8BF14C39E9AED4ACD5C76D128269037F0896B3AC1A24526B9B019CDFA2972D89"
+        },
+        {
+          "index": 70,
+          "angle_degrees": 0.06608038135941463,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-070.png",
+          "sha256": "C22043A37BCE0B8D4C49F0C6F5C12012DD1627B919F4AF2C98757224552D0941"
+        },
+        {
+          "index": 71,
+          "angle_degrees": 0.0,
+          "filename": "maliev-pimm-collection-motion-20260902-r01-50g-071.png",
+          "sha256": "5C32F1DC9C05BAD98DD00B8AE381296CDBFD4E668C869C591D9162734AC75587"
+        }
+      ],
+      "video": {
+        "filename": "maliev-pimm-collection-motion-20260902-r01-50g.mp4",
+        "sha256": "27E9F43364F681B2062EA4C48D7E3737C976E1A5132A43ABA14596A81C83D2CF",
+        "width": 720,
+        "height": 960,
+        "r_frame_rate": "24/1",
+        "duration": "3.000000",
+        "nb_frames": "72"
+      },
+      "poster": {
+        "filename": "maliev-pimm-collection-motion-20260902-r01-50g-poster.webp",
+        "sha256": "ACC7538E53F1BBE264C2698CB3ACA2CD0535F182C00086217790C42247987102"
+      }
+    }
+  ]
+}

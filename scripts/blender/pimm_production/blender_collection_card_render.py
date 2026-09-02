@@ -33,6 +33,21 @@ MASTER_HASHES = {
     "50G": "CC26246CD01956B1145B1AA5744B968918F956B667B720205723E6B60A252D90",
 }
 RENDER_SIDECAR_SCHEMA = "maliev.pimm-collection-card-render/v1"
+MOTION_RELEASE = "maliev-pimm-collection-motion-20260902-r01"
+
+
+def motion_angles() -> list[float]:
+    """72 physically rendered frames, eased at each turn, front at both ends."""
+    keys = [(0, 0.0), (24, -12.0), (48, 12.0), (71, 0.0)]
+    angles = []
+    for frame in range(72):
+        for (start, a), (end, b) in zip(keys, keys[1:]):
+            if start <= frame <= end:
+                t = (frame - start) / (end - start)
+                eased = t * t * (3 - 2 * t)
+                angles.append(a + (b - a) * eased)
+                break
+    return angles
 
 
 def _render_sidecar_path(output_dir: Path, machine: str) -> Path:
@@ -67,6 +82,7 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--samples", type=int, required=True)
     parser.add_argument("--scale", type=float, default=1.0)
+    parser.add_argument("--motion", action="store_true")
     arguments = parser.parse_args(argv)
     if arguments.samples < 1:
         parser.error("--samples must be at least 1")
@@ -165,6 +181,8 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
     storefront._install_studio(bpy, runtime, bounds_min, bounds_max)
     _collection_camera(bpy, runtime, bounds_min, bounds_max, arguments.scale)
     stage = _collection_stage(bpy, runtime, meshes, center)
+    if getattr(arguments, "motion", False):
+        return render_motion(bpy, arguments, stage, provenance, output_dir)
     outputs = []
     for angle, degrees in ANGLE_DEGREES.items():
         output = output_dir / f"{RELEASE_ID}-{arguments.machine.lower()}-{angle}.png"
@@ -192,6 +210,35 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
         "outputs": outputs,
         "render_sidecar": str(sidecar),
     }
+
+
+def render_motion(bpy: Any, arguments: argparse.Namespace, stage: Any,
+                  provenance: dict, output_dir: Path) -> dict:
+    """Render every frame in Cycles; never interpolate or composite stills."""
+    prefix = f"{MOTION_RELEASE}-{arguments.machine.lower()}"
+    sidecar = output_dir / f"{prefix}.json"
+    if sidecar.exists() or any(output_dir.glob(f"{prefix}-*.png")):
+        raise FileExistsError(f"refusing to overwrite motion release: {prefix}")
+    _configure_collection_render(bpy, arguments.samples, output_dir / prefix)
+    scene = bpy.context.scene
+    scene.render.resolution_x, scene.render.resolution_y = (720, 960)
+    scene.render.fps, scene.render.fps_base = 24, 1.0
+    frames = []
+    for index, degrees in enumerate(motion_angles()):
+        stage.rotation_euler[2] = math.radians(degrees)
+        bpy.context.view_layer.update()
+        output = output_dir / f"{prefix}-{index:03d}.png"
+        scene.render.filepath = str(output)
+        bpy.ops.render.render(write_still=True)
+        frames.append({"index": index, "angle_degrees": degrees,
+                       "filename": output.name, "sha256": storefront.sha256_file(output)})
+        print(f"PIMM_MOTION_FRAME {arguments.machine} {index + 1}/72", flush=True)
+    result = {"schema": "maliev.pimm-collection-motion/v1", "release_id": MOTION_RELEASE,
+              "machine": arguments.machine, "fps": 24, "frame_count": 72,
+              "width": 720, "height": 960, "samples": arguments.samples,
+              "provenance": provenance, "frames": frames}
+    sidecar.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    return result
 
 
 def main(argv: Sequence[str] | None = None) -> int:
