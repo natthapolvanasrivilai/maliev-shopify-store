@@ -323,10 +323,10 @@
 .pimm-collection__dossier > a[data-pimm-dossier-configure] {
   align-items: center;
   appearance: none;
-  background: var(--pimm-collection-ink);
-  border: 0.1rem solid var(--pimm-collection-ink);
+  background: var(--pimm-cta-background, var(--pimm-collection-ink));
+  border: 0.1rem solid var(--pimm-cta-border, var(--pimm-collection-ink));
   border-radius: var(--maliev-radius-control);
-  color: var(--pimm-collection-surface);
+  color: var(--pimm-cta-color, var(--pimm-collection-surface));
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -345,20 +345,25 @@
 }
 
 .pimm-collection__card-actions button {
-  background: transparent;
-  border-color: var(--pimm-collection-rule);
-  color: var(--pimm-collection-ink);
+  --pimm-cta-background: transparent;
+  --pimm-cta-border: #737d87;
+  --pimm-cta-color: var(--pimm-collection-ink);
+}
+
+.pimm-collection__dossier-actions a,
+.pimm-collection__dossier > a[data-pimm-dossier-configure] {
+  --pimm-cta-background: transparent;
+  --pimm-cta-border: #b7c0c8;
+  --pimm-cta-color: var(--pimm-collection-surface);
 }
 
 .pimm-collection__dossier-actions a:not([data-pimm-dossier-configure]) {
-  background: transparent;
-  border-color: #606870;
-  color: var(--pimm-collection-surface);
+  --pimm-cta-border: #737d87;
 }
 
-.pimm-collection__card-actions :is(a, button):hover,
-.pimm-collection__dossier-actions a:hover,
-.pimm-collection__dossier > a[data-pimm-dossier-configure]:hover {
+.pimm-collection__card-actions :is(a, button):is(:hover, :focus-visible),
+.pimm-collection__dossier-actions a:is(:hover, :focus-visible),
+.pimm-collection__dossier > a[data-pimm-dossier-configure]:is(:hover, :focus-visible) {
   background: var(--pimm-collection-accent);
   border-color: var(--pimm-collection-accent);
   color: var(--pimm-collection-surface);
@@ -422,13 +427,6 @@
 .pimm-collection__dossier-value {
   color: var(--pimm-collection-surface);
   transition: opacity 180ms var(--pimm-collection-ease);
-}
-
-.pimm-collection__dossier-actions a,
-.pimm-collection__dossier > a[data-pimm-dossier-configure] {
-  background: var(--pimm-collection-surface);
-  border-color: var(--pimm-collection-surface);
-  color: var(--pimm-collection-ink);
 }
 
 .pimm-collection__inline-dossiers {
@@ -532,7 +530,10 @@
   .pimm-collection__card h2,
   .pimm-collection__card [data-pimm-card-price],
   .pimm-collection__frame,
-  .pimm-collection__dossier-value {
+  .pimm-collection__dossier-value,
+  .pimm-collection__card-actions :is(a, button),
+  .pimm-collection__dossier-actions a,
+  .pimm-collection__dossier > a[data-pimm-dossier-configure] {
     transition: none !important;
   }
 
@@ -607,22 +608,6 @@
     padding-top: 0.8rem;
   }
   .pimm-collection__dossier--desktop [data-pimm-dossier-configure] { grid-column: 1 / -1; }
-  .pimm-collection__dossier--desktop .pimm-collection__dossier-actions a:not([data-pimm-dossier-configure]) {
-    background: transparent;
-    border: 0;
-    border-top: 0.1rem solid #40464d;
-    border-radius: 0;
-    color: #e4e8eb;
-    justify-content: flex-start;
-    padding: 0.8rem 0;
-    text-align: left;
-    text-decoration: underline;
-    text-underline-offset: 0.3em;
-  }
-  .pimm-collection__dossier--desktop .pimm-collection__dossier-actions a:not([data-pimm-dossier-configure]):hover {
-    color: #ffffff;
-    text-decoration-thickness: 0.2rem;
-  }
   /* The full footer remains on mobile; this focused desktop page uses its legal bar. */
   body:has(.pimm-collection[data-contract-valid='true']) .mc-footer { padding: 0; }
   body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__main,

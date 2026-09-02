@@ -591,7 +591,7 @@ const geometryProbe = `(() => {
         && primary.top >= list.bottom
         && secondary.every(link => link.getBoundingClientRect().top >= primary.bottom + 4
           && getComputedStyle(link).backgroundColor === 'rgba(0, 0, 0, 0)'
-          && getComputedStyle(link).textDecorationLine.includes('underline'))
+          && getComputedStyle(link).borderTopStyle === 'solid')
         && Math.abs(actions.getBoundingClientRect().bottom
           - (dossierRect.bottom - parseFloat(getComputedStyle(dossier).paddingBottom))) <= 1;
     })(),
@@ -965,6 +965,64 @@ async function interactionProbe(session, language) {
   assert.equal(committed.transformed, false, `${language} playback image transform`);
 }
 
+async function ctaColorProbe(session, language) {
+  const selector = '.pimm-collection__card-actions :is(a, button), .pimm-collection__dossier-actions a';
+  const snapshot = (index) => `(() => {
+    const button = document.querySelectorAll(${JSON.stringify(selector)})[${index}];
+    const style = getComputedStyle(button);
+    const rect = button.getBoundingClientRect();
+    return { background: style.backgroundColor, color: style.color, border: style.borderTopColor,
+      outline: style.outlineStyle, duration: style.transitionDuration,
+      height: rect.height, width: rect.width, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  })()`;
+  for (const [width, height] of [[1280, 720], [390, 844]]) {
+    await setViewport(session, width, height);
+    await evaluate(session, 'document.activeElement?.blur(); scrollTo(0, 0)');
+    const buttons = await evaluate(session, `(() => [...document.querySelectorAll(${JSON.stringify(selector)})]
+      .map((button, index) => ({ index, visible: !!button.getClientRects().length,
+        primary: button.matches('.pimm-collection__card-actions a') }))
+      .filter(button => button.visible))()`);
+    assert.equal(buttons.length, 7, `${language} ${width} all seven CTA roles`);
+    for (const { index, primary } of buttons) {
+      const context = `${language} ${width} CTA ${index}`;
+      await evaluate(session, `document.activeElement?.blur(); document.querySelectorAll(${JSON.stringify(selector)})[${index}].scrollIntoView({block: 'center'})`);
+      await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+      await delay(250);
+      const initial = await evaluate(session, snapshot(index));
+      assert.equal(initial.background, primary ? 'rgb(17, 19, 21)' : 'rgba(0, 0, 0, 0)', `${context} default role`);
+      assert.ok(initial.height >= 44 && initial.width >= 44, `${context} target size`);
+      await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: initial.x, y: initial.y });
+      await delay(250);
+      const hovered = await evaluate(session, snapshot(index));
+      assert.equal(hovered.background, 'rgb(8, 121, 201)', `${context} blue hover`);
+      assert.equal(hovered.border, hovered.background, `${context} blue border`);
+      assert.equal(hovered.color, 'rgb(255, 255, 255)', `${context} white hover label`);
+      assert.equal(hovered.height, initial.height, `${context} no hover shift`);
+      // WCAG contrast computed from the actual browser-resolved hover color.
+      const channels = hovered.background.match(/\d+/g).map(Number).map(value => value / 255)
+        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      const luminance = channels.reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
+      assert.ok(1.05 / (luminance + 0.05) >= 4.5, `${context} AA label contrast`);
+      await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+      await session.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+      await session.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+      await evaluate(session, `document.querySelectorAll(${JSON.stringify(selector)})[${index}].focus()`);
+      await delay(250);
+      const focused = await evaluate(session, snapshot(index));
+      assert.equal(focused.background, hovered.background, `${context} keyboard blue state`);
+      assert.equal(focused.outline, 'solid', `${context} keyboard outline`);
+    }
+    await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    for (const { index } of buttons) {
+      assert.equal((await evaluate(session, snapshot(index))).duration, '0s', `${language} ${width} CTA reduced motion`);
+    }
+    await captureFullPageScreenshot(session, join(evidenceDir, `${language}-cta-focus-${width}.png`));
+    await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    await evaluate(session, 'document.activeElement?.blur(); scrollTo(0, 0)');
+  }
+  await setViewport(session, 1280, 800);
+}
+
 async function cinematicFocusProbe(session, language) {
   await evaluate(session, 'scrollTo(0, 0); document.activeElement?.blur()');
   await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
@@ -1210,6 +1268,7 @@ test('dedicated PIMM collection passes responsive, interaction, and localization
       }
       await interactionProbe(session, language);
       await cinematicFocusProbe(session, language);
+      await ctaColorProbe(session, language);
       await headerProbe(session, `${language} desktop`);
       await inlineSupportActionProbe(session, diagnostics, language);
       await diagnostics.assertClean(`${language} desktop interaction and header`);

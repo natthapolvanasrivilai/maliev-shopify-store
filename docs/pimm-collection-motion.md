@@ -146,3 +146,54 @@ passed. Text contrast checks measured 6.67:1 for muted text on the page and
 same three dependency warnings. The Shopify skill's separate validator could not
 start because its installed package lacks `@shopify/theme-check-common`; the
 repository's Shopify CLI Theme Check and executable Liquid tests ran instead.
+
+## CTA color audit and correction — 2026-09-02
+
+Scope: collection card and dossier CTAs only, including both inline dossiers.
+The user explicitly requested audit and fixes together. No imagery, commerce
+contract, destination, translation, header or card-animation changes were made.
+
+Anti-pattern verdict: pass for the corrected CTA surface. It uses the existing
+brand colors, restrained outlines and color-only transitions, without lift,
+shadows or competing filled colors. The original cascade assigned color by
+breakpoint instead of action role; role variables now own the default state and
+one shared rule owns hover and keyboard focus.
+
+| Audit dimension | After / 4 | Evidence and scope |
+| --- | --- | --- |
+| Accessibility | 3 | Hover labels measure 4.58:1; keyboard focus retains its separate outline; this is not a whole-page WCAG certification. |
+| Performance | 4 | CSS-only color transitions; no new JS, assets or layout animation. |
+| Responsive design | 4 | Ten viewport sizes per locale pass; all seven visible CTA targets are at least 44px in both dimensions at 1280×720 and 390×844. |
+| Theming | 3 | Shared role variables work on existing light cards and dark dossiers; this fixed page palette is not a new theme-switching system. |
+| Anti-patterns | 4 | Consistent black/transparent defaults, one blue interaction color, no decorative motion. |
+| Total | 18/20 | Excellent within the audited CTA scope. |
+
+Findings: zero P0/P1, two P2 and one P3, all corrected:
+
+- **P2 / Theming:** the later dossier rule forced its main CTA white, contrary
+  to the requested black/transparent hierarchy. It is now transparent with a
+  bright outline on the dark panel; card primaries remain black. No WCAG claim
+  applies to this hierarchy preference. Refinement lane: `impeccable colorize`.
+- **P2 / Theming:** a more-specific desktop support rule suppressed the shared
+  blue background. Removed that override so support, compare and configure
+  actions all become blue with white text, including keyboard focus. Refinement
+  lane: `impeccable colorize`.
+- **P3 / Accessibility:** the reduced-motion block omitted button transitions.
+  Added every collection CTA, retaining visible focus and instantaneous color
+  feedback. Refinement lane: `impeccable polish`.
+
+Positive contracts retained: semantic links/buttons, localized labels, exact
+configure/support destinations, bottom-anchored dossier actions and full-width
+primary action. No further CTA fix is queued after the polish/verification pass.
+
+Validation: `npm run verify` passed all 77 tests. Theme Check reported zero errors
+and the same three existing Shopify CLI dependency-template warnings; no compiled
+build target exists. The responsive browser suite passed (one acceptance test,
+one intentional no-URL sentinel skip, zero navigation retries), covering English
+and Thai at ten sizes each. New real-pointer and keyboard checks cover all seven
+CTA roles on desktop and mobile-width layouts, default/hover/focus colors,
+contrast, target size, no hover size shift and reduced motion. Existing touch,
+commerce-selection, no-JavaScript, localization and destination checks pass.
+Screenshots in `.codex-tmp/pimm-cta-color-audit` were visually reviewed.
+`git diff --check` passed. Impeccable's detector reported only the pre-existing
+`PIMM Chakra Petch` font alias absent from DESIGN.md; typography was left unchanged.

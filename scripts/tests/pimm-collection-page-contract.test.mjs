@@ -9,7 +9,17 @@ test('desktop dossier separates its full-width price from the bottom action grou
   assert.match(css, /dossier--desktop dl > div:first-child \{ grid-column: 1 \/ -1/);
   assert.match(css, /dossier--desktop \.pimm-collection__dossier-actions \{[^}]*margin-top: auto/);
   assert.match(css, /dossier--desktop \[data-pimm-dossier-configure\] \{ grid-column: 1 \/ -1/);
-  assert.match(css, /dossier-actions a:not\(\[data-pimm-dossier-configure\]\) \{[^}]*text-align: left;[^}]*text-decoration: underline/);
+});
+
+test('CTA roles share accessible blue hover and keyboard states without white-filled overrides', async () => {
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  assert.match(css, /background: var\(--pimm-cta-background, var\(--pimm-collection-ink\)\)/);
+  assert.match(css, /card-actions button \{[^}]*--pimm-cta-background: transparent/);
+  assert.match(css, /dossier > a\[data-pimm-dossier-configure\] \{[^}]*--pimm-cta-background: transparent/);
+  assert.match(css, /dossier-actions a:is\(:hover, :focus-visible\),[\s\S]*?background: var\(--pimm-collection-accent\)/);
+  assert.doesNotMatch(css, /dossier-actions a[^{}]*\{[^}]*background: var\(--pimm-collection-surface\)/);
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /dossier-actions a,[^}]*transition: none !important/);
 });
 
 test('short desktop controls reserve the native render floor without shortening the image', async () => {
