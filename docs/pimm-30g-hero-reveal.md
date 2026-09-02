@@ -26,8 +26,8 @@ release manifest records their hashes and the shipped derivatives.
 
 `pimm-hero-reveal` progressively enhances a normal image. Video is loaded only when
 the hero intersects the viewport, plays once, and rests on the final still after
-decoding. The localized control pauses, resumes, or explicitly replays it.
-Offscreen/hidden-page playback pauses without losing the user's manual pause.
+decoding. The two-second intro has no playback or replay control.
+Offscreen/hidden-page playback pauses and resumes only an unfinished intro.
 Reduced-motion and data-saver visitors keep the bright still without loading video.
 Playback rejection or a video error also restores the bright still.
 
@@ -41,5 +41,5 @@ CTA links remain separate from the animation and usable throughout.
 - `py -3 scripts/tests/pimm-hero-reveal-browser.py` with local preview running
 
 The browser check covers both locales, six viewport sizes, native video resolution,
-one-time playback, pause/replay, final still handoff, reduced motion and failed video.
+one-time playback without replay, final still handoff, reduced motion and failed video.
 It saves screenshots under the ignored `.codex-tmp/hero-reveal-browser` directory.

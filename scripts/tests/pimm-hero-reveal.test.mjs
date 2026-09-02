@@ -27,7 +27,7 @@ test('hero release preserves 48 native frames, exact endpoint and master provena
 async function harness({ reduced = false, saveData = false, denied = false } = {}) {
   let Controller;
   class Element {
-    constructor() { this.dataset = { pause: 'Pause', resume: 'Resume', replay: 'Replay' }; }
+    constructor() { this.dataset = {}; }
     querySelector(selector) { return this.nodes[selector]; }
     closest() { return null; }
   }
@@ -40,7 +40,6 @@ async function harness({ reduced = false, saveData = false, denied = false } = {
     play() { this.plays++; this.paused = false; return denied ? Promise.reject(new Error('denied')) : Promise.resolve(); },
     pause() { this.paused = true; events.pause?.(); },
   };
-  const button = { hidden: true, addEventListener(name, cb) { this[name] = cb; } };
   const poster = { decode: () => Promise.resolve(), getAttribute: () => 'rest.webp', dataset: { start: 'start.webp' } };
   const context = {
     HTMLElement: Element, AbortController, document, navigator: { connection: { saveData } },
@@ -49,25 +48,27 @@ async function harness({ reduced = false, saveData = false, denied = false } = {
     customElements: { get() {}, define(name, cls) { Controller = cls; } },
   };
   vm.runInNewContext(await readFile(new URL('assets/maliev-pimm-hero-reveal.js', root), 'utf8'), context);
-  const el = new Controller(); el.nodes = { video, button, img: poster }; el.connectedCallback();
-  return { el, video, button, events, document, motion };
+  const el = new Controller(); el.nodes = { video, img: poster }; el.connectedCallback();
+  return { el, video, events, document, motion };
 }
 
-test('plays once, pauses offscreen, resumes and offers explicit replay', async () => {
-  const { el, video, button, events } = await harness();
+test('plays once, pauses offscreen and never restarts after completion', async () => {
+  const { el, video, events } = await harness();
   el.observer.callback([{ isIntersecting: true }]); assert.equal(video.plays, 1);
   events.playing(); assert.equal(video.hidden, false);
   el.observer.callback([{ isIntersecting: false }]); assert.equal(video.paused, true);
   el.observer.callback([{ isIntersecting: true }]); assert.equal(video.plays, 2);
   events.ended(); await Promise.resolve(); assert.equal(video.hidden, true);
   el.sync(); assert.equal(video.plays, 2);
-  video.paused = true; button.click(); assert.equal(video.plays, 3); assert.equal(video.currentTime, 0);
+  video.currentTime = 2;
+  el.observer.callback([{ isIntersecting: false }]);
+  el.observer.callback([{ isIntersecting: true }]);
+  el.play(); assert.equal(video.plays, 2); assert.equal(video.currentTime, 2);
 });
 
-test('manual pause is preserved across visibility changes', async () => {
-  const { el, video, button } = await harness();
-  el.visible = true; el.sync(); button.click(); el.sync();
-  assert.equal(video.plays, 1); assert.equal(video.paused, true);
+test('intro markup provides no replay button or native video controls', async () => {
+  const source = await readFile(new URL('snippets/pimm-30g-hero-reveal.liquid', root), 'utf8');
+  assert.doesNotMatch(source, /<button|data-replay|\bcontrols\b|\bloop\b/);
 });
 
 test('reduced motion and data saver never load the video', async () => {
@@ -78,9 +79,9 @@ test('reduced motion and data saver never load the video', async () => {
 });
 
 test('autoplay rejection leaves the bright still and usable page', async () => {
-  const { el, video, button } = await harness({ denied: true }); el.visible = true; el.sync();
+  const { el, video } = await harness({ denied: true }); el.visible = true; el.sync();
   await Promise.resolve(); await Promise.resolve();
-  assert.equal(video.hidden, true); assert.equal(button.hidden, true);
+  assert.equal(video.hidden, true); assert.equal(el.finished, true);
 });
 
 test('late playback event cannot override a reduced-motion fallback', async () => {

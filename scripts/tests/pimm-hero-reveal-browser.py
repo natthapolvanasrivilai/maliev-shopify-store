@@ -15,21 +15,17 @@ with sync_playwright() as p:
         reveal = page.locator('pimm-hero-reveal')
         reveal.wait_for()
         page.wait_for_function("document.querySelector('pimm-hero-reveal').finished === true")
-        video, poster, control = reveal.locator('video'), reveal.locator('img'), reveal.locator('button')
+        video, poster = reveal.locator('video'), reveal.locator('img')
         assert video.evaluate('(v) => v.videoWidth') == 1440
         assert video.evaluate('(v) => v.videoHeight') == 1920
         assert video.evaluate('(v) => v.duration') == 2
-        assert control.is_visible() and poster.is_visible()
-        control.click()
-        page.wait_for_function("document.querySelector('pimm-hero-reveal video').currentTime > .2")
-        control.click()
-        assert video.evaluate('(v) => v.paused')
-        paused = video.evaluate('(v) => v.currentTime')
-        page.screenshot(path=str(EVIDENCE / f'{locale.replace("/", "") or "en"}-native-lighting.png'))
+        assert reveal.locator('button').count() == 0 and poster.is_visible()
+        assert video.get_attribute('controls') is None
+        page.evaluate('scrollTo(0, document.body.scrollHeight)')
         page.wait_for_timeout(250)
-        assert abs(video.evaluate('(v) => v.currentTime') - paused) < .1
-        control.click()
-        page.wait_for_function("document.querySelector('pimm-hero-reveal').finished")
+        page.evaluate('scrollTo(0, 0)')
+        page.wait_for_timeout(250)
+        assert video.evaluate('(v) => v.paused && v.currentTime === v.duration')
         page.wait_for_function("document.querySelector('pimm-hero-reveal video').hidden")
         for w, h in [(360,800),(390,844),(768,1024),(1024,768),(1440,900),(1920,1080)]:
             page.set_viewport_size({'width': w, 'height': h})
@@ -46,10 +42,10 @@ with sync_playwright() as p:
         reduced.goto(BASE + locale + PATH, wait_until='domcontentloaded')
         reduced.wait_for_selector('pimm-hero-reveal')
         assert reduced.locator('pimm-hero-reveal video').get_attribute('src') is None
-        assert not reduced.locator('pimm-hero-reveal button').is_visible()
+        assert reduced.locator('pimm-hero-reveal button').count() == 0
         assert reduced.locator('pimm-hero-reveal img').get_attribute('src').split('?')[0].endswith('-rest.webp')
         reduced.close()
-        print(locale or 'en', 'native playback, pause/replay, 6 widths and reduced-motion PASS')
+        print(locale or 'en', 'native one-shot playback, no replay, 6 widths and reduced-motion PASS')
     failed = browser.new_page()
     failed.route('**/*pimm-30g-hero-reveal*.mp4*', lambda route: route.abort())
     failed.goto(BASE + PATH, wait_until='domcontentloaded')

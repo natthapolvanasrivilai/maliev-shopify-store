@@ -1,11 +1,7 @@
 {% doc %}
   Dedicated native Blender studio reveal; the resting still is its exact final frame.
 {% enddoc %}
-<pimm-hero-reveal
-  data-pause="{{ 'products.pimm30_story.pause' | t | escape }}"
-  data-resume="{{ 'products.pimm30_story.resume' | t | escape }}"
-  data-replay="{{ 'products.pimm30_story.replay' | t | escape }}"
->
+<pimm-hero-reveal>
   <img
     src="{{ 'pimm-30g-hero-reveal-20260902-r01-rest.webp' | asset_url }}"
     data-start="{{ 'pimm-30g-hero-reveal-20260902-r01-start.webp' | asset_url }}"
@@ -16,5 +12,4 @@
     data-src="{{ 'pimm-30g-hero-reveal-20260902-r01.mp4' | asset_url }}"
     width="1440" height="1920" muted playsinline preload="none" hidden aria-hidden="true"
   ></video>
-  <button type="button" hidden>{{ 'products.pimm30_story.replay' | t }}</button>
 </pimm-hero-reveal>
