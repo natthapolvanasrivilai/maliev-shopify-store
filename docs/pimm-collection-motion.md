@@ -72,6 +72,25 @@ At 1280×720 and larger, the comparison and compact legal footer occupy one
 viewport. Two poster cards sit left; the introduction and selected-model dossier
 sit right. Smaller windows and mobile keep natural document scrolling.
 
+For desktop heights from 720–900px, the bottom controls use an 8px edge inset,
+44px button targets, a 4px price-to-button gap and 22px price type. This keeps
+the controls below the r02 machine-foot guide at 84% of source image height.
+The image still fills the entire card interior, without repositioning, shrinking,
+cropping its shadows, or changing the native animation. The shortest 1280×720
+layout has 9.13px clearance from that guide to the price. Taller desktop windows
+retain the roomier original control offsets.
+
+The preview initially served older r01 stills and pre-typesetting price markup
+despite the current worktree. Restarting the local CLI with an explicit worktree
+`--path` and reloading the user's tab restored r02 1440×1920 posters/clips and
+the current localized prices. Browser clearance assertions also pin the r02
+asset URL and native dimensions so stale framing cannot silently pass.
+Clearance validation: `npm run verify` passed all 75 tests (zero Theme Check
+errors, three existing dependency warnings). The English/Thai browser suite
+passed at ten viewport sizes, including 1440×900 and the 900/901px layout
+boundary, with no navigation retries. In-app 1280×720 and saved 1440×900
+screenshots were visually reviewed. No new renders or production deployment.
+
 ```powershell
 npm run verify
 py -3 -m unittest discover -s scripts/blender/pimm_production/tests -p 'test_collection*.py'

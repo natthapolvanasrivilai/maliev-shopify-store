@@ -11,7 +11,7 @@ const evidenceDir = resolve(
   process.env.PIMM_COLLECTION_EVIDENCE_DIR?.trim()
     || '.codex-tmp/pimm-collection/browser-evidence',
 );
-const viewports = [[1536, 1024], [1280, 800], [1280, 720], [1024, 768], [640, 360], [390, 844], [360, 800]];
+const viewports = [[1536, 1024], [1440, 900], [1920, 720], [1920, 901], [1280, 800], [1280, 720], [1024, 768], [640, 360], [390, 844], [360, 800]];
 const desktopMinimum = 990;
 const inlineActionViewports = [[989, 800], [390, 844]];
 const expectedActionLabels = {
@@ -566,6 +566,20 @@ const geometryProbe = `(() => {
     shortDesktopContentContained: innerWidth < 1280 || innerHeight < 720
       || [...dossier.querySelectorAll('a,dd,p,h2')].every(element =>
         element.getBoundingClientRect().bottom <= dossier.getBoundingClientRect().bottom),
+    machineFooterClearance: innerWidth < 1280 || innerHeight < 720 || cards.every(card => {
+      const media = card.querySelector('.pimm-collection__media').getBoundingClientRect();
+      const price = card.querySelector('[data-pimm-card-price]').getBoundingClientRect();
+      const actions = card.querySelector('.pimm-collection__card-actions').getBoundingClientRect();
+      const image = card.querySelector('img');
+      // r02 native front and extreme-angle renders end the machine at 84% height.
+      // Pin the release too: an older, tighter-framed poster invalidates this guide.
+      return image.currentSrc.includes('motion-20260902-r02')
+        && image.naturalWidth === 1440 && image.naturalHeight === 1920
+        && Math.abs(media.height - (card.getBoundingClientRect().height - 2)) <= 1
+        && price.top >= media.top + media.height * 0.84 + 8
+        && actions.top >= price.bottom + 4
+        && actions.bottom <= media.bottom - 8;
+    }),
     localizedPrices: [...root.querySelectorAll('[data-pimm-card-price], [data-pimm-dossier-price]')]
       .every(price => {
         const model = price.closest('[data-model]').dataset.model;
@@ -610,6 +624,7 @@ async function assertGeometry(session, language, width, height) {
   assert.equal(probe.dossierPriceHasLiteralMarkup, false, `${context} dossier price markup`);
   assert.equal(probe.proportionalPrices, true, `${context} proportional semibold price typography`);
   assert.equal(probe.shortDesktopContentContained, true, `${context} dossier content remains inside its panel`);
+  assert.equal(probe.machineFooterClearance, true, `${context} full-height r02 render clears price and buttons`);
   assert.equal(probe.localizedPrices, true, `${context} trailing localized currency without redundant decimals`);
   assert.equal(probe.distinctTypeRoles, true, `${context} loaded model and heading font roles`);
   assert.equal(probe.activeModel, '30G', `${context} initial active model`);

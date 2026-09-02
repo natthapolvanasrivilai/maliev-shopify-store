@@ -4,6 +4,16 @@ import test from 'node:test';
 
 const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 
+test('short desktop controls reserve the native render floor without shortening the image', async () => {
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  assert.match(css, /\.pimm-collection__media \{ position: absolute; inset: 0;/);
+  const compact = css.slice(css.indexOf('/* Keep controls in the render'));
+  assert.match(compact, /max-height: 900px/);
+  assert.match(compact, /card-actions \{ bottom: 0\.8rem/);
+  assert.match(compact, /card-facts \{ bottom: 5\.6rem/);
+  assert.match(compact, /card-facts dd \{ font-size: 2\.2rem/);
+});
+
 test('cinematic focus keeps cards stationary and limits recession to sibling imagery and titles', async () => {
   const css = await readThemeFile('assets/maliev-pimm-collection.css');
   assert.doesNotMatch(css, /translateY\(|box-shadow:\s*0 1\.8rem/);
