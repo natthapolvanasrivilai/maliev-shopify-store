@@ -35,6 +35,14 @@ test('30G engineering band uses brand blue with explicit readable foregrounds', 
   }
 });
 
+test('30G demo close gives the booking action a distinct neutral-to-blue treatment', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /\.pimm-machine__purchase \{[^}]*--pimm-booking-surface: #e6f1fb;[^}]*background: var\(--pimm-booking-surface\)/);
+  assert.match(css, /\.pimm-machine__purchase h2 \{ color: var\(--pimm-blue\)/);
+  assert.match(css, /\.pimm-machine__purchase \.button--primary \{[^}]*background: var\(--pimm-ink\)/);
+  assert.match(css, /\.pimm-machine__purchase \.button--primary:hover \{[^}]*background: var\(--pimm-blue\)/);
+});
+
 test('dedicated product templates lock model identity independently of query selection', async () => {
   for (const [view, model] of [['pimm-configurator', '30G'], ['pimm-50g', '50G']]) {
     const source = await readFile(new URL(`templates/product.${view}.json`, rootUrl), 'utf8');

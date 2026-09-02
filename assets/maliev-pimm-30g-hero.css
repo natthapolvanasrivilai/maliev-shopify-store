@@ -134,6 +134,30 @@
   .pimm-machine[data-page-model="30G"] .pimm-machine__hero :is(.button, .pimm-machine__text-link) { transition: none; }
 }
 
+.pimm-machine[data-page-model="30G"] .pimm-machine__purchase {
+  --pimm-blue: #006fd6;
+  --pimm-ink: #111315;
+  --pimm-muted: #353a40;
+  --pimm-booking-surface: #e6f1fb;
+  background: var(--pimm-booking-surface);
+  border-bottom: 0;
+  padding-inline: clamp(24px, 4vw, 64px);
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__purchase h2 { color: var(--pimm-blue); }
+.pimm-machine[data-page-model="30G"] .pimm-machine__purchase .button--primary {
+  background: var(--pimm-ink);
+  border-color: var(--pimm-ink);
+  color: var(--pimm-surface);
+  transition: background-color 180ms ease-in-out, border-color 180ms ease-in-out;
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__purchase .button--primary:hover {
+  background: var(--pimm-blue);
+  border-color: var(--pimm-blue);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pimm-machine[data-page-model="30G"] .pimm-machine__purchase .button--primary { transition: none; }
+}
+
 .pimm-machine[data-page-model="30G"] pimm-hero-reveal {
   display: block;
   position: relative;
@@ -153,25 +177,6 @@
   object-fit: contain;
 }
 .pimm-machine[data-page-model="30G"] pimm-hero-reveal video { z-index: 1; }
-.pimm-machine[data-page-model="30G"] pimm-hero-reveal button {
-  position: absolute;
-  right: 16px;
-  bottom: 8px;
-  z-index: 2;
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 1px solid var(--pimm-ink);
-  border-radius: 4px;
-  background: var(--pimm-surface);
-  color: var(--pimm-ink);
-  font: inherit;
-  cursor: pointer;
-}
-.pimm-machine[data-page-model="30G"] pimm-hero-reveal button:hover {
-  background: var(--pimm-blue);
-  border-color: var(--pimm-blue);
-  color: var(--pimm-surface);
-}
 .pimm-machine[data-page-model="30G"] .pimm-hero-arrived .pimm-machine__introduction {
   animation: pimm-hero-settle 700ms cubic-bezier(.22, 1, .36, 1) both;
 }
