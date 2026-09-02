@@ -4,6 +4,17 @@ import test from 'node:test';
 
 const readThemeFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 
+test('cinematic focus keeps cards stationary and limits recession to sibling imagery and titles', async () => {
+  const css = await readThemeFile('assets/maliev-pimm-collection.css');
+  assert.doesNotMatch(css, /translateY\(|box-shadow:\s*0 1\.8rem/);
+  assert.doesNotMatch(css, /card\[aria-current='true'\][\s\S]*?border-color/);
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(css, /--pimm-media-emphasis: 0\.68/);
+  assert.match(css, /cards:has\(:focus-visible\)/);
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /\.pimm-collection__media,[\s\S]*?transition: none !important/);
+});
+
 test('collection prices use the proportional brand sans instead of coding typography', async () => {
   const css = await readThemeFile('assets/maliev-pimm-collection.css');
   const priceRule = css.match(/\.pimm-collection \[data-pimm-card-price\],[\s\S]*?\}/)?.[0] ?? '';
@@ -377,7 +388,7 @@ test('collection comparison owns the precision stage and transparent header cont
   assert.match(css, /\.pimm-collection \.pimm-collection__dossier h2\s*\{[\s\S]*color:\s*var\(--pimm-collection-surface\)[\s\S]*font-size:[^;]+!important/);
   assert.match(css, /@media[^{}]*max-width:\s*989px[\s\S]*\.pimm-collection__dossier--desktop\s*\{[\s\S]*position:\s*static/);
   assert.match(css, /@media[^{}]*max-width:\s*749px[\s\S]*\.pimm-collection__cards\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  assert.match(css, /\.pimm-collection__card:is\(:hover,\s*:focus-within\)\s*\{[\s\S]*transform:\s*translateY\(-0\.6rem\)/);
+  assert.doesNotMatch(css, /transform:\s*translateY\(/);
   assert.match(css, /\.pimm-collection__card-actions\s+:is\(a,\s*button\)[\s\S]*min-height:\s*4\.4rem/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.pimm-collection__card,[\s\S]*\.pimm-collection__frame,[\s\S]*\.pimm-collection__dossier-value[\s\S]*transition:\s*none !important/);

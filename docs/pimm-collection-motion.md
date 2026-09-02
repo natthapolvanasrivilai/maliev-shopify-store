@@ -6,6 +6,29 @@ frames at 24fps (three seconds), easing front → left 12° → right 12° → f
 Hover, keyboard focus, or Compare starts one pass. Exit, completion, playback
 failure, or reduced-motion preference restores the static front poster.
 
+## Cinematic focus
+
+Cards remain stationary, with transparent borders and no hover shadow. On a
+fine-pointer hover, the other card's media eases to 68% opacity over 420ms;
+its model name and price use the existing readable muted ink. The active render
+stays at full opacity. Supporting copy is not faded. No lighting, ground shadows,
+render assets, or video timing are modified. Keyboard focus provides the same
+emphasis with the visible focus outline retained. Touch does not leave a sticky
+hover effect; reduced motion removes emphasis transitions and video playback.
+Browsers without `:has()` retain the normal cards and existing rotation behavior.
+
+Validated in the English/Thai seven-viewport browser matrix, including real CDP
+mouse movement across both cards, unchanged card bounds, pointer exit, keyboard
+focus, dynamic reduced-motion preference and emulated mobile touch. Screenshots
+of both hovered models were captured and English/Thai examples visually reviewed.
+The suite passes with zero navigation retries (one intentional no-URL sentinel
+skip). All 74 repository regression tests pass. Theme Check reports no errors and
+the same three existing warnings inside Shopify CLI dependency templates. A new
+exact Shop Pay production-domain CSP signature is excluded only on the local
+product-preview route, alongside the existing preview-only exemptions.
+Physical mobile-device and Firefox/Safari testing were not performed. No shared
+theme styles, commerce records, localization strings, or unrelated routes changed.
+
 ## Render provenance
 
 Current high-density release: `maliev-pimm-collection-motion-20260902-r02`.

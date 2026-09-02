@@ -154,6 +154,9 @@ function createBrowserDiagnostics(session) {
       entry.kind === 'browser log'
         && /^Framing 'https:\/\/shop\.app\/' violates the following Content Security Policy directive: "frame-ancestors 'self' https:\/\/shop\.app https:\/\/admin\.shopify\.com"\. The request has been blocked\./.test(entry.text)
     ) || (
+      entry.kind === 'browser log'
+        && entry.text.trim() === `Framing 'https://shop.app/' violates the following Content Security Policy directive: "frame-ancestors https://10b918-e4.myshopify.com https://10b918-e4.account.myshopify.com https://maliev-manufacturing.myshopify.com https://shop.maliev.com https://shop-account.maliev.com https://shopify.com". The request has been blocked.`
+    ) || (
       entry.kind === 'runtime exception'
         && /^TypeError: Cannot read properties of null \(reading '0'\)[\s\S]+127\.0\.0\.1:\d+\/apps\/buckscc\/sdk\.min\.js:2:/.test(entry.text)
     ) || (
@@ -696,6 +699,8 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
       committed: root.committedModel,
       announcement: root.querySelector('[data-pimm-collection-announcement]').textContent.trim(),
       announcementChanges: probe.changes,
+      mediaOpacities: [...root.querySelectorAll('.pimm-collection__media')]
+        .map(media => Number(getComputedStyle(media).opacity)),
       current: root.querySelector('[data-pimm-collection-card][data-model="50G"]')
         .getAttribute('aria-current'),
     };
@@ -703,6 +708,7 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
   assert.equal(result.active, '50G', `${language} touch active model`);
   assert.equal(result.committed, '50G', `${language} touch committed model`);
   assert.equal(result.current, 'true', `${language} touch aria-current`);
+  assert.deepEqual(result.mediaOpacities, [1, 1], `${language} touch has no sticky hover recession`);
   assert.match(result.announcement, /50G/, `${language} touch announcement`);
   assert.equal(result.announcementChanges.length, 1, `${language} touch announcement count`);
   await diagnostics.assertClean(`${language} 390x844 real mobile touch`);
@@ -928,6 +934,72 @@ async function interactionProbe(session, language) {
   assert.equal(committed.transformed, false, `${language} playback image transform`);
 }
 
+async function cinematicFocusProbe(session, language) {
+  await evaluate(session, 'scrollTo(0, 0); document.activeElement?.blur()');
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+  const snapshot = `(() => [...document.querySelectorAll('[data-pimm-collection-card]')].map(card => {
+    const rect = card.getBoundingClientRect();
+    const media = card.querySelector('.pimm-collection__media');
+    return {
+      x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+      transform: getComputedStyle(card).transform,
+      border: getComputedStyle(card).borderTopColor,
+      shadow: getComputedStyle(card).boxShadow,
+      opacity: Number(getComputedStyle(media).opacity),
+      transition: getComputedStyle(media).transitionDuration,
+      title: getComputedStyle(card.querySelector('h2')).color,
+      price: getComputedStyle(card.querySelector('[data-pimm-card-price]')).color,
+      copy: getComputedStyle(card.querySelector('.pimm-collection__model-designation')).color,
+      outline: getComputedStyle(card).outlineStyle,
+      paused: card.querySelector('video').paused,
+    };
+  }))()`;
+  await delay(500);
+  const initial = await evaluate(session, snapshot);
+  assert.deepEqual(initial.map(card => card.opacity), [1, 1]);
+  for (const index of [0, 1]) {
+    const card = initial[index];
+    await session.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved', x: card.x + card.width / 2, y: card.y + card.height / 2,
+    });
+    await delay(600);
+    const hovered = await evaluate(session, snapshot);
+    assert.equal(hovered[index].opacity, 1, `${language} active render unchanged`);
+    assert.equal(hovered[1 - index].opacity, 0.68, `${language} sibling recedes`);
+    assert.equal(hovered[index].paused, false, `${language} real rotation plays`);
+    assert.notEqual(hovered[index].title, hovered[1 - index].title);
+    assert.notEqual(hovered[index].price, hovered[1 - index].price);
+    hovered.forEach((state, i) => {
+      for (const key of ['x', 'y', 'width', 'height', 'copy']) assert.equal(state[key], initial[i][key]);
+      assert.equal(state.transform, 'none');
+      assert.equal(state.shadow, 'none');
+      assert.equal(state.border, 'rgba(0, 0, 0, 0)');
+    });
+    await captureFullPageScreenshot(session, join(evidenceDir, `${language}-cinematic-${index}.png`));
+  }
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+  await delay(500);
+  assert.deepEqual((await evaluate(session, snapshot)).map(card => card.opacity), [1, 1]);
+  await session.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+  await session.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+  await evaluate(session, `document.querySelector('[data-pimm-collection-card]').focus()`);
+  await delay(500);
+  const focused = await evaluate(session, snapshot);
+  assert.equal(focused[0].outline, 'solid', `${language} visible keyboard focus retained`);
+  assert.deepEqual(focused.map(card => card.opacity), [1, 0.68]);
+  await session.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+  });
+  await eventually(async () => {
+    const reduced = await evaluate(session, snapshot);
+    return reduced.every(card => card.transition === '0s' && card.paused);
+  }, { message: `${language} reduced motion stops both clips and emphasis transitions` });
+  await evaluate(session, 'document.activeElement?.blur()');
+  await session.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+  });
+}
+
 async function headerProbe(session, language) {
   await evaluate(session, 'scrollTo(0, 0)');
   await delay(320);
@@ -1106,6 +1178,7 @@ test('dedicated PIMM collection passes responsive, interaction, and localization
         assert.ok(thaiLabels.dossierLabels.every((label) => /[\u0E00-\u0E7F]/.test(label)));
       }
       await interactionProbe(session, language);
+      await cinematicFocusProbe(session, language);
       await headerProbe(session, `${language} desktop`);
       await inlineSupportActionProbe(session, diagnostics, language);
       await diagnostics.assertClean(`${language} desktop interaction and header`);
