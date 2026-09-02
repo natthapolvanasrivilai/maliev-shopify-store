@@ -37,7 +37,9 @@ test('cinematic focus keeps cards stationary and limits recession to sibling ima
   assert.doesNotMatch(css, /translateY\(|box-shadow:\s*0 1\.8rem/);
   assert.doesNotMatch(css, /card\[aria-current='true'\][\s\S]*?border-color/);
   assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
-  assert.match(css, /--pimm-media-emphasis: 0\.68/);
+  assert.match(css, /--pimm-media-emphasis: 0\.42/);
+  assert.match(css, /filter: brightness\(var\(--pimm-media-emphasis, 1\)\)/);
+  assert.match(css, /--pimm-inactive-ink: #ffffff/);
   assert.match(css, /cards:has\(:focus-visible\)/);
   const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
   assert.match(reduced, /\.pimm-collection__media,[\s\S]*?transition: none !important/);

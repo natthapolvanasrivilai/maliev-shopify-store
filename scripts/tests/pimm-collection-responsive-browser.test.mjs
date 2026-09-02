@@ -730,8 +730,8 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
       committed: root.committedModel,
       announcement: root.querySelector('[data-pimm-collection-announcement]').textContent.trim(),
       announcementChanges: probe.changes,
-      mediaOpacities: [...root.querySelectorAll('.pimm-collection__media')]
-        .map(media => Number(getComputedStyle(media).opacity)),
+      mediaFilters: [...root.querySelectorAll('.pimm-collection__media')]
+        .map(media => getComputedStyle(media).filter),
       current: root.querySelector('[data-pimm-collection-card][data-model="50G"]')
         .getAttribute('aria-current'),
     };
@@ -739,7 +739,7 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
   assert.equal(result.active, '50G', `${language} touch active model`);
   assert.equal(result.committed, '50G', `${language} touch committed model`);
   assert.equal(result.current, 'true', `${language} touch aria-current`);
-  assert.deepEqual(result.mediaOpacities, [1, 1], `${language} touch has no sticky hover recession`);
+  assert.deepEqual(result.mediaFilters, ['brightness(1)', 'brightness(1)'], `${language} touch has no sticky hover dimming`);
   assert.match(result.announcement, /50G/, `${language} touch announcement`);
   assert.equal(result.announcementChanges.length, 1, `${language} touch announcement count`);
   await diagnostics.assertClean(`${language} 390x844 real mobile touch`);
@@ -1088,10 +1088,12 @@ async function cinematicFocusProbe(session, language) {
       border: getComputedStyle(card).borderTopColor,
       shadow: getComputedStyle(card).boxShadow,
       opacity: Number(getComputedStyle(media).opacity),
+      filter: getComputedStyle(media).filter,
       transition: getComputedStyle(media).transitionDuration,
       title: getComputedStyle(card.querySelector('h2')).color,
       price: getComputedStyle(card.querySelector('[data-pimm-card-price]')).color,
       copy: getComputedStyle(card.querySelector('.pimm-collection__model-designation')).color,
+      compare: getComputedStyle(card.querySelector('[data-pimm-collection-select]')).color,
       outline: getComputedStyle(card).outlineStyle,
       paused: card.querySelector('video').paused,
     };
@@ -1099,6 +1101,7 @@ async function cinematicFocusProbe(session, language) {
   await delay(500);
   const initial = await evaluate(session, snapshot);
   assert.deepEqual(initial.map(card => card.opacity), [1, 1]);
+  assert.deepEqual(initial.map(card => card.filter), ['brightness(1)', 'brightness(1)']);
   for (const index of [0, 1]) {
     const card = initial[index];
     await session.send('Input.dispatchMouseEvent', {
@@ -1107,12 +1110,16 @@ async function cinematicFocusProbe(session, language) {
     await delay(600);
     const hovered = await evaluate(session, snapshot);
     assert.equal(hovered[index].opacity, 1, `${language} active render unchanged`);
-    assert.equal(hovered[1 - index].opacity, 0.68, `${language} sibling recedes`);
+    assert.equal(hovered[index].filter, 'brightness(1)', `${language} active machine keeps full brightness`);
+    assert.equal(hovered[1 - index].filter, 'brightness(0.42)', `${language} sibling darkens instead of fading white`);
+    for (const key of ['title', 'price', 'copy', 'compare']) {
+      assert.equal(hovered[1 - index][key], 'rgb(255, 255, 255)', `${language} inactive ${key} stays legible`);
+    }
     assert.equal(hovered[index].paused, false, `${language} real rotation plays`);
     assert.notEqual(hovered[index].title, hovered[1 - index].title);
     assert.notEqual(hovered[index].price, hovered[1 - index].price);
     hovered.forEach((state, i) => {
-      for (const key of ['x', 'y', 'width', 'height', 'copy']) assert.equal(state[key], initial[i][key]);
+      for (const key of ['x', 'y', 'width', 'height']) assert.equal(state[key], initial[i][key]);
       assert.equal(state.transform, 'none');
       assert.equal(state.shadow, 'none');
       assert.equal(state.border, 'rgba(0, 0, 0, 0)');
@@ -1122,13 +1129,14 @@ async function cinematicFocusProbe(session, language) {
   await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
   await delay(500);
   assert.deepEqual((await evaluate(session, snapshot)).map(card => card.opacity), [1, 1]);
+  assert.deepEqual((await evaluate(session, snapshot)).map(card => card.filter), ['brightness(1)', 'brightness(1)']);
   await session.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
   await session.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
   await evaluate(session, `document.querySelector('[data-pimm-collection-card]').focus()`);
   await delay(500);
   const focused = await evaluate(session, snapshot);
   assert.equal(focused[0].outline, 'solid', `${language} visible keyboard focus retained`);
-  assert.deepEqual(focused.map(card => card.opacity), [1, 0.68]);
+  assert.deepEqual(focused.map(card => card.filter), ['brightness(1)', 'brightness(0.42)']);
   await session.send('Emulation.setEmulatedMedia', {
     features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
   });

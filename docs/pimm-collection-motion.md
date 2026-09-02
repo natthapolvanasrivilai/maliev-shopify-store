@@ -243,3 +243,24 @@ and selected radio/media model rather than waiting for unrelated third-party
 resources to finish the document load. The in-app browser also verified the
 desktop detail CTA, mobile 50G CTA and in-configurator model switching preserving
 the preview key. `node --check` and `git diff --check` passed.
+
+## Stronger inactive machine dimming — 2026-09-02
+
+Hovering or keyboard-focusing one machine now lowers the other machine media to
+42% brightness instead of fading it toward white at 68% opacity. The active
+machine remains at full brightness, and both return to full brightness on exit.
+Source posters/videos are unchanged. Impeccable contrast guidance keeps desktop
+overlaid model labels, prices and compare-button text white against the darkened
+media; below desktop these labels retain dark ink on their separate light panel.
+The visual inactive state never disables either card or its links. Existing
+reduced-motion, touch behavior and blue CTA hover states are preserved.
+
+Validation: `npm run verify` passed all 81 tests with zero Theme Check errors and
+the same three existing dependency-template warnings. No compiled build target
+exists. Responsive browser acceptance passed (one acceptance test, one intentional
+no-URL sentinel skip, zero navigation retries), including both machines, English
+and Thai, keyboard/touch/reduced-motion states and configurator navigation.
+New assertions cover brightness, restoration and readable inactive overlay text.
+Both English hover screenshots in `.codex-tmp/pimm-dark-dim` were visually reviewed.
+`git diff --check` passed. Impeccable's detector reported only the pre-existing
+`PIMM Chakra Petch` font alias absent from DESIGN.md.

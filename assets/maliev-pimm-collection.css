@@ -139,8 +139,8 @@
 }
 
 .pimm-collection__card .pimm-collection__media {
-  opacity: var(--pimm-media-emphasis, 1);
-  transition: opacity 420ms var(--pimm-collection-ease);
+  filter: brightness(var(--pimm-media-emphasis, 1));
+  transition: filter 420ms var(--pimm-collection-ease);
 }
 
 .pimm-collection .pimm-collection__card h2,
@@ -149,20 +149,21 @@
   transition: color 320ms var(--pimm-collection-ease);
 }
 
-/* Focus the real render, never move the card or add simulated lighting.
-   Only the sibling image recedes; supporting copy retains full contrast. */
+/* Temporary inactive-state dimming; the source renders and active card stay unchanged. */
 @media (hover: hover) and (pointer: fine) {
   .pimm-collection__cards:has(.pimm-collection__card:hover)
     .pimm-collection__card:not(:hover, :focus-within) {
-    --pimm-media-emphasis: 0.68;
-    --pimm-title-emphasis: var(--pimm-collection-muted);
+    --pimm-media-emphasis: 0.42;
+    --pimm-title-emphasis: var(--pimm-inactive-ink, var(--pimm-collection-muted));
+    --pimm-compare-ink: var(--pimm-inactive-ink, var(--pimm-collection-ink));
   }
 }
 
 .pimm-collection__cards:has(:focus-visible)
   .pimm-collection__card:not(:focus-within) {
-  --pimm-media-emphasis: 0.68;
-  --pimm-title-emphasis: var(--pimm-collection-muted);
+  --pimm-media-emphasis: 0.42;
+  --pimm-title-emphasis: var(--pimm-inactive-ink, var(--pimm-collection-muted));
+  --pimm-compare-ink: var(--pimm-inactive-ink, var(--pimm-collection-ink));
 }
 
 .pimm-collection__media {
@@ -347,7 +348,7 @@
 .pimm-collection__card-actions button {
   --pimm-cta-background: transparent;
   --pimm-cta-border: #737d87;
-  --pimm-cta-color: var(--pimm-collection-ink);
+  --pimm-cta-color: var(--pimm-compare-ink, var(--pimm-collection-ink));
 }
 
 .pimm-collection__dossier-actions a,
@@ -571,7 +572,11 @@
   .pimm-collection__card { position: relative; display: block; min-height: 0; width: 100%; max-width: calc((100svh - 14.6rem) * 0.75); justify-self: center; }
   .pimm-collection__media { position: absolute; inset: 0; aspect-ratio: auto; border-radius: inherit; }
   .pimm-collection__card-copy { position: absolute; inset: 0; padding: 2rem; display: block; pointer-events: none; }
-  .pimm-collection__model-designation { font-size: 1.2rem; }
+  .pimm-collection__card { --pimm-inactive-ink: #ffffff; }
+  .pimm-collection__model-designation {
+    color: var(--pimm-title-emphasis, var(--pimm-collection-muted));
+    font-size: 1.2rem;
+  }
   .pimm-collection .pimm-collection__card-copy h2 { font-size: clamp(4.4rem, 4vw, 6rem) !important; line-height: 1.3 !important; margin-top: 0.6rem; }
   .pimm-collection__card-copy > p:not(.pimm-collection__model-designation) { display: none; }
   .pimm-collection__card-facts { position: absolute; bottom: 7rem; left: 2rem; right: 2rem; border: 0; }
