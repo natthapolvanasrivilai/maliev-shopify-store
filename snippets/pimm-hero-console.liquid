@@ -42,6 +42,9 @@
       data-pimm-physical-ground-contact
       {% unless selected_model_code == '30G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
     >
+        {% if section.settings.page_model == '30G' %}
+          {% render 'pimm-30g-hero-reveal' %}
+        {% else %}
         <img
           src="{{ 'pimm-master-20260901-r05-30g-hero.webp' | asset_url }}"
           alt="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}"
@@ -51,6 +54,7 @@
           decoding="async"
           {% if selected_model_code == '30G' %}fetchpriority="high"{% endif %}
         >
+        {% endif %}
     </div>
     {% endunless %}
     {% unless section.settings.page_model == '30G' %}
