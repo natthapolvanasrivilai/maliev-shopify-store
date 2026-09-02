@@ -82,9 +82,11 @@
   margin-top: 24px;
   padding: 24px 32px;
   border-radius: 0;
-  background: var(--pimm-ink);
+  background: var(--pimm-blue);
+  color: var(--pimm-surface);
 }
 .pimm-machine[data-page-model="30G"] .pimm-machine__specifications h2 {
+  color: var(--pimm-surface);
   font-size: 2rem !important;
   font-weight: 500;
   line-height: 1.25 !important;
@@ -106,6 +108,7 @@
 }
 .pimm-machine[data-page-model="30G"] .pimm-machine__specifications dt { color: var(--pimm-surface); font-size: 1.4rem; }
 .pimm-machine[data-page-model="30G"] .pimm-machine__specifications dd {
+  color: var(--pimm-surface);
   font-family: var(--maliev-font-sans);
   font-size: clamp(1.8rem, 1.6vw, 2.4rem);
   line-height: 1.3;

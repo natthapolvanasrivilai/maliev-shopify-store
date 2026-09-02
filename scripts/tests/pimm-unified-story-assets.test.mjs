@@ -24,6 +24,17 @@ test('30G hero amplification stays model-scoped and preserves the full native re
   assert.ok(css.split('\n').filter(line => line.trim().startsWith('.')).every(line => line.includes('[data-page-model="30G"]')));
 });
 
+test('30G engineering band uses brand blue with explicit readable foregrounds', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const band = css.match(/\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__specifications \{([^}]+)\}/)[1];
+  assert.match(band, /background: var\(--pimm-blue\)/);
+  assert.match(band, /color: var\(--pimm-surface\)/);
+  for (const element of ['h2', 'dt', 'dd']) {
+    const rule = css.match(new RegExp(`\\.pimm-machine__specifications ${element} \\{([^}]+)\\}`))[1];
+    assert.match(rule, /color: var\(--pimm-surface\)/);
+  }
+});
+
 test('dedicated product templates lock model identity independently of query selection', async () => {
   for (const [view, model] of [['pimm-configurator', '30G'], ['pimm-50g', '50G']]) {
     const source = await readFile(new URL(`templates/product.${view}.json`, rootUrl), 'utf8');
