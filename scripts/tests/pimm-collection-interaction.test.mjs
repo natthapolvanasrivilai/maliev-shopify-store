@@ -205,6 +205,18 @@ function createCard(model) {
   video.play = () => { video.paused = false; return Promise.resolve(); };
   video.pause = () => { video.paused = true; };
   card.nodes.set('[data-pimm-collection-video]', video);
+  for (const direction of ['down', 'up']) {
+    const lighting = new FakeNode();
+    lighting.currentTime = 0;
+    lighting.paused = true;
+    lighting.hidden = true;
+    lighting.play = () => { lighting.paused = false; return Promise.resolve(); };
+    lighting.pause = () => { lighting.paused = true; };
+    card.nodes.set(`[data-pimm-lighting="${direction}"]`, lighting);
+  }
+  const dimStill = new FakeNode();
+  dimStill.hidden = true;
+  card.nodes.set('[data-pimm-lighting-still]', dimStill);
   return card;
 }
 
@@ -288,6 +300,98 @@ function createComparison(Controller, {
 
 const visibleFrame = (card) => card.querySelectorAll('[data-pimm-collection-frame]')
   .find((frame) => !frame.hidden)?.dataset.pimmCollectionFrame;
+
+test('hover uses native sibling lighting and restores it before active rotation', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  const up = cards[1].querySelector('[data-pimm-lighting="up"]');
+  assert.equal(down.hidden, false);
+  assert.equal(cards[0].pimmLighting, null);
+  down.dispatch('ended');
+  assert.equal(cards[1].querySelector('[data-pimm-lighting-still]').hidden, false);
+  cards[0].dispatch('pointerleave', { pointerType: 'mouse' });
+  cards[1].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  assert.equal(up.hidden, false);
+  assert.equal(cards[1].querySelector('[data-pimm-collection-video]').paused, true);
+  up.dispatch('ended');
+  await Promise.resolve();
+  assert.equal(cards[1].querySelector('[data-pimm-collection-video]').paused, false);
+  assert.equal(cards[1].classList.contains('is-studio-dim'), false);
+});
+
+test('rapid reversals seek the matching native lighting frame and ignore stale completion', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  down.currentTime = 4 / 24;
+  cards[0].dispatch('pointerleave', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const up = cards[1].querySelector('[data-pimm-lighting="up"]');
+  assert.ok(Math.abs(up.currentTime - 7 / 24) < .000001);
+  down.dispatch('ended');
+  assert.equal(cards[1].pimmLighting.video, up);
+  comparison.disconnectedCallback();
+  assert.equal(up.paused, true);
+  assert.equal(up.hidden, true);
+});
+
+test('reduced motion uses the native dim still and touch focus does not dim a sibling', async () => {
+  const { Controller } = await loadController({ reducedMotion: true });
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  cards[0].dispatch('pointerdown', { pointerType: 'touch' });
+  cards[0].dispatch('focusin');
+  assert.equal(cards[1].pimmLighting, null);
+  cards[0].dispatch('keydown', { key: 'Tab' });
+  assert.equal(cards[1].querySelector('[data-pimm-lighting-still]').hidden, false);
+  assert.equal(cards[1].querySelector('[data-pimm-lighting="down"]').paused, true);
+  cards[0].dispatch('focusout');
+  assert.equal(cards[1].querySelector('[data-pimm-lighting-still]').hidden, true);
+});
+
+test('failed lighting playback falls back to the unfiltered bright poster', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  down.play = () => Promise.reject(new Error('unavailable'));
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(cards[1].pimmLighting, null);
+  assert.equal(down.hidden, true);
+  assert.equal(cards[1].classList.contains('is-studio-dim'), false);
+});
+
+test('lighting holds the native last frame until its still decodes without a bright flash', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  const still = cards[1].querySelector('[data-pimm-lighting-still]');
+  let decoded;
+  still.decode = () => new Promise(resolve => { decoded = resolve; });
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  down.currentTime = .5;
+  down.dispatch('ended');
+  assert.equal(down.hidden, false);
+  assert.equal(still.hidden, true);
+  cards[0].dispatch('pointerleave', { pointerType: 'mouse' });
+  await Promise.resolve();
+  decoded();
+  await Promise.resolve();
+  assert.equal(still.hidden, true, 'late decode cannot restore a stale dark state');
+  assert.equal(cards[1].querySelector('[data-pimm-lighting="up"]').currentTime, 0);
+});
 
 test('30G is committed initially and a preview does not overwrite the committed model', async () => {
   const { Controller } = await loadController();

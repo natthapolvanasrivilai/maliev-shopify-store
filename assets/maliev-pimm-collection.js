@@ -232,26 +232,52 @@
         const video = card.querySelector('[data-pimm-collection-video]');
         video?.addEventListener('ended', () => this.stopSequence(card), { signal });
         video?.addEventListener('error', () => this.stopSequence(card), { signal });
+        for (const direction of ['down', 'up']) {
+          const lighting = card.querySelector(`[data-pimm-lighting="${direction}"]`);
+          lighting?.addEventListener('ended', () => this.finishLighting(card, lighting), { signal });
+          lighting?.addEventListener('error', () => {
+            if (card.pimmLighting?.video === lighting) this.resetLighting(card);
+          }, { signal });
+        }
+        card.addEventListener('pointerdown', (event) => {
+          card.pimmTouchFocus = event.pointerType === 'touch';
+        }, { signal });
+        card.addEventListener('keydown', () => {
+          card.pimmTouchFocus = false;
+          this.focusCard = card;
+          this.updateStudioFocus();
+        }, { signal });
 
         card.addEventListener('pointerenter', (event) => {
           if (event.pointerType === 'touch') return;
+          card.pimmTouchFocus = false;
+          this.hoverCard = card;
+          this.updateStudioFocus();
           this.previewModel(model);
           this.playSequence(card);
         }, { signal });
 
         card.addEventListener('pointerleave', (event) => {
           if (event.pointerType === 'touch') return;
+          this.hoverCard = null;
+          this.updateStudioFocus();
           this.restoreCommittedModel();
           this.stopSequence(card, true);
         }, { signal });
 
         card.addEventListener('focusin', () => {
+          if (!card.pimmTouchFocus) {
+            this.focusCard = card;
+            this.updateStudioFocus();
+          }
           this.previewModel(model);
           this.playSequence(card);
         }, { signal });
 
         card.addEventListener('focusout', (event) => {
           if (card.contains(event.relatedTarget)) return;
+          this.focusCard = null;
+          this.updateStudioFocus();
           this.restoreCommittedModel();
           this.stopSequence(card, true);
         }, { signal });
@@ -265,6 +291,7 @@
         if (this.reduceMotion.matches) {
           for (const card of this.querySelectorAll('[data-pimm-collection-card]')) this.stopSequence(card);
         }
+        this.updateStudioFocus(true);
       }, { signal: this.controller.signal });
     }
 
@@ -387,6 +414,10 @@
     playSequence(card) {
       this.stopSequence(card, true);
       if (this.reduceMotion?.matches) return;
+      if (card.pimmLighting?.dim || card.pimmLighting?.video) {
+        card.pimmRotateRequested = true;
+        return;
+      }
       const video = card.querySelector('[data-pimm-collection-video]');
       if (!video) return;
       video.muted = true;
@@ -401,6 +432,7 @@
     }
 
     stopSequence(card, reset = true) {
+      card.pimmRotateRequested = false;
       const video = card.querySelector('[data-pimm-collection-video]');
       if (video) {
         video.pimmPlaybackAttempt = null;
@@ -427,10 +459,91 @@
       }
     }
 
+    updateStudioFocus(force = false) {
+      const focused = this.hoverCard || this.focusCard;
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        this.setStudioLighting(card, Boolean(focused && card !== focused), force);
+      }
+    }
+
+    resetLighting(card) {
+      card.pimmLighting = null;
+      card.classList.remove('is-studio-dim');
+      for (const direction of ['down', 'up']) {
+        const video = card.querySelector(`[data-pimm-lighting="${direction}"]`);
+        if (video) { video.pause(); video.hidden = true; }
+      }
+      const still = card.querySelector('[data-pimm-lighting-still]');
+      if (still) still.hidden = true;
+    }
+
+    setStudioLighting(card, dim, force = false) {
+      const previous = card.pimmLighting;
+      if (!force && Boolean(previous?.dim) === dim) return;
+      const direction = dim ? 'down' : 'up';
+      const video = card.querySelector(`[data-pimm-lighting="${direction}"]`);
+      const still = card.querySelector('[data-pimm-lighting-still]');
+      if (!video || !still) return;
+      // Reverse at the corresponding native frame, not by interpolating pixels.
+      const start = previous?.video && !previous.completed
+        ? Math.max(0, Math.min(11 / 24, 11 / 24 - previous.video.currentTime)) : 0;
+      previous?.video?.pause();
+      if (dim) this.stopSequence(card);
+      const state = { dim, video };
+      card.pimmLighting = state;
+      if (this.reduceMotion?.matches) {
+        this.resetLighting(card);
+        card.pimmLighting = { dim, video: null };
+        still.hidden = !dim;
+        card.classList.toggle('is-studio-dim', dim);
+        return;
+      }
+      video.muted = true;
+      video.loop = false;
+      try { video.currentTime = start; } catch (_) { /* Starts at frame zero until metadata arrives. */ }
+      video.play()?.then(() => {
+        if (card.pimmLighting !== state) return;
+        // Keep the previous rendered state until the new clip can actually play.
+        for (const otherDirection of ['down', 'up']) {
+          const other = card.querySelector(`[data-pimm-lighting="${otherDirection}"]`);
+          if (other && other !== video) other.hidden = true;
+        }
+        still.hidden = true;
+        video.hidden = false;
+        card.classList.toggle('is-studio-dim', dim);
+      }).catch(() => {
+        if (card.pimmLighting === state) this.resetLighting(card);
+      });
+    }
+
+    finishLighting(card, video) {
+      const state = card.pimmLighting;
+      if (state?.video !== video) return;
+      state.completed = true;
+      const still = card.querySelector('[data-pimm-lighting-still]');
+      const settle = () => {
+        if (card.pimmLighting !== state) return;
+        video.hidden = true;
+        state.video = null;
+        if (still) still.hidden = !state.dim;
+        card.classList.toggle('is-studio-dim', state.dim);
+        if (!state.dim && card.pimmRotateRequested) this.playSequence(card);
+      };
+      // Hold the final native video frame until its lossless still is decoded.
+      if (state.dim && still?.decode) {
+        still.decode().then(settle).catch(() => {
+          if (card.pimmLighting === state) this.resetLighting(card);
+        });
+      } else settle();
+    }
+
     releaseRuntime() {
       this.controller?.abort();
+      this.hoverCard = null;
+      this.focusCard = null;
       for (const card of this.querySelectorAll?.('[data-pimm-collection-card]') ?? []) {
         this.stopSequence(card, true);
+        this.resetLighting(card);
       }
     }
   }

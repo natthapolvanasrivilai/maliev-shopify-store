@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -732,6 +732,7 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
       announcementChanges: probe.changes,
       mediaFilters: [...root.querySelectorAll('.pimm-collection__media')]
         .map(media => getComputedStyle(media).filter),
+      dimmed: root.querySelectorAll('.is-studio-dim').length,
       current: root.querySelector('[data-pimm-collection-card][data-model="50G"]')
         .getAttribute('aria-current'),
     };
@@ -739,7 +740,8 @@ async function mobileTouchProbe(session, diagnostics, language, url) {
   assert.equal(result.active, '50G', `${language} touch active model`);
   assert.equal(result.committed, '50G', `${language} touch committed model`);
   assert.equal(result.current, 'true', `${language} touch aria-current`);
-  assert.deepEqual(result.mediaFilters, ['brightness(1)', 'brightness(1)'], `${language} touch has no sticky hover dimming`);
+  assert.deepEqual(result.mediaFilters, ['none', 'none'], `${language} touch has no CSS dimming`);
+  assert.equal(result.dimmed, 0, `${language} touch does not leave native lighting dimmed`);
   assert.match(result.announcement, /50G/, `${language} touch announcement`);
   assert.equal(result.announcementChanges.length, 1, `${language} touch announcement count`);
   await diagnostics.assertClean(`${language} 390x844 real mobile touch`);
@@ -1089,6 +1091,11 @@ async function cinematicFocusProbe(session, language) {
       shadow: getComputedStyle(card).boxShadow,
       opacity: Number(getComputedStyle(media).opacity),
       filter: getComputedStyle(media).filter,
+      dim: card.classList.contains('is-studio-dim'),
+      dimStill: !card.querySelector('[data-pimm-lighting-still]').hidden,
+      lightingAboveRotation: Number(getComputedStyle(card.querySelector('[data-pimm-lighting-still]')).zIndex)
+        > Number(getComputedStyle(card.querySelector('[data-pimm-collection-video]')).zIndex),
+      lightingPaused: [...card.querySelectorAll('[data-pimm-lighting]')].every(v => v.paused),
       transition: getComputedStyle(media).transitionDuration,
       title: getComputedStyle(card.querySelector('h2')).color,
       price: getComputedStyle(card.querySelector('[data-pimm-card-price]')).color,
@@ -1101,17 +1108,23 @@ async function cinematicFocusProbe(session, language) {
   await delay(500);
   const initial = await evaluate(session, snapshot);
   assert.deepEqual(initial.map(card => card.opacity), [1, 1]);
-  assert.deepEqual(initial.map(card => card.filter), ['brightness(1)', 'brightness(1)']);
+  assert.deepEqual(initial.map(card => card.filter), ['none', 'none']);
   for (const index of [0, 1]) {
     const card = initial[index];
     await session.send('Input.dispatchMouseEvent', {
       type: 'mouseMoved', x: card.x + card.width / 2, y: card.y + card.height / 2,
     });
-    await delay(600);
+    await eventually(async () => {
+      const states = await evaluate(session, snapshot);
+      return states[1 - index].dimStill && !states[index].paused;
+    }, { message: `${language} native studio lighting and active rotation are ready` });
+    await delay(350);
     const hovered = await evaluate(session, snapshot);
     assert.equal(hovered[index].opacity, 1, `${language} active render unchanged`);
-    assert.equal(hovered[index].filter, 'brightness(1)', `${language} active machine keeps full brightness`);
-    assert.equal(hovered[1 - index].filter, 'brightness(0.42)', `${language} sibling darkens instead of fading white`);
+    assert.equal(hovered[index].filter, 'none', `${language} active render is unfiltered`);
+    assert.equal(hovered[1 - index].filter, 'none', `${language} dim render is unfiltered`);
+    assert.equal(hovered[1 - index].dimStill, true, `${language} sibling holds native dark endpoint`);
+    assert.equal(hovered[1 - index].lightingAboveRotation, true, `${language} native lighting paints above rotation`);
     for (const key of ['title', 'price', 'copy', 'compare']) {
       assert.equal(hovered[1 - index][key], 'rgb(255, 255, 255)', `${language} inactive ${key} stays legible`);
     }
@@ -1124,25 +1137,37 @@ async function cinematicFocusProbe(session, language) {
       assert.equal(state.shadow, 'none');
       assert.equal(state.border, 'rgba(0, 0, 0, 0)');
     });
-    await captureFullPageScreenshot(session, join(evidenceDir, `${language}-cinematic-${index}.png`));
+    const screenshot = join(evidenceDir, `${language}-cinematic-${index}.png`);
+    await captureFullPageScreenshot(session, screenshot);
+    // Assert actual painted pixels, not just classes: a stale bright video layer
+    // previously covered a correctly selected dark still after switching cards.
+    const corner = hovered[1 - index];
+    const python = process.platform === 'win32' ? 'py' : 'python3';
+    const probe = spawnSync(python, [...(process.platform === 'win32' ? ['-3'] : []), '-c',
+      'from PIL import Image; import sys,json; print(json.dumps(Image.open(sys.argv[1]).convert("RGB").getpixel((int(sys.argv[2]),int(sys.argv[3])))))',
+      screenshot, String(Math.round(corner.x + corner.width - 24)), String(Math.round(corner.y + 24))],
+    { encoding: 'utf8', windowsHide: true });
+    assert.equal(probe.status, 0, probe.stderr);
+    assert.ok(JSON.parse(probe.stdout).every(channel => channel < 110), `${language} actual inactive studio pixels are dark`);
   }
   await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
-  await delay(500);
+  await eventually(async () => (await evaluate(session, snapshot)).every(card => !card.dim && card.lightingPaused));
   assert.deepEqual((await evaluate(session, snapshot)).map(card => card.opacity), [1, 1]);
-  assert.deepEqual((await evaluate(session, snapshot)).map(card => card.filter), ['brightness(1)', 'brightness(1)']);
+  assert.deepEqual((await evaluate(session, snapshot)).map(card => card.filter), ['none', 'none']);
   await session.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
   await session.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
   await evaluate(session, `document.querySelector('[data-pimm-collection-card]').focus()`);
-  await delay(500);
+  await eventually(async () => (await evaluate(session, snapshot))[1].dimStill);
   const focused = await evaluate(session, snapshot);
   assert.equal(focused[0].outline, 'solid', `${language} visible keyboard focus retained`);
-  assert.deepEqual(focused.map(card => card.filter), ['brightness(1)', 'brightness(0.42)']);
+  assert.deepEqual(focused.map(card => card.filter), ['none', 'none']);
+  assert.deepEqual(focused.map(card => card.dim), [false, true]);
   await session.send('Emulation.setEmulatedMedia', {
     features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
   });
   await eventually(async () => {
     const reduced = await evaluate(session, snapshot);
-    return reduced.every(card => card.transition === '0s' && card.paused);
+    return reduced.every(card => card.transition === '0s' && card.paused && card.lightingPaused);
   }, { message: `${language} reduced motion stops both clips and emphasis transitions` });
   await evaluate(session, 'document.activeElement?.blur()');
   await session.send('Emulation.setEmulatedMedia', {
@@ -1278,6 +1303,34 @@ test('missing preview URL is an intentional PIMM collection browser-matrix skip'
   skip: Boolean(previewUrl),
 }, () => {
   assert.equal(previewUrl, undefined);
+});
+
+test('native studio lighting passes desktop keyboard reduced-motion and touch acceptance', {
+  skip: previewUrl ? false : 'PIMM_COLLECTION_PREVIEW_URL is not set',
+  timeout: 180_000,
+}, async () => {
+  await mkdir(evidenceDir, { recursive: true });
+  const browser = await launchBrowser();
+  const { session } = browser;
+  const diagnostics = createBrowserDiagnostics(session);
+  try {
+    await session.send('Page.enable');
+    await session.send('Runtime.enable');
+    await session.send('Log.enable');
+    for (const [language, url] of [['en', previewUrl], ['th', thaiUrlFrom(previewUrl)]]) {
+      await session.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await setViewport(session, 1440, 900);
+      await navigate(session, url, diagnostics);
+      await suppressCookieConsent(session);
+      await decodeCollectionImages(session);
+      await assertGeometry(session, language, 1440, 900);
+      await cinematicFocusProbe(session, language);
+      await diagnostics.assertClean(`${language} native studio lighting`);
+      await mobileTouchProbe(session, diagnostics, language, url);
+    }
+  } finally {
+    await browser.close();
+  }
 });
 
 test('dedicated PIMM collection passes responsive, interaction, and localization acceptance', {

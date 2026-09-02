@@ -60,7 +60,7 @@ with sync_playwright() as p:
                 for model in ['30G', '50G']:
                     card = page.locator(f'[data-pimm-collection-card][data-model="{model}"]')
                     card.hover()
-                    video = card.locator('video')
+                    video = card.locator('[data-pimm-collection-video]')
                     page.wait_for_function('(v)=>v.currentTime > 0.3', arg=video.element_handle())
                     assert video.evaluate('(v)=>v.muted && !v.loop && v.videoWidth === v.parentElement.querySelector("img").naturalWidth')
                     page.wait_for_function('(v)=>v.paused && !v.classList.contains("is-playing")', arg=video.element_handle())

@@ -138,35 +138,20 @@
   grid-template-rows: auto 1fr;
 }
 
-.pimm-collection__card .pimm-collection__media {
-  filter: brightness(var(--pimm-media-emphasis, 1));
-  transition: filter 420ms var(--pimm-collection-ease);
-}
-
 .pimm-collection .pimm-collection__card h2,
 .pimm-collection .pimm-collection__card [data-pimm-card-price] {
   color: var(--pimm-title-emphasis, var(--pimm-collection-ink));
   transition: color 320ms var(--pimm-collection-ease);
 }
 
-/* Temporary inactive-state dimming; the source renders and active card stay unchanged. */
-@media (hover: hover) and (pointer: fine) {
-  .pimm-collection__cards:has(.pimm-collection__card:hover)
-    .pimm-collection__card:not(:hover, :focus-within) {
-    --pimm-media-emphasis: 0.42;
-    --pimm-title-emphasis: var(--pimm-inactive-ink, var(--pimm-collection-muted));
-    --pimm-compare-ink: var(--pimm-inactive-ink, var(--pimm-collection-ink));
-  }
-}
-
-.pimm-collection__cards:has(:focus-visible)
-  .pimm-collection__card:not(:focus-within) {
-  --pimm-media-emphasis: 0.42;
+/* Only typography changes color here. All illumination comes from native Cycles frames. */
+.pimm-collection__card.is-studio-dim {
   --pimm-title-emphasis: var(--pimm-inactive-ink, var(--pimm-collection-muted));
   --pimm-compare-ink: var(--pimm-inactive-ink, var(--pimm-collection-ink));
 }
 
 .pimm-collection__media {
+  isolation: isolate;
   aspect-ratio: 3 / 4;
   background: #e8ecef;
   border-radius: var(--maliev-radius-card) var(--maliev-radius-card) 0 0;
@@ -176,6 +161,7 @@
 }
 
 .pimm-collection__frame {
+  z-index: 0;
   inset: 0;
   opacity: 0;
   position: absolute;
@@ -200,6 +186,7 @@
 }
 
 .pimm-collection__video {
+  z-index: 1;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -210,6 +197,22 @@
 }
 
 .pimm-collection__video.is-playing { opacity: 1; }
+
+.pimm-collection__lighting {
+  z-index: 2;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.pimm-collection__lighting[hidden] { display: none !important; }
+
+.pimm-collection__card.is-studio-dim .pimm-collection__model-designation {
+  color: var(--pimm-inactive-ink, var(--pimm-collection-muted));
+}
 
 .pimm-collection__card-copy {
   align-content: start;
