@@ -33,7 +33,8 @@ MASTER_HASHES = {
     "50G": "CC26246CD01956B1145B1AA5744B968918F956B667B720205723E6B60A252D90",
 }
 RENDER_SIDECAR_SCHEMA = "maliev.pimm-collection-card-render/v1"
-MOTION_RELEASE = "maliev-pimm-collection-motion-20260902-r01"
+MOTION_RELEASE = "maliev-pimm-collection-motion-20260902-r02"
+MOTION_DIMENSIONS = (1440, 1920)
 
 
 def motion_angles() -> list[float]:
@@ -221,7 +222,9 @@ def render_motion(bpy: Any, arguments: argparse.Namespace, stage: Any,
         raise FileExistsError(f"refusing to overwrite motion release: {prefix}")
     _configure_collection_render(bpy, arguments.samples, output_dir / prefix)
     scene = bpy.context.scene
-    scene.render.resolution_x, scene.render.resolution_y = (720, 960)
+    scene.render.resolution_x, scene.render.resolution_y = MOTION_DIMENSIONS
+    # Product inspection needs the front controls and rear base equally sharp.
+    scene.camera.data.dof.use_dof = False
     scene.render.fps, scene.render.fps_base = 24, 1.0
     frames = []
     for index, degrees in enumerate(motion_angles()):
@@ -235,7 +238,9 @@ def render_motion(bpy: Any, arguments: argparse.Namespace, stage: Any,
         print(f"PIMM_MOTION_FRAME {arguments.machine} {index + 1}/72", flush=True)
     result = {"schema": "maliev.pimm-collection-motion/v1", "release_id": MOTION_RELEASE,
               "machine": arguments.machine, "fps": 24, "frame_count": 72,
-              "width": 720, "height": 960, "samples": arguments.samples,
+              "width": MOTION_DIMENSIONS[0], "height": MOTION_DIMENSIONS[1],
+              "depth_of_field": False, "camera_scale": arguments.scale,
+              "samples": arguments.samples,
               "provenance": provenance, "frames": frames}
     sidecar.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result

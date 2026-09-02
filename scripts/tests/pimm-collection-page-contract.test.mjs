@@ -250,13 +250,13 @@ test('configured support actions render with exact labels and targets in desktop
 
 test('cards own two unique posters and native motion clips, without side-frame swaps', async () => {
   const section = await readThemeFile('sections/maliev-pimm-collection.liquid');
-  const filenames = section.match(/maliev-pimm-collection-motion-20260902-r01-[^'"\s]+\.webp/g) ?? [];
+  const filenames = section.match(/maliev-pimm-collection-motion-20260902-r02-[^'"\s]+\.webp/g) ?? [];
 
   assert.equal(filenames.length, 2);
   assert.equal(new Set(filenames).size, 2);
   assert.deepEqual(filenames.toSorted(), [
-    'maliev-pimm-collection-motion-20260902-r01-30g-poster.webp',
-    'maliev-pimm-collection-motion-20260902-r01-50g-poster.webp',
+    'maliev-pimm-collection-motion-20260902-r02-30g-poster.webp',
+    'maliev-pimm-collection-motion-20260902-r02-50g-poster.webp',
   ]);
   assert.equal(section.match(/data-pimm-collection-frame="front"[^>]*>[\s\S]*?<img[^>]*alt="[^"]+"/g)?.length, 2);
   assert.equal(section.match(/<video[^>]*data-pimm-collection-video/g)?.length, 2);

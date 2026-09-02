@@ -8,7 +8,11 @@ failure, or reduced-motion preference restores the static front poster.
 
 ## Render provenance
 
-Release: `maliev-pimm-collection-motion-20260902-r01`.
+Current high-density release: `maliev-pimm-collection-motion-20260902-r02`.
+The original `r01` assets remain available for rollback. The new native frames,
+posters and videos are 1440×1920, twice the original width and height. Depth of
+field is disabled for motion so controls and rear edges stay in focus. Camera
+position, lighting, physical shadows and the 72-frame movement are unchanged.
 The release manifest records master hashes, all native frame hashes and angles,
 and the final video/poster hashes. The original master files remain unchanged.
 Lighting and ground shadows come from the physical Blender Cycles studio scene.
@@ -27,6 +31,10 @@ frame, encodes H.264 at 24fps without interpolating frames, checks the encoded
 dimensions/duration/frame count, and converts the first frame to lossless WebP.
 It refuses to overwrite an existing release.
 
+Prices use the existing IBM Plex Sans family at semibold weight with proportional
+lining numerals; the technical specification values keep their existing styling.
+No extra font download or commerce-formatting change is required.
+
 ## Layout and validation
 
 At 1280×720 and larger, the comparison and compact legal footer occupy one
@@ -37,6 +45,7 @@ sit right. Smaller windows and mobile keep natural document scrolling.
 npm run verify
 py -3 -m unittest discover -s scripts/blender/pimm_production/tests -p 'test_collection*.py'
 py -3 scripts/tests/pimm-collection-viewport.py --url <preview-url> --motion
+py -3 scripts/tests/pimm-collection-viewport.py --url <preview-url> --motion --pixel-density 2 --check-native-resolution
 $env:PIMM_COLLECTION_PREVIEW_URL = '<preview-url>'
 node --test scripts/tests/pimm-collection-responsive-browser.test.mjs
 ```
@@ -44,9 +53,19 @@ node --test scripts/tests/pimm-collection-responsive-browser.test.mjs
 This revision does not publish the draft unified product, assign a collection
 template, or deploy the theme. The product preview remains the validation route.
 
-Verified locally on 2026-09-02: `npm run verify` passed all 68 tests and Theme
+Initial r01 verification on 2026-09-02: `npm run verify` passed all 68 tests and Theme
 Check reported no errors (three existing warnings inside Shopify CLI dependency
 templates). The collection renderer suite passed 13 tests. The live viewport
 probe passed English and Thai at 1280×720, 1440×900, 1536×864, 1920×720,
 1920×1080, and 390×844, including both model videos and reduced motion.
 No separate compiled build target exists for this Liquid theme.
+
+High-density r02 verification on 2026-09-02: `npm run verify` passed all 70 tests;
+Theme Check reported zero errors and the same three Shopify CLI dependency
+warnings. The renderer suite passed 15 tests. The 2× pixel-density probe passed
+all twelve English/Thai viewport cases above, with no source upscaling (largest
+physical-pixel/source-pixel ratio: 0.971 at 1920×1080) or desktop overflow.
+The full responsive/interaction/localization browser acceptance test passed;
+its no-URL sentinel was intentionally skipped because a preview URL was supplied.
+Price font assertions passed in-browser. Both encoded videos are under 1 MB.
+Fresh screenshots were visually reviewed; `git diff --check` passed.

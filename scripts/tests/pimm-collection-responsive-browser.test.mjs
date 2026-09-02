@@ -518,8 +518,8 @@ const geometryProbe = `(() => {
     cardCount: cards.length,
     imagesReady: machineImages.length === 2
       && machineImages.every((image) => image.complete
-        && image.naturalWidth === 720
-        && image.naturalHeight === 960),
+        && image.naturalWidth === 1440
+        && image.naturalHeight === 1920),
     horizontalOverflow: document.documentElement.scrollWidth - innerWidth <= 1,
     machineImagesTransformed: machineImages.some(
       (image) => getComputedStyle(image).transform !== 'none',

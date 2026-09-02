@@ -9,9 +9,9 @@ from PIL import Image
 
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from scripts.blender.pimm_production.blender_collection_card_render import MASTER_HASHES, motion_angles
+from scripts.blender.pimm_production.blender_collection_card_render import MASTER_HASHES, MOTION_DIMENSIONS, MOTION_RELEASE, motion_angles
 
-RELEASE = 'maliev-pimm-collection-motion-20260902-r01'
+RELEASE = MOTION_RELEASE
 
 
 def sha(path):
@@ -32,6 +32,8 @@ def publish(render_dir, asset_dir):
             raise ValueError('Wrong model or release')
         if source.get('provenance', {}).get('master_sha256') != MASTER_HASHES[model.upper()]:
             raise ValueError('Untrusted master provenance')
+        if (source.get('width'), source.get('height')) != MOTION_DIMENSIONS or source.get('depth_of_field') is not False:
+            raise ValueError('Motion requires native high resolution and disabled depth of field')
         for index, frame in enumerate(source['frames']):
             expected = f'{prefix}-{index:03d}.png'
             if frame['filename'] != expected or frame['index'] != index:
@@ -42,7 +44,7 @@ def publish(render_dir, asset_dir):
             if sha(path) != frame['sha256']:
                 raise ValueError(f'Frame hash mismatch: {path}')
             with Image.open(path) as image:
-                if image.size != (720, 960):
+                if image.size != MOTION_DIMENSIONS:
                     raise ValueError('Frame dimensions mismatch')
         for suffix in ['.mp4', '-poster.webp']:
             if (asset_dir / f'{prefix}{suffix}').exists():
@@ -54,12 +56,12 @@ def publish(render_dir, asset_dir):
         poster = asset_dir / f'{prefix}-poster.webp'
         subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-n',
             '-framerate', '24', '-i', str(render_dir / f'{prefix}-%03d.png'),
-            '-frames:v', '72', '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17',
+            '-frames:v', '72', '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '15',
             '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(video)], check=True)
         probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error',
             '-select_streams', 'v:0', '-show_entries', 'stream=width,height,r_frame_rate,nb_frames,duration',
             '-of', 'json', str(video)]))['streams'][0]
-        if probe != {'width': 720, 'height': 960, 'r_frame_rate': '24/1', 'duration': '3.000000', 'nb_frames': '72'}:
+        if probe != {'width': MOTION_DIMENSIONS[0], 'height': MOTION_DIMENSIONS[1], 'r_frame_rate': '24/1', 'duration': '3.000000', 'nb_frames': '72'}:
             raise ValueError(f'Encoded video violates playback contract: {probe}')
         with Image.open(render_dir / source['frames'][0]['filename']) as image:
             image.convert('RGB').save(poster, 'WEBP', lossless=True, method=6)

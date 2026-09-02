@@ -16,8 +16,9 @@ const expectedStorefront = expectedPairs.map(
 );
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 
-test('motion release contains two native 72-frame 24fps Blender animations', async () => {
-  const motionRelease = 'maliev-pimm-collection-motion-20260902-r01';
+for (const revision of ['r01', 'r02']) test(`${revision} motion release contains two native 72-frame 24fps Blender animations`, async () => {
+  const motionRelease = `maliev-pimm-collection-motion-20260902-${revision}`;
+  const dimensions = revision === 'r02' ? [1440, 1920] : [720, 960];
   const manifest = JSON.parse(await readFile(new URL(`${motionRelease}-assets.v1.json`, assetsUrl), 'utf8'));
   assert.equal(manifest.release_id, motionRelease);
   assert.equal(manifest.shadow_source, 'Native Blender Cycles physical studio floor');
@@ -34,12 +35,14 @@ test('motion release contains two native 72-frame 24fps Blender animations', asy
     assert.equal(asset.video.r_frame_rate, '24/1');
     assert.equal(asset.video.nb_frames, '72');
     assert.equal(asset.video.duration, '3.000000');
+    assert.deepEqual([asset.video.width, asset.video.height], dimensions);
+    if (revision === 'r02') assert.equal(asset.depth_of_field, false);
     for (const kind of ['video', 'poster']) {
       const bytes = await readFile(new URL(asset[kind].filename, assetsUrl));
       assert.equal(sha256(bytes), asset[kind].sha256);
       if (kind === 'poster') {
         const metadata = webpMetadata(bytes);
-        assert.deepEqual([metadata.width, metadata.height, metadata.mode], [720, 960, 'RGB']);
+        assert.deepEqual([metadata.width, metadata.height, metadata.mode], [...dimensions, 'RGB']);
       } else {
         assert.equal(bytes.subarray(4, 8).toString(), 'ftyp');
       }
