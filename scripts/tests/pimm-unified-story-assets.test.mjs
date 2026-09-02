@@ -43,6 +43,14 @@ test('30G demo close gives the booking action a distinct neutral-to-blue treatme
   assert.match(css, /\.pimm-machine__purchase \.button--primary:hover \{[^}]*background: var\(--pimm-blue\)/);
 });
 
+test('30G support typography pairs a bounded heading with readable responsive prose', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /\.pimm-machine__ownership h2 \{[^}]*max-width: 18ch/);
+  assert.match(css, /\.pimm-machine__ownership p \{[^}]*font-size: 2rem;[^}]*line-height: 1.65;[^}]*max-width: 60ch/);
+  assert.match(css, /\.pimm-machine__ownership:lang\(th\) h2 \{[^}]*letter-spacing: normal/);
+  assert.match(css, /@media \(max-width: 999px\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__ownership \.pimm-machine__prose \{\s*grid-template-columns: minmax\(0, 1fr\)/);
+});
+
 test('dedicated product templates lock model identity independently of query selection', async () => {
   for (const [view, model] of [['pimm-configurator', '30G'], ['pimm-50g', '50G']]) {
     const source = await readFile(new URL(`templates/product.${view}.json`, rootUrl), 'utf8');
