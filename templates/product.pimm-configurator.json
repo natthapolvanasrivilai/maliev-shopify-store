@@ -17,6 +17,44 @@
             "story_asset_set": "pimm-master-20260901-r05-30g"
           }
         },
+        "gallery_demo": {
+          "type": "gallery_video",
+          "settings": {
+            "external_video": "https://www.youtube.com/watch?v=SlCkqUcpZ_Y",
+            "caption_key": "demonstration",
+            "preview_start": 0,
+            "preview_length": 6,
+            "use_default_preview": true
+          }
+        },
+        "gallery_molding": {
+          "type": "gallery_video",
+          "settings": {
+            "external_video": "https://www.youtube.com/watch?v=PHqab73X5C0",
+            "caption_key": "molding",
+            "preview_start": 0,
+            "preview_length": 6,
+            "use_default_preview": true
+          }
+        },
+        "gallery_end_caps": {
+          "type": "gallery_video",
+          "settings": {
+            "external_video": "https://www.youtube.com/watch?v=zoRajgCbsko",
+            "caption_key": "end_caps",
+            "preview_start": 0,
+            "preview_length": 6,
+            "use_default_preview": true
+          }
+        },
+        "gallery_controls": {
+          "type": "gallery_image",
+          "settings": { "default_image": "controls" }
+        },
+        "gallery_details": {
+          "type": "gallery_image",
+          "settings": { "default_image": "details" }
+        },
         "model_50g": {
           "type": "model",
           "settings": {
@@ -25,7 +63,7 @@
           }
         }
       },
-      "block_order": ["model_30g", "model_50g"],
+      "block_order": ["model_30g", "model_50g", "gallery_demo", "gallery_molding", "gallery_end_caps", "gallery_controls", "gallery_details"],
       "settings": {
         "page_model": "30G",
         "factory_visit_url": "",

@@ -1,0 +1,65 @@
+.pimm-gallery {
+  display: block;
+  padding-block: 24px clamp(56px, 7vw, 104px);
+  font-family: var(--maliev-font-sans);
+  color: #111315;
+}
+.pimm-gallery [hidden] { display: none !important; }
+.pimm-gallery__heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+.pimm-machine .pimm-gallery__heading h2 { margin: 0; font-family: var(--maliev-font-sans); font-size: clamp(2.8rem, 3.6vw, 5.2rem); font-weight: 600; line-height: 1.16; letter-spacing: -.025em; text-wrap: balance; }
+.pimm-gallery__heading p { margin: 16px 0 0; font-size: 2rem; line-height: 1.55; color: #353a40; max-width: 60ch; }
+.pimm-gallery button { font: inherit; cursor: pointer; }
+.pimm-gallery__browse, .pimm-gallery__pause { display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: #006fd6; font-weight: 500 !important; }
+.pimm-gallery__browse span { font-size: 2.8rem; }
+.pimm-gallery__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.pimm-gallery__item { min-width: 0; border-radius: 14px; background: #f3f5f6; }
+.pimm-gallery__open { display: flex; flex-direction: column; height: 100%; color: inherit; text-decoration: none; border-radius: inherit; overflow: hidden; }
+.pimm-gallery__media { position: relative; min-height: 0; aspect-ratio: 4 / 3; background: #f3f5f6; overflow: hidden; }
+.pimm-gallery__item--video .pimm-gallery__media { background: #111315; }
+.pimm-gallery__media :is(img, video) { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.pimm-gallery__media video { position: absolute; inset: 0; pointer-events: none; }
+.pimm-gallery__item:first-child .pimm-gallery__media { aspect-ratio: 4 / 5; }
+.pimm-gallery__item:first-child { background: #111315; color: #fff; }
+.pimm-gallery__icon { position: absolute; inset: auto auto 16px 16px; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 6px; background: #fff; color: #006fd6; font-family: sans-serif; font-size: 2.4rem; line-height: 1; transition: background-color 180ms ease-out, color 180ms ease-out; }
+.pimm-gallery__item--video .pimm-gallery__icon { border-radius: 50%; background: #006fd6; color: #fff; font-size: 1.8rem; padding-left: 3px; }
+.pimm-gallery__item:first-child .pimm-gallery__icon { width: 72px; height: 72px; font-size: 2.8rem; inset: 50% auto auto 50%; transform: translate(-50%, -50%); }
+.pimm-gallery__caption { padding: 16px 20px 20px; display: grid; gap: 4px; }
+.pimm-machine .pimm-gallery__caption h3 { margin: 0; color: inherit; font: 600 1.8rem/1.4 var(--maliev-font-sans); font-size: 1.8rem !important; line-height: 1.4 !important; letter-spacing: normal; overflow-wrap: anywhere; }
+.pimm-gallery__caption > span:not(.visually-hidden) { font-size: 1.4rem; line-height: 1.5; }
+.pimm-gallery__footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.pimm-gallery__footer p { margin: 0; font-size: 1.6rem; line-height: 1.55; color: #353a40; }
+.pimm-gallery__open:focus-visible, .pimm-gallery :is(button, a):focus-visible { outline: 3px solid #ffd21c; outline-offset: 4px; }
+@media (hover: hover) {
+  .pimm-gallery__open:hover .pimm-gallery__icon { background: #005bb5; color: #fff; }
+  .pimm-gallery__open:hover h3, .pimm-gallery__browse:hover, .pimm-gallery__pause:hover { text-decoration: underline; text-underline-offset: .2em; }
+}
+.pimm-gallery__viewer { inset: 0; width: min(1200px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 20px; border: 0; border-radius: 14px; background: #111315; color: #fff; overflow: auto; overscroll-behavior: contain; }
+.pimm-gallery__viewer::backdrop { background: rgb(0 0 0 / .84); }
+.pimm-gallery__viewer-header, .pimm-gallery__viewer-footer { display: flex; gap: 16px; justify-content: space-between; align-items: center; }
+.pimm-machine .pimm-gallery__viewer-header h3 { color: #fff; margin: 0; font: 500 2rem/1.4 var(--maliev-font-sans); font-size: 2rem !important; line-height: 1.4 !important; letter-spacing: normal; }
+.pimm-gallery__viewer button { min-height: 44px; padding: 8px 12px; background: transparent; border: 1px solid #626a73; border-radius: 4px; color: #fff; font-size: 1.6rem; flex-shrink: 0; transition: background-color 180ms ease-out; }
+.pimm-gallery__viewer button:hover { background: #006fd6; }
+.pimm-gallery__viewer button:disabled { opacity: .45; cursor: default; }
+.pimm-gallery__stage { display: grid; place-items: center; height: min(65dvh, 680px); min-height: 200px; background: #000; margin-block: 16px; }
+.pimm-gallery__stage :is(img, video, iframe) { display: block; width: 100%; height: 100%; max-height: min(65dvh, 680px); object-fit: contain; border: 0; }
+.pimm-gallery__viewer-footer { font-size: 1.6rem; }
+.pimm-gallery__source { display: inline-block; color: #fff; font-size: 1.4rem; padding-block: 12px 4px; min-height: 44px; text-underline-offset: .2em; }
+.pimm-gallery:lang(th) h2 { letter-spacing: normal; line-height: 1.3; }
+@media (min-width: 700px) {
+  .pimm-gallery__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pimm-gallery__item:first-child { grid-row: span 2; }
+  .pimm-gallery__item:first-child .pimm-gallery__media { flex: 1; aspect-ratio: auto; min-height: 480px; }
+}
+@media (min-width: 1100px) {
+  .pimm-gallery__grid { grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr)); }
+  .pimm-gallery__item:first-child .pimm-gallery__media { min-height: 520px; }
+}
+@media (max-width: 499px) {
+  .pimm-gallery__viewer { padding: 12px; width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  .pimm-gallery__viewer-header { align-items: start; gap: 8px; }
+  .pimm-machine .pimm-gallery__viewer-header h3 { font-size: 1.8rem; }
+  .pimm-gallery__viewer button { padding-inline: 8px; font-size: 1.4rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pimm-gallery *, .pimm-gallery *::before, .pimm-gallery *::after { animation: none !important; transition: none !important; }
+}

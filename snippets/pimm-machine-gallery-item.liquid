@@ -1,0 +1,98 @@
+{% doc %}
+  Renders a video or image with a no-JavaScript destination and optional native preview.
+  @param {block} block - Gallery media block.
+{% enddoc %}
+{%- liquid
+  assign is_video = false
+  assign media_url = ''
+  assign poster_url = ''
+  assign video_id = ''
+  assign preview_url = ''
+  assign caption_key = 'image'
+  if block.type == 'gallery_video'
+    assign is_video = true
+    assign caption_key = block.settings.caption_key | default: 'demonstration'
+    assign external_video = block.settings.external_video
+    if external_video.type == 'youtube'
+      assign video_id = external_video.id
+      assign media_url = 'https://www.youtube.com/watch?v=' | append: video_id
+      assign poster_url = 'https://i.ytimg.com/vi/' | append: video_id | append: '/hqdefault.jpg'
+    endif
+    if block.settings.full_video != blank
+      assign full_source = block.settings.full_video.sources | where: 'format', 'mp4' | last
+      assign media_url = full_source.url
+      assign video_id = ''
+      assign poster_url = block.settings.full_video.preview_image | image_url: width: 1200
+    endif
+    if block.settings.use_default_preview and video_id != blank
+      assign default_clip = ''
+      case video_id
+        when 'SlCkqUcpZ_Y'
+          assign default_clip = 'pimm-gallery-20260903-demonstration'
+        when 'PHqab73X5C0'
+          assign default_clip = 'pimm-gallery-20260903-molding'
+        when 'zoRajgCbsko'
+          assign default_clip = 'pimm-gallery-20260903-end-caps'
+      endcase
+      if default_clip != blank
+        assign preview_url = default_clip | append: '.mp4' | asset_url
+        assign poster_url = default_clip | append: '.webp' | asset_url
+      endif
+    endif
+    if block.settings.preview_video != blank
+      assign preview_source = block.settings.preview_video.sources | where: 'format', 'mp4' | first
+      assign preview_url = preview_source.url
+      assign poster_url = block.settings.preview_video.preview_image | image_url: width: 1200
+    endif
+    if block.settings.poster != blank
+      assign poster_url = block.settings.poster | image_url: width: 1200
+    endif
+  else
+    case block.settings.default_image
+      when 'controls'
+        assign caption_key = 'controls'
+        assign media_url = 'pimm-master-20260901-r05-30g-controls.webp' | asset_url
+      when 'details'
+        assign caption_key = 'details'
+        assign media_url = 'pimm-master-20260901-r05-30g-tooling.webp' | asset_url
+    endcase
+    if block.settings.image != blank
+      assign media_url = block.settings.image | image_url: width: 2000
+      assign poster_url = block.settings.image | image_url: width: 1200
+    else
+      assign poster_url = media_url
+    endif
+  endif
+  assign caption_translation = 'pimm_gallery.' | append: caption_key
+  assign caption = caption_translation | t
+  if block.settings.title != blank
+    assign caption = block.settings.title
+  endif
+-%}
+{%- if media_url != blank -%}
+  <article class="pimm-gallery__item{% if is_video %} pimm-gallery__item--video{% endif %}"
+    data-gallery-item data-kind="{% if is_video %}video{% else %}image{% endif %}"
+    data-video-id="{{ video_id | escape }}" data-title="{{ caption | escape }}"
+    data-preview-start="{{ block.settings.preview_start | default: 0 | at_least: 0 }}"
+    data-preview-length="{{ block.settings.preview_length | default: 6 | at_least: 3 | at_most: 15 }}"
+    {{ block.shopify_attributes }}>
+    <a class="pimm-gallery__open" href="{{ media_url | escape }}" data-gallery-open>
+      <div class="pimm-gallery__media">
+        {% if poster_url != blank %}
+          <img src="{{ poster_url | escape }}" alt="{{ caption | escape }}" width="1200" height="900" loading="lazy" decoding="async">
+        {% endif %}
+        {% if preview_url != blank %}
+          <video data-gallery-preview data-src="{{ preview_url | escape }}" muted playsinline loop preload="none" tabindex="-1" aria-hidden="true" hidden></video>
+        {% endif %}
+        <span class="pimm-gallery__icon" aria-hidden="true">{% if is_video %}▶{% else %}↗{% endif %}</span>
+      </div>
+      <div class="pimm-gallery__caption">
+        <h3>{{ caption | escape }}</h3>
+        <span>{% if is_video %}{{ 'pimm_gallery.video' | t }}{% else %}{{ 'pimm_gallery.image' | t }}{% endif %}</span>
+        <span class="visually-hidden">— {% if is_video %}{{ 'pimm_gallery.play_full' | t }}{% else %}{{ 'pimm_gallery.expand' | t }}{% endif %}</span>
+      </div>
+    </a>
+  </article>
+{%- elsif request.design_mode -%}
+  <p {{ block.shopify_attributes }}>{{ 'pimm_gallery.add_media' | t }}</p>
+{%- endif -%}

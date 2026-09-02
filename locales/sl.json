@@ -8,6 +8,29 @@
  * ------------------------------------------------------------
  */
 {
+  "pimm_gallery": {
+    "heading": "See the 30G in action.",
+    "description": "Real demonstrations. A closer look at the machine.",
+    "browse": "Browse gallery",
+    "hint": "Select a video or image to explore.",
+    "pause": "Pause previews",
+    "resume": "Resume previews",
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next",
+    "open_source": "Open original media",
+    "play_full": "Play full video",
+    "expand": "View larger image",
+    "video": "Video",
+    "image": "Image",
+    "demonstration": "Machine demonstration",
+    "molding": "Molding demonstration",
+    "end_caps": "Making aluminum profile end caps",
+    "controls": "Controls, up close",
+    "details": "Machine details",
+    "empty_editor": "Add gallery video or image blocks to this 30G product section.",
+    "add_media": "Choose an image or a full video for this gallery block."
+  },
   "general": {
     "password_page": {
       "login_form_heading": "Vstopite v trgovino z geslom:",

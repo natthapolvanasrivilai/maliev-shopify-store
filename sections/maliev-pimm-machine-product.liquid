@@ -113,6 +113,9 @@
   </main>
 
   {% render 'pimm-ownership', section: section %}
+  {% if page_model == '30G' %}
+    {% render 'pimm-machine-gallery', section: section %}
+  {% endif %}
   {% render 'pimm-purchase-qualification', selected_variant: selected_variant, model_contract_valid: model_contract_valid, section: section %}
 
   <script
@@ -248,7 +251,7 @@
   "name": "PIMM machine product",
   "tag": "section",
   "class": "section-pimm-machine-product",
-  "max_blocks": 6,
+  "max_blocks": 50,
   "settings": [
     { "type": "select", "id": "page_model", "label": "Dedicated model page", "options": [{ "value": "shared", "label": "Shared configurator" }, { "value": "30G", "label": "30G" }, { "value": "50G", "label": "50G" }], "default": "shared" },
     { "type": "url", "id": "factory_visit_url", "label": "Demo session URL" },
@@ -272,6 +275,30 @@
           "default": "30G"
         },
         { "type": "text", "id": "story_asset_set", "label": "Governed story asset set" }
+      ]
+    },
+    {
+      "type": "gallery_video",
+      "name": "Gallery video (30G)",
+      "settings": [
+        { "type": "video_url", "id": "external_video", "label": "Full YouTube video", "accept": ["youtube"] },
+        { "type": "video", "id": "full_video", "label": "Full uploaded video", "info": "Used instead of YouTube when selected." },
+        { "type": "video", "id": "preview_video", "label": "Muted preview clip", "info": "Upload your original clip to loop in the gallery. YouTube is only loaded when a visitor opens the full video." },
+        { "type": "checkbox", "id": "use_default_preview", "label": "Use original MALIEV preview", "default": false, "info": "Available for the three original MALIEV YouTube videos only. A selected preview clip overrides it." },
+        { "type": "number", "id": "preview_start", "label": "Preview start (seconds)", "default": 0 },
+        { "type": "range", "id": "preview_length", "label": "Preview length", "min": 3, "max": 15, "step": 1, "unit": "s", "default": 6 },
+        { "type": "image_picker", "id": "poster", "label": "Cover image" },
+        { "type": "text", "id": "title", "label": "Caption", "info": "Leave blank to use the translated default caption." },
+        { "type": "select", "id": "caption_key", "label": "Default caption", "options": [{ "value": "demonstration", "label": "Machine demonstration" }, { "value": "molding", "label": "Molding demonstration" }, { "value": "end_caps", "label": "Making aluminum profile end caps" }], "default": "demonstration" }
+      ]
+    },
+    {
+      "type": "gallery_image",
+      "name": "Gallery image (30G)",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "title", "label": "Caption", "info": "Leave blank to use the translated default caption." },
+        { "type": "select", "id": "default_image", "label": "Default 30G render", "options": [{ "value": "none", "label": "None" }, { "value": "controls", "label": "Controls, up close" }, { "value": "details", "label": "Machine details" }], "default": "none" }
       ]
     },
     { "type": "@app" }

@@ -1,0 +1,50 @@
+{% doc %}
+  Merchant-managed media gallery on the dedicated 30G page.
+  @param {section} section - Product section containing gallery blocks.
+{% enddoc %}
+
+{%- capture gallery_items -%}
+  {%- for block in section.blocks -%}
+    {%- if block.type == 'gallery_video' or block.type == 'gallery_image' -%}
+      {% render 'pimm-machine-gallery-item', block: block %}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endcapture -%}
+{%- assign gallery_items = gallery_items | strip -%}
+{% if gallery_items != blank %}
+  {{ 'maliev-pimm-gallery.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'maliev-pimm-gallery.js' | asset_url }}" defer="defer"></script>
+  <pimm-machine-gallery class="pimm-gallery" aria-labelledby="PimmGalleryHeading-{{ section.id }}"
+    data-pause-label="{{ 'pimm_gallery.pause' | t | escape }}"
+    data-resume-label="{{ 'pimm_gallery.resume' | t | escape }}">
+    <header class="pimm-gallery__heading">
+      <div>
+        <h2 id="PimmGalleryHeading-{{ section.id }}">{{ 'pimm_gallery.heading' | t }}</h2>
+        <p>{{ 'pimm_gallery.description' | t }}</p>
+      </div>
+      <button class="pimm-gallery__browse" type="button" data-gallery-browse hidden>
+        {{ 'pimm_gallery.browse' | t }} <span aria-hidden="true">→</span>
+      </button>
+    </header>
+    <div class="pimm-gallery__grid">{{ gallery_items }}</div>
+    <div class="pimm-gallery__footer">
+      <p>{{ 'pimm_gallery.hint' | t }}</p>
+      <button type="button" class="pimm-gallery__pause" data-gallery-pause aria-pressed="false" hidden>{{ 'pimm_gallery.pause' | t }}</button>
+    </div>
+    <dialog class="pimm-gallery__viewer" aria-labelledby="PimmGalleryTitle-{{ section.id }}">
+      <div class="pimm-gallery__viewer-header">
+        <h3 id="PimmGalleryTitle-{{ section.id }}" data-gallery-title></h3>
+        <button type="button" data-gallery-close autofocus>{{ 'pimm_gallery.close' | t }} <span aria-hidden="true">×</span></button>
+      </div>
+      <div class="pimm-gallery__stage" data-gallery-stage></div>
+      <div class="pimm-gallery__viewer-footer">
+        <button type="button" data-gallery-previous><span aria-hidden="true">←</span> {{ 'pimm_gallery.previous' | t }}</button>
+        <span data-gallery-position role="status" aria-live="polite"></span>
+        <button type="button" data-gallery-next>{{ 'pimm_gallery.next' | t }} <span aria-hidden="true">→</span></button>
+      </div>
+      <a class="pimm-gallery__source" data-gallery-source target="_blank" rel="noopener">{{ 'pimm_gallery.open_source' | t }} ↗</a>
+    </dialog>
+  </pimm-machine-gallery>
+{% elsif request.design_mode %}
+  <p>{{ 'pimm_gallery.empty_editor' | t }}</p>
+{% endif %}
