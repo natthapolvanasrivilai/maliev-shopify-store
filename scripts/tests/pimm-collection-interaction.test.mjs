@@ -546,6 +546,81 @@ test('disconnect clears timers and aborts all listeners', async () => {
   }
 });
 
+test('preview navigation retains its key and locale for both cards and all dossiers across reconnects', async () => {
+  const key = '0123456789abcdef0123456789abcdef';
+  for (const prefix of ['', '/th']) {
+    const { Controller } = await loadController({
+      pageUrl: `https://shop.maliev.com${prefix}/products_preview?preview_key=${key}&view=pimm-collection-preview&variant=30&cb=ignored#details`,
+    });
+    const { comparison, cards, inlineDossiers, desktopDossier } = createComparison(Controller);
+    comparison.dataset.previewNavigation = 'true';
+    for (let connection = 0; connection < 2; connection += 1) {
+      comparison.connectedCallback();
+      assert.equal(comparison.committedModel, '30G');
+      for (const [index, model] of ['30G', '50G'].entries()) {
+        const expected = `${prefix}/products_preview?preview_key=${key}&view=pimm-configurator&variant=${index === 0 ? 30 : 50}`;
+        assert.equal(cards[index].querySelector('.pimm-collection__card-actions a').href, expected);
+        assert.equal(inlineDossiers[index].querySelector('[data-pimm-dossier-configure]').href, expected);
+        comparison.commitModel(model);
+        assert.equal(desktopDossier.querySelector('[data-pimm-dossier-configure]').href, expected);
+      }
+      comparison.disconnectedCallback();
+      assert.equal(inlineDossiers[0].querySelector('[data-pimm-dossier-configure]').href, '/products/pimm?variant=30');
+    }
+  }
+});
+
+test('preview keys never leak into public, foreign, malformed or untrusted navigation', async () => {
+  const key = '0123456789abcdef0123456789abcdef';
+  for (const [path, enabled] of [
+    [`/collections/pimm?preview_key=${key}&view=pimm-collection-preview`, true],
+    [`/products_preview?preview_key=${key}&view=pimm-collection-preview`, false],
+    ['/products_preview?view=pimm-collection-preview', true],
+    [`/products_preview?preview_key=${key}&preview_key=other&view=pimm-collection-preview`, true],
+    ['/products_preview?preview_key=bad&view=pimm-collection-preview', true],
+    [`/products_preview?preview_key=${key}&view=pimm-configurator`, true],
+    [`/products_preview?preview_key=${key}&view=pimm-collection-preview&view=other`, true],
+    [`/other/products_preview?preview_key=${key}&view=pimm-collection-preview`, true],
+  ]) {
+    const { Controller } = await loadController({ pageUrl: `https://shop.maliev.com${path}` });
+    const { comparison, cards, desktopDossier } = createComparison(Controller);
+    comparison.dataset.previewNavigation = String(enabled);
+    comparison.connectedCallback();
+    comparison.commitModel('50G');
+    assert.equal(cards[0].querySelector('.pimm-collection__card-actions a').href, '/products/pimm?variant=30');
+    assert.equal(desktopDossier.querySelector('[data-pimm-dossier-configure]').href, '/products/pimm?variant=50');
+  }
+  const { Controller } = await loadController({ pageUrl: `https://shop.maliev.com/products_preview?preview_key=${key}&view=pimm-collection-preview` });
+  const { comparison, cards } = createComparison(Controller, {
+    payload: JSON.stringify([{ ...records[0], url: 'https://evil.example/products/pimm?variant=30' }, records[1]]),
+  });
+  comparison.dataset.previewNavigation = 'true';
+  comparison.connectedCallback();
+  assert.equal(comparison.committedModel, undefined);
+  assert.equal(cards[0].querySelector('.pimm-collection__card-actions a').href, '/products/pimm?variant=30');
+});
+
+test('configurator view is the only optional trusted product query and must match the server route', async () => {
+  const { Controller } = await loadController();
+  for (const view of ['pimm-configurator', 'other', '', 'pimm-configurator&view=pimm-configurator']) {
+    const { comparison, inlineDossiers } = createComparison(Controller, {
+      payload: JSON.stringify(records.map(record => ({ ...record, url: `${record.url}&view=${view}` }))),
+    });
+    for (const dossier of inlineDossiers) {
+      const anchor = dossier.querySelector('[data-pimm-dossier-configure]');
+      anchor.href += `&view=${view}`;
+      anchor.setAttribute('href', anchor.href);
+    }
+    comparison.connectedCallback();
+    assert.equal(comparison.committedModel, view === 'pimm-configurator' ? '30G' : undefined);
+  }
+  const { comparison } = createComparison(Controller, {
+    payload: JSON.stringify(records.map(record => ({ ...record, url: `${record.url}&view=pimm-configurator` }))),
+  });
+  comparison.connectedCallback();
+  assert.equal(comparison.committedModel, undefined);
+});
+
 test('reconnect restores the 30G fallback before rejecting a newly invalid payload', async () => {
   const { Controller } = await loadController();
   const { comparison, cards, payloadNode } = createComparison(Controller);

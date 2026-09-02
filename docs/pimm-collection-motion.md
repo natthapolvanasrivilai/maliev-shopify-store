@@ -197,3 +197,49 @@ commerce-selection, no-JavaScript, localization and destination checks pass.
 Screenshots in `.codex-tmp/pimm-cta-color-audit` were visually reviewed.
 `git diff --check` passed. Impeccable's detector reported only the pre-existing
 `PIMM Chakra Petch` font alias absent from DESIGN.md; typography was left unchanged.
+
+## Collection-to-configurator navigation — 2026-09-02
+
+The collection previously emitted the development product's plain public URL.
+That discarded both the draft preview access key and the `pimm-configurator`
+template selection. The reported destination was a 404; the authenticated local
+reproduction instead showed Shopify's generic product template and deposit price.
+Neither was the intended machine configurator.
+
+Server-rendered card, inline-dossier and desktop-dossier URLs now explicitly use
+`view=pimm-configurator` with the governed model variant. The matching JSON payload
+uses that same route. Client validation permits only that optional view value,
+requires it to match the trusted server link, and retains same-origin, product-path,
+positive-variant and duplicate/unknown-query rejection.
+
+On the dedicated product-preview collection only, the validated controller builds
+actual anchor hrefs from the current localized `products_preview` path, its single
+opaque preview key, the configurator view and the selected model ID. The server
+must first confirm that the preview product matches the collection's product.
+The key is read at runtime, never committed, never added to public product URLs,
+and never copied to support/external links. Unrelated query parameters and hashes
+are discarded. Original hrefs are restored before disconnect/reconnect validation.
+Normal published-product fallback links remain server-rendered and need no JS;
+draft-preview key preservation requires JavaScript because Liquid does not expose
+arbitrary request query parameters. This change does not publish the draft, assign
+product/collection templates in Admin, change redirects or deploy the live theme.
+
+Validation: `npm run verify` passed 81 tests, with zero Theme Check errors and the
+same three existing dependency-template warnings. New executable Liquid and
+controller cases cover explicit configurator URLs, both models, locale preservation,
+preview guards, malformed/duplicate keys, untrusted payloads, query agreement and
+reconnection. The Shopify skill's separate validator could not start because its
+installed package lacks `@shopify/theme-check-common`; the repository validator ran
+successfully instead. The collection/configurator runtime boundary is additionally
+covered by actual browser clicks and Back navigation, not just href inspection.
+
+Final browser acceptance passed: one acceptance test, one intentional no-URL
+sentinel skip, zero navigation retries. It includes the ten-size English/Thai
+layout matrix, eight actual collection-to-configurator clicks (30G/50G × EN/TH ×
+desktop card/mobile inline dossier), correct destination model and locale, all
+five machine-link hrefs, and browser Back restoring the enhanced collection.
+The destination readiness gate checks the initialized, contract-valid configurator
+and selected radio/media model rather than waiting for unrelated third-party
+resources to finish the document load. The in-app browser also verified the
+desktop detail CTA, mobile 50G CTA and in-configurator model switching preserving
+the preview key. `node --check` and `git diff --check` passed.

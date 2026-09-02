@@ -29,6 +29,7 @@
       this.records = records;
       this.recordByModel = new Map(records.map((record) => [record.model, record]));
       this.presentations = presentations;
+      this.bindNavigation();
       this.committedModel = '30G';
       this.applyModel('30G', false);
       this.setEnhancedState(true);
@@ -76,6 +77,7 @@
         if (!this.isSafeHttpUrl(url)
           || url.origin !== trustedRoute.origin
           || this.normalizePath(url.pathname) !== trustedRoute.pathname
+          || (url.searchParams.get('view') || '') !== trustedRoute.view
           || !this.hasExactVariantQuery(url, record.id)) return false;
 
         const specifications = record.specifications;
@@ -158,6 +160,7 @@
         origin: url.origin,
         pathname: this.normalizePath(url.pathname),
         variantId: Number(url.searchParams.get('variant')),
+        view: url.searchParams.get('view') || '',
       };
     }
 
@@ -170,14 +173,55 @@
 
     hasExactVariantQuery(url, expectedId = null) {
       const entries = [...url.searchParams.entries()];
-      if (entries.length !== 1 || entries[0][0] !== 'variant') return false;
-      const variantId = Number(entries[0][1]);
+      if (url.searchParams.getAll('variant').length !== 1
+        || entries.some(([key]) => key !== 'variant' && key !== 'view')
+        || url.searchParams.getAll('view').length > 1
+        || (url.searchParams.has('view') && url.searchParams.get('view') !== 'pimm-configurator')) return false;
+      const variantId = Number(url.searchParams.get('variant'));
       if (!Number.isSafeInteger(variantId) || variantId <= 0) return false;
       return expectedId === null || variantId === expectedId;
     }
 
     normalizePath(pathname) {
       return pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
+    }
+
+    navigationHref(route) {
+      const current = new URL(window.location.href);
+      current.hash = '';
+      const keys = current.searchParams.getAll('preview_key');
+      if (this.dataset.previewNavigation !== 'true'
+        || !this.isSafeHttpUrl(current)
+        || !/^\/(?:[a-z]{2}(?:-[a-z0-9]{2,8})?\/)?products_preview\/?$/i.test(current.pathname)
+        || current.searchParams.getAll('view').length !== 1
+        || current.searchParams.get('view') !== 'pimm-collection-preview'
+        || keys.length !== 1 || !/^[a-z0-9_-]{16,128}$/i.test(keys[0])) return route.href;
+
+      const target = new URL(current.pathname, current.origin);
+      target.searchParams.set('preview_key', keys[0]);
+      target.searchParams.set('view', 'pimm-configurator');
+      target.searchParams.set('variant', String(route.variantId));
+      return target.pathname + target.search;
+    }
+
+    setNavigationHref(anchor, route) {
+      if (!anchor) return;
+      this.originalNavigation ??= new Map();
+      if (!this.originalNavigation.has(anchor)) {
+        this.originalNavigation.set(anchor, anchor.getAttribute('href') || anchor.href);
+      }
+      anchor.href = this.navigationHref(route);
+    }
+
+    bindNavigation() {
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        const route = this.presentations.get(card.dataset.model)?.trustedRoute;
+        if (route) this.setNavigationHref(card.querySelector('.pimm-collection__card-actions a'), route);
+      }
+      for (const dossier of this.querySelectorAll('[data-pimm-collection-inline-dossier]')) {
+        const route = this.presentations.get(dossier.dataset.model)?.trustedRoute;
+        if (route) this.setNavigationHref(dossier.querySelector('[data-pimm-dossier-configure]'), route);
+      }
     }
 
     bindCards() {
@@ -253,6 +297,8 @@
         }
       }
       this.setEnhancedState(false);
+      for (const [anchor, href] of this.originalNavigation ?? []) anchor.href = href;
+      this.originalNavigation?.clear();
     }
 
     commitModel(model, announce = true) {
@@ -321,7 +367,7 @@
 
       const configure = dossier.querySelector('[data-pimm-dossier-configure]');
       if (configure) {
-        configure.href = presentation.trustedRoute.href;
+        this.setNavigationHref(configure, presentation.trustedRoute);
         configure.textContent = presentation.configure;
       }
     }

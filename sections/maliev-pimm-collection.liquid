@@ -70,11 +70,13 @@
     echo pimm_product.url
     echo '?variant='
     echo model_30g.id
+    echo '&view=pimm-configurator'
   endcapture
   capture model_50g_url
     echo pimm_product.url
     echo '?variant='
     echo model_50g.id
+    echo '&view=pimm-configurator'
   endcapture
 
   capture model_30g_lead_time
@@ -105,6 +107,7 @@
   data-pimm-collection-comparison
   data-section-id="{{ section.id }}"
   data-contract-valid="{{ contract_valid }}"
+  data-preview-navigation="{% if request.path contains '/products_preview' and template.suffix == 'pimm-collection-preview' and pimm_product.id == product.id %}true{% else %}false{% endif %}"
   data-available-label="{{ 'products.pimm_machine.status.made_to_order' | t | escape }}"
   data-unavailable-label="{{ 'products.pimm_machine.status.out_of_stock' | t | escape }}"
 >
@@ -355,7 +358,7 @@
               assign variant_specifications = variant.metafields.custom.pimm_specifications.value
               assign variant_full_price = variant.metafields.custom.full_machine_price.value
               assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
-              assign variant_url = pimm_product.url | append: '?variant=' | append: variant.id
+              assign variant_url = pimm_product.url | append: '?variant=' | append: variant.id | append: '&view=pimm-configurator'
               capture variant_lead_time
                 echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
               endcapture

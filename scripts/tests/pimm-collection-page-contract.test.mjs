@@ -105,6 +105,7 @@ const specificationsFor = (model) => ({
 });
 
 const productFixture = () => ({
+  id: 123,
   handle: 'pimm-pneumatic-injection-molding-machine-development',
   url: '/products/pimm',
   options: ['Model'],
@@ -294,8 +295,27 @@ test('server fallback keeps cards out of the tab order and compare controls unav
   for (const [index, card] of cards.entries()) {
     const expectedVariant = 300 + index;
     assert.doesNotMatch(card.match(/<article\b[\s\S]*?>/)?.[0] ?? '', /\btabindex=/);
-    assert.match(card, new RegExp(`<a href="/products/pimm\\?variant=${expectedVariant}">`));
+    assert.match(card, new RegExp(`<a href="/products/pimm\\?variant=${expectedVariant}&amp;view=pimm-configurator">`));
     assert.match(card, /<button\b[^>]*data-pimm-collection-select[^>]*\bhidden\b[^>]*\bdisabled\b/);
+  }
+});
+
+test('server navigation selects the configurator and grants preview routing only for the same product', async () => {
+  const { renderPimmCollectionSection, readModelRecords } = await loadLiquidHarness();
+  const product = productFixture();
+  const context = { product, path: '/th/products_preview', pageType: 'product', templateSuffix: 'pimm-collection-preview' };
+  const output = await renderPimmCollectionSection(product, context);
+  assert.match(output, /data-preview-navigation="true"/);
+  assert.deepEqual(readModelRecords(output).map(record => record.url), [
+    '/products/pimm?variant=300&view=pimm-configurator',
+    '/products/pimm?variant=301&view=pimm-configurator',
+  ]);
+  for (const patch of [
+    { path: '/collections/pimm' },
+    { templateSuffix: 'something-else' },
+    { product: { ...product, id: 456 } },
+  ]) {
+    assert.match(await renderPimmCollectionSection(product, { ...context, ...patch }), /data-preview-navigation="false"/);
   }
 });
 

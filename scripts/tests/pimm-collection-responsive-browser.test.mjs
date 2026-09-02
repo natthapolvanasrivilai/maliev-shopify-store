@@ -965,6 +965,59 @@ async function interactionProbe(session, language) {
   assert.equal(committed.transformed, false, `${language} playback image transform`);
 }
 
+async function machineNavigationProbe(session, diagnostics, language, url) {
+  for (const [width, height, source] of [[1280, 800, 'card'], [390, 844, 'dossier']]) {
+    await setViewport(session, width, height);
+    await navigate(session, url, diagnostics);
+    await suppressCookieConsent(session);
+    for (const [model, variant] of [['30G', '54823758627095'], ['50G', '54823758659863']]) {
+      const selector = source === 'card'
+        ? `[data-pimm-collection-card][data-model="${model}"] .pimm-collection__card-actions a`
+        : `[data-pimm-collection-inline-dossier][data-model="${model}"] [data-pimm-dossier-configure]`;
+      await evaluate(session, `document.querySelector('[data-pimm-collection-comparison]').commitModel(${JSON.stringify(model)})`);
+      const links = await evaluate(session, `(() => [...document.querySelectorAll('.pimm-collection__card-actions a, [data-pimm-dossier-configure]')].map(a => {
+        const target = new URL(a.href);
+        return { path: target.pathname, view: target.searchParams.get('view'), keyMatches: target.searchParams.get('preview_key') === new URL(location.href).searchParams.get('preview_key') };
+      }))()`);
+      assert.ok(links.every(link => link.path === new URL(url).pathname && link.view === 'pimm-configurator' && link.keyMatches), `${language} every card/dossier route preserves preview`);
+      const history = await session.send('Page.getNavigationHistory');
+      const entryId = history.entries[history.currentIndex].id;
+      await evaluate(session, `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block: 'center', behavior: 'instant'})`);
+      const point = await eventually(() => evaluate(session, `(() => {
+        const anchor = document.querySelector(${JSON.stringify(selector)});
+        const r = anchor.getBoundingClientRect();
+        const point = {x:r.x+r.width/2, y:r.y+r.height/2};
+        return anchor.contains(document.elementFromPoint(point.x, point.y)) ? point : false;
+      })()`), { message: `${language} ${source} ${model} CTA is unobstructed before clicking` });
+      await diagnostics.assertClean(`${language} ${source} ${model} collection before click`);
+      diagnostics.begin(await evaluate(session, `document.querySelector(${JSON.stringify(selector)}).href`));
+      await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+      await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', clickCount: 1, ...point });
+      await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', clickCount: 1, ...point });
+      await eventually(() => evaluate(session, `(() => {
+        const root = document.querySelector('pimm-machine-product');
+        return root?.payloadContractValid
+          && root.selectedMediaModel === ${JSON.stringify(model)}
+          && document.querySelector('[data-pimm-model-radio]:checked')?.value === ${JSON.stringify(variant)};
+      })()`), { message: `${language} ${source} ${model} opens the working configurator` }).catch(async error => {
+        const state = await evaluate(session, `({readyState:document.readyState, valid:document.querySelector('pimm-machine-product')?.payloadContractValid, path:location.pathname, view:new URL(location.href).searchParams.get('view'), variant:new URL(location.href).searchParams.get('variant'), checked:document.querySelector('[data-pimm-model-radio]:checked')?.value, model:document.querySelector('pimm-machine-product')?.selectedMediaModel})`);
+        throw new Error(`${error.message}; destination state: ${JSON.stringify(state)}`, { cause: error });
+      });
+      await assertNoStorefrontFailureSurface(session, `${language} ${source} ${model} destination`);
+      const destination = await evaluate(session, `({pathname:location.pathname, variant:new URL(location.href).searchParams.get('variant'), view:new URL(location.href).searchParams.get('view'), language:document.documentElement.lang})`);
+      assert.equal(destination.pathname, new URL(url).pathname);
+      assert.equal(destination.variant, variant);
+      assert.equal(destination.view, 'pimm-configurator');
+      assert.ok(destination.language.startsWith(language));
+      await diagnostics.assertClean(`${language} ${source} ${model} destination`);
+      diagnostics.begin(url);
+      await session.send('Page.navigateToHistoryEntry', { entryId });
+      await eventually(() => evaluate(session, `document.readyState === 'complete' && new URL(location.href).searchParams.get('view') === 'pimm-collection-preview' && !!document.querySelector('[data-pimm-collection-comparison]')?.recordByModel`), { message: 'Browser back restores the enhanced comparison' });
+      await diagnostics.assertClean(`${language} browser back`);
+    }
+  }
+}
+
 async function ctaColorProbe(session, language) {
   const selector = '.pimm-collection__card-actions :is(a, button), .pimm-collection__dossier-actions a';
   const snapshot = (index) => `(() => {
@@ -1274,6 +1327,8 @@ test('dedicated PIMM collection passes responsive, interaction, and localization
       await diagnostics.assertClean(`${language} desktop interaction and header`);
     }
 
+    await machineNavigationProbe(session, diagnostics, 'en', previewUrl);
+    await machineNavigationProbe(session, diagnostics, 'th', thaiUrlFrom(previewUrl));
     await noJavaScriptFallbackProbe(session, diagnostics, 'en', previewUrl);
     await noJavaScriptFallbackProbe(session, diagnostics, 'th', thaiUrlFrom(previewUrl));
 
