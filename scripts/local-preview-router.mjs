@@ -26,7 +26,7 @@ export function previewDestination(path, key) {
     ? requestedVariant : models[handles[product] ?? '30G'];
   const query = new URLSearchParams({
     preview_key: key,
-    view: isCollection ? 'pimm-collection-preview' : 'pimm-configurator',
+    view: isCollection ? 'pimm-collection-preview' : variant === models['50G'] ? 'pimm-50g' : 'pimm-configurator',
     variant,
   });
   return `${locale}/products_preview?${query}`;

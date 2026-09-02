@@ -16,6 +16,7 @@
       }
 
       this.payloadContractValid = this.hasExactPayloadContract(this.variants);
+      this.pageModel = this.dataset.pageModel;
       this.decodedHeroModels = new Set();
       this.mediaTransitionToken = 0;
       this.mediaTransitionFrame = 0;
@@ -31,6 +32,10 @@
 
       this.initializePrecisionReveal();
       if (!this.payloadContractValid) this.failClosed();
+      else if (this.pageModel === '30G' || this.pageModel === '50G') {
+        const pageVariant = this.variants.find((variant) => variant.model === this.pageModel);
+        this.selectVariant(pageVariant.id);
+      }
     }
 
     disconnectedCallback() {
@@ -145,6 +150,7 @@
 
     selectVariant(variantId) {
       const variant = this.variants.find((candidate) => candidate.id === variantId);
+      if (variant && (this.pageModel === '30G' || this.pageModel === '50G') && variant.model !== this.pageModel) return;
       if (!variant) {
         this.failClosed();
         return;

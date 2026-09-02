@@ -17,12 +17,14 @@
 <header class="pimm-machine__hero" data-pimm-hero>
   <div class="pimm-machine__decision">
     <div class="pimm-machine__introduction">
-      <h1 class="pimm-machine__title">{{ display_product_title | escape }}</h1>
+      <h1 class="pimm-machine__title">{% if section.settings.page_model == '30G' or section.settings.page_model == '50G' %}PIMM {{ selected_model_code | escape }}{% else %}{{ display_product_title | escape }}{% endif %}</h1>
       <p class="pimm-machine__promise">{{ 'products.pimm_machine.hero.promise' | t }}</p>
-      <p class="pimm-machine__fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
+      <p class="pimm-machine__fit">{% if section.settings.page_model == '30G' %}{{ 'products.pimm_collection.models.30g.choose_this' | t }}{% elsif section.settings.page_model == '50G' %}{{ 'products.pimm_collection.models.50g.choose_this' | t }}{% else %}{{ 'products.pimm_machine.hero.fit_statement' | t }}{% endif %}</p>
     </div>
 
-    {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
+    {% unless section.settings.page_model == '30G' or section.settings.page_model == '50G' %}
+      {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
+    {% endunless %}
 
     <div class="pimm-machine__actions">
       <a class="button button--primary" href="{{ factory_visit_url }}">{{ 'products.pimm_machine.purchase.book_visit' | t }}</a>
@@ -31,6 +33,7 @@
   </div>
 
   <figure class="pimm-machine__hero-stage">
+    {% unless section.settings.page_model == '50G' %}
     <div
       class="pimm-machine__hero-media pimm-machine__hero-media--30g"
       data-pimm-media-model="30G"
@@ -49,6 +52,8 @@
           {% if selected_model_code == '30G' %}fetchpriority="high"{% endif %}
         >
     </div>
+    {% endunless %}
+    {% unless section.settings.page_model == '30G' %}
     <div
       class="pimm-machine__hero-media pimm-machine__hero-media--50g"
       data-pimm-media-model="50G"
@@ -67,6 +72,7 @@
         {% if selected_model_code == '50G' %}fetchpriority="high"{% endif %}
       >
     </div>
+    {% endunless %}
   </figure>
 
   <aside class="pimm-machine__specifications" aria-labelledby="PimmMachineEvidence-{{ section.id }}">

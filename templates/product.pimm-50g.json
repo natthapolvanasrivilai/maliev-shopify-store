@@ -27,7 +27,7 @@
       },
       "block_order": ["model_30g", "model_50g"],
       "settings": {
-        "page_model": "30G",
+        "page_model": "50G",
         "factory_visit_url": "",
         "document_url": "",
         "support_url": ""

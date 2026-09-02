@@ -13,6 +13,19 @@ const expectedMedia = ['30g', '50g'].flatMap((model) => roles.flatMap((role) => 
 ]));
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 
+test('dedicated product templates lock model identity independently of query selection', async () => {
+  for (const [view, model] of [['pimm-configurator', '30G'], ['pimm-50g', '50G']]) {
+    const source = await readFile(new URL(`templates/product.${view}.json`, rootUrl), 'utf8');
+    const template = JSON.parse(source.replace(/\/\*[\s\S]*?\*\//g, ''));
+    assert.equal(template.sections.main.settings.page_model, model);
+  }
+  const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');
+  assert.match(section, /assign selected_variant = product\.variants \| where: 'option1', page_model \| first/);
+  const hero = await readFile(new URL('snippets/pimm-hero-console.liquid', rootUrl), 'utf8');
+  assert.match(hero, /unless section.settings.page_model == '30G' or section.settings.page_model == '50G'/);
+  assert.match(hero, /PIMM {{ selected_model_code \| escape }}/);
+});
+
 test('master-derived release is the only PIMM media family in theme assets', async () => {
   const names = await readdir(assetsUrl);
   const pimmMedia = names.filter((name) =>

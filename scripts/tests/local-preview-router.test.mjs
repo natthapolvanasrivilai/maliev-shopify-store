@@ -11,11 +11,11 @@ const cases = [
   [encodeURI(collection), '', 'pimm-collection-preview', '54823758627095'],
   [`/th${encodeURI(collection)}`, '/th', 'pimm-collection-preview', '54823758627095'],
   ['/en/products/pneumatic-injection-molding-machine', '/en', 'pimm-configurator', '54823758627095'],
-  ['/products/pneumatic-injection-molding-machine-50g', '', 'pimm-configurator', '54823758659863'],
-  ['/th/products/pneumatic-injection-molding-machine-50g?variant=53037201096983', '/th', 'pimm-configurator', '54823758659863'],
+  ['/products/pneumatic-injection-molding-machine-50g', '', 'pimm-50g', '54823758659863'],
+  ['/th/products/pneumatic-injection-molding-machine-50g?variant=53037201096983', '/th', 'pimm-50g', '54823758659863'],
   ['/products/pneumatic-injection-molding-machine?variant=50038784229655', '', 'pimm-configurator', '54823758627095'],
-  ['/products/pimm-pneumatic-injection-molding-machine-development?variant=54823758659863', '', 'pimm-configurator', '54823758659863'],
-  [`${collection}/products/pneumatic-injection-molding-machine-50g`, '', 'pimm-configurator', '54823758659863'],
+  ['/products/pimm-pneumatic-injection-molding-machine-development?variant=54823758659863', '', 'pimm-50g', '54823758659863'],
+  [`${collection}/products/pneumatic-injection-molding-machine-50g`, '', 'pimm-50g', '54823758659863'],
 ];
 for (const [path, locale, view, variant] of cases) {
   test(`normal route selects correct preview: ${path}`, () => {
@@ -122,7 +122,7 @@ test('live local entry routes render new pages in both languages', {
     for (const [route, marker, view, variant] of [
       [encodeURI(collection), 'data-pimm-collection-comparison', 'pimm-collection-preview', '54823758627095'],
       ['/products/pneumatic-injection-molding-machine', 'data-pimm-machine-product', 'pimm-configurator', '54823758627095'],
-      ['/products/pneumatic-injection-molding-machine-50g', 'data-pimm-machine-product', 'pimm-configurator', '54823758659863'],
+      ['/products/pneumatic-injection-molding-machine-50g', 'data-pimm-machine-product', 'pimm-50g', '54823758659863'],
     ]) {
       const response = await fetch(`http://127.0.0.1:9494${locale}${route}`);
       assert.equal(response.status, 200);
