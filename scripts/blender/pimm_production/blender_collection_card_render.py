@@ -35,6 +35,18 @@ MASTER_HASHES = {
 RENDER_SIDECAR_SCHEMA = "maliev.pimm-collection-card-render/v1"
 MOTION_RELEASE = "maliev-pimm-collection-motion-20260902-r02"
 MOTION_DIMENSIONS = (1440, 1920)
+LIGHTING_RELEASE = 'maliev-pimm-collection-lighting-20260902-r01'
+
+
+def lighting_levels() -> list[dict[str, float]]:
+    """Half a second at 24fps: dim real emitters, retaining a soft reflection edge."""
+    targets = {'KEY_SOFTBOX': .06, 'FILL_SOFTBOX': .04, 'OVERHEAD_SCRIM': .08,
+               'BACKGROUND_WASH': .035, 'REFLECTION_CARD_LEFT': .16,
+               'REFLECTION_CARD_RIGHT': .10, 'REFLECTION_WALL_CAMERA': .04,
+               'PIMM_HDRI_LIGHTING': .025, 'PIMM_WHITE_CYCLORAMA': .03,
+               'PIMM_WHITE_CAMERA_BACKGROUND': .03}
+    return [{name: 1 + (target - 1) * ((i / 11) ** 2 * (3 - 2 * i / 11))
+             for name, target in targets.items()} for i in range(12)]
 
 
 def motion_angles() -> list[float]:
@@ -84,6 +96,8 @@ def _arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--samples", type=int, required=True)
     parser.add_argument("--scale", type=float, default=1.0)
     parser.add_argument("--motion", action="store_true")
+    parser.add_argument("--lighting", action="store_true")
+    parser.add_argument("--proof", action="store_true")
     arguments = parser.parse_args(argv)
     if arguments.samples < 1:
         parser.error("--samples must be at least 1")
@@ -182,6 +196,8 @@ def render(bpy: Any, arguments: argparse.Namespace) -> dict[str, object]:
     storefront._install_studio(bpy, runtime, bounds_min, bounds_max)
     _collection_camera(bpy, runtime, bounds_min, bounds_max, arguments.scale)
     stage = _collection_stage(bpy, runtime, meshes, center)
+    if getattr(arguments, 'lighting', False):
+        return render_lighting(bpy, arguments, stage, provenance, output_dir)
     if getattr(arguments, "motion", False):
         return render_motion(bpy, arguments, stage, provenance, output_dir)
     outputs = []
@@ -243,6 +259,55 @@ def render_motion(bpy: Any, arguments: argparse.Namespace, stage: Any,
               "samples": arguments.samples,
               "provenance": provenance, "frames": frames}
     sidecar.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    return result
+
+
+def render_lighting(bpy: Any, arguments: argparse.Namespace, stage: Any,
+                    provenance: dict, output_dir: Path) -> dict:
+    prefix = f'{LIGHTING_RELEASE}-{arguments.machine.lower()}'
+    if any(output_dir.glob(f'{prefix}*')):
+        raise FileExistsError(f'refusing to overwrite lighting release: {prefix}')
+    _configure_collection_render(bpy, arguments.samples, output_dir / prefix)
+    scene = bpy.context.scene
+    scene.render.resolution_x, scene.render.resolution_y = MOTION_DIMENSIONS
+    scene.camera.data.dof.use_dof = False
+    stage.rotation_euler[2] = 0
+    scene.render.fps = 24
+    if arguments.proof:
+        scene.render.resolution_percentage = 50
+    levels = lighting_levels()
+    setters = {}
+    for name in levels[0]:
+        if name in ('PIMM_HDRI_LIGHTING', 'PIMM_WHITE_CAMERA_BACKGROUND'):
+            socket = scene.world.node_tree.nodes[name].inputs['Strength']
+            setters[name] = (socket, 'default_value', socket.default_value)
+        elif name.startswith('REFLECTION_') or name == 'PIMM_WHITE_CYCLORAMA':
+            material = bpy.data.objects[name].data.materials[0]
+            emitter = next(n for n in material.node_tree.nodes if n.type == 'EMISSION')
+            socket = emitter.inputs['Strength']
+            setters[name] = (socket, 'default_value', socket.default_value)
+        else:
+            light = bpy.data.objects[name].data
+            setters[name] = (light, 'energy', light.energy)
+    frames = []
+    for index in ([0, 11] if arguments.proof else range(12)):
+        for name, multiplier in levels[index].items():
+            target, attribute, initial = setters[name]
+            setattr(target, attribute, initial * multiplier)
+        bpy.context.view_layer.update()
+        output = output_dir / f'{prefix}-{index:03d}.png'
+        scene.render.filepath = str(output)
+        bpy.ops.render.render(write_still=True)
+        frames.append({'index': index, 'filename': output.name,
+                       'sha256': storefront.sha256_file(output), 'emitters': levels[index]})
+        print(f'PIMM_LIGHTING_FRAME {arguments.machine} {index + 1}/12', flush=True)
+    result = {'release_id': LIGHTING_RELEASE, 'machine': arguments.machine,
+              'fps': 24, 'frame_count': len(frames), 'width': scene.render.resolution_x,
+              'height': scene.render.resolution_y, 'resolution_percentage': scene.render.resolution_percentage,
+              'samples': arguments.samples, 'camera_scale': arguments.scale,
+              'exposure': scene.view_settings.exposure, 'provenance': provenance,
+              'frames': frames, 'proof': arguments.proof}
+    (output_dir / f'{prefix}.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     return result
 
 

@@ -170,3 +170,37 @@ test('collection release filenames do not collide with other PIMM manifests', as
     );
   }
 });
+
+test('native studio lighting is twelve high-resolution Cycles frames with reversible playback', async () => {
+  const release = 'maliev-pimm-collection-lighting-20260902-r01';
+  const manifest = JSON.parse(await readFile(new URL(`${release}-assets.v1.json`, assetsUrl), 'utf8'));
+  assert.match(manifest.lighting_source, /Native Blender Cycles emitter powers; fixed exposure/);
+  assert.deepEqual(manifest.assets.map(asset => asset.machine), ['30G', '50G']);
+  for (const asset of manifest.assets) {
+    assert.equal(asset.proof, false);
+    assert.equal(asset.resolution_percentage, 100);
+    assert.equal(asset.frame_count, 12);
+    assert.equal(asset.fps, 24);
+    assert.equal(asset.samples, 128);
+    assert.ok(Math.abs(asset.exposure + .15) < .000001);
+    assert.equal(asset.frames.length, 12);
+    assert.ok(Object.values(asset.frames[0].emitters).every(value => value === 1));
+    for (const [index, frame] of asset.frames.entries()) {
+      assert.equal(frame.index, index);
+      assert.match(frame.sha256, /^[A-F0-9]{64}$/);
+      if (index) for (const name of Object.keys(frame.emitters)) {
+        assert.ok(frame.emitters[name] < asset.frames[index - 1].emitters[name]);
+      }
+    }
+    for (const direction of ['down', 'up']) {
+      const clip = asset[direction];
+      assert.deepEqual([clip.width, clip.height, clip.nb_frames, clip.r_frame_rate, clip.duration],
+        [1440, 1920, '12', '24/1', '0.500000']);
+      assert.equal(sha256(await readFile(new URL(clip.filename, assetsUrl))), clip.sha256);
+    }
+    const bytes = await readFile(new URL(asset.dim.filename, assetsUrl));
+    assert.equal(sha256(bytes), asset.dim.sha256);
+    const metadata = webpMetadata(bytes);
+    assert.deepEqual([metadata.width, metadata.height], [1440, 1920]);
+  }
+});
