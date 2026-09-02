@@ -34,7 +34,7 @@ test('gallery is dedicated to 30G and sits between ownership and demo booking', 
   for (const type of ['gallery_image', 'gallery_video']) assert.ok(schema.blocks.some(block => block.type === type));
 });
 
-test('approved five editable items preserve original video destinations and images', async () => {
+test('default gallery contains only three real videos and preserves their destinations', async () => {
   const template = parse(await read('templates/product.pimm-configurator.json')).sections.main;
   const blocks = template.block_order.map(id => {
     const block = structuredClone(template.blocks[id]);
@@ -42,13 +42,27 @@ test('approved five editable items preserve original video destinations and imag
     return block;
   });
   const output = await render(blocks);
-  assert.equal((output.match(/data-gallery-item /g) ?? []).length, 5);
+  assert.equal((output.match(/data-gallery-item /g) ?? []).length, 3);
   assert.equal((output.match(/data-gallery-preview /g) ?? []).length, 3);
   assert.doesNotMatch(output, /<iframe|MISSING:/);
   for (const id of ['SlCkqUcpZ_Y', 'PHqab73X5C0', 'zoRajgCbsko']) assert.ok(output.includes(`watch?v=${id}`));
   assert.match(output, /data-src="\/assets\/pimm-gallery-20260903-demonstration.mp4"/);
   assert.doesNotMatch(output, /<video[^>]*\ssrc=/);
-  assert.match(output, /pimm-master-20260901-r05-30g-tooling.webp/);
+  assert.doesNotMatch(output, /pimm-master-|data-kind="image"/);
+});
+
+test('merchant photo blocks require an uploaded photo and never insert render fallbacks', async () => {
+  assert.equal((await render([{ type: 'gallery_image', settings: { default_image: 'controls' } }])).trim(), '');
+  const output = await render([{ type: 'gallery_image', settings: { image: { url: 'https://cdn.test/real-photo.jpg' }, title: 'Workshop photo' } }]);
+  assert.match(output, /data-kind="image"/);
+  assert.match(output, /href="https:\/\/cdn.test\/real-photo.jpg"/);
+  assert.match(output, /Workshop photo/);
+  assert.doesNotMatch(output, /pimm-master-|data-gallery-preview/);
+  const section = await read('sections/maliev-pimm-machine-product.liquid');
+  const schema = JSON.parse(section.match(/{% schema %}([\s\S]*?){% endschema %}/)[1]);
+  const settings = schema.blocks.find(block => block.type === 'gallery_image').settings;
+  assert.ok(settings.some(setting => setting.type === 'image_picker'));
+  assert.ok(!settings.some(setting => setting.id === 'default_image'));
 });
 
 test('empty blocks are omitted outside editor, and all gallery UI has Thai parity', async () => {

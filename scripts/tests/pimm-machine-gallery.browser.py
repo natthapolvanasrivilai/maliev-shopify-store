@@ -11,7 +11,8 @@ def open_page(browser, language='en', width=1440, **options):
     context = browser.new_context(viewport={'width': width, 'height': 1000 if width > 699 else 844}, **options)
     page = context.new_page()
     prefix = '/th' if language == 'th' else ''
-    page.goto(f'{BASE}{prefix}/products/pneumatic-injection-molding-machine', wait_until='domcontentloaded')
+    response = page.goto(f'{BASE}{prefix}/products/pneumatic-injection-molding-machine', wait_until='domcontentloaded')
+    assert response and response.status == 200, f'Preview response {response.status if response else "missing"}: {language} {width}'
     page.wait_for_function("Boolean(customElements.get('pimm-machine-gallery'))")
     for name in ['Decline', 'ปฏิเสธ']:
         button = page.get_by_role('button', name=name, exact=True)
@@ -29,7 +30,8 @@ def run():
     with sync_playwright() as p:
         browser = p.chromium.launch()
         context, page = open_page(browser)
-        assert page.locator('[data-gallery-item]').count() == 5
+        assert page.locator('[data-gallery-item]').count() == 3
+        assert page.locator('[data-gallery-item][data-kind="image"]').count() == 0
         assert page.locator('[data-gallery-preview]').count() == 3
         assert page.locator('[data-gallery-preview][src]').count() == 0, 'Offscreen previews must not load'
         assert page.locator('.pimm-gallery iframe').count() == 0
@@ -67,8 +69,7 @@ def run():
             page.locator('[data-gallery-next]').click()
             assert expected in page.locator('.pimm-gallery iframe').get_attribute('src')
         page.locator('[data-gallery-next]').click()
-        assert page.locator('.pimm-gallery iframe').count() == 0
-        page.locator('[data-gallery-stage] img').wait_for()
+        assert 'SlCkqUcpZ_Y' in page.locator('.pimm-gallery iframe').get_attribute('src')
         page.locator('[data-gallery-close]').focus()
         page.keyboard.press('Shift+Tab')
         assert page.evaluate("document.activeElement.closest('dialog') !== null"), 'Dialog focus trap'
@@ -80,10 +81,11 @@ def run():
         page.wait_for_timeout(400)
         assert page.locator('[data-gallery-preview]').evaluate_all('(vs) => vs.every(v => v.paused)')
         context.close()
-        print('PASS: lazy native autoplay, six-second loop, pause/resume, full videos, image viewer, Escape, focus and offscreen pause')
+        print('PASS: video-only defaults, lazy autoplay, six-second loop, pause/resume, full videos, wraparound, Escape, focus and offscreen pause')
 
         for language in ['en', 'th']:
             for width in [320, 390, 768, 1440]:
+                print(f'Checking {language} at {width}px')
                 context, page = open_page(browser, language, width)
                 reveal(page)
                 page.wait_for_timeout(700)
@@ -93,7 +95,7 @@ def run():
                 assert page.locator('[data-gallery-item]').evaluate_all('(items) => items.every(i => { const a=i.querySelector(".pimm-gallery__media").getBoundingClientRect(), b=i.querySelector(".pimm-gallery__caption").getBoundingClientRect(); return a.bottom <= b.top + 1; })')
                 if width in [390, 1440]:
                     page.locator('pimm-machine-gallery').screenshot(path=str(OUT / f'gallery-{language}-{width}.png'))
-                page.locator('[data-gallery-open]').nth(3).click()
+                page.locator('[data-gallery-open]').first.click()
                 assert page.locator('dialog.pimm-gallery__viewer').evaluate('(d) => { const r=d.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }')
                 page.locator('[data-gallery-close]').click()
                 context.close()
@@ -104,7 +106,7 @@ def run():
         page.wait_for_timeout(800)
         assert page.locator('[data-gallery-preview][src]').count() == 0
         assert page.locator('[data-gallery-pause]').is_hidden()
-        page.locator('[data-gallery-open]').nth(3).click()
+        page.locator('[data-gallery-open]').first.click()
         assert page.locator('dialog.pimm-gallery__viewer').evaluate('(d) => d.open')
         context.close()
         print('PASS: reduced motion keeps stills without blocking the viewer')

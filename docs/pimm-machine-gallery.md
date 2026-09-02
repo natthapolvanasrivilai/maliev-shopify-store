@@ -1,6 +1,6 @@
 # 30G machine gallery
 
-The dedicated 30G product template includes an editable gallery immediately before demo booking. The 50G template and commerce/model contracts are unchanged.
+The dedicated 30G product template includes an editable Liquid gallery immediately before demo booking. It starts with only three real videos. The 50G template and commerce/model contracts are unchanged.
 
 ## Theme Editor
 
@@ -11,8 +11,10 @@ Open the 30G product template (`product.pimm-configurator`) and its **PIMM machi
 - Preview: select a short uploaded video under **Muted preview clip**. Set the start and length (3–15 seconds). The preview is separate from full playback; it never replaces the full video destination.
 - The three original YouTube videos have optional bundled, owner-authorized six-second previews. **Use original MALIEV preview** only applies to their exact YouTube IDs. Changing a video cannot accidentally show the old clip. A selected uploaded preview always takes priority.
 - Cover image overrides the automatic poster. A custom caption overrides the translated default; translate custom captions using Shopify's content translation tools.
-- Images can use an uploaded image or one of the two existing 30G detail renders. Empty blocks are omitted outside the editor.
+- Photos use the Shopify image picker only. No generated render or automatic product image is inserted. Empty photo blocks are omitted outside the editor.
 - The section permits 50 total blocks, including its two model records and any app blocks. Keep model records unchanged.
+
+The reusable `pimm-machine-gallery` and `pimm-machine-gallery-item` Liquid snippets render these merchant-managed blocks from the product section schema. No code changes are needed to add, remove, or reorder photos and videos. Three items use a featured video beside two stacked tiles on desktop; larger galleries expand into the wider Bento layout.
 
 ## Playback and accessibility
 

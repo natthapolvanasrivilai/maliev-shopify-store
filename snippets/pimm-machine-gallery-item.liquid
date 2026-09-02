@@ -48,19 +48,9 @@
       assign poster_url = block.settings.poster | image_url: width: 1200
     endif
   else
-    case block.settings.default_image
-      when 'controls'
-        assign caption_key = 'controls'
-        assign media_url = 'pimm-master-20260901-r05-30g-controls.webp' | asset_url
-      when 'details'
-        assign caption_key = 'details'
-        assign media_url = 'pimm-master-20260901-r05-30g-tooling.webp' | asset_url
-    endcase
     if block.settings.image != blank
       assign media_url = block.settings.image | image_url: width: 2000
       assign poster_url = block.settings.image | image_url: width: 1200
-    else
-      assign poster_url = media_url
     endif
   endif
   assign caption_translation = 'pimm_gallery.' | append: caption_key
