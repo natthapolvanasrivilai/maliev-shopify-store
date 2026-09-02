@@ -68,6 +68,9 @@
 -%}
 
 <link rel="stylesheet" href="{{ 'maliev-pimm-machine.css' | asset_url }}&amp;pimm_release=pimm-master-20260901-r05-hdri-cycles-1&amp;pimm_ui=story-fill-v2" media="all">
+{% if page_model == '30G' %}
+  {{ 'maliev-pimm-30g-hero.css' | asset_url | stylesheet_tag }}
+{% endif %}
 <script src="{{ 'maliev-pimm-machine.js' | asset_url }}&amp;pimm_release=pimm-master-20260901-r05-hdri-cycles-1&amp;pimm_ui=story-fill-v2" defer="defer"></script>
 
 <pimm-machine-product

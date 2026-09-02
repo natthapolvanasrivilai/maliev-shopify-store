@@ -13,6 +13,17 @@ const expectedMedia = ['30g', '50g'].flatMap((model) => roles.flatMap((role) => 
 ]));
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 
+test('30G hero amplification stays model-scoped and preserves the full native render', async () => {
+  const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');
+  assert.match(section, /if page_model == '30G'[\s\S]*?'maliev-pimm-30g-hero.css'[\s\S]*?endif/);
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /object-fit: contain/);
+  assert.match(css, /grid-template-rows: minmax\(0, 1fr\)/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(css, /(?:filter|box-shadow|mask-image):/);
+  assert.ok(css.split('\n').filter(line => line.trim().startsWith('.')).every(line => line.includes('[data-page-model="30G"]')));
+});
+
 test('dedicated product templates lock model identity independently of query selection', async () => {
   for (const [view, model] of [['pimm-configurator', '30G'], ['pimm-50g', '50G']]) {
     const source = await readFile(new URL(`templates/product.${view}.json`, rootUrl), 'utf8');
