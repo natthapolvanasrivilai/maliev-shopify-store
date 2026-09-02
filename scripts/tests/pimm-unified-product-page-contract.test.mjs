@@ -81,7 +81,8 @@ test('capacity selector and every engineering chapter expose deliberate type rol
   assert.equal(selector.match(/class="pimm-machine__model-price"/g)?.length, 1);
   assert.match(css, /\.pimm-machine__model-name[^}]*font-size:\s*1\.6rem[^}]*font-weight:\s*600/s);
   assert.match(css, /\.pimm-machine__model-price[^}]*font-family:\s*var\(--maliev-font-mono/s);
-  assert.equal([story30G, story50G].join('\n').match(/class="pimm-story__index"/g)?.length, 8);
+  assert.doesNotMatch(story30G, /class="pimm-story__index"/);
+  assert.equal(story50G.match(/class="pimm-story__index"/g)?.length, 4);
   assert.match(css, /\.pimm-story__copy[^}]*grid-template-columns:\s*4\.8rem minmax\(0, 1fr\)/s);
   assert.match(css, /\.pimm-story__copy h3[^}]*font-size:\s*clamp\(2\.8rem, 4vw, 5\.2rem\)/s);
   assert.match(css, /\.pimm-story__copy p:last-child[^}]*max-width:\s*60ch/s);

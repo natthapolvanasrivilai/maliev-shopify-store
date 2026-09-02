@@ -51,6 +51,16 @@ test('30G support typography pairs a bounded heading with readable responsive pr
   assert.match(css, /@media \(max-width: 999px\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__ownership \.pimm-machine__prose \{\s*grid-template-columns: minmax\(0, 1fr\)/);
 });
 
+test('30G feature chapters have consistent unnumbered headings and readable copy', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
+  assert.equal((story.match(/<h3>/g) ?? []).length, 4);
+  assert.doesNotMatch(story, /pimm-story__index/);
+  assert.match(css, /\.pimm-story__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 3\.2vw, 4\.8rem\) !important;[^}]*line-height: 1\.16 !important/);
+  assert.match(css, /\.pimm-story__copy\) > p:last-child \{[^}]*font-size: 2rem;[^}]*line-height: 1\.65/);
+  assert.match(css, /\.pimm-story--30g:lang\(th\) :is\(h2, h3\) \{[^}]*letter-spacing: normal !important/);
+});
+
 test('dedicated product templates lock model identity independently of query selection', async () => {
   for (const [view, model] of [['pimm-configurator', '30G'], ['pimm-50g', '50G']]) {
     const source = await readFile(new URL(`templates/product.${view}.json`, rootUrl), 'utf8');
