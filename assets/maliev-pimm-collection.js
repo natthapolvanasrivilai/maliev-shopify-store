@@ -1,8 +1,6 @@
 (() => {
   const ELEMENT_NAME = 'pimm-collection-comparison';
   const MODELS = ['30G', '50G'];
-  const FRAME_SEQUENCE = ['front', 'left', 'front', 'right', 'front'];
-  const FRAME_DELAYS = [0, 180, 360, 540, 720];
 
   const isPositiveNumber = (value) => Number.isFinite(value) && value > 0;
   const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -35,7 +33,6 @@
       this.applyModel('30G', false);
       this.setEnhancedState(true);
       this.bindCards();
-      this.preloadDeferredFrames();
     }
 
     disconnectedCallback() {
@@ -188,6 +185,9 @@
         const model = card.dataset.model;
         if (!this.recordByModel.has(model)) continue;
         const signal = this.controller.signal;
+        const video = card.querySelector('[data-pimm-collection-video]');
+        video?.addEventListener('ended', () => this.stopSequence(card), { signal });
+        video?.addEventListener('error', () => this.stopSequence(card), { signal });
 
         card.addEventListener('pointerenter', (event) => {
           if (event.pointerType === 'touch') return;
@@ -217,6 +217,11 @@
           this.playSequence(card);
         }, { signal });
       }
+      this.reduceMotion?.addEventListener?.('change', () => {
+        if (this.reduceMotion.matches) {
+          for (const card of this.querySelectorAll('[data-pimm-collection-card]')) this.stopSequence(card);
+        }
+      }, { signal: this.controller.signal });
     }
 
     setEnhancedState(enhanced) {
@@ -336,27 +341,28 @@
     playSequence(card) {
       this.stopSequence(card, true);
       if (this.reduceMotion?.matches) return;
-
-      this.timerSets ??= new Map();
-      const timerSet = new Set();
-      this.timerSets.set(card, timerSet);
-
-      FRAME_SEQUENCE.forEach((frame, index) => {
-        let timerId;
-        timerId = window.setTimeout(() => {
-          timerSet.delete(timerId);
-          this.exposeFrame(card, frame);
-          if (index === FRAME_SEQUENCE.length - 1) this.timerSets.delete(card);
-        }, FRAME_DELAYS[index]);
-        timerSet.add(timerId);
+      const video = card.querySelector('[data-pimm-collection-video]');
+      if (!video) return;
+      video.muted = true;
+      video.loop = false;
+      const attempt = {};
+      video.pimmPlaybackAttempt = attempt;
+      video.play()?.then(() => {
+        if (video.pimmPlaybackAttempt === attempt && !video.paused) video.classList.add('is-playing');
+      }).catch(() => {
+        if (video.pimmPlaybackAttempt === attempt) this.stopSequence(card);
       });
     }
 
     stopSequence(card, reset = true) {
-      const timerSet = this.timerSets?.get(card);
-      if (timerSet) {
-        for (const timerId of timerSet) window.clearTimeout(timerId);
-        this.timerSets.delete(card);
+      const video = card.querySelector('[data-pimm-collection-video]');
+      if (video) {
+        video.pimmPlaybackAttempt = null;
+        video.pause();
+        video.classList.remove('is-playing');
+        if (reset) {
+          try { video.currentTime = 0; } catch (_) { /* Metadata may not have arrived. */ }
+        }
       }
       if (reset) this.exposeFrame(card, 'front');
     }
@@ -372,14 +378,6 @@
         frame.hidden = !active;
         frame.setAttribute('aria-hidden', active ? 'false' : 'true');
         frame.classList.toggle('is-active', active);
-      }
-    }
-
-    preloadDeferredFrames() {
-      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
-        for (const image of card.querySelectorAll('img[loading="lazy"]')) {
-          if (typeof image.decode === 'function') image.decode().catch(() => {});
-        }
       }
     }
 

@@ -199,6 +199,12 @@ function createCard(model) {
   card.nodes.set('img[loading="lazy"]', []);
   card.nodes.set('[data-pimm-collection-select]', select);
   card.nodes.set('.pimm-collection__card-actions a', configure);
+  const video = new FakeNode();
+  video.currentTime = 0;
+  video.paused = true;
+  video.play = () => { video.paused = false; return Promise.resolve(); };
+  video.pause = () => { video.paused = true; };
+  card.nodes.set('[data-pimm-collection-video]', video);
   return card;
 }
 
@@ -346,27 +352,24 @@ test('pointer preview restores the committed model while click commits and plays
 
   cards[1].dispatch('click');
   assert.equal(comparison.committedModel, '50G');
-  assert.equal(activeTimerCount(), 5);
+  assert.equal(activeTimerCount(), 0);
+  assert.equal(cards[1].querySelector('[data-pimm-collection-video]').paused, false);
 });
 
-test('physical frame playback is exact, non-looping, and replaces overlapping timers', async () => {
-  const { Controller, runDelay, activeTimerCount } = await loadController();
+test('native video playback starts at front, resets on exit, and never schedules still swaps', async () => {
+  const { Controller, activeTimerCount } = await loadController();
   const { comparison, cards } = createComparison(Controller);
   comparison.connectedCallback();
 
   comparison.playSequence(cards[0]);
-  assert.equal(activeTimerCount(), 5);
+  const video = cards[0].querySelector('[data-pimm-collection-video]');
+  assert.equal(video.paused, false);
+  video.currentTime = 1.5;
   comparison.playSequence(cards[0]);
-  assert.equal(activeTimerCount(), 5);
-  runDelay(0);
-  assert.equal(visibleFrame(cards[0]), 'front');
-  runDelay(180);
-  assert.equal(visibleFrame(cards[0]), 'left');
-  runDelay(360);
-  assert.equal(visibleFrame(cards[0]), 'front');
-  runDelay(540);
-  assert.equal(visibleFrame(cards[0]), 'right');
-  runDelay(720);
+  assert.equal(video.currentTime, 0);
+  comparison.stopSequence(cards[0]);
+  assert.equal(video.paused, true);
+  assert.equal(video.currentTime, 0);
   assert.equal(visibleFrame(cards[0]), 'front');
   assert.equal(activeTimerCount(), 0);
 });
@@ -379,7 +382,30 @@ test('reduced motion never schedules angle playback', async () => {
   comparison.playSequence(cards[0]);
 
   assert.equal(timers.length, 0);
+  assert.equal(cards[0].querySelector('[data-pimm-collection-video]').paused, true);
   assert.equal(visibleFrame(cards[0]), 'front');
+});
+
+test('ended and failed video restore the poster, rejected playback is handled', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  const video = cards[0].querySelector('[data-pimm-collection-video]');
+  comparison.playSequence(cards[0]);
+  await Promise.resolve();
+  assert.equal(video.classList.contains('is-playing'), true);
+  video.dispatch('ended');
+  assert.equal(video.classList.contains('is-playing'), false);
+  assert.equal(video.paused, true);
+  comparison.playSequence(cards[0]);
+  video.dispatch('error');
+  await Promise.resolve();
+  assert.equal(video.classList.contains('is-playing'), false);
+  video.play = () => Promise.reject(new Error('blocked'));
+  comparison.playSequence(cards[0]);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(video.classList.contains('is-playing'), false);
 });
 
 test('invalid records preserve the server fallback and attach no playback listeners', async () => {

@@ -238,22 +238,19 @@ test('configured support actions render with exact labels and targets in desktop
   }
 });
 
-test('cards own six unique collection-only physical render frames', async () => {
+test('cards own two unique posters and native motion clips, without side-frame swaps', async () => {
   const section = await readThemeFile('sections/maliev-pimm-collection.liquid');
-  const filenames = section.match(/maliev-pimm-collection-20260901-r01-[^'"\s]+\.webp/g) ?? [];
+  const filenames = section.match(/maliev-pimm-collection-motion-20260902-r01-[^'"\s]+\.webp/g) ?? [];
 
-  assert.equal(filenames.length, 6);
-  assert.equal(new Set(filenames).size, 6);
+  assert.equal(filenames.length, 2);
+  assert.equal(new Set(filenames).size, 2);
   assert.deepEqual(filenames.toSorted(), [
-    'maliev-pimm-collection-20260901-r01-30g-front.webp',
-    'maliev-pimm-collection-20260901-r01-30g-left.webp',
-    'maliev-pimm-collection-20260901-r01-30g-right.webp',
-    'maliev-pimm-collection-20260901-r01-50g-front.webp',
-    'maliev-pimm-collection-20260901-r01-50g-left.webp',
-    'maliev-pimm-collection-20260901-r01-50g-right.webp',
+    'maliev-pimm-collection-motion-20260902-r01-30g-poster.webp',
+    'maliev-pimm-collection-motion-20260902-r01-50g-poster.webp',
   ]);
   assert.equal(section.match(/data-pimm-collection-frame="front"[^>]*>[\s\S]*?<img[^>]*alt="[^"]+"/g)?.length, 2);
-  assert.equal(section.match(/data-pimm-collection-frame="(?:left|right)"[^>]*>[\s\S]*?<img[^>]*alt=""/g)?.length, 4);
+  assert.equal(section.match(/<video[^>]*data-pimm-collection-video/g)?.length, 2);
+  assert.doesNotMatch(section, /data-pimm-collection-frame="(?:left|right)"/);
   assert.doesNotMatch(section, /pimm-master-20260901-r05|maliev-pimm-home|maliev-pimm-catalog/);
 });
 

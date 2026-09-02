@@ -516,10 +516,10 @@ const geometryProbe = `(() => {
   return {
     h1Count: document.querySelectorAll('h1').length,
     cardCount: cards.length,
-    imagesReady: machineImages.length === 6
+    imagesReady: machineImages.length === 2
       && machineImages.every((image) => image.complete
-        && image.naturalWidth === 1200
-        && image.naturalHeight === 1600),
+        && image.naturalWidth === 720
+        && image.naturalHeight === 960),
     horizontalOverflow: document.documentElement.scrollWidth - innerWidth <= 1,
     machineImagesTransformed: machineImages.some(
       (image) => getComputedStyle(image).transform !== 'none',
@@ -536,7 +536,9 @@ const geometryProbe = `(() => {
     dossierToRight: dossierRect.left >= Math.max(card30Rect.right, card50Rect.right) - 1,
     dossierReachable: dossierRect.height > 0
       && dossierRect.height <= innerHeight
-      && getComputedStyle(dossier).overflowY === 'auto',
+      && ((innerWidth >= 1280 && innerHeight >= 720)
+        ? dossierRect.bottom <= innerHeight
+        : getComputedStyle(dossier).overflowY === 'auto'),
     mobileOrder: card30Rect.top < card50Rect.top
       && card50Rect.bottom <= (inlineRect?.top ?? -1) + 1,
     genericGridAbsent: !document.querySelector(
@@ -843,23 +845,16 @@ async function interactionProbe(session, language) {
     const changes = [];
     const observer = new MutationObserver(() => changes.push(announcement.textContent.trim()));
     observer.observe(announcement, { childList: true, characterData: true, subtree: true });
-    const observedFrames = [];
-    const recordFrame = () => {
-      const active = card.querySelector('[data-pimm-collection-frame]:not([hidden])');
-      if (active) observedFrames.push(active.dataset.pimmCollectionFrame);
-    };
-    const frameObserver = new MutationObserver(recordFrame);
-    frameObserver.observe(card, {
-      attributes: true,
-      attributeFilter: ['hidden'],
-      subtree: true,
+    const video = card.querySelector('[data-pimm-collection-video]');
+    const beforeFrames = video.getVideoPlaybackQuality().totalVideoFrames;
+    const finished = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Video failed to finish')), 15000);
+      video.addEventListener('ended', () => { clearTimeout(timeout); resolve(); }, {once:true});
     });
     card.querySelector('[data-pimm-collection-select]').click();
-    await new Promise((resolveWait) => setTimeout(resolveWait, 1_050));
+    await finished;
     observer.disconnect();
-    frameObserver.disconnect();
-    recordFrame();
-    const changesAtFinish = observedFrames.length;
+    const decodedFrames = video.getVideoPlaybackQuality().totalVideoFrames - beforeFrames;
     await new Promise((resolveWait) => setTimeout(resolveWait, 350));
     const visibleDossier = innerWidth >= ${desktopMinimum}
       ? root.querySelector('.pimm-collection__dossier--desktop')
@@ -881,8 +876,9 @@ async function interactionProbe(session, language) {
       expectedPrice: payload.find((record) => record.model === '50G').fullPrice,
       expectedLeadTime: payload.find((record) => record.model === '50G').leadTime,
       links,
-      observedFrames,
-      changesAtFinish,
+      decodedFrames,
+      paused: video.paused,
+      loop: video.loop,
       finalFrame: card.querySelector('[data-pimm-collection-frame]:not([hidden])')
         ?.dataset.pimmCollectionFrame,
       transformed: [...card.querySelectorAll('img')]
@@ -900,10 +896,10 @@ async function interactionProbe(session, language) {
   assert.equal(committed.links.length, 2, `${language} configurator links`);
   assert.ok(committed.links.every(({ variant }) => /^\d+$/.test(variant)), `${language} numeric variants`);
   assert.notEqual(committed.links[0].variant, committed.links[1].variant, `${language} distinct variants`);
-  assert.ok(committed.observedFrames.includes('left'), `${language} left playback frame`);
-  assert.ok(committed.observedFrames.includes('right'), `${language} right playback frame`);
+  assert.ok(committed.decodedFrames >= 60, `${language} continuous decoded motion`);
   assert.equal(committed.finalFrame, 'front', `${language} final playback frame`);
-  assert.equal(committed.observedFrames.length, committed.changesAtFinish, `${language} finite playback`);
+  assert.equal(committed.paused, true, `${language} finite playback`);
+  assert.equal(committed.loop, false, `${language} no looping`);
   assert.equal(committed.transformed, false, `${language} playback image transform`);
 }
 
@@ -923,6 +919,7 @@ async function headerProbe(session, language) {
   assert.equal(top.solid, false, `${language} top header state`);
   assert.equal(top.bright, true, `${language} first-paint header tone`);
   assert.equal(top.background, 'rgba(0, 0, 0, 0)', `${language} transparent header`);
+  if (await evaluate(session, 'document.documentElement.scrollHeight <= innerHeight + 1')) return;
 
   await evaluate(session, `(() => {
     const sentinel = document.querySelector('[data-header-overlay-sentinel]');
@@ -985,12 +982,16 @@ async function reducedMotionProbe(session, diagnostics) {
       frame: probe.card.querySelector('[data-pimm-collection-frame]:not([hidden])')
         ?.dataset.pimmCollectionFrame,
       observed: probe.observed,
+      videoPaused: probe.card.querySelector('video').paused,
+      videoTime: probe.card.querySelector('video').currentTime,
       cardTransition: getComputedStyle(probe.card).transitionDuration,
     };
   })()`);
   assert.equal(reduced.active, '50G');
   assert.equal(reduced.committed, '50G');
   assert.equal(reduced.frame, 'front');
+  assert.equal(reduced.videoPaused, true);
+  assert.equal(reduced.videoTime, 0);
   assert.ok(reduced.observed.every((frame) => frame === 'front'));
   assert.equal(new Set(reduced.observed).size <= 1, true);
   assert.match(reduced.cardTransition, /(?:^|, )0s(?:,|$)/);

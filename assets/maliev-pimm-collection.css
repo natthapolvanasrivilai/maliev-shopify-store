@@ -173,6 +173,18 @@
   width: 100%;
 }
 
+.pimm-collection__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pimm-collection__video.is-playing { opacity: 1; }
+
 .pimm-collection__card-copy {
   align-content: start;
   display: grid;
@@ -476,4 +488,71 @@
   .pimm-collection__card:is(:hover, :focus-within) {
     transform: none;
   }
+}
+
+/* One-screen comparison on desktop. Small windows/zoom retain natural flow. */
+@media (min-width: 1280px) and (min-height: 720px) {
+  .pimm-collection { min-height: 0; overflow: visible; }
+  .pimm-collection__shell {
+    height: calc(100svh - 4.4rem);
+    padding: calc(var(--maliev-header-h, 7rem) + 1.6rem) 3.2rem 1.6rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 1.6rem 3.2rem;
+  }
+  .pimm-collection__introduction {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 1rem;
+    margin: 0;
+  }
+  .pimm-collection .pimm-collection__introduction h1 {
+    font-size: clamp(2.6rem, 2.4vw, 3.6rem) !important;
+    line-height: 1.3 !important;
+    max-width: none;
+  }
+  .pimm-collection__introduction p { font-size: 1.4rem; line-height: 1.45; }
+  .pimm-collection__comparison-layout { display: contents; }
+  .pimm-collection__stage { grid-column: 1; grid-row: 1 / 3; min-height: 0; }
+  .pimm-collection__cards { height: 100%; gap: 1.6rem; }
+  .pimm-collection__card { position: relative; display: block; min-height: 0; width: 100%; max-width: calc((100svh - 14.6rem) * 0.75); justify-self: center; }
+  .pimm-collection__media { position: absolute; inset: 0; aspect-ratio: auto; border-radius: inherit; }
+  .pimm-collection__card-copy { position: absolute; inset: 0; padding: 2rem; display: block; pointer-events: none; }
+  .pimm-collection__model-designation { font-size: 1.2rem; }
+  .pimm-collection .pimm-collection__card-copy h2 { font-size: clamp(4.4rem, 4vw, 6rem) !important; line-height: 1.3 !important; margin-top: 0.6rem; }
+  .pimm-collection__card-copy > p:not(.pimm-collection__model-designation) { display: none; }
+  .pimm-collection__card-facts { position: absolute; bottom: 7rem; left: 2rem; right: 2rem; border: 0; }
+  .pimm-collection__card-facts > div { border: 0; padding: 0; display: block; }
+  .pimm-collection__card-facts > div:not(:first-child) { display: none; }
+  .pimm-collection__card-facts dt { display: none; }
+  .pimm-collection__card-facts dd { font-size: clamp(1.6rem, 1.5vw, 2.2rem); font-weight: 600; }
+  .pimm-collection__card-actions { position: absolute; bottom: 2rem; left: 2rem; right: 2rem; padding: 0; pointer-events: auto; }
+  .pimm-collection__card-actions :is(a,button) { flex: 1; padding-inline: 0.6rem; font-size: 1.2rem; }
+  .pimm-collection__dossier--desktop {
+    grid-column: 2; grid-row: 2; position: static; max-height: none;
+    min-height: 0; overflow: visible; padding: 1.8rem 2.2rem;
+    gap: 0.6rem; align-content: start; border-radius: var(--maliev-radius-card);
+  }
+  .pimm-collection .pimm-collection__dossier h2 { font-size: 3.6rem !important; line-height: 1.2 !important; }
+  .pimm-collection__dossier > p:not(.pimm-collection__dossier-label) { font-size: 1.3rem; line-height: 1.35; }
+  .pimm-collection__dossier--desktop .pimm-collection__dossier-label,
+  .pimm-collection__dossier--desktop [data-pimm-dossier-compare] { display: none; }
+  .pimm-collection__dossier dl { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.4rem; }
+  .pimm-collection__dossier dl > div { display: block; padding: 0.5rem 0; }
+  .pimm-collection__dossier dt { font-size: 1.15rem; }
+  .pimm-collection__dossier dd { font-size: 1.25rem; margin-top: 0.3rem; }
+  .pimm-collection__dossier-actions { gap: 0.6rem; }
+  .pimm-collection__dossier-actions a { font-size: 1.2rem; padding: 0.6rem 0.9rem; }
+  .pimm-collection__dossier-actions [data-pimm-dossier-configure] { flex-basis: 100%; }
+  /* The full footer remains on mobile; this focused desktop page uses its legal bar. */
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer { padding: 0; }
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__main,
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__localization,
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__payments { display: none; }
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__utility {
+    min-height: 4.4rem; height: 4.4rem; margin: 0; padding: 0 3.2rem; border: 0; display: flex; align-items: center;
+  }
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__legal { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 1.6rem; }
+  body:has(.pimm-collection[data-contract-valid='true']) .mc-footer__legal :is(p,a) { font-size: 1.1rem; }
 }
