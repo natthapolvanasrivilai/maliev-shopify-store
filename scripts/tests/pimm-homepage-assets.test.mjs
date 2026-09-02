@@ -6,6 +6,25 @@ import test from 'node:test';
 const root = new URL('../../', import.meta.url);
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 
+test('homepage hero prioritizes machine exploration ahead of demo booking in both contexts', async () => {
+  const template = JSON.parse(await readFile(new URL('templates/index.json', root), 'utf8'));
+  const thailand = JSON.parse(await readFile(new URL('templates/index.context.thailand.json', root), 'utf8'));
+  const hero = await readFile(new URL('sections/maliev-keynote-hero.liquid', root), 'utf8');
+  const settings = template.sections.keynote_hero.settings;
+  assert.equal(settings.primary_label, 'Explore the machines');
+  assert.equal(settings.primary_link, '/collections/เครื่องฉีดพลาสติก');
+  assert.equal(settings.secondary_label, 'Book a demo session');
+  assert.equal(settings.secondary_link, '/pages/contact');
+  assert.equal(thailand.sections.keynote_hero.settings.primary_label, 'ดูเครื่องทุกรุ่น');
+  assert.equal(thailand.sections.keynote_hero.settings.secondary_label, 'นัดเยี่ยมชมโรงงาน');
+  assert.match(hero, /class="mkey__btn"[^>]*section\.settings\.primary_link[^>]*>\{\{ section\.settings\.primary_label \}\}/);
+  assert.match(hero, /class="mkey__textlink"[^>]*section\.settings\.secondary_link/);
+  assert.ok(hero.indexOf('class="mkey__btn"') < hero.indexOf('class="mkey__textlink"'));
+  const schema = JSON.parse(hero.match(/{% schema %}([\s\S]*?){% endschema %}/)[1]);
+  assert.equal(schema.settings.find(item => item.id === 'primary_label').default, settings.primary_label);
+  assert.equal(schema.settings.find(item => item.id === 'secondary_label').default, settings.secondary_label);
+});
+
 test('homepage PIMM media is derived from the two authoritative masters', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/maliev-homepage-pimm-assets.v1.json', root), 'utf8'));
   assert.equal(manifest.schema_version, 1);
