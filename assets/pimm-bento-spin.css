@@ -1,0 +1,46 @@
+pimm-bento-spin {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  isolation: isolate;
+}
+
+pimm-bento-spin > img,
+pimm-bento-spin > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+pimm-bento-spin > canvas {
+  position: absolute;
+  inset: 0;
+}
+
+pimm-bento-spin > canvas[hidden] { display: none; }
+
+.pimm-bento-spin__handle {
+  position: absolute;
+  inset: 0 0 0 var(--spin-hit-left, 45%);
+  cursor: grab;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: inherit;
+}
+
+.pimm-bento-spin__handle[data-dragging] { cursor: grabbing; }
+
+.pimm-bento-spin__handle:focus-visible {
+  outline: 2px solid var(--color-focus, #006edb);
+  outline-offset: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  pimm-bento-spin { scroll-behavior: auto; }
+}
