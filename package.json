@@ -7,7 +7,8 @@
     "dev": "shopify theme dev --store 10b918-e4.myshopify.com",
     "dev:local": "node --env-file=.env.local-preview scripts/dev-local-preview.mjs",
     "verify:local-routes": "node --test scripts/tests/local-preview-router.test.mjs",
-    "verify": "npm run verify:theme && npm run verify:render-assets && npm run verify:local-routes",
+    "verify": "npm run verify:theme && npm run verify:render-assets && npm run verify:demo-invitation && npm run verify:local-routes",
+    "verify:demo-invitation": "node --test scripts/tests/pimm-demo-invitation.test.mjs",
     "verify:theme": "shopify theme check --path . --fail-level error --no-color",
     "verify:render-assets": "node --test scripts/tests/pimm-machine-gallery.test.mjs scripts/tests/pimm-hero-reveal.test.mjs scripts/tests/pimm-unified-story-assets.test.mjs scripts/tests/pimm-bento-orbit.test.mjs scripts/tests/pimm-bento-spin.test.mjs scripts/tests/pimm-homepage-assets.test.mjs scripts/tests/pimm-collection-card-assets.test.mjs scripts/tests/pimm-collection-page-contract.test.mjs scripts/tests/pimm-collection-interaction.test.mjs scripts/tests/product-card-presentation.test.mjs",
     "sync:live": "shopify theme pull --store 10b918-e4.myshopify.com --theme 190305730839 --nodelete"

@@ -63,7 +63,10 @@
 
   assign factory_visit_url = section.settings.factory_visit_url
   if factory_visit_url == blank
-    assign factory_visit_url = routes.root_url | append: 'pages/contact'
+    assign factory_visit_url = pages['contact'].url
+  endif
+  if factory_visit_url == blank
+    assign factory_visit_url = routes.root_url | append: '/pages/contact' | replace: '//', '/'
   endif
 -%}
 
@@ -71,6 +74,7 @@
 {% if page_model == '30G' %}
   {{ 'maliev-pimm-30g-hero.css' | asset_url | stylesheet_tag }}
   <script src="{{ 'pimm-support-motion.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'pimm-demo-invitation.js' | asset_url }}" defer="defer"></script>
   <script src="{{ 'maliev-pimm-hero-reveal.js' | asset_url }}" defer="defer"></script>
   <script src="{{ 'pimm-bento-orbit.js' | asset_url }}" defer="defer"></script>
 {% endif %}

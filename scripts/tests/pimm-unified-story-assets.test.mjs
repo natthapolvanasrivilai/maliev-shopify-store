@@ -55,7 +55,9 @@ test('30G hero amplification stays model-scoped and preserves the full native re
   assert.match(css, /object-fit: contain/);
   assert.match(css, /grid-template-rows: minmax\(0, 1fr\)/);
   assert.match(css, /prefers-reduced-motion: reduce/);
-  assert.doesNotMatch(css, /(?:filter|box-shadow|mask-image):/);
+  assert.doesNotMatch(css, /(?:filter|mask-image):/);
+  // A focus-style reset is not a shadow applied to machine pixels.
+  assert.doesNotMatch(css, /box-shadow:\s*(?!none\b)\S/);
   assert.ok(css.split('\n').filter(line => line.trim().startsWith('.')).every(line => line.includes('[data-page-model="30G"]')));
 });
 
@@ -95,8 +97,8 @@ test('30G engineering and commercial facts form a joined responsive summary with
 
 test('30G demo close gives the booking action a distinct neutral-to-blue treatment', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
-  assert.match(css, /\.pimm-machine__purchase \{[^}]*--pimm-booking-surface: #e6f1fb;[^}]*background: var\(--pimm-booking-surface\)/);
-  assert.match(css, /\.pimm-machine__purchase h2 \{ color: var\(--pimm-blue\)/);
+  assert.match(css, /\.pimm-machine__purchase \{[^}]*--pimm-booking-surface: #f3f5f6;[^}]*background: var\(--pimm-booking-surface\)/);
+  assert.match(css, /\.pimm-machine__purchase h2 \{\s*color: var\(--pimm-ink\)/);
   assert.match(css, /\.pimm-machine__purchase \.button--primary \{[^}]*background: var\(--pimm-ink\)/);
   assert.match(css, /\.pimm-machine__purchase \.button--primary:hover \{[^}]*background: var\(--pimm-blue\)/);
 });
