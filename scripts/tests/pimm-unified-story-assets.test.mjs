@@ -34,14 +34,15 @@ test('30G hero poster and animation share a rounded media frame', async () => {
   assert.match(media, /object-fit: contain/);
 });
 
-test('30G engineering band uses brand blue with explicit readable foregrounds', async () => {
+test('30G engineering band uses a quiet neutral surface and contrasting brand typefaces', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const band = css.match(/\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__specifications \{([^}]+)\}/)[1];
-  assert.match(band, /background: var\(--pimm-blue\)/);
-  assert.match(band, /color: var\(--pimm-surface\)/);
+  assert.match(band, /background: #f3f5f6/);
+  assert.match(band, /color: var\(--pimm-ink\)/);
   for (const element of ['h2', 'dt', 'dd']) {
     const rule = css.match(new RegExp(`\\.pimm-machine__specifications ${element} \\{([^}]+)\\}`))[1];
-    assert.match(rule, /color: var\(--pimm-surface\)/);
+    assert.match(rule, element === 'dt' ? /color: var\(--pimm-muted\)/ : /color: var\(--pimm-ink\)/);
+    assert.match(rule, element === 'h2' ? /font-family: var\(--maliev-font-future\)/ : /font-family: var\(--maliev-font-sans\)/);
   }
 });
 
