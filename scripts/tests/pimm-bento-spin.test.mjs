@@ -116,14 +116,14 @@ test('leaving before horizontal intent clears the pending pointer gesture', () =
 test('horizontal drag rotates in both directions and wraps the full 360 range', () => {
   const state = harness({ reduced: true }); state.show();
   pointer(state, 'pointerdown', 100); pointer(state, 'pointermove', 160); state.tick();
-  assert.equal(state.element.frame, 12);
-  assert.equal(state.element.handle.attributes['aria-valuenow'], '36');
+  assert.equal(state.element.frame, 108);
+  assert.equal(state.element.handle.attributes['aria-valuenow'], '324');
   pointer(state, 'pointerup', 160);
   pointer(state, 'pointerdown', 100); pointer(state, 'pointermove', -20); state.tick();
-  assert.equal(state.element.frame, 108);
+  assert.equal(state.element.frame, 12);
   pointer(state, 'pointerup', -20);
   pointer(state, 'pointerdown', 0); pointer(state, 'pointermove', 600); state.tick();
-  assert.equal(state.element.frame, 108);
+  assert.equal(state.element.frame, 12);
   assert.ok(state.images.length <= 2, 'two loads, not a flood during drag');
   assert.equal(state.element.handle.focusOptions.preventScroll, true);
 });
@@ -162,7 +162,7 @@ test('reduced motion and save-data suppress hints but explicit dragging remains 
     const state = harness(preferences); state.show();
     assert.equal(state.images.length, 0); assert.equal(state.frames.size, 0);
     pointer(state, 'pointerdown', 0); pointer(state, 'pointermove', 50); state.tick();
-    assert.equal(state.element.frame, 10);
+    assert.equal(state.element.frame, 110);
     assert.ok(state.images.length > 0);
     if (preferences.saveData) assert.equal(state.images.length, 1);
     state.complete(); assert.equal(state.element.canvas.hidden, false);
@@ -272,22 +272,38 @@ const twoAxis = {
 test('two-axis diagonal drag updates yaw and pitch simultaneously with the exact row URL', () => {
   const state = harness({ reduced: true, saveData: true, dataset: twoAxis }); state.show();
   pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 160, 50); state.tick();
-  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 4);
-  assert.equal(state.images[0].src, '/configuration/row-04/frame-0013.png');
+  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 2);
+  assert.equal(state.images[0].src, '/configuration/row-02/frame-0109.png');
   state.complete();
-  assert.equal(state.element.dataset.spinFrame, '13'); assert.equal(state.element.dataset.spinRow, '4');
+  assert.equal(state.element.dataset.spinFrame, '109'); assert.equal(state.element.dataset.spinRow, '2');
   pointer(state, 'pointerup', 160, 50); state.tick(9999);
-  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 4);
+  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 2);
   assert.equal(state.frames.size, 0, 'release holds both axes');
+});
+
+test('mouse and touch direct manipulation reverse camera yaw and pitch in both directions', () => {
+  for (const pointerType of ['mouse', 'touch']) {
+    for (const direction of [-1, 1]) {
+      const state = harness({ reduced: true, dataset: twoAxis }); state.show();
+      pointer(state, 'pointerdown', 100, 100, { pointerType });
+      pointer(state, 'pointermove', 100 + direction * 60, 100 + direction * 50, { pointerType });
+      state.tick();
+      assert.equal(state.element.frame, direction === 1 ? 108 : 12);
+      assert.equal(state.element.row, 3 + direction);
+      pointer(state, 'pointermove', 100, 100, { pointerType }); state.tick();
+      assert.equal(state.element.frame, 0);
+      assert.equal(state.element.row, 3, 'returning the hand restores the starting orientation');
+    }
+  }
 });
 
 test('two-axis pitch clamps at endpoints while yaw continues to wrap', () => {
   const state = harness({ reduced: true, dataset: twoAxis }); state.show();
   pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 700, -500); state.tick();
-  assert.equal(state.element.frame, 0); assert.equal(state.element.row, 6);
+  assert.equal(state.element.frame, 0); assert.equal(state.element.row, 0);
   pointer(state, 'pointerup', 700, -500);
   pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 40, 1200); state.tick();
-  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 0);
+  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 6);
 });
 
 test('two-axis keyboard exposes both coordinates without invalid slider ARIA', () => {
@@ -313,7 +329,7 @@ test('two-axis touch area owns vertical gestures, without changing single-axis p
   assert.equal(state.element.handle.dataset.twoAxis, '');
   pointer(state, 'pointerdown', 100, 100, { pointerType: 'touch' });
   pointer(state, 'pointermove', 100, 50, { pointerType: 'touch' }); state.tick();
-  assert.equal(state.element.row, 4); assert.equal(state.element.frame, 0);
+  assert.equal(state.element.row, 2); assert.equal(state.element.frame, 0);
   assert.equal(state.element.handle.capture, 1);
   const legacy = harness({ reduced: true }); legacy.show();
   assert.equal(legacy.element.handle.dataset.twoAxis, undefined);

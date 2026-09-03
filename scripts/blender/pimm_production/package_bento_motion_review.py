@@ -11,7 +11,7 @@ from scripts.blender.pimm_production.blender_bento_tube_reveal_proof import TARG
 from scripts.blender.pimm_production.io_contract import sha256_file
 from scripts.blender.pimm_production.paths import ASSET_ROOT, REPO_ROOT, require_within
 
-GENERATION = 'bento-20260903-r18-combined-review'
+GENERATION = 'bento-20260903-r19-direct-drag-review'
 CAMERA_GENERATION = 'bento-20260903-r15-camera-previews'
 CAPACITY_GENERATION = 'bento-20260903-r17-tube-reveal'
 WORKER_ROOT = Path(__file__).parent
