@@ -82,7 +82,7 @@ test('30G feature bento has varied tiles, real workshop stills and readable loca
   assert.equal((story.match(/<img /g) ?? []).length, 6);
   assert.match(story, /pimm-gallery-20260903-molding\.webp/);
   assert.match(story, /pimm-gallery-20260903-end-caps\.webp/);
-  assert.match(css, /grid-template-areas: "capacity controls controls" "capacity tooling workshop" "configuration configuration parts"/);
+  assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration" "workshop parts"/);
   assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "workshop" "configuration" "parts"/);
   assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.4rem, 2\.4vw, 3\.2rem\) !important/);
   assert.match(css, /\.pimm-bento__copy p \{[^}]*font-size: 1\.6rem;[^}]*line-height: 1\.6/);
@@ -148,8 +148,45 @@ test('active configurator gives every media placement its own release WebP asset
   const source = (await Promise.all(paths.map((path) => readFile(new URL(path, rootUrl), 'utf8')))).join('\n');
   const matches = source.match(new RegExp(`${release}-(?:30g|50g)-(?:configuration|controls|hero|overview|tooling)\\.webp`, 'g')) ?? [];
   const referenced = [...new Set(matches)].sort();
-  const expectedWebp = expectedMedia.filter((name) => name.endsWith('.webp')).sort();
+  const expectedWebp = expectedMedia.filter((name) => name.endsWith('.webp') && (!name.includes('-30g-') || name.endsWith('-hero.webp'))).sort();
   assert.deepEqual(referenced, expectedWebp);
   assert.equal(matches.length, expectedWebp.length, 'a rendered asset must not be reused by two placements');
   assert.doesNotMatch(source, /(?:(?:pimm30-|pimm50-|pimm-(?:machine|editorial)-|maliev-pimm-)[^'"\s)]+\.(?:png|webp|webm|mp4))/i);
+});
+
+test('30G bento uses four approved full-tile native-size lossless renders', async () => {
+  const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-assets.v1.json', rootUrl), 'utf8'));
+  const approvalBytes = await readFile(new URL(manifest.approval, rootUrl));
+  const approval = JSON.parse(approvalBytes);
+  assert.equal(approval.decision, 'approved');
+  assert.equal(manifest.generation, approval.generation);
+  assert.equal(manifest.assets.length, 4);
+  const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
+  assert.equal((story.match(/pimm-bento__tile--render/g) ?? []).length, 4);
+  for (const asset of manifest.assets) {
+    assert.equal(asset.approval_sha256, sha256(approvalBytes));
+    const bytes = await readFile(new URL(`assets/${asset.filename}`, rootUrl));
+    assert.equal(sha256(bytes), asset.sha256);
+    assert.equal(bytes.toString('ascii', 12, 16), 'VP8L');
+    const packed = bytes.readUInt32LE(21);
+    assert.deepEqual([(packed & 0x3fff) + 1, ((packed >>> 14) & 0x3fff) + 1], asset.size);
+    assert.ok(story.includes(asset.filename));
+    assert.ok(story.includes(`width="${asset.size[0]}" height="${asset.size[1]}"`));
+  }
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
+  assert.doesNotMatch(css, /(?:mask-image|filter):/);
+});
+
+test('bento compact captions retain matching locale keys and only replace prose at narrow widths', async () => {
+  for (const name of await readdir(new URL('locales/', rootUrl))) {
+    if (!name.endsWith('.json') || name.endsWith('.schema.json')) continue;
+    const text = await readFile(new URL(`locales/${name}`, rootUrl), 'utf8');
+    const locale = JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, ''));
+    assert.deepEqual(Object.keys(locale.pimm_bento).sort(), ['configuration_compact', 'controls_compact', 'tooling_compact']);
+    assert.ok(Object.values(locale.pimm_bento).every(value => typeof value === 'string' && value.length > 0));
+  }
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /\.pimm-bento__text-compact \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 749px\)[\s\S]*?\.pimm-bento__text-full \{ display: none; \}/);
 });

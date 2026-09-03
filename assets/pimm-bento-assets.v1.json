@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "generation": "bento-20260903-r06",
+  "approval": "docs/pimm-blender-governance/bento-20260903-r06-approval.json",
+  "encoding": "native-size lossless RGB WebP from approved Blender PNG",
+  "assets": [
+    {
+      "schema": "maliev.pimm-bento-final/v1",
+      "generation": "bento-20260903-r06",
+      "shot": "capacity",
+      "approval_sha256": "68B0F21BABC16B6E8E3B482754BCF94A782E72501E12856857B39520FAEFBC7D",
+      "scene_sha256": "3873AFBF979FB7F573D5FAB3C0AE5C716D9F61EB8A42FFABC7B6FD48B378BCFF",
+      "proof_sha256": "0C2D24DEA8B2468512BE4CFD17E785F6ADB58990E0A7F74A93A725F6ADBE4FCE",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r06-native2\\pimm-bento-20260903-r06-30g-capacity.png",
+      "native_sha256": "4FEC535141D59C36D342F2DB8982C180422AF63FDFDCC0478D35E4EAFF64A68A",
+      "size": [
+        1600,
+        2200
+      ],
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "filename": "pimm-bento-20260903-r06-30g-capacity.webp",
+      "sha256": "90FEC29EAD5064C568BF23549D836776CFB065309DE398E2FEF7EE3174030CD1",
+      "bytes": 411778
+    },
+    {
+      "schema": "maliev.pimm-bento-final/v1",
+      "generation": "bento-20260903-r06",
+      "shot": "controls",
+      "approval_sha256": "68B0F21BABC16B6E8E3B482754BCF94A782E72501E12856857B39520FAEFBC7D",
+      "scene_sha256": "AD6DB7EBCD2824DDD7904B8C74DE79B5121159F5E1E351D035AA3B991D213EA0",
+      "proof_sha256": "49C303BDE143536F158284ACAC39A8C309D40BEFFBE38E9A933F602721C96C84",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r06-native2\\pimm-bento-20260903-r06-30g-controls.png",
+      "native_sha256": "75C8CA71A0ACF1ACA255A357AC0F5730C421F549A447E343E207493577F2C209",
+      "size": [
+        2400,
+        1200
+      ],
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "filename": "pimm-bento-20260903-r06-30g-controls.webp",
+      "sha256": "D84631467D4640848DF36E6B168AAC6D8821F63255AEC583740F703AF1EB3227",
+      "bytes": 318178
+    },
+    {
+      "schema": "maliev.pimm-bento-final/v1",
+      "generation": "bento-20260903-r06",
+      "shot": "tooling",
+      "approval_sha256": "68B0F21BABC16B6E8E3B482754BCF94A782E72501E12856857B39520FAEFBC7D",
+      "scene_sha256": "C47F183EC6AC76A62E6D495AE6D512519D29C85E7BF1936C6AF96D47CD8DEE57",
+      "proof_sha256": "CBD4DBDDE3342F06CC45DFAC4EAC121FA86ECB6A29C922285B04C225250D76C3",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r06-native2\\pimm-bento-20260903-r06-30g-tooling.png",
+      "native_sha256": "C558500A30484C9B9EB5B8F2A13D8032BCAF616AEA4312113CC063C6863E594D",
+      "size": [
+        1600,
+        2000
+      ],
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "filename": "pimm-bento-20260903-r06-30g-tooling.webp",
+      "sha256": "F6CC5104F534D5D40F7992ADF509BC43E1B66D79BE204DE4B38AB5C6FD17AB6A",
+      "bytes": 562744
+    },
+    {
+      "schema": "maliev.pimm-bento-final/v1",
+      "generation": "bento-20260903-r06",
+      "shot": "configuration",
+      "approval_sha256": "68B0F21BABC16B6E8E3B482754BCF94A782E72501E12856857B39520FAEFBC7D",
+      "scene_sha256": "19996EBD617588DEF40641FF1B59715CBF84C7402556EB02612B98611561CE89",
+      "proof_sha256": "DA5A6FDBE6BE86104734D579A6FFA952CE288D27C8ECB5ECDA55C8161F522CFC",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r06-native2\\pimm-bento-20260903-r06-30g-configuration.png",
+      "native_sha256": "EF59F9E05A8504EBAB88FFBC19518CD1C1D432436CE7E448DA932FA78EC574F4",
+      "size": [
+        2400,
+        1200
+      ],
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "filename": "pimm-bento-20260903-r06-30g-configuration.webp",
+      "sha256": "C85FFEDB027ECA36E0ED82BD4CF23EEA10E25518CD51303219C01FEE42ABECEC",
+      "bytes": 221164
+    }
+  ]
+}

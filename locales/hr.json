@@ -8,6 +8,11 @@
  * ------------------------------------------------------------
  */
 {
+  "pimm_bento": {
+    "controls_compact": "Review temperature and air requirements before setting up.",
+    "tooling_compact": "Confirm your mold dimensions and injection entry with our team before making tooling.",
+    "configuration_compact": "Review your part, material and mold plan with the MALIEV team."
+  },
   "pimm_gallery": {
     "heading": "See the 30G in action.",
     "description": "Real demonstrations. A closer look at the machine.",
