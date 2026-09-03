@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MALIEV 30G — combined motion proof</title>
+  <link rel="stylesheet" href="pimm-bento-spin.css">
+  <script src="pimm-bento-spin.js" defer></script>
+  <script src="pimm-bento-orbit.js" defer></script>
+  <style>
+    @font-face { font-family: Outfit; src: url('Outfit-Latin.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #111315; font: 400 16px/1.55 Outfit, sans-serif; }
+    header, main, footer { width: min(1320px, calc(100% - 48px)); margin-inline: auto; }
+    header { padding-block: 26px 24px; }
+    header p { margin: 8px 0 0; max-width: 85ch; }
+    h1 { margin: 0; font-size: clamp(23px, 3vw, 32px); line-height: 1.15; text-wrap: balance; }
+    h2 { font: 700 clamp(24px, 2.7vw, 36px)/1.05 Outfit, sans-serif; letter-spacing: -.025em; text-wrap: balance; margin: 0 0 16px; }
+    p { text-wrap: pretty; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { min-width: 0; border: 1px solid #d5d9dd; border-radius: 14px; overflow: hidden; background: #d8d9db; }
+    .motion-card { display: flex; flex-direction: column; }
+    figure { margin: 0; }
+    pimm-bento-orbit { display: block; position: relative; width: 100%; }
+    pimm-bento-orbit > img { display: block; width: 100%; height: auto; }
+    pimm-bento-orbit > video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    pimm-bento-orbit > video[hidden] { display: none; }
+    .motion-copy { padding: 24px 30px 30px; margin-top: auto; }
+    .motion-copy p { margin: 0; max-width: 52ch; }
+    .technical { font-size: 14px; line-height: 1.45; margin-top: 16px !important; }
+    .spin-card { position: relative; grid-column: 1 / -1; aspect-ratio: 2; background: #f0f0f0; }
+    .spin-card pimm-bento-spin { position: absolute; inset: 0; }
+    .spin-copy { position: absolute; left: 5%; top: 50%; transform: translateY(-50%); width: 34%; pointer-events: none; }
+    .spin-copy p { margin: 0; font-size: clamp(13px, 1.15vw, 16px); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    footer { padding-block: 24px 50px; }
+    @media (prefers-reduced-motion: reduce) { pimm-bento-orbit > video { display: none; } }
+    @media (max-width: 600px) {
+      header, main, footer { width: calc(100% - 32px); }
+      header p, footer { font-size: 14px; }
+      .grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .motion-copy { padding: 22px 24px 26px; }
+      .motion-copy p { font-size: 14px; }
+      .spin-card { aspect-ratio: auto; display: flex; flex-direction: column; }
+      .spin-card pimm-bento-spin { position: relative; inset: auto; height: auto; aspect-ratio: 2; width: 200%; left: -100%; flex: none; --spin-hit-left: 50%; }
+      .spin-copy { position: static; margin: 0 24px; padding: 16px 0 26px; width: auto; transform: none; }
+      h2 { font-size: 26px; max-width: 23ch; }
+      .spin-copy p { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>30G · motion and interaction proof</h1>
+    <p>Low-resolution Blender preview, not final renders and not the storefront. Review the motion, camera framing and component visibility here before full-resolution rendering.</p>
+  </header>
+  <main class="grid">
+    <article class="card motion-card">
+      <figure>
+        <pimm-bento-orbit data-orbit-src="capacity.mp4">
+          <img src="../bento-20260903-r17-tube-reveal/frame-0001.png" width="__CAPACITY_WIDTH__" height="__CAPACITY_HEIGHT__" alt="PIMM 30G machine before its technical injection tube reveal">
+        </pimm-bento-orbit>
+      </figure>
+      <div class="motion-copy">
+        <h2>SHOT CAPACITY</h2>
+        <p>The 30G injection tube, 25 mm plug, WMH13-20 and R15 nozzle remain opaque as the surrounding machine fades to reveal the assembly.</p>
+        <p class="technical">Technical visualization — protective cover and surrounding components shown transparent. This is an explanatory view, not an operating state.</p>
+      </div>
+    </article>
+    <article class="card motion-card">
+      <figure>
+        <pimm-bento-orbit data-orbit-src="tooling.mp4">
+          <img src="../bento-20260903-r15-camera-previews/tooling/frame-0001.png" width="__TOOLING_WIDTH__" height="__TOOLING_HEIGHT__" alt="PIMM 30G tooling base plate with its central hole">
+        </pimm-bento-orbit>
+      </figure>
+      <div class="motion-copy">
+        <h2>CONFIRM YOUR<br>MOLD PATH</h2>
+        <p>A subtle up-and-down camera tilt stays centered on the base plate hole. The machine remains stationary.</p>
+        <p class="technical">Native Blender camera motion · ±3° · 24 fps · eight-second loop.</p>
+      </div>
+    </article>
+    <article class="card spin-card">
+      <pimm-bento-spin data-frame-template="../bento-20260903-r15-camera-previews/configuration/row-{row}/frame-{frame}.png"
+        data-frame-count="120" data-row-count="7" data-default-row="3" data-row-step="2"
+        data-role-description="3D viewer" data-label="Rotate and tilt the PIMM 30G machine"
+        data-value-template="Rotation {angle} degrees, tilt {tilt} degrees" data-describedby="spin-instructions">
+        <img src="../bento-20260903-r15-camera-previews/configuration/row-03/frame-0001.png" width="__CONFIGURATION_WIDTH__" height="__CONFIGURATION_HEIGHT__" alt="PIMM 30G machine in a white studio">
+      </pimm-bento-spin>
+      <div class="spin-copy">
+        <h2>SEE THE MACHINE BEFORE YOU COMMIT</h2>
+        <p>Drag the machine to explore its full 360° rotation and a gentle upward or downward tilt. Your chosen angle stays in place when you release.</p>
+      </div>
+    </article>
+    <p id="spin-instructions" class="sr-only">Drag the machine in any direction. Left and right arrow keys rotate; up and down arrow keys tilt; Home restores the front view. Touching outside the machine area scrolls the page.</p>
+  </main>
+  <footer>Proof only: 1,224 verified native frames. Reduced motion shows static images and skips the rotation hint; deliberate dragging and keyboard rotation remain available. No visible playback controls.</footer>
+</body>
+</html>
