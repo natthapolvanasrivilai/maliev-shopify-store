@@ -253,6 +253,7 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
   assert.doesNotMatch(css, /(?:mask-image|filter):/);
+  assert.match(css, /\.pimm-bento__tile--configuration \{[^}]*border: 1px solid #d9dde1;/);
 });
 
 test('bento compact captions retain matching locale keys and only replace prose at narrow widths', async () => {
