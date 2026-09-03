@@ -3,9 +3,41 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
+import { Liquid } from 'liquidjs';
 
 const root = new URL('../../', import.meta.url);
 const release = 'pimm-30g-hero-reveal-20260902-r01';
+
+test('30G hero has one model-specific demo action; other model actions stay intact', async () => {
+  const source = await readFile(new URL('snippets/pimm-hero-console.liquid', root), 'utf8');
+  const actions = source.slice(source.indexOf('<div class="pimm-machine__actions">'), source.indexOf('  <figure'));
+  const liquid = new Liquid();
+  liquid.registerFilter('t', (key) => key);
+  for (const model of ['30G', '50G']) {
+    const html = await liquid.parseAndRender(actions, { section: { id: 'test', settings: { page_model: model } }, factory_visit_url: '/pages/contact' });
+    assert.equal((html.match(/<a /g) || []).length, model === '30G' ? 1 : 2);
+    assert.match(html, /href="\/pages\/contact"/);
+    if (model === '30G') {
+      assert.match(html, /hero.demo_cta/);
+      assert.match(html, /aria-describedby="PimmDemoNote-test"/);
+      assert.doesNotMatch(html, /purchase.heading|href="#PimmMachineQualification/);
+      assert.match(html, /aria-hidden="true" focusable="false"/);
+    } else {
+      assert.match(html, /purchase.heading/);
+    }
+  }
+});
+
+test('30G demo copy is present in English and Thai and arrow respects reduced motion', async () => {
+  for (const name of ['en.default', 'th']) {
+    const locale = JSON.parse((await readFile(new URL(`locales/${name}.json`, root), 'utf8')).replace(/^\/\*[\s\S]*?\*\/\s*/, ''));
+    assert.ok(locale.products.pimm_machine.hero.demo_cta.includes('30G'));
+    assert.ok(locale.products.pimm_machine.hero.demo_note);
+  }
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', root), 'utf8');
+  assert.match(css, /demo-cta:focus-visible/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*demo-arrow \{ transition: none/);
+});
 
 test('hero release preserves 48 native frames, exact endpoint and master provenance', async () => {
   const manifest = JSON.parse(await readFile(new URL(`assets/${release}.json`, root)));

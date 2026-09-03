@@ -54,7 +54,7 @@
   text-wrap: balance;
 }
 .pimm-machine[data-page-model="30G"] .pimm-machine__fit { margin: 0; max-width: 40ch; }
-.pimm-machine[data-page-model="30G"] .pimm-machine__actions { margin-top: 32px; gap: 12px; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__actions { align-items: flex-start; flex-direction: column; margin-top: 32px; gap: 12px; }
 .pimm-machine[data-page-model="30G"] .pimm-machine__hero :is(.button, .pimm-machine__text-link) {
   border-radius: 4px;
   min-height: 48px;
@@ -73,6 +73,41 @@
   background: var(--pimm-blue);
   border-color: var(--pimm-blue);
   color: var(--pimm-surface);
+}
+
+.pimm-machine[data-page-model="30G"] .pimm-machine__hero .pimm-machine__demo-cta {
+  gap: 32px;
+  justify-content: space-between;
+  min-height: 56px;
+  min-width: 264px;
+  max-width: 100%;
+  padding: 16px 24px;
+  font-family: var(--maliev-font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: start;
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__demo-arrow {
+  flex: 0 0 24px;
+  transition: transform 180ms cubic-bezier(.22, 1, .36, 1);
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__demo-cta:hover .pimm-machine__demo-arrow { transform: translateX(3px); }
+.pimm-machine[data-page-model="30G"] .pimm-machine__demo-cta:focus-visible { outline: 3px solid var(--maliev-focus, #ffd21c); outline-offset: 4px; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__hero .pimm-machine__demo-cta:active { background: var(--pimm-blue-dark); border-color: var(--pimm-blue-dark); }
+.pimm-machine[data-page-model="30G"] .pimm-machine__actions .pimm-machine__demo-note {
+  color: var(--pimm-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 38ch;
+}
+@media (max-width: 599px) {
+  .pimm-machine[data-page-model="30G"] .pimm-machine__hero .pimm-machine__demo-cta { min-width: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pimm-machine[data-page-model="30G"] .pimm-machine__demo-arrow { transition: none; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__demo-cta:hover .pimm-machine__demo-arrow { transform: none; }
 }
 
 .pimm-machine[data-page-model="30G"] .pimm-machine__hero-stage {

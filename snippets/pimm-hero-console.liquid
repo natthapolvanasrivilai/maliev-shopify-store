@@ -27,8 +27,16 @@
     {% endunless %}
 
     <div class="pimm-machine__actions">
+      {% if section.settings.page_model == '30G' %}
+        <a class="button button--primary pimm-machine__demo-cta" href="{{ factory_visit_url }}" aria-describedby="PimmDemoNote-{{ section.id }}">
+          <span>{{ 'products.pimm_machine.hero.demo_cta' | t }}</span>
+          <svg class="pimm-machine__demo-arrow" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="24" height="24"><path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <p class="pimm-machine__demo-note" id="PimmDemoNote-{{ section.id }}">{{ 'products.pimm_machine.hero.demo_note' | t }}</p>
+      {% else %}
       <a class="button button--primary" href="{{ factory_visit_url }}">{{ 'products.pimm_machine.purchase.book_visit' | t }}</a>
       <a class="pimm-machine__text-link" href="#PimmMachineQualification-{{ section.id }}">{{ 'products.pimm_machine.purchase.heading' | t }}</a>
+      {% endif %}
     </div>
   </div>
 
