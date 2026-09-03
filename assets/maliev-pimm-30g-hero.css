@@ -236,7 +236,7 @@
 }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--capacity { grid-area: capacity; aspect-ratio: 1600 / 2200; }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls { grid-area: controls; aspect-ratio: 2; }
-.pimm-machine[data-page-model="30G"] .pimm-bento__tile--tooling { grid-area: tooling; aspect-ratio: 1600 / 2000; }
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--tooling { grid-area: tooling; aspect-ratio: 1600 / 2200; }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--configuration { grid-area: configuration; aspect-ratio: 2; }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--render .pimm-bento__copy {
   position: relative;

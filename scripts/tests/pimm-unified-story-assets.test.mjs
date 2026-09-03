@@ -82,6 +82,8 @@ test('30G feature bento has four native render tiles without video stills or emp
   assert.equal((story.match(/<img /g) ?? []).length, 4);
   assert.doesNotMatch(story, /pimm-gallery-20260903-(?:molding|end-caps)\.webp|pimm-bento__tile--(?:workshop|parts)|figcaption/);
   assert.doesNotMatch(css, /pimm-bento__tile--(?:workshop|parts)/);
+  assert.match(css, /\.pimm-bento__tile--capacity \{ grid-area: capacity; aspect-ratio: 1600 \/ 2200; \}/);
+  assert.match(css, /\.pimm-bento__tile--tooling \{ grid-area: tooling; aspect-ratio: 1600 \/ 2200; \}/);
   assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration";/);
   assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "configuration";/);
   assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 1\.6rem \+ 1\.7vw, 4rem\) !important/);
