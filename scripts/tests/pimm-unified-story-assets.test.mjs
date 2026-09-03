@@ -89,11 +89,13 @@ test('30G feature bento has varied tiles, real workshop stills and readable loca
   assert.match(css, /\.pimm-story--30g:lang\(th\) :is\(h2, h3\) \{[^}]*letter-spacing: normal !important/);
 });
 
-test('bento type hierarchy keeps brand fonts, readable body text and locale-aware headlines', async () => {
+test('bento uses Outfit 700 headlines and 400 text with locale-aware spacing', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const heading = css.match(/\.pimm-bento__copy h3 \{([^}]+)\}/)[1];
   const body = css.match(/\.pimm-bento__copy p \{([^}]+)\}/)[1];
-  assert.match(heading, /font-weight: 600/);
+  assert.match(heading, /font-weight: 700 !important/);
+  assert.match(heading, /font-family: var\(--pimm-bento-font\)/);
+  assert.match(body, /font-family: var\(--pimm-bento-font\)/);
   assert.match(heading, /max-width: 16ch/);
   assert.match(heading, /font-kerning: normal/);
   assert.match(body, /font-weight: 400/);
@@ -103,6 +105,26 @@ test('bento type hierarchy keeps brand fonts, readable body text and locale-awar
   const bento = css.slice(css.indexOf('.pimm-bento {'), css.indexOf('.pimm-machine__ownership {'));
   assert.doesNotMatch(bento, /font-size: 1\.5rem/);
   assert.doesNotMatch(bento, /@font-face/);
+  assert.match(bento, /--pimm-bento-font: 'Outfit', 'IBM Plex Sans Thai', sans-serif/);
+  assert.match(bento, /figcaption \{[^}]*font-family: var\(--pimm-bento-font\);[^}]*font-weight: 400/);
+});
+
+test('Outfit font weights are locally bundled with a redistribution license', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const faces = [...css.matchAll(/@font-face \{([^}]+)\}/g)].map(match => match[1]);
+  assert.equal(faces.length, 2);
+  for (const face of faces) {
+    assert.match(face, /font-family: 'Outfit'/);
+    assert.match(face, /font-weight: 400 700/);
+    assert.match(face, /font-display: swap/);
+    const file = face.match(/url\('\.\/([^']+)'\)/)[1];
+    const bytes = await readFile(new URL(file, assetsUrl));
+    assert.equal(bytes.subarray(0, 4).toString('ascii'), 'wOF2');
+    assert.ok(bytes.length > 1000 && bytes.length < 100000);
+  }
+  const license = await readFile(new URL('Outfit-OFL.txt', assetsUrl), 'utf8');
+  assert.match(license, /The Outfit Project Authors/);
+  assert.match(license, /SIL OPEN FONT LICENSE Version 1.1/);
 });
 
 test('dedicated product templates lock model identity independently of query selection', async () => {
