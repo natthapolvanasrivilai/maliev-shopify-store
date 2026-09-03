@@ -45,6 +45,18 @@ test('30G engineering band uses brand blue with explicit readable foregrounds', 
   }
 });
 
+test('30G engineering and commercial facts form a joined responsive summary without restyling values', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const band = css.match(/\.pimm-machine__specifications \{([^}]+)\}/)[1];
+  assert.match(band, /grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(band, /border-radius: 14px 14px 0 0/);
+  const commercial = css.match(/\.pimm-machine__qualification-strip \{([^}]+)\}/)[1];
+  assert.match(commercial, /border-radius: 0 0 14px 14px/);
+  assert.match(commercial, /padding: 24px 32px/);
+  assert.match(css, /\.pimm-machine__qualification-facts > div \{ grid-template-columns: 1fr; gap: 8px; \}/);
+  assert.doesNotMatch(css, /\.pimm-machine__qualification-facts dd \{[^}]*font-/);
+});
+
 test('30G demo close gives the booking action a distinct neutral-to-blue treatment', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-machine__purchase \{[^}]*--pimm-booking-surface: #e6f1fb;[^}]*background: var\(--pimm-booking-surface\)/);
