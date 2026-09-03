@@ -9,10 +9,18 @@
       this.count = Number(this.dataset.frameCount);
       if (!this.poster || !this.dataset.frameTemplate?.includes('{frame}') ||
           !Number.isInteger(this.count) || this.count < 2 || this.count > 720) return;
+      this.rows = this.dataset.rowCount === undefined ? 1 : Number(this.dataset.rowCount);
+      this.defaultRow = this.dataset.defaultRow === undefined ? Math.floor(this.rows / 2) : Number(this.dataset.defaultRow);
+      this.rowStep = this.dataset.rowStep === undefined ? 2 : Number(this.dataset.rowStep);
+      if (!Number.isInteger(this.rows) || this.rows < 1 || this.rows > 31 ||
+          !Number.isInteger(this.defaultRow) || this.defaultRow < 0 || this.defaultRow >= this.rows ||
+          !Number.isFinite(this.rowStep) || this.rowStep <= 0 ||
+          (this.rows > 1 && !this.dataset.frameTemplate.includes('{row}'))) return;
       this.abort = new AbortController();
       const session = this.abort;
       const options = { signal: session.signal };
       this.frame = this.frame ?? 0;
+      this.row = this.row ?? this.defaultRow;
       this.visible = false;
       this.cache = new Map();
       this.pending = new Map();
@@ -35,10 +43,21 @@
       this.handle = document.createElement('div');
       this.handle.className = 'pimm-bento-spin__handle';
       this.handle.tabIndex = 0;
-      this.handle.setAttribute('role', 'slider');
-      this.handle.setAttribute('aria-orientation', 'horizontal');
-      this.handle.setAttribute('aria-valuemin', '0');
-      this.handle.setAttribute('aria-valuemax', '359');
+      this.handle.setAttribute('role', this.rows > 1 ? 'group' : 'slider');
+      if (this.rows > 1) {
+        this.handle.dataset.twoAxis = '';
+        if (this.dataset.roleDescription) this.handle.setAttribute('aria-roledescription', this.dataset.roleDescription);
+        this.status = document.createElement('span');
+        this.status.className = 'pimm-bento-spin__status';
+        this.status.setAttribute('role', 'status');
+        this.status.setAttribute('aria-live', 'polite');
+        this.status.setAttribute('aria-atomic', 'true');
+        this.handle.append(this.status);
+      } else {
+        this.handle.setAttribute('aria-orientation', 'horizontal');
+        this.handle.setAttribute('aria-valuemin', '0');
+        this.handle.setAttribute('aria-valuemax', '359');
+      }
       this.handle.setAttribute('aria-label', this.dataset.label || this.poster.alt);
       if (this.dataset.describedby) this.handle.setAttribute('aria-describedby', this.dataset.describedby);
       this.updateValue();
@@ -73,10 +92,19 @@
 
     active() { return Boolean(this.abort && this.isConnected && this.visible && !document.hidden); }
     wrap(frame) { return ((frame % this.count) + this.count) % this.count; }
+    viewKey(frame = this.frame, row = this.row) { return row * this.count + frame; }
     updateValue() {
       const angle = Math.round(this.frame * 360 / this.count) % 360;
-      this.handle.setAttribute('aria-valuenow', String(angle));
-      this.handle.setAttribute('aria-valuetext', (this.dataset.valueTemplate || '{angle}°').replace('{angle}', angle));
+      const tilt = (this.row - this.defaultRow) * this.rowStep;
+      const value = (this.dataset.valueTemplate || (this.rows > 1 ? '{angle}° / {tilt}°' : '{angle}°'))
+        .replace('{angle}', angle).replace('{tilt}', tilt);
+      if (this.rows > 1) {
+        // A two-axis view is not an ARIA slider. Status reports both coordinates.
+        if (this.interacted || !this.status.textContent) this.status.textContent = value;
+      } else {
+        this.handle.setAttribute('aria-valuenow', String(angle));
+        this.handle.setAttribute('aria-valuetext', value);
+      }
     }
 
     sync() {
@@ -84,25 +112,27 @@
       if (this.motion.matches || this.connection?.saveData) this.cancelHint(true);
       if (this.interacted) { this.requestFrame(this.frame); return; }
       if (!this.hintDone && this.observer && !this.motion.matches && !this.connection?.saveData) {
-        this.hintFrames = [...new Set([0, 1, 2, this.count - 1, this.count - 2].map((frame) => this.wrap(frame)))];
+        this.hintFrames = [...new Set([0, 1, 2, this.count - 1, this.count - 2].map((frame) => this.viewKey(this.wrap(frame), this.defaultRow)))];
         this.pump();
       }
     }
 
-    requestFrame(frame) {
+    requestFrame(frame, row = this.row) {
       this.frame = this.wrap(Math.round(frame));
+      this.row = Math.max(0, Math.min(this.rows - 1, Math.round(row)));
       this.updateValue();
       if (!this.active()) return;
-      const cached = this.cache.get(this.frame);
-      if (cached) this.paint(this.frame, cached);
-      if (this.failed.has(this.frame)) this.canvas.hidden = true;
+      const key = this.viewKey();
+      const cached = this.cache.get(key);
+      if (cached) this.paint(key, cached);
+      if (this.failed.has(key)) this.canvas.hidden = true;
       this.pump();
     }
 
     pump() {
       if (!this.active()) return;
-      const candidates = this.interacted ? [this.frame, ...(!this.connection?.saveData ?
-        [this.wrap(this.frame + 1), this.wrap(this.frame - 1)] : [])] : (this.hintFrames || []);
+      const candidates = this.interacted ? [this.viewKey(), ...(!this.connection?.saveData ?
+        [this.viewKey(this.wrap(this.frame + 1)), this.viewKey(this.wrap(this.frame - 1))] : [])] : (this.hintFrames || []);
       for (const frame of candidates) {
         if (this.pending.size >= 2) break;
         if (this.cache.has(frame) || this.pending.has(frame) || this.failed.has(frame)) continue;
@@ -123,26 +153,29 @@
         this.cache.set(frame, image);
         // Six decoded frames cap desktop memory near 66 MiB at 2400 × 1200.
         while (this.cache.size > 6) this.cache.delete(this.cache.keys().next().value);
-        if (frame === this.frame && (this.interacted || this.hintRAF)) this.paint(frame, image);
+        if (frame === this.viewKey() && (this.interacted || this.hintRAF)) this.paint(frame, image);
         this.pump();
       };
       image.onerror = () => {
         if (!current()) return;
         this.pending.delete(frame);
         this.failed.add(frame);
-        if (frame === this.frame) this.canvas.hidden = true;
+        if (frame === this.viewKey()) this.canvas.hidden = true;
         if (!this.interacted) this.cancelHint(true);
         this.pump();
       };
-      image.src = this.dataset.frameTemplate.replace('{frame}', String(frame + 1).padStart(4, '0'));
+      image.src = this.dataset.frameTemplate
+        .replace('{frame}', String(frame % this.count + 1).padStart(4, '0'))
+        .replace('{row}', String(Math.floor(frame / this.count)).padStart(2, '0'));
     }
 
     paint(frame, image) {
-      if (!this.active() || frame !== this.frame) return;
+      if (!this.active() || frame !== this.viewKey()) return;
       try {
         this.context.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
         this.canvas.hidden = false;
-        this.dataset.spinFrame = String(frame + 1);
+        this.dataset.spinFrame = String(this.frame + 1);
+        if (this.rows > 1) this.dataset.spinRow = String(this.row);
         this.cache.delete(frame);
         this.cache.set(frame, image);
       } catch { this.canvas.hidden = true; }
@@ -173,6 +206,7 @@
       this.hintFrames = null;
       if (restore && !this.interacted) {
         this.frame = 0;
+        this.row = this.defaultRow;
         this.updateValue();
         this.canvas.hidden = true;
       }
@@ -187,8 +221,8 @@
     pointerDown(event) {
       if (!this.active() || event.isPrimary === false || event.button !== 0 || this.drag) return;
       this.interact();
-      this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, frame: this.frame, axis: null };
-      // Capture is deferred until horizontal intent, leaving touch scrolling native.
+      this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, frame: this.frame, row: this.row, axis: null };
+      // One-axis mode leaves vertical scrolling native; two-axis captures only this hit area.
     }
 
     pointerMove(event) {
@@ -197,28 +231,30 @@
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
       if (!drag.axis) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 7) return;
-        if (Math.abs(dy) > Math.abs(dx)) { this.drag = null; return; }
-        drag.axis = 'x';
+        if (this.rows === 1 && Math.abs(dy) > Math.abs(dx)) { this.drag = null; return; }
+        drag.axis = this.rows > 1 ? 'xy' : 'x';
         this.handle.setPointerCapture(event.pointerId);
         this.handle.dataset.dragging = '';
         this.handle.focus({ preventScroll: true });
       }
-      const width = Math.max(1, this.handle.getBoundingClientRect().width);
+      const bounds = this.handle.getBoundingClientRect();
+      const width = Math.max(1, bounds.width);
       this.nextFrame = drag.frame + dx / width * this.count;
+      this.nextRow = this.rows > 1 ? drag.row - dy / Math.max(1, bounds.height) * (this.rows - 1) : drag.row;
       if (!this.dragRAF) this.dragRAF = requestAnimationFrame(() => {
         this.dragRAF = null;
-        this.requestFrame(this.nextFrame);
+        this.requestFrame(this.nextFrame, this.nextRow);
       });
     }
 
     pointerEnd(event) {
       if (!this.drag || this.drag.id !== event.pointerId) return;
-      const wasHorizontal = this.drag.axis === 'x';
+      const wasDragging = Boolean(this.drag.axis);
       this.drag = null;
       delete this.handle.dataset.dragging;
       if (this.dragRAF) {
         cancelAnimationFrame(this.dragRAF); this.dragRAF = null;
-        if (wasHorizontal && event.type === 'pointerup') this.requestFrame(this.nextFrame);
+        if (wasDragging && event.type === 'pointerup') this.requestFrame(this.nextFrame, this.nextRow);
       }
       if (this.handle.hasPointerCapture(event.pointerId)) this.handle.releasePointerCapture(event.pointerId);
     }
@@ -226,10 +262,12 @@
     keyDown(event) {
       if (!this.active() || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const delta = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
-      if (delta === undefined && event.key !== 'Home') return;
+      const rowDelta = this.rows > 1 ? { ArrowUp: 1, ArrowDown: -1 }[event.key] : undefined;
+      if (delta === undefined && rowDelta === undefined && event.key !== 'Home') return;
       event.preventDefault();
       this.interact();
-      this.requestFrame(event.key === 'Home' ? 0 : this.frame + delta);
+      this.requestFrame(event.key === 'Home' ? 0 : this.frame + (delta || 0),
+        event.key === 'Home' ? this.defaultRow : this.row + (rowDelta || 0));
     }
 
     suspend() {

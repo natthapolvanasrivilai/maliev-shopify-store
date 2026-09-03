@@ -42,12 +42,12 @@ function harness({ reduced = false, saveData = false, observer = true, dataset =
     hasPointerCapture(id) { return this.capture === id; }
     releasePointerCapture() { this.capture = null; }
     focus(options) { this.focusOptions = options; }
-    getBoundingClientRect() { return { width: 600 }; }
+    getBoundingClientRect() { return { width: 600, height: 300 }; }
   }
   const document = Object.assign(target(), {
     hidden: false,
     createElement(tag) {
-      assert.ok(['canvas', 'div'].includes(tag));
+      assert.ok(['canvas', 'div', 'span'].includes(tag));
       const element = new Element(); element.tag = tag;
       if (tag === 'canvas') element.getContext = () => ({ drawImage(image) { draws.push(image.src); } });
       return element;
@@ -262,4 +262,93 @@ test('unsupported configuration stays a plain image and safely disconnects', () 
   const state = harness({ dataset: { frameCount: 'bad' } });
   state.element.disconnectedCallback();
   assert.equal(state.element.children.length, 1); assert.equal(state.images.length, 0);
+});
+
+const twoAxis = {
+  frameTemplate: '/configuration/row-{row}/frame-{frame}.png', rowCount: '7', defaultRow: '3', rowStep: '2',
+  roleDescription: '3D viewer', valueTemplate: 'Rotation {angle} degrees, tilt {tilt} degrees',
+};
+
+test('two-axis diagonal drag updates yaw and pitch simultaneously with the exact row URL', () => {
+  const state = harness({ reduced: true, saveData: true, dataset: twoAxis }); state.show();
+  pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 160, 50); state.tick();
+  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 4);
+  assert.equal(state.images[0].src, '/configuration/row-04/frame-0013.png');
+  state.complete();
+  assert.equal(state.element.dataset.spinFrame, '13'); assert.equal(state.element.dataset.spinRow, '4');
+  pointer(state, 'pointerup', 160, 50); state.tick(9999);
+  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 4);
+  assert.equal(state.frames.size, 0, 'release holds both axes');
+});
+
+test('two-axis pitch clamps at endpoints while yaw continues to wrap', () => {
+  const state = harness({ reduced: true, dataset: twoAxis }); state.show();
+  pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 700, -500); state.tick();
+  assert.equal(state.element.frame, 0); assert.equal(state.element.row, 6);
+  pointer(state, 'pointerup', 700, -500);
+  pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 40, 1200); state.tick();
+  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 0);
+});
+
+test('two-axis keyboard exposes both coordinates without invalid slider ARIA', () => {
+  const state = harness({ reduced: true, dataset: twoAxis }); state.show();
+  const { handle, status } = state.element;
+  assert.equal(handle.attributes.role, 'group');
+  assert.equal(handle.attributes['aria-roledescription'], '3D viewer');
+  assert.equal(handle.attributes['aria-valuenow'], undefined);
+  assert.equal(status.attributes['aria-live'], 'polite');
+  assert.equal(status.textContent, 'Rotation 0 degrees, tilt 0 degrees');
+  assert.equal(handle.dispatch('keydown', { key: 'ArrowUp' }).prevented, true);
+  handle.dispatch('keydown', { key: 'ArrowLeft' });
+  assert.equal(status.textContent, 'Rotation 357 degrees, tilt 2 degrees');
+  for (let step = 0; step < 8; step++) handle.dispatch('keydown', { key: 'ArrowDown' });
+  assert.equal(state.element.row, 0); assert.equal(state.element.frame, 119);
+  assert.equal(status.textContent, 'Rotation 357 degrees, tilt -6 degrees');
+  handle.dispatch('keydown', { key: 'Home' });
+  assert.equal(state.element.row, 3); assert.equal(state.element.frame, 0);
+});
+
+test('two-axis touch area owns vertical gestures, without changing single-axis pan-y', async () => {
+  const state = harness({ reduced: true, dataset: twoAxis }); state.show();
+  assert.equal(state.element.handle.dataset.twoAxis, '');
+  pointer(state, 'pointerdown', 100, 100, { pointerType: 'touch' });
+  pointer(state, 'pointermove', 100, 50, { pointerType: 'touch' }); state.tick();
+  assert.equal(state.element.row, 4); assert.equal(state.element.frame, 0);
+  assert.equal(state.element.handle.capture, 1);
+  const legacy = harness({ reduced: true }); legacy.show();
+  assert.equal(legacy.element.handle.dataset.twoAxis, undefined);
+  const css = await readFile(new URL('assets/pimm-bento-spin.css', root), 'utf8');
+  assert.match(css, /\.pimm-bento-spin__handle\[data-two-axis\] \{ touch-action: none;/);
+  assert.match(css, /touch-action: pan-y pinch-zoom;/);
+});
+
+test('two-axis reduced motion and save-data allow deliberate movement but no automatic hint', () => {
+  for (const preferences of [{ reduced: true }, { saveData: true }]) {
+    const state = harness({ ...preferences, dataset: twoAxis }); state.show();
+    assert.equal(state.images.length, 0); assert.equal(state.frames.size, 0);
+    state.element.handle.dispatch('keydown', { key: 'ArrowUp' });
+    assert.equal(state.element.row, 4); assert.ok(state.images.length > 0);
+    state.complete(); assert.equal(state.element.canvas.hidden, false);
+  }
+});
+
+test('two-axis stale rows never paint and automatic hint stays at the default pitch', () => {
+  const state = harness({ reduced: true, saveData: true, dataset: twoAxis }); state.show();
+  state.element.handle.dispatch('keydown', { key: 'ArrowUp' });
+  state.element.handle.dispatch('keydown', { key: 'ArrowDown' });
+  state.complete(state.images[0]); assert.equal(state.draws.length, 0);
+  state.complete(state.images[1]); assert.equal(state.draws[0], '/configuration/row-03/frame-0001.png');
+  const hint = harness({ dataset: twoAxis }); hint.show();
+  for (let index = 0; index < 5; index++) hint.complete();
+  assert.ok(hint.images.every((image) => image.src.includes('/row-03/')));
+  hint.tick(0); hint.tick(600); hint.tick(2400);
+  assert.equal(hint.element.row, 3); assert.equal(hint.element.frame, 0);
+});
+
+test('invalid row configurations stay a safe static image', () => {
+  for (const dataset of [{ ...twoAxis, rowCount: '7.5' }, { ...twoAxis, defaultRow: '7' },
+    { ...twoAxis, rowStep: '0' }, { ...twoAxis, frameTemplate: '/frame-{frame}.png' }]) {
+    const state = harness({ dataset }); state.element.disconnectedCallback();
+    assert.equal(state.images.length, 0); assert.equal(state.element.children.length, 1);
+  }
 });

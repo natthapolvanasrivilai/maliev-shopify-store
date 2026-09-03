@@ -36,6 +36,18 @@ pimm-bento-spin > canvas[hidden] { display: none; }
 
 .pimm-bento-spin__handle[data-dragging] { cursor: grabbing; }
 
+.pimm-bento-spin__handle[data-two-axis] { touch-action: none; }
+
+.pimm-bento-spin__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .pimm-bento-spin__handle:focus-visible {
   outline: 2px solid var(--color-focus, #006edb);
   outline-offset: -4px;
