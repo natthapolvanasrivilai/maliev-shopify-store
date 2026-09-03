@@ -16,8 +16,8 @@ from scripts.blender.pimm_production.paths import ASSET_ROOT
 def main(shot):
     if shot not in ('capacity', 'tooling'):
         raise ValueError('Unknown proof sequence')
-    generation = 'bento-20260903-r17-tube-reveal' if shot == 'capacity' else 'bento-20260903-r15-camera-previews'
-    worker = 'blender_bento_tube_reveal_proof.py' if shot == 'capacity' else 'blender_bento_axes_proof.py'
+    generation = 'bento-20260903-r21-stable-tube-reveal' if shot == 'capacity' else 'bento-20260903-r15-camera-previews'
+    worker = 'blender_bento_stable_reveal_proof.py' if shot == 'capacity' else 'blender_bento_axes_proof.py'
     contract_path = ASSET_ROOT / 'scenes/contracts' / f'pimm-30g--{generation}--{shot}.json'
     contract = json.loads(contract_path.read_text())
     if contract['approval'] != 'pending' or len(contract['proofs']) != 192:

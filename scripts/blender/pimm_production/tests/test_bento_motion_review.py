@@ -4,10 +4,12 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from scripts.blender.pimm_production import package_bento_motion_review as review
 from scripts.blender.pimm_production.io_contract import sha256_file
+from scripts.blender.pimm_production.blender_bento_stable_reveal_proof import stabilize
 
 
 class MotionReviewTests(unittest.TestCase):
@@ -36,7 +38,8 @@ class MotionReviewTests(unittest.TestCase):
                     'scene_sha256': sha256_file(self.scene), 'native_size': list(size), 'proof_percentage': 25,
                     'source_scene_sha256': sha256_file(self.scene),
                     'motion': {'frames': count, 'fps': 24, 'yaw_views': 120, 'elevation_degrees': [-6, -4, -2, 0, 2, 4, 6]},
-                    'technical_visualization': True, 'focus_objects': list(review.TARGETS), 'ghost_opacity': .2}
+                    'technical_visualization': True, 'focus_objects': list(review.TARGETS), 'ghost_opacity': .2,
+                    'render_stability': {'persistent_data': False}}
         path = root / 'contract.json'
         path.write_text(json.dumps(contract))
         return root, path, contract
@@ -101,6 +104,27 @@ class MotionReviewTests(unittest.TestCase):
         fixture[1].write_text(json.dumps(fixture[2]))
         with self.assertRaisesRegex(ValueError, 'four approved 30G'):
             self.validate(fixture, 'capacity')
+
+    def test_capacity_rejects_persistent_data_and_missing_stability_contract(self):
+        fixture = self.sequence('capacity', 192, (1600, 2200))
+        for settings in ({}, {'persistent_data': True}, {'persistent_data': 0}):
+            fixture[2]['render_stability'] = settings
+            fixture[1].write_text(json.dumps(fixture[2]))
+            with self.assertRaisesRegex(ValueError, 'disable persistent render data'):
+                self.validate(fixture, 'capacity')
+
+    def test_stabilize_changes_only_the_render_cache_not_visual_settings(self):
+        scene = SimpleNamespace(render=SimpleNamespace(use_persistent_data=True, resolution_percentage=100),
+                                cycles=SimpleNamespace(samples=128, use_denoising=True),
+                                camera=object(), compositing_node_group=object())
+        camera, compositor = scene.camera, scene.compositing_node_group
+        stabilize(scene)
+        self.assertIs(scene.render.use_persistent_data, False)
+        self.assertEqual(scene.render.resolution_percentage, 100)
+        self.assertEqual(scene.cycles.samples, 128)
+        self.assertIs(scene.cycles.use_denoising, True)
+        self.assertIs(scene.camera, camera)
+        self.assertIs(scene.compositing_node_group, compositor)
 
     def test_video_receipt_pins_size_frame_count_contract_and_file(self):
         sequence = self.validate(self.sequence())

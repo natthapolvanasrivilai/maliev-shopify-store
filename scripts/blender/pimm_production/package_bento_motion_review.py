@@ -11,9 +11,9 @@ from scripts.blender.pimm_production.blender_bento_tube_reveal_proof import TARG
 from scripts.blender.pimm_production.io_contract import sha256_file
 from scripts.blender.pimm_production.paths import ASSET_ROOT, REPO_ROOT, require_within
 
-GENERATION = 'bento-20260903-r20-vertical-drag-review'
+GENERATION = 'bento-20260903-r22-stable-motion-review'
 CAMERA_GENERATION = 'bento-20260903-r15-camera-previews'
-CAPACITY_GENERATION = 'bento-20260903-r17-tube-reveal'
+CAPACITY_GENERATION = 'bento-20260903-r21-stable-tube-reveal'
 WORKER_ROOT = Path(__file__).parent
 
 
@@ -44,6 +44,8 @@ def validate_sequence(contract_path, root, worker, generation, shot, count):
             len(contract.get('focus_objects', [])) != 4 or set(contract['focus_objects']) != set(TARGETS) or
             contract.get('ghost_opacity') != .2):
         raise ValueError('Technical reveal must preserve exactly the four approved 30G components')
+    if shot == 'capacity' and contract.get('render_stability', {}).get('persistent_data') is not False:
+        raise ValueError('Technical reveal must disable persistent render data')
     records = []
     for index, record in enumerate(contract['proofs'], 1):
         if shot == 'configuration':
@@ -132,7 +134,7 @@ def package():
     for shot, generation, count, worker_name in (
             ('configuration', CAMERA_GENERATION, 840, 'blender_bento_axes_proof.py'),
             ('tooling', CAMERA_GENERATION, 192, 'blender_bento_axes_proof.py'),
-            ('capacity', CAPACITY_GENERATION, 192, 'blender_bento_tube_reveal_proof.py')):
+            ('capacity', CAPACITY_GENERATION, 192, 'blender_bento_stable_reveal_proof.py')):
         root = proofs_root / generation / shot if shot != 'capacity' else proofs_root / generation
         roots[shot] = require_within(root, proofs_root)
         contract = ASSET_ROOT / 'scenes/contracts' / f'pimm-30g--{generation}--{shot}.json'
@@ -142,6 +144,7 @@ def package():
     template = WORKER_ROOT / 'review/bento-motion.html'
     template_hash = sha256_file(template)
     html = template.read_text(encoding='utf-8')
+    html = html.replace('__CAPACITY_GENERATION__', CAPACITY_GENERATION)
     for shot, sequence in sequences.items():
         width, height = sequence['proof_size']
         html = html.replace(f'__{shot.upper()}_WIDTH__', str(width)).replace(f'__{shot.upper()}_HEIGHT__', str(height))
