@@ -47,6 +47,17 @@ test('30G engineering band separates heading, labels, values and units without c
   assert.match(css, /\[data-pimm-spec-unit\]\[hidden\] \{ display: none; \}/);
 });
 
+test('30G commercial facts have responsive spacing and a distinct non-monospace price', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const facts = css.match(/\.pimm-machine__qualification-facts \{([^}]+)\}/)[1];
+  assert.match(facts, /minmax\(0, 1\.35fr\)/);
+  assert.match(facts, /gap: 32px/);
+  const values = css.match(/\.pimm-machine__qualification-facts dd \{([^}]+)\}/)[1];
+  assert.match(values, /font-family: var\(--maliev-font-sans\)/);
+  assert.match(css, /\[data-pimm-model-value="fullPrice"\] \{[^}]*font-weight: 600/);
+  assert.match(css, /\.pimm-machine__qualification-facts \{ grid-template-columns: 1fr; gap: 24px; \}/);
+});
+
 test('30G demo close gives the booking action a distinct neutral-to-blue treatment', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-machine__purchase \{[^}]*--pimm-booking-surface: #e6f1fb;[^}]*background: var\(--pimm-booking-surface\)/);
