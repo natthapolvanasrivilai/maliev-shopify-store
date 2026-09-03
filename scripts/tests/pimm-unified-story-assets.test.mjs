@@ -229,6 +229,8 @@ test('active configurator gives every media placement its own release WebP asset
 test('30G bento uses four approved full-tile native-size lossless renders', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r12-assets.v1.json', rootUrl), 'utf8'));
   assert.equal(manifest.generation, 'bento-20260903-r12');
+  const previousManifest = await readFile(new URL(`assets/${manifest.previous_manifest}`, rootUrl));
+  assert.equal(sha256(previousManifest), manifest.previous_manifest_sha256);
   assert.equal(manifest.assets.length, 4);
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
   assert.equal((story.match(/pimm-bento__tile--render/g) ?? []).length, 4);
