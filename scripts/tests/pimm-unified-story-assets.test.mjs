@@ -74,16 +74,16 @@ test('30G support typography pairs a bounded heading with readable responsive pr
   assert.match(css, /@media \(max-width: 999px\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__ownership \.pimm-machine__prose \{\s*grid-template-columns: minmax\(0, 1fr\)/);
 });
 
-test('30G feature bento has varied tiles, real workshop stills and readable localized copy', async () => {
+test('30G feature bento has four native render tiles without video stills or empty grid areas', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
   assert.equal((story.match(/<h3>/g) ?? []).length, 4);
   assert.doesNotMatch(story, /pimm-story__index|pimm-story__chapter|data-pimm-reveal/);
-  assert.equal((story.match(/<img /g) ?? []).length, 6);
-  assert.match(story, /pimm-gallery-20260903-molding\.webp/);
-  assert.match(story, /pimm-gallery-20260903-end-caps\.webp/);
-  assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration" "workshop parts"/);
-  assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "workshop" "configuration" "parts"/);
+  assert.equal((story.match(/<img /g) ?? []).length, 4);
+  assert.doesNotMatch(story, /pimm-gallery-20260903-(?:molding|end-caps)\.webp|pimm-bento__tile--(?:workshop|parts)|figcaption/);
+  assert.doesNotMatch(css, /pimm-bento__tile--(?:workshop|parts)/);
+  assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration";/);
+  assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "configuration";/);
   assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 1\.6rem \+ 1\.7vw, 4rem\) !important/);
   assert.match(css, /\.pimm-bento__copy p \{[^}]*font-size: 1\.6rem;[^}]*line-height: 1\.5/);
   assert.match(css, /\.pimm-story--30g:lang\(th\) :is\(h2, h3\) \{[^}]*letter-spacing: normal !important/);
@@ -106,7 +106,7 @@ test('bento uses Outfit 700 headlines and 400 text with locale-aware spacing', a
   assert.doesNotMatch(bento, /font-size: 1\.5rem/);
   assert.doesNotMatch(bento, /@font-face/);
   assert.match(bento, /--pimm-bento-font: 'Outfit', 'IBM Plex Sans Thai', sans-serif/);
-  assert.match(bento, /figcaption \{[^}]*font-family: var\(--pimm-bento-font\);[^}]*font-weight: 400/);
+  assert.doesNotMatch(bento, /figcaption/);
 });
 
 test('Outfit font weights are locally bundled with a redistribution license', async () => {
