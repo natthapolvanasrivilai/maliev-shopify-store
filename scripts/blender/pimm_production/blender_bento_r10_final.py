@@ -18,26 +18,32 @@ OUTPUT = ASSET_ROOT / 'renders/final/bento-20260903-r10-native'
 SHOTS = ('capacity', 'controls', 'tooling', 'configuration', 'controls-orbit')
 
 
-def validate_final(receipt, contract, shot):
+def validate_native_frame(frame, contract, approval_hash, expected_path, index):
+    if (frame['frame'] != index or Path(frame['native_path']).resolve() != expected_path.resolve() or
+            frame['approval_sha256'] != approval_hash or frame['scene_sha256'] != contract['scene_sha256']):
+        raise ValueError('Invalid native frame identity')
+    checked_file(expected_path, frame['native_sha256'])
+    with expected_path.open('rb') as stream:
+        header = stream.read(24)
+    if (header[:8] != b'\x89PNG\r\n\x1a\n' or header[12:16] != b'IHDR' or
+            list(struct.unpack('>II', header[16:24])) != contract['native_size']):
+        raise ValueError('Native PNG dimensions do not match approved scene')
+    return frame
+
+
+def validate_final(receipt, contract, shot, approval_path=None, output_root=None):
+    approval_path = approval_path or APPROVAL
+    output_root = output_root or OUTPUT
     expected = {'generation': contract['generation'], 'shot': shot,
-                'approval_sha256': sha256_file(APPROVAL), 'scene_sha256': contract['scene_sha256'],
+                'approval_sha256': sha256_file(approval_path), 'scene_sha256': contract['scene_sha256'],
                 'master_sha256': contract['master_sha256'], 'size': contract['native_size']}
     if any(receipt.get(key) != value for key, value in expected.items()):
         raise ValueError('Final authority or dimensions changed')
     if len(receipt['frames']) != (192 if shot == 'controls-orbit' else 1):
         raise ValueError('Incomplete native render')
     for index, frame in enumerate(receipt['frames'], 1):
-        expected_path = require_within(OUTPUT / shot / f'frame-{index:04d}.png', OUTPUT)
-        if (frame['frame'] != index or Path(frame['native_path']).resolve() != expected_path or
-                frame['approval_sha256'] != expected['approval_sha256'] or
-                frame['scene_sha256'] != expected['scene_sha256']):
-            raise ValueError('Invalid native frame identity')
-        checked_file(expected_path, frame['native_sha256'])
-        with expected_path.open('rb') as stream:
-            header = stream.read(24)
-        if (header[:8] != b'\x89PNG\r\n\x1a\n' or header[12:16] != b'IHDR' or
-                list(struct.unpack('>II', header[16:24])) != contract['native_size']):
-            raise ValueError('Native PNG dimensions do not match approved scene')
+        expected_path = require_within(output_root / shot / f'frame-{index:04d}.png', output_root)
+        validate_native_frame(frame, contract, expected['approval_sha256'], expected_path, index)
     return receipt
 
 
@@ -72,11 +78,14 @@ def contract_for(shot):
     return contract
 
 
-def render(shot):
+def render(shot, contract_loader=None, approval_path=None, output_root=None):
     import bpy
-    contract = contract_for(shot)
-    approval_hash = sha256_file(APPROVAL)
-    output_dir = require_within(OUTPUT / shot, ASSET_ROOT / 'renders/final')
+    contract_loader = contract_loader or contract_for
+    approval_path = approval_path or APPROVAL
+    output_root = output_root or OUTPUT
+    contract = contract_loader(shot)
+    approval_hash = sha256_file(approval_path)
+    output_dir = require_within(output_root / shot, ASSET_ROOT / 'renders/final')
     output_dir.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.open_mainfile(filepath=contract['scene_path'])
     scene = bpy.context.scene
@@ -119,8 +128,8 @@ def render(shot):
             receipt.write_text(json.dumps(record, indent=2) + '\n')
         records.append(record)
         print(f'R10_NATIVE_FRAME={shot}:{frame}', flush=True)
-    contract_for(shot)
-    if sha256_file(APPROVAL) != approval_hash:
+    contract_loader(shot)
+    if sha256_file(approval_path) != approval_hash:
         raise ValueError('Approval changed during render')
     manifest = output_dir / 'final.json'
     result = {'schema': 'maliev.pimm-bento-final/v2', 'generation': contract['generation'], 'shot': shot,

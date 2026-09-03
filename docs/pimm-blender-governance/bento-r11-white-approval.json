@@ -1,0 +1,12 @@
+{
+  "schema": "maliev.pimm-bento-approval/v2",
+  "decision": "approved",
+  "approved_date": "2026-09-03",
+  "owner_message": "approve",
+  "generation": "bento-20260903-r11-white",
+  "scope": "Exact white-studio configuration proof at native 2400x1200 resolution; local storefront only. Other r10 shot approvals remain unchanged.",
+  "contract_path": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/scenes/contracts/pimm-30g--bento-20260903-r11-white--configuration.json",
+  "contract_sha256": "461897ED824899D33208B42E5D35E030CEE3FEAB4D94952BFF7B8C087F2BEF79",
+  "scene_sha256": "20592AF5D78492D0A902E5298CC31DEC6681212C12A680F044CDEEE2F9996325",
+  "proof_sha256": "1E108C7A088DD09C4F701BF4338E1D785511DB319EC32C904B81144B509ABAFC"
+}
