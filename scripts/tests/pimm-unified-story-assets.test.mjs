@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
+import { Liquid } from 'liquidjs';
 
 const rootUrl = new URL('../../', import.meta.url);
 const assetsUrl = new URL('../../assets/', import.meta.url);
@@ -12,6 +13,37 @@ const expectedMedia = ['30g', '50g'].flatMap((model) => roles.flatMap((role) => 
   `${release}-${model}-${role}.webp`,
 ]));
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+
+test('support delight renders localized services and preserves merchant and model boundaries', async () => {
+  const source = await readFile(new URL('snippets/pimm-ownership.liquid', rootUrl), 'utf8');
+  const engine = new Liquid({ strictFilters: true });
+  engine.registerTag('doc', { parse(_token, tokens) { while (tokens.length && tokens.shift().name !== 'enddoc') {} }, render() { return ''; } });
+  for (const [locale, root] of [['en.default', '/'], ['th', '/th/'], ['th', '/th']]) {
+    const text = await readFile(new URL(`locales/${locale}.json`, rootUrl), 'utf8');
+    const translations = JSON.parse(text.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, ''));
+    engine.registerFilter('t', key => {
+      const value = key.split('.').reduce((node, part) => node?.[part], translations);
+      assert.equal(typeof value, 'string', key);
+      return value;
+    });
+    const render = (model, settings = {}) => engine.parseAndRender(source, { page_model: model, routes: { root_url: root }, section: { id: 'support-test', settings } });
+    const html = await render('30G');
+    assert.equal((html.match(/<li>/g) ?? []).length, 4);
+    assert.ok(html.includes(translations.products.pimm_machine.ownership.body));
+    assert.ok(html.includes(`href="${root.replace(/\/$/, '')}/pages/contact"`));
+    assert.doesNotMatch(html, /<button|<script|<details/);
+    const configured = await render('30G', { support_url: '/support-owner', document_url: '/manual-owner' });
+    assert.match(configured, /href="\/support-owner"/);
+    assert.match(configured, /href="\/manual-owner"/);
+    const other = await render('50G');
+    assert.doesNotMatch(other, /pimm-support-services|<nav/);
+    const legacy = await render('50G', { support_url: '/original-support' });
+    assert.match(legacy, /href="\/original-support"/);
+  }
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-support-contact svg/);
+  assert.match(css, /\.pimm-support-contact a:focus-visible \{ outline: 2px solid/);
+});
 
 test('30G hero amplification stays model-scoped and preserves the full native render', async () => {
   const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');

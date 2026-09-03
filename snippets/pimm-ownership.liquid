@@ -2,6 +2,7 @@
   Renders the open ownership and support landmark for the unified PIMM page.
 
   @param {section} section - The owning machine-product section.
+  @param {string} [page_model] - Dedicated machine model.
 {% enddoc %}
 
 <section class="pimm-machine__ownership" data-pimm-ownership aria-labelledby="PimmMachineOwnership-{{ section.id }}">
@@ -10,7 +11,20 @@
     <p>{{ 'products.pimm_machine.ownership.body' | t }}</p>
   </div>
 
-  {%- if section.settings.document_url != blank or section.settings.support_url != blank -%}
+  {% if page_model == '30G' %}
+    <ul class="pimm-support-services" role="list">
+      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 9h22M5 23h22M11 5v8m10 6v8"/><circle cx="11" cy="9" r="3"/><circle cx="21" cy="23" r="3"/></svg><span>{{ 'pimm_support.guidance' | t }}</span></li>
+      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 8c-4-3-8-3-12-2v20c4-1 8-1 12 2 4-3 8-3 12-2V6c-4-1-8-1-12 2Zm0 0v20"/></svg><span>{{ 'pimm_support.documentation' | t }}</span></li>
+      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="m16 3 11 6v14l-11 6-11-6V9L16 3Zm0 13 11-7M16 16 5 9m11 7v13M10.5 6l11 6"/></svg><span>{{ 'pimm_support.parts' | t }}</span></li>
+      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M27 15c0 6-5 10-11 10h-4l-7 4 2-7c-2-2-3-4-3-7C4 9 9 5 16 5s11 4 11 10Z"/><path d="M10 13h12m-12 5h8"/></svg><span>{{ 'pimm_support.team' | t }}</span></li>
+    </ul>
+    {% assign support_url = section.settings.support_url %}
+    {% if support_url == blank %}{% assign support_url = routes.root_url | append: '/pages/contact' | replace: '//', '/' %}{% endif %}
+    <nav class="pimm-machine__ownership-links pimm-support-contact" aria-label="{{ 'products.pimm_machine.ownership.navigation' | t }}">
+      <a href="{{ support_url }}">{{ 'products.pimm_machine.ownership.support' | t }}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a>
+      {% if section.settings.document_url != blank %}<a href="{{ section.settings.document_url }}">{{ 'products.pimm_machine.ownership.documents' | t }}</a>{% endif %}
+    </nav>
+  {%- elsif section.settings.document_url != blank or section.settings.support_url != blank -%}
     <nav class="pimm-machine__ownership-links" aria-label="{{ 'products.pimm_machine.ownership.navigation' | t }}">
       {%- if section.settings.document_url != blank -%}
         <a href="{{ section.settings.document_url }}">{{ 'products.pimm_machine.ownership.documents' | t }}</a>

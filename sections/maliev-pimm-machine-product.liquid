@@ -112,7 +112,7 @@
     {% endunless %}
   </main>
 
-  {% render 'pimm-ownership', section: section %}
+  {% render 'pimm-ownership', section: section, page_model: page_model %}
   {% if page_model == '30G' %}
     {% render 'pimm-machine-gallery', section: section %}
   {% endif %}
