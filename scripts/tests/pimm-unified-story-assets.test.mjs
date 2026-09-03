@@ -34,15 +34,17 @@ test('30G hero poster and animation share a rounded media frame', async () => {
   assert.match(media, /object-fit: contain/);
 });
 
-test('30G engineering band uses brand blue with explicit readable foregrounds', async () => {
+test('30G engineering band separates heading, labels, values and units without changing data', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const band = css.match(/\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__specifications \{([^}]+)\}/)[1];
-  assert.match(band, /background: var\(--pimm-blue\)/);
-  assert.match(band, /color: var\(--pimm-surface\)/);
-  for (const element of ['h2', 'dt', 'dd']) {
+  assert.match(band, /background: var\(--pimm-canvas\)/);
+  assert.match(band, /color: var\(--pimm-ink\)/);
+  for (const [element, color] of [['h2', 'blue'], ['dt', 'muted'], ['dd', 'ink']]) {
     const rule = css.match(new RegExp(`\\.pimm-machine__specifications ${element} \\{([^}]+)\\}`))[1];
-    assert.match(rule, /color: var\(--pimm-surface\)/);
+    assert.ok(rule.includes(`color: var(--pimm-${color})`));
   }
+  assert.match(css, /font-variant-numeric: lining-nums tabular-nums/);
+  assert.match(css, /\[data-pimm-spec-unit\]\[hidden\] \{ display: none; \}/);
 });
 
 test('30G demo close gives the booking action a distinct neutral-to-blue treatment', async () => {
