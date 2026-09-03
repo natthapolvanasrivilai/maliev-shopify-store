@@ -227,8 +227,8 @@ test('active configurator gives every media placement its own release WebP asset
 });
 
 test('30G bento uses four approved full-tile native-size lossless renders', async () => {
-  const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r11-stills.v1.json', rootUrl), 'utf8'));
-  assert.equal(manifest.generation, 'bento-20260903-r11-stills');
+  const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r12-assets.v1.json', rootUrl), 'utf8'));
+  assert.equal(manifest.generation, 'bento-20260903-r12');
   assert.equal(manifest.assets.length, 4);
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
   assert.equal((story.match(/pimm-bento__tile--render/g) ?? []).length, 4);
@@ -247,9 +247,19 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
     assert.ok(story.includes(`width="${asset.size[0]}" height="${asset.size[1]}"`));
   }
   const configuration = manifest.assets.find(asset => asset.shot === 'configuration');
-  assert.equal(configuration.generation, 'bento-20260903-r11-white');
+  assert.equal(configuration.generation, 'bento-20260903-r12-white-detail');
   assert.equal(manifest.assets.find(asset => asset.shot === 'controls').generation, 'bento-20260903-r10-orbit');
-  assert.doesNotMatch(story, /pimm-bento-20260903-r06|<pimm-bento-orbit|\.mp4/);
+  assert.doesNotMatch(story, /pimm-bento-20260903-r06|pimm-bento-20260903-r11-30g-configuration/);
+  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 1);
+  assert.ok(story.includes(manifest.animation.filename));
+  assert.deepEqual(manifest.animation.size, [2400, 1200]);
+  assert.equal(manifest.animation.fps, 24);
+  assert.equal(manifest.animation.frames, 192);
+  const video = await readFile(new URL(`assets/${manifest.animation.filename}`, rootUrl));
+  assert.equal(sha256(video), manifest.animation.sha256);
+  assert.equal(video.subarray(4, 8).toString(), 'ftyp');
+  const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');
+  assert.match(section, /if page_model == '30G'[\s\S]*?pimm-bento-orbit.js[\s\S]*?defer="defer"[\s\S]*?endif/);
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
   assert.doesNotMatch(css, /(?:mask-image|filter):/);
