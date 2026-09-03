@@ -24,6 +24,16 @@ test('30G hero amplification stays model-scoped and preserves the full native re
   assert.ok(css.split('\n').filter(line => line.trim().startsWith('.')).every(line => line.includes('[data-page-model="30G"]')));
 });
 
+test('30G hero poster and animation share a rounded media frame', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const frame = css.match(/pimm-hero-reveal \{([^}]+)\}/)[1];
+  assert.match(frame, /border-radius: 14px/);
+  assert.match(frame, /overflow: hidden/);
+  const media = css.match(/pimm-hero-reveal :is\(img, video\) \{([^}]+)\}/)[1];
+  assert.match(media, /border-radius: inherit/);
+  assert.match(media, /object-fit: contain/);
+});
+
 test('30G engineering band uses brand blue with explicit readable foregrounds', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const band = css.match(/\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__specifications \{([^}]+)\}/)[1];

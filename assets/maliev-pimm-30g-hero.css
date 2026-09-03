@@ -246,6 +246,8 @@
 .pimm-machine[data-page-model="30G"] pimm-hero-reveal {
   display: block;
   position: relative;
+  border-radius: 14px;
+  overflow: hidden;
   height: 100%;
   min-height: 0;
   width: auto;
@@ -255,6 +257,7 @@
 }
 .pimm-machine[data-page-model="30G"] pimm-hero-reveal :is(img, video) {
   display: block;
+  border-radius: inherit;
   position: absolute;
   inset: 0;
   width: 100%;
