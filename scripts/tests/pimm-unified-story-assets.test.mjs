@@ -33,13 +33,15 @@ test('support delight renders localized services and preserves merchant and mode
     assert.ok(html.indexOf(translations.pimm_support.guidance) < html.indexOf('</li>'));
     assert.ok(html.indexOf(translations.pimm_support.documentation) < html.indexOf('</li>'));
     assert.ok(html.includes(translations.products.pimm_machine.ownership.body));
+    assert.ok(html.includes(translations.pimm_support.made_in_thailand));
+    assert.match(html, /class="pimm-support-origin"><svg[^>]*aria-hidden="true"/);
     assert.ok(html.includes(`href="${root.replace(/\/$/, '')}/pages/contact"`));
     assert.doesNotMatch(html, /<button|<script|<details/);
     const configured = await render('30G', { support_url: '/support-owner', document_url: '/manual-owner' });
     assert.match(configured, /href="\/support-owner"/);
     assert.match(configured, /href="\/manual-owner"/);
     const other = await render('50G');
-    assert.doesNotMatch(other, /pimm-support-services|<nav/);
+    assert.doesNotMatch(other, /pimm-support-services|pimm-support-origin|<nav/);
     const legacy = await render('50G', { support_url: '/original-support' });
     assert.match(legacy, /href="\/original-support"/);
   }

@@ -21,10 +21,13 @@
     </pimm-support-motion>
     {% assign support_url = section.settings.support_url %}
     {% if support_url == blank %}{% assign support_url = routes.root_url | append: '/pages/contact' | replace: '//', '/' %}{% endif %}
+    <div class="pimm-support-footer">
     <nav class="pimm-machine__ownership-links pimm-support-contact" aria-label="{{ 'products.pimm_machine.ownership.navigation' | t }}">
       <a href="{{ support_url }}">{{ 'products.pimm_machine.ownership.support' | t }}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a>
       {% if section.settings.document_url != blank %}<a href="{{ section.settings.document_url }}">{{ 'products.pimm_machine.ownership.documents' | t }}</a>{% endif %}
     </nav>
+    <span class="pimm-support-origin"><svg viewBox="0 0 18 12" width="27" height="18" aria-hidden="true" focusable="false"><path fill="#a51931" d="M0 0h18v12H0z"/><path fill="#fff" d="M0 2h18v8H0z"/><path fill="#2d2a4a" d="M0 4h18v4H0z"/></svg>{{ 'pimm_support.made_in_thailand' | t }}</span>
+    </div>
   {%- elsif section.settings.document_url != blank or section.settings.support_url != blank -%}
     <nav class="pimm-machine__ownership-links" aria-label="{{ 'products.pimm_machine.ownership.navigation' | t }}">
       {%- if section.settings.document_url != blank -%}
