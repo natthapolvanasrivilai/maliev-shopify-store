@@ -74,13 +74,18 @@ test('30G support typography pairs a bounded heading with readable responsive pr
   assert.match(css, /@media \(max-width: 999px\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__ownership \.pimm-machine__prose \{\s*grid-template-columns: minmax\(0, 1fr\)/);
 });
 
-test('30G feature chapters have consistent unnumbered headings and readable copy', async () => {
+test('30G feature bento has varied tiles, real workshop stills and readable localized copy', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
   assert.equal((story.match(/<h3>/g) ?? []).length, 4);
-  assert.doesNotMatch(story, /pimm-story__index/);
-  assert.match(css, /\.pimm-story__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 3\.2vw, 4\.8rem\) !important;[^}]*line-height: 1\.16 !important/);
-  assert.match(css, /\.pimm-story__copy\) > p:last-child \{[^}]*font-size: 2rem;[^}]*line-height: 1\.65/);
+  assert.doesNotMatch(story, /pimm-story__index|pimm-story__chapter|data-pimm-reveal/);
+  assert.equal((story.match(/<img /g) ?? []).length, 6);
+  assert.match(story, /pimm-gallery-20260903-molding\.webp/);
+  assert.match(story, /pimm-gallery-20260903-end-caps\.webp/);
+  assert.match(css, /grid-template-areas: "capacity controls controls" "capacity tooling workshop" "configuration configuration parts"/);
+  assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "workshop" "configuration" "parts"/);
+  assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.4rem, 2\.4vw, 3\.2rem\) !important/);
+  assert.match(css, /\.pimm-bento__copy p \{[^}]*font-size: 1\.6rem;[^}]*line-height: 1\.6/);
   assert.match(css, /\.pimm-story--30g:lang\(th\) :is\(h2, h3\) \{[^}]*letter-spacing: normal !important/);
 });
 
