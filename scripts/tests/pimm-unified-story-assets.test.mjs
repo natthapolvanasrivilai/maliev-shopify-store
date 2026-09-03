@@ -273,10 +273,43 @@ test('bento compact captions retain matching locale keys and only replace prose 
     if (!name.endsWith('.json') || name.endsWith('.schema.json')) continue;
     const text = await readFile(new URL(`locales/${name}`, rootUrl), 'utf8');
     const locale = JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, ''));
-    assert.deepEqual(Object.keys(locale.pimm_bento).sort(), ['configuration_compact', 'controls_compact', 'tooling_compact']);
+    assert.deepEqual(Object.keys(locale.pimm_bento).sort(), ['capacity_body', 'capacity_compact', 'configuration_compact', 'controls_body', 'controls_compact', 'controls_heading', 'tooling_body', 'tooling_compact', 'tooling_heading']);
     assert.ok(Object.values(locale.pimm_bento).every(value => typeof value === 'string' && value.length > 0));
   }
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__text-compact \{ display: none; \}/);
   assert.match(css, /@media \(max-width: 749px\)[\s\S]*?\.pimm-bento__text-full \{ display: none; \}/);
+});
+
+test('30G bento describes features in both languages without changing the demo card or other models', async () => {
+  const source = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
+  const engine = new Liquid({ strictFilters: true });
+  engine.registerTag('doc', { parse(_token, tokens) { while (tokens.length && tokens.shift().name !== 'enddoc') {} }, render() { return ''; } });
+  engine.registerFilter('asset_url', value => `/assets/${value}`);
+  for (const name of ['en.default', 'th']) {
+    const locale = JSON.parse((await readFile(new URL(`locales/${name}.json`, rootUrl), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, ''));
+    engine.registerFilter('t', key => {
+      const value = key.split('.').reduce((node, part) => node?.[part], locale);
+      assert.equal(typeof value, 'string', key);
+      return value;
+    });
+    const html = await engine.parseAndRender(source, { story_asset_set: 'pimm-master-20260901-r05-30g' });
+    for (const value of Object.values(locale.pimm_bento)) assert.ok(html.includes(value));
+    assert.ok(html.includes(locale.products.pimm_machine.specs.capacity.label));
+    assert.ok(html.includes(locale.products.pimm_machine.purchase.heading));
+    assert.ok(html.includes(locale.products.pimm_machine.purchase.body));
+    assert.doesNotMatch(html, /Inspect pneumatic controls|Confirm your mold path|Include the part, runner/);
+    assert.equal((html.match(/pimm-bento__tile--render/g) ?? []).length, 4);
+    assert.equal((await engine.parseAndRender(source, { story_asset_set: 'pimm-master-20260901-r05-50g' })).trim(), '');
+    const copy = locale.pimm_bento;
+    if (name === 'en.default') {
+      for (const key of ['capacity_body', 'capacity_compact']) assert.match(copy[key], /30g.*aluminum melt bore.*heater bands.*resin/i);
+      assert.equal(copy.controls_heading, 'Pneumatic operation');
+      assert.equal(copy.tooling_heading, 'Flexible fixture mounting');
+      for (const key of ['tooling_body', 'tooling_compact']) assert.match(copy[key], /custom fixtures/);
+    } else {
+      for (const key of ['capacity_body', 'capacity_compact']) assert.match(copy[key], /30.*อะลูมิเนียม.*ฮีตเตอร์.*เม็ดพลาสติก/);
+      assert.equal(copy.controls_heading, 'ขับเคลื่อนด้วยระบบลม');
+    }
+  }
 });

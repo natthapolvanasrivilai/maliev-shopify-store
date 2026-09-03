@@ -15,8 +15,14 @@
     "team": "Direct team support"
   },
   "pimm_bento": {
-    "controls_compact": "Review temperature and air requirements before setting up.",
-    "tooling_compact": "Confirm your mold dimensions and injection entry with our team before making tooling.",
+    "capacity_body": "Mold small parts with up to 30g per shot. An aluminum melt bore transfers heat efficiently from the heater bands to the resin. Allow for the runner when sizing your shot.",
+    "capacity_compact": "Up to 30g per shot for small parts. The aluminum melt bore efficiently transfers heat from the heater bands to the resin.",
+    "controls_heading": "Pneumatic operation",
+    "controls_body": "Compressed air drives the injection stroke. A pressure regulator, gauge and hand-operated valve keep pneumatic control within reach, while separate temperature controllers manage heating.",
+    "controls_compact": "Compressed-air injection with a regulator, pressure gauge and hand-operated valve.",
+    "tooling_heading": "Flexible fixture mounting",
+    "tooling_body": "The threaded base plate provides mounting points for different molds and custom fixtures. Build a setup around your part, then reposition or change fixtures as your molding needs evolve.",
+    "tooling_compact": "Mount different molds and custom fixtures on the threaded base plate. Adapt your setup to the part you want to make.",
     "configuration_compact": "Review your part, material and mold plan with the MALIEV team."
   },
   "pimm_gallery": {
