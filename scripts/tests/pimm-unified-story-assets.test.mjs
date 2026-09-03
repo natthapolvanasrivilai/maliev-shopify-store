@@ -50,6 +50,12 @@ test('support delight renders localized services and preserves merchant and mode
   assert.match(css, /\.pimm-support-contact a:focus-visible \{ outline: 2px solid/);
 });
 
+test('30G hero copy inset is desktop-only and bounded at the requested 64px', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  assert.match(css, /@media \(min-width: 1000px\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__decision \{\s*padding-inline-start: clamp\(24px, calc\(8vw - 56px\), 64px\);/);
+  assert.doesNotMatch(css.match(/\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__decision \{([^}]+)\}/)[1], /padding-inline|padding-left/);
+});
+
 test('30G hero amplification stays model-scoped and preserves the full native render', async () => {
   const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');
   assert.match(section, /if page_model == '30G'[\s\S]*?'maliev-pimm-30g-hero.css'[\s\S]*?endif/);
