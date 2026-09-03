@@ -84,9 +84,25 @@ test('30G feature bento has varied tiles, real workshop stills and readable loca
   assert.match(story, /pimm-gallery-20260903-end-caps\.webp/);
   assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration" "workshop parts"/);
   assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "workshop" "configuration" "parts"/);
-  assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.4rem, 2\.4vw, 3\.2rem\) !important/);
-  assert.match(css, /\.pimm-bento__copy p \{[^}]*font-size: 1\.6rem;[^}]*line-height: 1\.6/);
+  assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 1\.6rem \+ 1\.7vw, 4rem\) !important/);
+  assert.match(css, /\.pimm-bento__copy p \{[^}]*font-size: 1\.6rem;[^}]*line-height: 1\.5/);
   assert.match(css, /\.pimm-story--30g:lang\(th\) :is\(h2, h3\) \{[^}]*letter-spacing: normal !important/);
+});
+
+test('bento type hierarchy keeps brand fonts, readable body text and locale-aware headlines', async () => {
+  const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
+  const heading = css.match(/\.pimm-bento__copy h3 \{([^}]+)\}/)[1];
+  const body = css.match(/\.pimm-bento__copy p \{([^}]+)\}/)[1];
+  assert.match(heading, /font-weight: 600/);
+  assert.match(heading, /max-width: 16ch/);
+  assert.match(heading, /font-kerning: normal/);
+  assert.match(body, /font-weight: 400/);
+  assert.match(body, /max-width: 38ch/);
+  assert.match(css, /\.pimm-bento:lang\(en\) \.pimm-bento__copy h3 \{ text-transform: uppercase; \}/);
+  assert.match(css, /\.pimm-bento:lang\(th\) \.pimm-bento__copy h3 \{[^}]*line-height: 1\.3 !important;[^}]*letter-spacing: normal !important/);
+  const bento = css.slice(css.indexOf('.pimm-bento {'), css.indexOf('.pimm-machine__ownership {'));
+  assert.doesNotMatch(bento, /font-size: 1\.5rem/);
+  assert.doesNotMatch(bento, /@font-face/);
 });
 
 test('dedicated product templates lock model identity independently of query selection', async () => {
