@@ -195,15 +195,16 @@ test('active configurator gives every media placement its own release WebP asset
 });
 
 test('30G bento uses four approved full-tile native-size lossless renders', async () => {
-  const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-assets.v1.json', rootUrl), 'utf8'));
-  const approvalBytes = await readFile(new URL(manifest.approval, rootUrl));
-  const approval = JSON.parse(approvalBytes);
-  assert.equal(approval.decision, 'approved');
-  assert.equal(manifest.generation, approval.generation);
+  const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r11-stills.v1.json', rootUrl), 'utf8'));
+  assert.equal(manifest.generation, 'bento-20260903-r11-stills');
   assert.equal(manifest.assets.length, 4);
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
   assert.equal((story.match(/pimm-bento__tile--render/g) ?? []).length, 4);
   for (const asset of manifest.assets) {
+    const approvalBytes = await readFile(new URL(asset.approval, rootUrl));
+    const approval = JSON.parse(approvalBytes);
+    assert.equal(approval.decision, 'approved');
+    assert.ok((approval.generations ?? [approval.generation]).includes(asset.generation));
     assert.equal(asset.approval_sha256, sha256(approvalBytes));
     const bytes = await readFile(new URL(`assets/${asset.filename}`, rootUrl));
     assert.equal(sha256(bytes), asset.sha256);
@@ -213,6 +214,10 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
     assert.ok(story.includes(asset.filename));
     assert.ok(story.includes(`width="${asset.size[0]}" height="${asset.size[1]}"`));
   }
+  const configuration = manifest.assets.find(asset => asset.shot === 'configuration');
+  assert.equal(configuration.generation, 'bento-20260903-r11-white');
+  assert.equal(manifest.assets.find(asset => asset.shot === 'controls').generation, 'bento-20260903-r10-orbit');
+  assert.doesNotMatch(story, /pimm-bento-20260903-r06|<pimm-bento-orbit|\.mp4/);
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
   assert.doesNotMatch(css, /(?:mask-image|filter):/);
