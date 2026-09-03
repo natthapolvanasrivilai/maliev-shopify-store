@@ -239,9 +239,9 @@
       }
       const bounds = this.handle.getBoundingClientRect();
       const width = Math.max(1, bounds.width);
-      // Frames orbit the camera; invert both axes so the machine follows the hand.
+      // Yaw and pitch use different camera ordering; map each axis independently.
       this.nextFrame = drag.frame - dx / width * this.count;
-      this.nextRow = this.rows > 1 ? drag.row + dy / Math.max(1, bounds.height) * (this.rows - 1) : drag.row;
+      this.nextRow = this.rows > 1 ? drag.row - dy / Math.max(1, bounds.height) * (this.rows - 1) : drag.row;
       if (!this.dragRAF) this.dragRAF = requestAnimationFrame(() => {
         this.dragRAF = null;
         this.requestFrame(this.nextFrame, this.nextRow);

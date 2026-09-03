@@ -272,16 +272,16 @@ const twoAxis = {
 test('two-axis diagonal drag updates yaw and pitch simultaneously with the exact row URL', () => {
   const state = harness({ reduced: true, saveData: true, dataset: twoAxis }); state.show();
   pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 160, 50); state.tick();
-  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 2);
-  assert.equal(state.images[0].src, '/configuration/row-02/frame-0109.png');
+  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 4);
+  assert.equal(state.images[0].src, '/configuration/row-04/frame-0109.png');
   state.complete();
-  assert.equal(state.element.dataset.spinFrame, '109'); assert.equal(state.element.dataset.spinRow, '2');
+  assert.equal(state.element.dataset.spinFrame, '109'); assert.equal(state.element.dataset.spinRow, '4');
   pointer(state, 'pointerup', 160, 50); state.tick(9999);
-  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 2);
+  assert.equal(state.element.frame, 108); assert.equal(state.element.row, 4);
   assert.equal(state.frames.size, 0, 'release holds both axes');
 });
 
-test('mouse and touch direct manipulation reverse camera yaw and pitch in both directions', () => {
+test('mouse and touch drag map yaw and pitch independently in both directions', () => {
   for (const pointerType of ['mouse', 'touch']) {
     for (const direction of [-1, 1]) {
       const state = harness({ reduced: true, dataset: twoAxis }); state.show();
@@ -289,7 +289,7 @@ test('mouse and touch direct manipulation reverse camera yaw and pitch in both d
       pointer(state, 'pointermove', 100 + direction * 60, 100 + direction * 50, { pointerType });
       state.tick();
       assert.equal(state.element.frame, direction === 1 ? 108 : 12);
-      assert.equal(state.element.row, 3 + direction);
+      assert.equal(state.element.row, 3 - direction);
       pointer(state, 'pointermove', 100, 100, { pointerType }); state.tick();
       assert.equal(state.element.frame, 0);
       assert.equal(state.element.row, 3, 'returning the hand restores the starting orientation');
@@ -300,10 +300,10 @@ test('mouse and touch direct manipulation reverse camera yaw and pitch in both d
 test('two-axis pitch clamps at endpoints while yaw continues to wrap', () => {
   const state = harness({ reduced: true, dataset: twoAxis }); state.show();
   pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 700, -500); state.tick();
-  assert.equal(state.element.frame, 0); assert.equal(state.element.row, 0);
+  assert.equal(state.element.frame, 0); assert.equal(state.element.row, 6);
   pointer(state, 'pointerup', 700, -500);
   pointer(state, 'pointerdown', 100, 100); pointer(state, 'pointermove', 40, 1200); state.tick();
-  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 6);
+  assert.equal(state.element.frame, 12); assert.equal(state.element.row, 0);
 });
 
 test('two-axis keyboard exposes both coordinates without invalid slider ARIA', () => {
@@ -329,7 +329,7 @@ test('two-axis touch area owns vertical gestures, without changing single-axis p
   assert.equal(state.element.handle.dataset.twoAxis, '');
   pointer(state, 'pointerdown', 100, 100, { pointerType: 'touch' });
   pointer(state, 'pointermove', 100, 50, { pointerType: 'touch' }); state.tick();
-  assert.equal(state.element.row, 2); assert.equal(state.element.frame, 0);
+  assert.equal(state.element.row, 4); assert.equal(state.element.frame, 0);
   assert.equal(state.element.handle.capture, 1);
   const legacy = harness({ reduced: true }); legacy.show();
   assert.equal(legacy.element.handle.dataset.twoAxis, undefined);
