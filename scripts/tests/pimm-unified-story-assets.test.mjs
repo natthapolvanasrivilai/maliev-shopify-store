@@ -28,7 +28,10 @@ test('support delight renders localized services and preserves merchant and mode
     });
     const render = (model, settings = {}) => engine.parseAndRender(source, { page_model: model, routes: { root_url: root }, section: { id: 'support-test', settings } });
     const html = await render('30G');
-    assert.equal((html.match(/<li>/g) ?? []).length, 4);
+    assert.equal((html.match(/<li>/g) ?? []).length, 3);
+    assert.match(html, /data-support-motion="book"/);
+    assert.ok(html.indexOf(translations.pimm_support.guidance) < html.indexOf('</li>'));
+    assert.ok(html.indexOf(translations.pimm_support.documentation) < html.indexOf('</li>'));
     assert.ok(html.includes(translations.products.pimm_machine.ownership.body));
     assert.ok(html.includes(`href="${root.replace(/\/$/, '')}/pages/contact"`));
     assert.doesNotMatch(html, /<button|<script|<details/);
