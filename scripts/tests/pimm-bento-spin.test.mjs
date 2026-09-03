@@ -368,3 +368,41 @@ test('invalid row configurations stay a safe static image', () => {
     assert.equal(state.images.length, 0); assert.equal(state.element.children.length, 1);
   }
 });
+
+test('web-sized decoded frames warm both axes within a pixel budget', () => {
+  const state = harness({ reduced: true, dataset: twoAxis }); state.show();
+  state.element.handle.dispatch('keydown', { key: 'ArrowRight' });
+  state.images[0].naturalWidth = 600; state.images[0].naturalHeight = 300;
+  state.complete(state.images[0]);
+  assert.equal(state.element.cacheLimit, 93);
+  const candidates = state.element.nearbyViews();
+  assert.ok(candidates.includes(state.element.viewKey(1, 2)));
+  assert.ok(candidates.includes(state.element.viewKey(1, 4)));
+  assert.ok(candidates.includes(state.element.viewKey(9, 3)));
+  assert.ok(candidates.length <= state.element.cacheLimit);
+  assert.equal(state.element.pending.size, 4);
+});
+
+test('image decode finishes before a frame is exposed and stale decoded frames are ignored', async () => {
+  const state = harness({ reduced: true, saveData: true }); state.show();
+  state.element.handle.dispatch('keydown', { key: 'ArrowRight' });
+  let finish;
+  state.images[0].decode = () => new Promise(resolve => { finish = resolve; });
+  state.complete(); assert.equal(state.draws.length, 0);
+  state.element.handle.dispatch('keydown', { key: 'ArrowRight' });
+  finish(); await Promise.resolve(); await Promise.resolve();
+  assert.equal(state.draws.length, 0);
+  state.complete(state.images[1]); assert.equal(state.draws.length, 1);
+  state.element.requestFrame(state.element.frame);
+  assert.equal(state.draws.length, 1, 'unchanged view does not repaint');
+});
+
+test('dragging can display nearby native views but release resolves the exact angle', () => {
+  const state = harness({ reduced: true, saveData: true }); state.show();
+  state.element.handle.dispatch('keydown', { key: 'ArrowRight' }); state.complete();
+  pointer(state, 'pointerdown', 100); pointer(state, 'pointermove', 85); state.tick();
+  assert.equal(state.element.frame, 4);
+  assert.equal(state.element.dataset.spinFrame, '2', 'nearby decoded view stays useful during drag');
+  pointer(state, 'pointerup', 85); state.complete();
+  assert.equal(state.element.dataset.spinFrame, '5', 'exact requested view wins after loading');
+});

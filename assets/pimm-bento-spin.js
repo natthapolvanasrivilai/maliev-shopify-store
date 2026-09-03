@@ -25,6 +25,8 @@
       this.cache = new Map();
       this.pending = new Map();
       this.failed = new Set();
+      this.cacheLimit = 6;
+      this.paintedKey = null;
       this.motion = matchMedia('(prefers-reduced-motion: reduce)');
       this.connection = navigator.connection;
       this.canvas = document.createElement('canvas');
@@ -125,20 +127,38 @@
       const key = this.viewKey();
       const cached = this.cache.get(key);
       if (cached) this.paint(key, cached);
+      else this.paintNearby();
       if (this.failed.has(key)) this.canvas.hidden = true;
       this.pump();
     }
 
     pump() {
       if (!this.active()) return;
-      const candidates = this.interacted ? [this.viewKey(), ...(!this.connection?.saveData ?
-        [this.viewKey(this.wrap(this.frame + 1)), this.viewKey(this.wrap(this.frame - 1))] : [])] : (this.hintFrames || []);
+      const warm = this.interacted || (this.hintDone && this.cacheLimit > 6 && !this.motion.matches && !this.connection?.saveData);
+      const candidates = warm ? this.nearbyViews() : (this.hintFrames || []);
       for (const frame of candidates) {
-        if (this.pending.size >= 2) break;
+        if (this.pending.size >= (this.cacheLimit > 6 && !this.connection?.saveData ? 4 : 2)) break;
         if (this.cache.has(frame) || this.pending.has(frame) || this.failed.has(frame)) continue;
         this.load(frame);
       }
       if (!this.interacted && this.hintFrames?.every((frame) => this.cache.has(frame))) this.startHint();
+    }
+
+    nearbyViews() {
+      const candidates = [this.viewKey()];
+      if (this.connection?.saveData) return candidates;
+      const radius = this.cacheLimit > 6 ? 8 : 1;
+      for (let distance = 1; distance <= radius; distance++) {
+        candidates.push(this.viewKey(this.wrap(this.frame + distance)), this.viewKey(this.wrap(this.frame - distance)));
+        if (distance <= 2 && this.cacheLimit > 6) {
+          for (const row of [this.row + distance, this.row - distance]) {
+            if (row < 0 || row >= this.rows) continue;
+            for (let offset = -4; offset <= 4; offset++) candidates.push(this.viewKey(this.wrap(this.frame + offset), row));
+          }
+        }
+      }
+      // The working set fits the cache; otherwise eviction would endlessly refetch it.
+      return [...new Set(candidates)].slice(0, this.cacheLimit);
     }
 
     load(frame) {
@@ -147,16 +167,20 @@
       this.pending.set(frame, image);
       image.decoding = 'async';
       const current = () => this.abort === session && this.pending.get(frame) === image && this.active();
-      image.onload = () => {
+      const ready = () => {
         if (!current()) return;
         this.pending.delete(frame);
+        // Budget decoded pixels, not compressed bytes. Small web frames can retain
+        // a useful two-axis neighborhood without retaining all 840 views.
+        const pixels = (image.naturalWidth || this.canvas.width) * (image.naturalHeight || this.canvas.height);
+        this.cacheLimit = Math.max(5, Math.min(96, Math.floor(64 * 1024 * 1024 / (pixels * 4))));
         this.cache.set(frame, image);
-        // Six decoded frames cap desktop memory near 66 MiB at 2400 × 1200.
-        while (this.cache.size > 6) this.cache.delete(this.cache.keys().next().value);
+        while (this.cache.size > this.cacheLimit) this.cache.delete(this.cache.keys().next().value);
         if (frame === this.viewKey() && (this.interacted || this.hintRAF)) this.paint(frame, image);
+        else this.paintNearby();
         this.pump();
       };
-      image.onerror = () => {
+      const failed = () => {
         if (!current()) return;
         this.pending.delete(frame);
         this.failed.add(frame);
@@ -164,18 +188,42 @@
         if (!this.interacted) this.cancelHint(true);
         this.pump();
       };
+      image.onload = () => {
+        if (!current()) return;
+        if (typeof image.decode === 'function') image.decode().then(ready, failed);
+        else ready();
+      };
+      image.onerror = failed;
       image.src = this.dataset.frameTemplate
         .replace('{frame}', String(frame % this.count + 1).padStart(4, '0'))
         .replace('{row}', String(Math.floor(frame / this.count)).padStart(2, '0'));
     }
 
-    paint(frame, image) {
-      if (!this.active() || frame !== this.viewKey()) return;
+    paintNearby() {
+      // During a fast gesture, show the closest already-decoded native view
+      // instead of freezing until the exact target arrives. Never approximate keys.
+      if (!this.drag?.axis || this.cache.has(this.viewKey())) return;
+      let nearest, score = Infinity;
+      for (const [key, image] of this.cache) {
+        const rowDistance = Math.abs(Math.floor(key / this.count) - this.row);
+        const distance = Math.abs(key % this.count - this.frame);
+        const yawDistance = Math.min(distance, this.count - distance);
+        if (rowDistance > 1 || yawDistance > 8) continue;
+        const candidate = yawDistance + rowDistance * 4;
+        if (candidate < score) { score = candidate; nearest = [key, image]; }
+      }
+      if (nearest) this.paint(...nearest, true);
+    }
+
+    paint(frame, image, nearby = false) {
+      if (!this.active() || (frame !== this.viewKey() && !(nearby && this.drag?.axis))) return;
+      if (this.paintedKey === frame && !this.canvas.hidden) return;
       try {
         this.context.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
         this.canvas.hidden = false;
-        this.dataset.spinFrame = String(this.frame + 1);
-        if (this.rows > 1) this.dataset.spinRow = String(this.row);
+        this.paintedKey = frame;
+        this.dataset.spinFrame = String(frame % this.count + 1);
+        if (this.rows > 1) this.dataset.spinRow = String(Math.floor(frame / this.count));
         this.cache.delete(frame);
         this.cache.set(frame, image);
       } catch { this.canvas.hidden = true; }
@@ -236,8 +284,9 @@
         this.handle.setPointerCapture(event.pointerId);
         this.handle.dataset.dragging = '';
         this.handle.focus({ preventScroll: true });
+        drag.bounds = this.handle.getBoundingClientRect();
       }
-      const bounds = this.handle.getBoundingClientRect();
+      const bounds = drag.bounds;
       const width = Math.max(1, bounds.width);
       // Yaw and pitch use different camera ordering; map each axis independently.
       this.nextFrame = drag.frame - dx / width * this.count;
@@ -258,6 +307,7 @@
         if (wasDragging && event.type === 'pointerup') this.requestFrame(this.nextFrame, this.nextRow);
       }
       if (this.handle.hasPointerCapture(event.pointerId)) this.handle.releasePointerCapture(event.pointerId);
+      if (wasDragging && event.type === 'pointerup') this.requestFrame(this.frame, this.row);
     }
 
     keyDown(event) {
