@@ -277,7 +277,8 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   assert.equal(fixtureManifest.schema, 'maliev.pimm-bento-fixture-motion/v1');
   assert.deepEqual(fixtureManifest.size, [800, 1100]);
   assert.equal(fixtureManifest.aspect_ratio, '8:11');
-  assert.equal(fixtureManifest.frames, 456);
+  assert.equal(fixtureManifest.fps, 24);
+  assert.equal(fixtureManifest.frames, 912);
   assert.equal(fixtureManifest.duration_seconds, 38);
   assert.ok(story.includes(fixtureManifest.filename));
   const fixtureVideo = await readFile(new URL(`assets/${fixtureManifest.filename}`, rootUrl));
