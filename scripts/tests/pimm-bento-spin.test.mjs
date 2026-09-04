@@ -264,6 +264,22 @@ test('unsupported configuration stays a plain image and safely disconnects', () 
   assert.equal(state.element.children.length, 1); assert.equal(state.images.length, 0);
 });
 
+test('Shopify asset source expands to the numbered two-axis frame template', () => {
+  const state = harness({
+    reduced: true,
+    dataset: {
+      frameTemplate: undefined,
+      frameSource: '/assets/pimm-bento-configuration-r00-f0001.webp?v=1',
+      rowCount: '7',
+      defaultRow: '3',
+      rowStep: '2',
+    },
+  });
+  state.show();
+  state.element.handle.dispatch('keydown', { key: 'ArrowUp' });
+  assert.equal(state.images[0].src, '/assets/pimm-bento-configuration-r04-f0001.webp?v=1');
+});
+
 const twoAxis = {
   frameTemplate: '/configuration/row-{row}/frame-{frame}.png', rowCount: '7', defaultRow: '3', rowStep: '2',
   roleDescription: '3D viewer', valueTemplate: 'Rotation {angle} degrees, tilt {tilt} degrees',

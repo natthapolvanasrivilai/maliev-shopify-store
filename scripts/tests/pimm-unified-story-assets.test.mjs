@@ -265,7 +265,7 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   assert.equal(configuration.generation, 'bento-20260903-r12-white-detail');
   assert.equal(manifest.assets.find(asset => asset.shot === 'controls').generation, 'bento-20260903-r10-orbit');
   assert.doesNotMatch(story, /pimm-bento-20260903-r06|pimm-bento-20260903-r11-30g-configuration/);
-  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 2);
+  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 3);
   assert.ok(story.includes(manifest.animation.filename));
   assert.deepEqual(manifest.animation.size, [2400, 1200]);
   assert.equal(manifest.animation.fps, 24);
@@ -285,10 +285,40 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   assert.equal(fixtureVideo.subarray(4, 8).toString(), 'ftyp');
   const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');
   assert.match(section, /if page_model == '30G'[\s\S]*?pimm-bento-orbit.js[\s\S]*?defer="defer"[\s\S]*?endif/);
+  assert.match(section, /if page_model == '30G'[\s\S]*?pimm-bento-spin\.css[\s\S]*?pimm-bento-spin\.js[\s\S]*?defer="defer"[\s\S]*?endif/);
+  const motionManifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r27-motion-delivery.v1.json', rootUrl), 'utf8'));
+  assert.equal(motionManifest.schema, 'maliev.pimm-bento-motion-delivery/v1');
+  assert.deepEqual(motionManifest.capacity.size, [800, 1100]);
+  assert.equal(motionManifest.capacity.frames, 192);
+  assert.equal(motionManifest.capacity.duration_seconds, 8);
+  assert.equal(motionManifest.configuration.total_frames, 840);
+  assert.equal(motionManifest.configuration.frames_per_row, 120);
+  assert.equal(motionManifest.configuration.rows, 7);
+  assert.deepEqual(motionManifest.configuration.size, [600, 300]);
+  assert.ok(story.includes(motionManifest.capacity.filename));
+  assert.ok(story.includes(motionManifest.configuration.file_template.replace('{row}', '00').replace('{frame}', '0001')));
+  assert.match(story, /<pimm-bento-spin[\s\S]*?data-frame-source="\{\{[^}]+asset_url[^}]+\}\}"[\s\S]*?data-frame-count="120"[\s\S]*?data-row-count="7"[\s\S]*?data-default-row="3"[\s\S]*?data-row-step="2"/);
+  const capacityMotion = await readFile(new URL(`assets/${motionManifest.capacity.filename}`, rootUrl));
+  assert.equal(sha256(capacityMotion).toLowerCase(), motionManifest.capacity.sha256);
+  assert.equal(capacityMotion.length, motionManifest.capacity.bytes);
+  const spinNames = (await readdir(assetsUrl))
+    .filter(name => /^pimm-bento-20260903-r26-30g-configuration-r\d{2}-f\d{4}\.webp$/.test(name))
+    .sort();
+  assert.equal(spinNames.length, motionManifest.configuration.total_frames);
+  const spinHashes = [];
+  let spinBytes = 0;
+  for (const name of spinNames) {
+    const bytes = await readFile(new URL(`assets/${name}`, rootUrl));
+    spinBytes += bytes.length;
+    spinHashes.push(`${name}:${sha256(bytes).toLowerCase()}`);
+  }
+  assert.equal(spinBytes, motionManifest.configuration.bytes);
+  assert.equal(sha256(Buffer.from(spinHashes.join('\n'))).toLowerCase(), motionManifest.configuration.aggregate_sha256);
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
   assert.doesNotMatch(css, /(?:mask-image|filter):/);
   assert.match(css, /\.pimm-bento__tile--configuration \{[^}]*border: 1px solid #d9dde1;/);
+  assert.match(css, /\.pimm-bento__tile--configuration :is\(img, canvas\) \{ object-position: 76% center; \}/);
 });
 
 test('bento compact captions retain matching locale keys and only replace prose at narrow widths', async () => {

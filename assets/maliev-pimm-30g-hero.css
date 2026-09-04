@@ -345,7 +345,7 @@
   .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--configuration) .pimm-bento__copy { width: 42%; margin-block: 32px; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls img { object-position: 55% center; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls video { object-position: 55% center; }
-  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--configuration img { object-position: 76% center; }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--configuration :is(img, canvas) { object-position: 76% center; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__copy h3 { font-size: 2.4rem !important; margin-bottom: 12px; }
   .pimm-machine[data-page-model="30G"] .pimm-bento:lang(en) .pimm-bento__copy h3 { text-transform: none; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__text-full { display: none; }

@@ -7,7 +7,8 @@
       if (this.abort) return;
       this.poster = this.querySelector('img');
       this.count = Number(this.dataset.frameCount);
-      if (!this.poster || !this.dataset.frameTemplate?.includes('{frame}') ||
+      this.frameTemplate = this.dataset.frameTemplate || this.dataset.frameSource?.replace('r00-f0001', 'r{row}-f{frame}');
+      if (!this.poster || !this.frameTemplate?.includes('{frame}') ||
           !Number.isInteger(this.count) || this.count < 2 || this.count > 720) return;
       this.rows = this.dataset.rowCount === undefined ? 1 : Number(this.dataset.rowCount);
       this.defaultRow = this.dataset.defaultRow === undefined ? Math.floor(this.rows / 2) : Number(this.dataset.defaultRow);
@@ -15,7 +16,7 @@
       if (!Number.isInteger(this.rows) || this.rows < 1 || this.rows > 31 ||
           !Number.isInteger(this.defaultRow) || this.defaultRow < 0 || this.defaultRow >= this.rows ||
           !Number.isFinite(this.rowStep) || this.rowStep <= 0 ||
-          (this.rows > 1 && !this.dataset.frameTemplate.includes('{row}'))) return;
+          (this.rows > 1 && !this.frameTemplate.includes('{row}'))) return;
       this.abort = new AbortController();
       const session = this.abort;
       const options = { signal: session.signal };
@@ -194,7 +195,7 @@
         else ready();
       };
       image.onerror = failed;
-      image.src = this.dataset.frameTemplate
+      image.src = this.frameTemplate
         .replace('{frame}', String(frame % this.count + 1).padStart(4, '0'))
         .replace('{row}', String(Math.floor(frame / this.count)).padStart(2, '0'));
     }
