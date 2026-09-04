@@ -294,7 +294,8 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   assert.equal(motionManifest.configuration.total_frames, 840);
   assert.equal(motionManifest.configuration.frames_per_row, 120);
   assert.equal(motionManifest.configuration.rows, 7);
-  assert.deepEqual(motionManifest.configuration.size, [600, 300]);
+  assert.equal(motionManifest.configuration.generation, 'bento-20260903-r28-final-motion-review');
+  assert.deepEqual(motionManifest.configuration.size, [1200, 600]);
   assert.ok(story.includes(motionManifest.capacity.filename));
   assert.ok(story.includes(motionManifest.configuration.file_template.replace('{row}', '00').replace('{frame}', '0001')));
   assert.match(story, /<pimm-bento-spin[\s\S]*?data-frame-source="\{\{[^}]+asset_url[^}]+\}\}"[\s\S]*?data-frame-count="120"[\s\S]*?data-row-count="7"[\s\S]*?data-default-row="3"[\s\S]*?data-row-step="2"/);
@@ -302,7 +303,7 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   assert.equal(sha256(capacityMotion).toLowerCase(), motionManifest.capacity.sha256);
   assert.equal(capacityMotion.length, motionManifest.capacity.bytes);
   const spinNames = (await readdir(assetsUrl))
-    .filter(name => /^pimm-bento-20260903-r26-30g-configuration-r\d{2}-f\d{4}\.webp$/.test(name))
+    .filter(name => /^pimm-bento-20260904-r28-30g-configuration-r\d{2}-f\d{4}\.webp$/.test(name))
     .sort();
   assert.equal(spinNames.length, motionManifest.configuration.total_frames);
   const spinHashes = [];
