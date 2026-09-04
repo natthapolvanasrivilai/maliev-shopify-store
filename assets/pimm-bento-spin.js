@@ -66,7 +66,13 @@
       this.hint = document.createElement('span');
       this.hint.className = 'pimm-bento-spin__hint';
       this.hint.setAttribute('aria-hidden', 'true');
-      this.hint.textContent = '↔ 360° ↕';
+      this.hintIcon = document.createElement('span');
+      this.hintIcon.className = 'pimm-bento-spin__hint-icon';
+      this.hintIcon.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><g class="pimm-bento-spin__hint-cube"><path d="m16 5 7 3.6v8.8L16 21l-7-3.6V8.6L16 5Z"/><path d="m9 8.6 7 3.6 7-3.6M16 12.2V21"/></g><path class="pimm-bento-spin__hint-orbit" d="M7.2 23.3a12 12 0 0 0 17.9-.7M5.4 19.7l1.8 3.6 3.7-.9M26.6 19l-1.5 3.6-3.8-.6"/></svg>';
+      this.hintLabel = document.createElement('span');
+      this.hintLabel.className = 'pimm-bento-spin__hint-label';
+      this.hintLabel.textContent = 'Drag to rotate';
+      this.hint.append(this.hintLabel, this.hintIcon);
       this.updateValue();
       this.append(this.canvas, this.hint, this.handle);
       this.handle.addEventListener('pointerdown', (event) => this.pointerDown(event), options);
@@ -78,7 +84,6 @@
         this.handle.addEventListener(name, (event) => this.pointerEnd(event), options);
       }
       this.handle.addEventListener('keydown', (event) => this.keyDown(event), options);
-      this.handle.addEventListener('focus', () => this.interact(), options);
       this.handle.addEventListener('dragstart', (event) => event.preventDefault(), options);
       const sync = () => this.sync();
       this.motion.addEventListener('change', sync, options);
@@ -349,6 +354,8 @@
       this.canvas?.remove();
       this.hint?.remove();
       this.handle?.remove();
+      this.hintIcon = null;
+      this.hintLabel = null;
     }
   }
 

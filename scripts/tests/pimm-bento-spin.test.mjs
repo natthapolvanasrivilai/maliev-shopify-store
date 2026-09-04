@@ -93,18 +93,22 @@ test('progressive still and localized keyboard slider have no controls buttons',
   assert.equal(state.element.handle.attributes['aria-label'], 'Rotate machine');
   assert.equal(state.element.handle.attributes['aria-valuetext'], 'View 0 degrees');
   assert.equal(state.element.handle.tabIndex, 0);
-  assert.equal(state.element.hint.textContent, '↔ 360° ↕');
+  assert.equal(state.element.hintLabel.textContent, 'Drag to rotate');
+  assert.equal(state.element.hintIcon.className, 'pimm-bento-spin__hint-icon');
+  assert.match(state.element.hintIcon.innerHTML, /<svg viewBox="0 0 32 32"/);
   assert.equal(state.element.hint.attributes['aria-hidden'], 'true');
   assert.equal(state.element.hint.hidden, undefined);
   assert.doesNotMatch(source, /createElement\(['"]button/);
 });
 
-test('small interaction hint hides permanently on pointer keyboard or focus intent', () => {
-  for (const interaction of ['pointer', 'keyboard', 'focus']) {
+test('interaction badge stays available on focus and hides permanently after pointer or keyboard input', () => {
+  const focused = harness({ reduced: true, dataset: twoAxis }); focused.show();
+  focused.element.handle.dispatch('focus');
+  assert.equal(focused.element.hint.hidden, undefined);
+  for (const interaction of ['pointer', 'keyboard']) {
     const state = harness({ reduced: true, dataset: twoAxis }); state.show();
     if (interaction === 'pointer') pointer(state, 'pointerdown', 100, 100);
     if (interaction === 'keyboard') state.element.handle.dispatch('keydown', { key: 'ArrowRight' });
-    if (interaction === 'focus') state.element.handle.dispatch('focus');
     assert.equal(state.element.hint.hidden, true, `${interaction} leaves hint visible`);
     state.element.sync();
     assert.equal(state.element.hint.hidden, true, `${interaction} restores hint`);
@@ -208,10 +212,12 @@ test('interaction immediately cancels hint and does not autorotate after release
   assert.equal(state.element.frame, selected); assert.equal(state.frames.size, 0);
 });
 
-test('keyboard focus cancels the hint and pointer cancellation never leaves a drag running', () => {
+test('keyboard focus reveals the badge while pointer cancellation never leaves a drag running', () => {
   const state = harness(); state.show();
   for (let index = 0; index < 5; index++) state.complete();
-  state.element.handle.dispatch('focus'); assert.equal(state.frames.size, 0);
+  state.element.handle.dispatch('focus');
+  assert.equal(state.frames.size, 1);
+  assert.equal(state.element.hint.hidden, undefined);
   pointer(state, 'pointerdown', 100); pointer(state, 'pointermove', 150);
   assert.equal(state.frames.size, 1);
   pointer(state, 'pointercancel', 150);
@@ -369,7 +375,10 @@ test('two-axis touch area owns vertical gestures, without changing single-axis p
   assert.match(css, /touch-action: pan-y pinch-zoom;/);
   assert.match(css, /\.pimm-bento-spin__hint \{/);
   assert.match(css, /\.pimm-bento-spin__hint\[hidden\] \{ display: none; \}/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pimm-bento-spin__hint \{ animation: none; \}/);
+  assert.match(css, /top: clamp\(16px, 3vw, 28px\)/);
+  assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint/);
+  assert.match(css, /@keyframes pimm-spin-hint-cube/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none !important/);
 });
 
 test('two-axis reduced motion and save-data allow deliberate movement but no automatic hint', () => {
