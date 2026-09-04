@@ -63,8 +63,12 @@
       }
       this.handle.setAttribute('aria-label', this.dataset.label || this.poster.alt);
       if (this.dataset.describedby) this.handle.setAttribute('aria-describedby', this.dataset.describedby);
+      this.hint = document.createElement('span');
+      this.hint.className = 'pimm-bento-spin__hint';
+      this.hint.setAttribute('aria-hidden', 'true');
+      this.hint.textContent = '↔ 360° ↕';
       this.updateValue();
-      this.append(this.canvas, this.handle);
+      this.append(this.canvas, this.hint, this.handle);
       this.handle.addEventListener('pointerdown', (event) => this.pointerDown(event), options);
       this.handle.addEventListener('pointermove', (event) => this.pointerMove(event), { ...options, passive: true });
       this.handle.addEventListener('pointerleave', (event) => {
@@ -264,6 +268,7 @@
     interact() {
       this.interacted = true;
       this.hintDone = true;
+      if (this.hint) this.hint.hidden = true;
       this.cancelHint(false);
     }
 
@@ -342,6 +347,7 @@
       this.abort?.abort();
       this.abort = null;
       this.canvas?.remove();
+      this.hint?.remove();
       this.handle?.remove();
     }
   }

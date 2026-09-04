@@ -93,7 +93,22 @@ test('progressive still and localized keyboard slider have no controls buttons',
   assert.equal(state.element.handle.attributes['aria-label'], 'Rotate machine');
   assert.equal(state.element.handle.attributes['aria-valuetext'], 'View 0 degrees');
   assert.equal(state.element.handle.tabIndex, 0);
+  assert.equal(state.element.hint.textContent, '↔ 360° ↕');
+  assert.equal(state.element.hint.attributes['aria-hidden'], 'true');
+  assert.equal(state.element.hint.hidden, undefined);
   assert.doesNotMatch(source, /createElement\(['"]button/);
+});
+
+test('small interaction hint hides permanently on pointer keyboard or focus intent', () => {
+  for (const interaction of ['pointer', 'keyboard', 'focus']) {
+    const state = harness({ reduced: true, dataset: twoAxis }); state.show();
+    if (interaction === 'pointer') pointer(state, 'pointerdown', 100, 100);
+    if (interaction === 'keyboard') state.element.handle.dispatch('keydown', { key: 'ArrowRight' });
+    if (interaction === 'focus') state.element.handle.dispatch('focus');
+    assert.equal(state.element.hint.hidden, true, `${interaction} leaves hint visible`);
+    state.element.sync();
+    assert.equal(state.element.hint.hidden, true, `${interaction} restores hint`);
+  }
 });
 
 test('canvas preserves declared native resolution independently of CSS-rendered image dimensions', () => {
@@ -247,7 +262,7 @@ test('offscreen/disconnect cancels loads and stale callbacks cannot paint after 
   state.element.isConnected = true; state.element.connectedCallback();
   state.observers[0].intersect(true); assert.equal(state.element.visible, false);
   state.observers[1].intersect(true); staleLoad(); assert.equal(state.draws.length, 0);
-  assert.equal(state.element.children.length, 3);
+  assert.equal(state.element.children.length, 4);
 });
 
 test('decoded cache remains bounded during repeated requests', () => {
@@ -352,6 +367,9 @@ test('two-axis touch area owns vertical gestures, without changing single-axis p
   const css = await readFile(new URL('assets/pimm-bento-spin.css', root), 'utf8');
   assert.match(css, /\.pimm-bento-spin__handle\[data-two-axis\] \{ touch-action: none;/);
   assert.match(css, /touch-action: pan-y pinch-zoom;/);
+  assert.match(css, /\.pimm-bento-spin__hint \{/);
+  assert.match(css, /\.pimm-bento-spin__hint\[hidden\] \{ display: none; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pimm-bento-spin__hint \{ animation: none; \}/);
 });
 
 test('two-axis reduced motion and save-data allow deliberate movement but no automatic hint', () => {

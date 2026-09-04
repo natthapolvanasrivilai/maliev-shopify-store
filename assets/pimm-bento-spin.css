@@ -38,6 +38,33 @@ pimm-bento-spin > canvas[hidden] { display: none; }
 
 .pimm-bento-spin__handle[data-two-axis] { touch-action: none; }
 
+.pimm-bento-spin__hint {
+  position: absolute;
+  z-index: 2;
+  right: clamp(16px, 3vw, 28px);
+  bottom: clamp(16px, 3vw, 28px);
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgb(255 255 255 / 48%);
+  border-radius: 999px;
+  background: rgb(14 18 22 / 72%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+  color: #fff;
+  font: 700 12px/1 var(--font-body-family, sans-serif);
+  letter-spacing: .04em;
+  pointer-events: none;
+  animation: pimm-spin-hint 2.4s ease-in-out infinite;
+}
+
+.pimm-bento-spin__hint[hidden] { display: none; }
+
+@keyframes pimm-spin-hint {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: .78; }
+  50% { transform: translate3d(-4px, -2px, 0); opacity: 1; }
+}
+
 .pimm-bento-spin__status {
   position: absolute;
   width: 1px;
@@ -55,4 +82,5 @@ pimm-bento-spin > canvas[hidden] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   pimm-bento-spin { scroll-behavior: auto; }
+  .pimm-bento-spin__hint { animation: none; }
 }
