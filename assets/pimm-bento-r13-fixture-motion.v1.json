@@ -1,0 +1,28 @@
+{
+  "schema": "maliev.pimm-bento-fixture-motion/v1",
+  "generation": "fixture-mounting-20260903-web-final-03",
+  "filename": "pimm-bento-20260904-r13-30g-tooling-fixtures.mp4",
+  "sha256": "9EFA1FDF8A72A4E760993ECAB6101B67C3B0CCE80E8BADD73C64CEE21A8C3BEB",
+  "bytes": 2681701,
+  "size": [800, 1100],
+  "aspect_ratio": "8:11",
+  "fps": 12,
+  "frames": 456,
+  "duration_seconds": 38,
+  "source": {
+    "path": "M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\fixture-mounting-20260903-web-final-03\\pimm-30g-flexible-fixture-mounting.mp4",
+    "sha256": "F8CB07D838AB117A51BC72E2DFA5C70A20881FD31B5FF084C5FAF1E89EC5E179",
+    "size": [1280, 960],
+    "delivery_validation_sha256": "6E86BFCF06FE8D71B6709BF660F68C67203DFC7B2F55E6A03E4585FECB1BE845"
+  },
+  "transform": "center crop 698x960, scale 800x1100 Lanczos, H.264 CRF 20, faststart",
+  "storefront_behavior": {
+    "autoplay": true,
+    "muted": true,
+    "loop": true,
+    "controls": false,
+    "lazy_in_view": true,
+    "save_data_static_fallback": true,
+    "reduced_motion_static_fallback": true
+  }
+}
