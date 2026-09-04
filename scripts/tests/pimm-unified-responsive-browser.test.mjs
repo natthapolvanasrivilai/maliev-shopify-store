@@ -9,6 +9,7 @@ import test from 'node:test';
 const previewUrl = process.env.PIMM_UNIFIED_PREVIEW_URL?.trim();
 const evidenceDir = resolve(process.env.PIMM_UNIFIED_EVIDENCE_DIR?.trim() || '.codex-tmp/pimm-unified-product/browser-evidence');
 const viewports = [[1440, 900], [1280, 800], [1024, 768], [390, 844], [360, 800]];
+const fixtureViewports = [[1203, 1032], [1024, 768], [390, 844], [360, 800]];
 const models = ['30G', '50G'];
 const chromeCandidates = [
   process.env.PIMM_UNIFIED_CHROME_PATH,
@@ -189,6 +190,12 @@ const geometryProbe = (model) => `(() => {
   titleRange.selectNodeContents(title);
   const titleRect = titleRange.getBoundingClientRect();
   const heroStageRect = hero.getBoundingClientRect();
+  const toolingTile = visibleStory.querySelector('.pimm-bento__tile--tooling');
+  const capacityTile = visibleStory.querySelector('.pimm-bento__tile--capacity');
+  const toolingMediaRect = toolingTile?.querySelector('.pimm-bento__media')?.getBoundingClientRect();
+  const toolingCopyRect = toolingTile?.querySelector('.pimm-bento__copy')?.getBoundingClientRect();
+  const toolingRect = toolingTile?.getBoundingClientRect();
+  const capacityRect = capacityTile?.getBoundingClientRect();
   const overlaps = [...visibleStory.querySelectorAll('.pimm-story__chapter')].map((chapter) => {
     const media = chapter.querySelector('.pimm-story__media')?.getBoundingClientRect();
     const copy = chapter.querySelector('.pimm-story__copy')?.getBoundingClientRect();
@@ -224,6 +231,10 @@ const geometryProbe = (model) => `(() => {
     titleFontSize: getComputedStyle(title).fontSize,
     heroStageLeft: heroStageRect.left,
     titleOverlapsStage: innerWidth > 749 && titleRect.right > heroStageRect.left + 1,
+    toolingMediaOverlapsCopy: Boolean(toolingMediaRect && toolingCopyRect && toolingMediaRect.bottom > toolingCopyRect.top + 1),
+    toolingRatioDelta: toolingRect && capacityRect
+      ? Math.abs((toolingRect.width / toolingRect.height) - (capacityRect.width / capacityRect.height))
+      : null,
     overlaps,
     selected,
     storyModel: visibleStory?.dataset.pimmStoryModel,
@@ -234,6 +245,45 @@ const geometryProbe = (model) => `(() => {
 
 test('missing preview URL is an intentional browser-matrix skip', { skip: Boolean(previewUrl) }, () => {
   assert.equal(previewUrl, undefined);
+});
+
+test('30G fixture media remains separated from copy at responsive widths', {
+  skip: previewUrl ? false : 'PIMM_UNIFIED_PREVIEW_URL is not set',
+  timeout: 120_000,
+}, async () => {
+  await mkdir(evidenceDir, { recursive: true });
+  const browser = await launchBrowser();
+  const { session } = browser;
+  try {
+    await session.send('Page.enable');
+    await session.send('Runtime.enable');
+    for (const [width, height] of fixtureViewports) {
+      await setViewport(session, width, height);
+      await navigate(session, previewUrl);
+      await suppressCookieConsent(session);
+      const probe = await evaluate(session, geometryProbe('30G'));
+      assert.equal(probe.storyModel, '30G');
+      assert.equal(probe.toolingMediaOverlapsCopy, false, `${width}x${height} fixture media overlaps copy`);
+      assert.ok(probe.toolingRatioDelta <= .001, `${width}x${height} fixture and capacity cards differ in aspect ratio`);
+      await evaluate(session, `(() => {
+        document.querySelector('.pimm-bento__tile--tooling')?.scrollIntoView({ block: 'center' });
+        return true;
+      })()`);
+      await evaluate(session, `(async () => {
+        const video = document.querySelector('.pimm-bento__tile--tooling video');
+        if (!video) return true;
+        if (video.readyState < 1) await new Promise((resolve) => video.addEventListener('loadedmetadata', resolve, { once: true }));
+        video.pause();
+        video.currentTime = Math.min(18, Math.max(0, video.duration - 1));
+        await new Promise((resolve) => video.addEventListener('seeked', resolve, { once: true }));
+        return true;
+      })()`);
+      await delay(120);
+      await captureScreenshot(session, join(evidenceDir, `fixture-${width}x${height}.png`));
+    }
+  } finally {
+    await browser.close();
+  }
 });
 
 test('unified PIMM preview passes selected-story responsive and grounding acceptance', {
@@ -286,6 +336,10 @@ test('unified PIMM preview passes selected-story responsive and grounding accept
           assert.equal(probe.oldAssetPresent, false);
           assert.ok(probe.overflowX <= 1, `${language} ${width}x${height} ${model} overflow ${probe.overflowX}px`);
           assert.equal(probe.titleOverlapsStage, false, `${language} ${width}x${height} ${model} title ${probe.titleRight}px at ${probe.titleFontSize} overlaps hero at ${probe.heroStageLeft}px`);
+          if (model === '30G') {
+            assert.equal(probe.toolingMediaOverlapsCopy, false, `${language} ${width}x${height} fixture media overlaps copy`);
+            assert.ok(probe.toolingRatioDelta <= .001, `${language} ${width}x${height} fixture and capacity cards differ in aspect ratio`);
+          }
           assert.ok(probe.overlaps.every((value) => value === false), `${language} ${width}x${height} ${model} chapter overlap`);
           assert.ok(probe.status.length > 0, `${language} ${width}x${height} ${model} status`);
           for (const machine of probe.fullMachines) {

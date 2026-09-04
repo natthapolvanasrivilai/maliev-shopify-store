@@ -128,7 +128,13 @@ test('30G feature bento has four native render tiles without video stills or emp
   assert.doesNotMatch(story, /pimm-gallery-20260903-(?:molding|end-caps)\.webp|pimm-bento__tile--(?:workshop|parts)|figcaption/);
   assert.doesNotMatch(css, /pimm-bento__tile--(?:workshop|parts)/);
   assert.match(css, /\.pimm-bento__tile--capacity \{ grid-area: capacity; aspect-ratio: 1600 \/ 2200; \}/);
-  assert.match(css, /\.pimm-bento__tile--tooling \{ grid-area: tooling; aspect-ratio: 1600 \/ 2200; \}/);
+  assert.match(css, /\.pimm-bento__tile--tooling \{[^}]*grid-area: tooling;[^}]*aspect-ratio: 1600 \/ 2200;/);
+  assert.match(css, /\.pimm-bento__tile--tooling \{[^}]*grid-template-areas: "media" "copy";[^}]*grid-template-rows: 66% 34%/);
+  assert.match(css, /\.pimm-bento__tile--tooling \.pimm-bento__media \{[^}]*position: relative;[^}]*grid-area: media;[^}]*inset: auto;[^}]*overflow: hidden/);
+  assert.match(css, /\.pimm-bento__tile--tooling \.pimm-bento__copy \{[^}]*grid-area: copy;[^}]*align-self: stretch;[^}]*background: #f3f5f6;[^}]*padding: 24px 6% 32px/);
+  assert.match(css, /\.pimm-bento__tile--tooling \.pimm-bento__media :is\(img, video\) \{ object-position: center bottom; \}/);
+  assert.match(css, /@media \(min-width: 750px\) and \(max-width: 1199px\) \{[\s\S]*?\.pimm-bento__tile--tooling \{ grid-template-rows: 62% 38%; \}/);
+  assert.match(css, /@media \(max-width: 749px\) \{[\s\S]*?\.pimm-bento__tile--tooling \{ grid-template-rows: 58% 42%; \}/);
   assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration";/);
   assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "configuration";/);
   assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 1\.6rem \+ 1\.7vw, 4rem\) !important/);
