@@ -193,7 +193,6 @@ const geometryProbe = (model) => `(() => {
   const toolingTile = visibleStory.querySelector('.pimm-bento__tile--tooling');
   const capacityTile = visibleStory.querySelector('.pimm-bento__tile--capacity');
   const toolingMediaRect = toolingTile?.querySelector('.pimm-bento__media')?.getBoundingClientRect();
-  const toolingCopyRect = toolingTile?.querySelector('.pimm-bento__copy')?.getBoundingClientRect();
   const toolingRect = toolingTile?.getBoundingClientRect();
   const capacityRect = capacityTile?.getBoundingClientRect();
   const overlaps = [...visibleStory.querySelectorAll('.pimm-story__chapter')].map((chapter) => {
@@ -231,7 +230,11 @@ const geometryProbe = (model) => `(() => {
     titleFontSize: getComputedStyle(title).fontSize,
     heroStageLeft: heroStageRect.left,
     titleOverlapsStage: innerWidth > 749 && titleRect.right > heroStageRect.left + 1,
-    toolingMediaOverlapsCopy: Boolean(toolingMediaRect && toolingCopyRect && toolingMediaRect.bottom > toolingCopyRect.top + 1),
+    toolingMediaCoversTile: Boolean(toolingMediaRect && toolingRect
+      && Math.abs(toolingMediaRect.left - toolingRect.left) <= 1
+      && Math.abs(toolingMediaRect.top - toolingRect.top) <= 1
+      && Math.abs(toolingMediaRect.right - toolingRect.right) <= 1
+      && Math.abs(toolingMediaRect.bottom - toolingRect.bottom) <= 1),
     toolingRatioDelta: toolingRect && capacityRect
       ? Math.abs((toolingRect.width / toolingRect.height) - (capacityRect.width / capacityRect.height))
       : null,
@@ -247,7 +250,7 @@ test('missing preview URL is an intentional browser-matrix skip', { skip: Boolea
   assert.equal(previewUrl, undefined);
 });
 
-test('30G fixture media remains separated from copy at responsive widths', {
+test('30G fixture render preserves full-tile geometry at responsive widths', {
   skip: previewUrl ? false : 'PIMM_UNIFIED_PREVIEW_URL is not set',
   timeout: 120_000,
 }, async () => {
@@ -263,7 +266,7 @@ test('30G fixture media remains separated from copy at responsive widths', {
       await suppressCookieConsent(session);
       const probe = await evaluate(session, geometryProbe('30G'));
       assert.equal(probe.storyModel, '30G');
-      assert.equal(probe.toolingMediaOverlapsCopy, false, `${width}x${height} fixture media overlaps copy`);
+      assert.equal(probe.toolingMediaCoversTile, true, `${width}x${height} fixture media does not cover its tile`);
       assert.ok(probe.toolingRatioDelta <= .001, `${width}x${height} fixture and capacity cards differ in aspect ratio`);
       await evaluate(session, `(() => {
         document.querySelector('.pimm-bento__tile--tooling')?.scrollIntoView({ block: 'center' });
@@ -337,7 +340,7 @@ test('unified PIMM preview passes selected-story responsive and grounding accept
           assert.ok(probe.overflowX <= 1, `${language} ${width}x${height} ${model} overflow ${probe.overflowX}px`);
           assert.equal(probe.titleOverlapsStage, false, `${language} ${width}x${height} ${model} title ${probe.titleRight}px at ${probe.titleFontSize} overlaps hero at ${probe.heroStageLeft}px`);
           if (model === '30G') {
-            assert.equal(probe.toolingMediaOverlapsCopy, false, `${language} ${width}x${height} fixture media overlaps copy`);
+            assert.equal(probe.toolingMediaCoversTile, true, `${language} ${width}x${height} fixture media does not cover its tile`);
             assert.ok(probe.toolingRatioDelta <= .001, `${language} ${width}x${height} fixture and capacity cards differ in aspect ratio`);
           }
           assert.ok(probe.overlaps.every((value) => value === false), `${language} ${width}x${height} ${model} chapter overlap`);
