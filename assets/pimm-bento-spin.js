@@ -68,7 +68,7 @@
       this.hint.setAttribute('aria-hidden', 'true');
       this.hintIcon = document.createElement('span');
       this.hintIcon.className = 'pimm-bento-spin__hint-icon';
-      this.hintIcon.innerHTML = '<span class="pimm-bento-spin__cube-scene"><span class="pimm-bento-spin__cube"><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--front"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--back"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--right"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--left"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--top"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--bottom"></i></span></span><svg class="pimm-bento-spin__hint-orbit" viewBox="0 0 28 10" aria-hidden="true" focusable="false"><path d="M3 3.2C7 8.2 19.2 8.2 24 4.2"/><path d="m19.5 1.8 4.5 2.4-3.7 3.2"/></svg>';
+      this.hintIcon.innerHTML = '<span class="pimm-bento-spin__cube-scene"><span class="pimm-bento-spin__cube"><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--front"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--back"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--right"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--left"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--top"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--bottom"></i></span></span>';
       this.hintLabel = document.createElement('span');
       this.hintLabel.className = 'pimm-bento-spin__hint-label';
       this.hintLabel.textContent = 'Drag to rotate';
