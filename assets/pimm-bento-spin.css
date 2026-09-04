@@ -45,13 +45,13 @@ pimm-bento-spin > canvas[hidden] { display: none; }
   top: clamp(16px, 3vw, 28px);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
-  width: 148px;
+  box-sizing: border-box;
+  width: 44px;
   height: 44px;
-  padding: 0;
+  padding: 0 9px;
   overflow: hidden;
-  clip-path: inset(0 0 0 104px round 999px);
   border: 1px solid rgb(17 19 21 / 14%);
   border-radius: 999px;
   background: rgb(255 255 255 / 94%);
@@ -59,18 +59,22 @@ pimm-bento-spin > canvas[hidden] { display: none; }
   font: 700 12px/1 var(--font-body-family, sans-serif);
   letter-spacing: .01em;
   pointer-events: none;
-  transition: clip-path 220ms cubic-bezier(.16, 1, .3, 1), background-color 180ms ease-out;
-  will-change: clip-path;
+  contain: layout paint;
+  transition: width 220ms cubic-bezier(.16, 1, .3, 1), background-color 180ms ease-out;
+  will-change: width;
 }
 
 .pimm-bento-spin__hint[hidden] { display: none; }
 
 .pimm-bento-spin__hint-label {
   display: block;
+  flex: 0 0 auto;
+  max-width: 0;
+  overflow: hidden;
   white-space: nowrap;
   opacity: 0;
   transform: translate3d(8px, 0, 0);
-  transition: opacity 140ms ease-out, transform 220ms cubic-bezier(.16, 1, .3, 1);
+  transition: max-width 220ms cubic-bezier(.16, 1, .3, 1), opacity 140ms ease-out, transform 220ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .pimm-bento-spin__hint-icon {
@@ -79,8 +83,6 @@ pimm-bento-spin > canvas[hidden] { display: none; }
   flex: 0 0 24px;
   width: 24px;
   height: 24px;
-  transform: translate3d(95px, 0, 0);
-  transition: transform 220ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .pimm-bento-spin__cube-scene {
@@ -119,18 +121,14 @@ pimm-bento-spin > canvas[hidden] { display: none; }
 
 pimm-bento-spin:hover .pimm-bento-spin__hint,
 pimm-bento-spin:focus-within .pimm-bento-spin__hint {
-  clip-path: inset(0 round 999px);
+  width: 148px;
   background: #fff;
 }
 
 pimm-bento-spin:hover .pimm-bento-spin__hint-label,
 pimm-bento-spin:focus-within .pimm-bento-spin__hint-label {
+  max-width: 86px;
   opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-
-pimm-bento-spin:hover .pimm-bento-spin__hint-icon,
-pimm-bento-spin:focus-within .pimm-bento-spin__hint-icon {
   transform: translate3d(0, 0, 0);
 }
 

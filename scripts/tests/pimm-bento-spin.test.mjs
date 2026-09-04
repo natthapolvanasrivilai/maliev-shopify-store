@@ -383,10 +383,11 @@ test('two-axis touch area owns vertical gestures, without changing single-axis p
   assert.match(css, /\.pimm-bento-spin__hint\[hidden\] \{ display: none; \}/);
   assert.match(css, /top: clamp\(16px, 3vw, 28px\)/);
   assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint/);
-  assert.match(css, /justify-content: center/);
-  assert.match(css, /gap: 8px;[\s\S]*?width: 148px;[\s\S]*?clip-path: inset\(0 0 0 104px round 999px\)/);
-  assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint-icon[\s\S]*?translate3d\(0, 0, 0\)/);
-  assert.doesNotMatch(css, /pimm-bento-spin__hint-orbit|translate3d\(-110px, 0, 0\)/);
+  assert.match(css, /justify-content: flex-start/);
+  assert.match(css, /gap: 8px;[\s\S]*?width: 44px;[\s\S]*?padding: 0 9px/);
+  assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint[\s\S]*?width: 148px/);
+  assert.doesNotMatch(css, /\.pimm-bento-spin__hint\s*\{[^}]*clip-path:/s);
+  assert.doesNotMatch(css, /pimm-bento-spin__hint-orbit|translate3d\(95px, 0, 0\)|translate3d\(-110px, 0, 0\)/);
   assert.match(css, /@keyframes pimm-spin-hint-cube/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none !important/);
 });
