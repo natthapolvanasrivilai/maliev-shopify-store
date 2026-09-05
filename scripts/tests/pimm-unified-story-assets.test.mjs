@@ -29,7 +29,8 @@ test('support delight renders localized services and preserves merchant and mode
     const render = (model, settings = {}) => engine.parseAndRender(source, { page_model: model, routes: { root_url: root }, section: { id: 'support-test', settings } });
     const html = await render('30G');
     assert.equal((html.match(/<li>/g) ?? []).length, 3);
-    assert.match(html, /data-support-motion="book"/);
+    assert.equal((html.match(/class="pimm-support-services__icon"/g) ?? []).length, 3);
+    assert.doesNotMatch(html, /data-support-motion|pimm-support-motion>/);
     assert.ok(html.indexOf(translations.pimm_support.guidance) < html.indexOf('</li>'));
     assert.ok(html.indexOf(translations.pimm_support.documentation) < html.indexOf('</li>'));
     assert.ok(html.includes(translations.products.pimm_machine.ownership.body));
@@ -46,7 +47,10 @@ test('support delight renders localized services and preserves merchant and mode
     assert.match(legacy, /href="\/original-support"/);
   }
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
-  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-support-contact svg/);
+  assert.match(css, /\.pimm-support-services__icon \{[^}]*stroke-width: 1\.75;[^}]*shape-rendering: geometricPrecision;/);
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.pimm-support-services li:hover \.pimm-support-services__icon \{[^}]*transform: translate3d\(0, -3px, 0\);/);
+  assert.doesNotMatch(css, /stroke-dasharray|stroke-dashoffset/);
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.pimm-machine\[data-page-model="30G"\] \.pimm-support-contact svg/);
   assert.match(css, /\.pimm-support-contact a:focus-visible \{ outline: 2px solid/);
 });
 
@@ -119,18 +123,29 @@ test('30G support typography pairs a bounded heading with readable responsive pr
   assert.match(css, /@media \(max-width: 999px\) \{\s*\.pimm-machine\[data-page-model="30G"\] \.pimm-machine__ownership \.pimm-machine__prose \{\s*grid-template-columns: minmax\(0, 1fr\)/);
 });
 
-test('30G feature bento has four native render tiles without video stills or empty grid areas', async () => {
+test('30G feature bento has seven native render tiles without video stills or empty grid areas', async () => {
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
-  assert.equal((story.match(/<h3>/g) ?? []).length, 4);
+  assert.equal((story.match(/<h3>/g) ?? []).length, 7);
   assert.doesNotMatch(story, /pimm-story__index|pimm-story__chapter|data-pimm-reveal/);
-  assert.equal((story.match(/<img /g) ?? []).length, 4);
+  assert.equal((story.match(/<img /g) ?? []).length, 7);
   assert.doesNotMatch(story, /pimm-gallery-20260903-(?:molding|end-caps)\.webp|pimm-bento__tile--(?:workshop|parts)|figcaption/);
   assert.doesNotMatch(css, /pimm-bento__tile--(?:workshop|parts)/);
+  assert.match(css, /\.pimm-machine\[data-page-model="30G"\] \.pimm-bento__tile \{[^}]*border: 0;/);
+  assert.doesNotMatch(css, /\.pimm-bento__tile--configuration \{[^}]*border:/);
   assert.match(css, /\.pimm-bento__tile--capacity \{ grid-area: capacity; aspect-ratio: 1600 \/ 2200; \}/);
   assert.match(css, /\.pimm-bento__tile--tooling \{ grid-area: tooling; aspect-ratio: 1600 \/ 2200; \}/);
-  assert.match(css, /grid-template-areas: "controls controls" "capacity tooling" "configuration configuration";/);
-  assert.match(css, /grid-template-areas: "capacity" "controls" "tooling" "configuration";/);
+  assert.match(css, /\.pimm-bento__tile--air-pressure \{ grid-area: air-pressure; aspect-ratio: 8 \/ 11; \}/);
+  assert.match(css, /\.pimm-bento__tile--plunger \{ grid-area: plunger; aspect-ratio: 16 \/ 11; \}/);
+  assert.match(css, /\.pimm-bento__tile--temperature \{ grid-area: temperature; \}/);
+  assert.match(css, /grid-template-areas: "capacity controls controls" "temperature temperature tooling" "air-pressure plunger plunger" "configuration configuration configuration";/);
+  assert.match(css, /@media \(max-width: 999px\)[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*?grid-template-areas: "controls controls" "capacity tooling" "temperature temperature" "air-pressure plunger" "configuration configuration";/);
+  assert.match(css, /@media \(min-width: 750px\) and \(max-width: 999px\)[\s\S]*?\.pimm-bento__tile--plunger \.pimm-bento__copy \{[\s\S]*?width: 64%;[\s\S]*?margin: 7% 0 0 5%;[\s\S]*?\.pimm-bento__tile--plunger \.pimm-bento__copy p \{[\s\S]*?max-width: 24ch;[\s\S]*?\.pimm-bento__tile--plunger \.pimm-bento__media :is\(img, video\) \{[\s\S]*?object-position: 90% center;/);
+  assert.match(css, /@media \(max-width: 749px\)[\s\S]*?\.pimm-bento \{ gap: 10px; \}/);
+  assert.match(css, /@media \(max-width: 749px\)[\s\S]*?font-size: 2rem !important/);
+  assert.match(css, /\.pimm-bento__tile--air-pressure \.pimm-bento__copy \{[\s\S]*?align-self: start;[\s\S]*?margin-top: 7%;/);
+  assert.doesNotMatch(css, /\.pimm-bento__tile--air-pressure::after/);
+  assert.match(css, /\.pimm-bento__tile--plunger \.pimm-bento__copy \{[\s\S]*?width: 38%;[\s\S]*?margin-left: 5%;/);
   assert.match(css, /\.pimm-bento__copy h3 \{[^}]*font-size: clamp\(2\.8rem, 1\.6rem \+ 1\.7vw, 4rem\) !important/);
   assert.match(css, /\.pimm-bento__copy p \{[^}]*font-size: 1\.6rem;[^}]*line-height: 1\.5/);
   assert.match(css, /\.pimm-story--30g:lang\(th\) :is\(h2, h3\) \{[^}]*letter-spacing: normal !important/);
@@ -239,14 +254,14 @@ test('active configurator gives every media placement its own release WebP asset
   assert.doesNotMatch(source, /(?:(?:pimm30-|pimm50-|pimm-(?:machine|editorial)-|maliev-pimm-)[^'"\s)]+\.(?:png|webp|webm|mp4))/i);
 });
 
-test('30G bento uses four approved full-tile native-size lossless renders', async () => {
+test('30G bento uses approved full-tile native-size renders and control animations', async () => {
   const manifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r12-assets.v1.json', rootUrl), 'utf8'));
   assert.equal(manifest.generation, 'bento-20260903-r12');
   const previousManifest = await readFile(new URL(`assets/${manifest.previous_manifest}`, rootUrl));
   assert.equal(sha256(previousManifest), manifest.previous_manifest_sha256);
   assert.equal(manifest.assets.length, 4);
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', rootUrl), 'utf8');
-  assert.equal((story.match(/pimm-bento__tile--render/g) ?? []).length, 4);
+  assert.equal((story.match(/pimm-bento__tile--render/g) ?? []).length, 7);
   for (const asset of manifest.assets) {
     const approvalBytes = await readFile(new URL(asset.approval, rootUrl));
     const approval = JSON.parse(approvalBytes);
@@ -265,7 +280,7 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   assert.equal(configuration.generation, 'bento-20260903-r12-white-detail');
   assert.equal(manifest.assets.find(asset => asset.shot === 'controls').generation, 'bento-20260903-r10-orbit');
   assert.doesNotMatch(story, /pimm-bento-20260903-r06|pimm-bento-20260903-r11-30g-configuration/);
-  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 3);
+  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 6);
   assert.ok(story.includes(manifest.animation.filename));
   assert.deepEqual(manifest.animation.size, [2400, 1200]);
   assert.equal(manifest.animation.fps, 24);
@@ -284,6 +299,24 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   const fixtureVideo = await readFile(new URL(`assets/${fixtureManifest.filename}`, rootUrl));
   assert.equal(sha256(fixtureVideo), fixtureManifest.sha256);
   assert.equal(fixtureVideo.subarray(4, 8).toString(), 'ftyp');
+  const controlManifest = JSON.parse(await readFile(new URL('assets/pimm-bento-r30-control-motion.v1.json', rootUrl), 'utf8'));
+  assert.equal(controlManifest.schema, 'maliev.pimm-bento-control-motion/v1');
+  assert.equal(controlManifest.assets.length, 3);
+  assert.deepEqual(controlManifest.assets.map(asset => asset.size), [[400, 550], [1440, 960], [960, 660]]);
+  assert.deepEqual(controlManifest.assets.map(asset => asset.fps), [24, 24, 24]);
+  assert.deepEqual(controlManifest.assets.map(asset => asset.frames), [288, 336, 288]);
+  for (const asset of controlManifest.assets) {
+    assert.ok(story.includes(asset.filename));
+    assert.ok(story.includes(asset.poster));
+    const videoBytes = await readFile(new URL(`assets/${asset.filename}`, rootUrl));
+    const posterBytes = await readFile(new URL(`assets/${asset.poster}`, rootUrl));
+    assert.equal(videoBytes.length, asset.bytes);
+    assert.equal(posterBytes.length, asset.poster_bytes);
+    assert.equal(sha256(videoBytes).toLowerCase(), asset.sha256);
+    assert.equal(sha256(posterBytes).toLowerCase(), asset.poster_sha256);
+    assert.equal(videoBytes.subarray(4, 8).toString(), 'ftyp');
+    assert.equal(posterBytes.toString('ascii', 12, 16), 'VP8L');
+  }
   const section = await readFile(new URL('sections/maliev-pimm-machine-product.liquid', rootUrl), 'utf8');
   assert.match(section, /if page_model == '30G'[\s\S]*?pimm-bento-orbit.js[\s\S]*?defer="defer"[\s\S]*?endif/);
   assert.match(section, /if page_model == '30G'[\s\S]*?pimm-bento-spin\.css[\s\S]*?pimm-bento-spin\.js[\s\S]*?defer="defer"[\s\S]*?endif/);
@@ -319,7 +352,7 @@ test('30G bento uses four approved full-tile native-size lossless renders', asyn
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
   assert.doesNotMatch(css, /(?:mask-image|filter):/);
-  assert.match(css, /\.pimm-bento__tile--configuration \{[^}]*border: 1px solid #d9dde1;/);
+  assert.doesNotMatch(css, /\.pimm-bento__tile--configuration \{[^}]*border:/);
   assert.match(css, /\.pimm-bento__tile--configuration :is\(img, canvas\) \{ object-position: 76% center; \}/);
 });
 
@@ -328,7 +361,7 @@ test('bento compact captions retain matching locale keys and only replace prose 
     if (!name.endsWith('.json') || name.endsWith('.schema.json')) continue;
     const text = await readFile(new URL(`locales/${name}`, rootUrl), 'utf8');
     const locale = JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, ''));
-    assert.deepEqual(Object.keys(locale.pimm_bento).sort(), ['capacity_body', 'capacity_compact', 'configuration_compact', 'controls_body', 'controls_compact', 'controls_heading', 'tooling_body', 'tooling_compact', 'tooling_heading']);
+    assert.deepEqual(Object.keys(locale.pimm_bento).sort(), ['air_pressure_body', 'air_pressure_compact', 'air_pressure_heading', 'capacity_body', 'capacity_compact', 'configuration_compact', 'controls_body', 'controls_compact', 'controls_heading', 'plunger_body', 'plunger_compact', 'plunger_heading', 'temperature_body', 'temperature_compact', 'temperature_heading', 'tooling_body', 'tooling_compact', 'tooling_heading']);
     assert.ok(Object.values(locale.pimm_bento).every(value => typeof value === 'string' && value.length > 0));
   }
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
@@ -354,17 +387,27 @@ test('30G bento describes features in both languages without changing the demo c
     assert.ok(html.includes(locale.products.pimm_machine.purchase.heading));
     assert.ok(html.includes(locale.products.pimm_machine.purchase.body));
     assert.doesNotMatch(html, /Inspect pneumatic controls|Confirm your mold path|Include the part, runner/);
-    assert.equal((html.match(/pimm-bento__tile--render/g) ?? []).length, 4);
+    assert.equal((html.match(/pimm-bento__tile--render/g) ?? []).length, 7);
     assert.equal((await engine.parseAndRender(source, { story_asset_set: 'pimm-master-20260901-r05-50g' })).trim(), '');
     const copy = locale.pimm_bento;
     if (name === 'en.default') {
       for (const key of ['capacity_body', 'capacity_compact']) assert.match(copy[key], /30g.*aluminum melt bore.*heater bands.*resin/i);
-      assert.equal(copy.controls_heading, 'Pneumatic operation');
+     assert.equal(copy.controls_heading, 'Pneumatic operation');
+      assert.equal(copy.plunger_heading, 'Simple injection control');
+      assert.equal(copy.plunger_body, 'A simple pneumatic hand toggle controls injection and retraction, delivering up to 876 kgf of cylinder force for confident, repeatable shots.');
+      assert.equal(copy.plunger_compact, 'One pneumatic toggle controls up to 876 kgf of injection force.');
+      assert.equal(copy.air_pressure_heading, 'Control force with air');
+      assert.equal(copy.temperature_heading, 'Precise temperature control');
       assert.equal(copy.tooling_heading, 'Flexible fixture mounting');
       for (const key of ['tooling_body', 'tooling_compact']) assert.match(copy[key], /custom fixtures/);
     } else {
       for (const key of ['capacity_body', 'capacity_compact']) assert.match(copy[key], /30.*อะลูมิเนียม.*ฮีตเตอร์.*เม็ดพลาสติก/);
-      assert.equal(copy.controls_heading, 'ขับเคลื่อนด้วยระบบลม');
+     assert.equal(copy.controls_heading, 'ขับเคลื่อนด้วยระบบลม');
+      assert.equal(copy.plunger_heading, 'ควบคุมการฉีดได้ง่าย');
+      assert.equal(copy.plunger_body, 'โยกวาล์วลมด้วยมือเพื่อฉีดหรือดึงลูกสูบกลับ พร้อมแรงขับจากกระบอกลมสูงสุด 876 kgf เพื่อให้แต่ละช็อตมั่นใจและทำซ้ำได้');
+      assert.equal(copy.plunger_compact, 'โยกวาล์วลมครั้งเดียว ควบคุมแรงฉีดได้สูงสุด 876 kgf');
+      assert.equal(copy.air_pressure_heading, 'ควบคุมแรงฉีดด้วยแรงดันลม');
+      assert.equal(copy.temperature_heading, 'ควบคุมอุณหภูมิอย่างแม่นยำ');
     }
   }
 });

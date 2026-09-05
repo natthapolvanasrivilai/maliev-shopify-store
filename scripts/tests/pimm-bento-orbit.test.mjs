@@ -61,10 +61,10 @@ function harness({ reduced = false, saveData = false, hidden = false, observer =
   return { element, poster, videos, observers, motion, connection, document };
 }
 
-test('bento preserves four native stills without motion controls or removed video-still tiles', async () => {
+test('bento preserves seven native stills without motion controls or removed video-still tiles', async () => {
   const story = await readFile(new URL('snippets/pimm-30g-product-story.liquid', root), 'utf8');
-  assert.equal((story.match(/<img /g) ?? []).length, 4);
-  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 3);
+  assert.equal((story.match(/<img /g) ?? []).length, 7);
+  assert.equal((story.match(/<pimm-bento-orbit /g) ?? []).length, 6);
   assert.doesNotMatch(story, /<button|<video|pimm-bento__tile--(?:parts|workshop)/);
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', root), 'utf8');
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*[^}]*pimm-bento-orbit \[data-orbit-video\] \{ display: none;/);
@@ -72,6 +72,9 @@ test('bento preserves four native stills without motion controls or removed vide
   assert.match(css, /pimm-bento__tile--controls video \{ object-position: 55% center;/);
   assert.ok(story.includes('pimm-bento-20260904-r13-30g-tooling-fixtures.mp4'));
   assert.ok(story.includes('pimm-bento-20260904-r27-30g-capacity.mp4'));
+  assert.ok(story.includes('pimm-bento-20260905-r56-30g-air-pressure-aligned-callout.mp4'));
+  assert.ok(story.includes('pimm-bento-20260905-r55-30g-plunger-studio.mp4'));
+  assert.ok(story.includes('pimm-bento-20260905-r35-30g-temperature-far-clip.mp4'));
 });
 
 test('autoplays muted inline looping video in view, showing only when playback starts', () => {

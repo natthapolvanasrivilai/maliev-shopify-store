@@ -262,9 +262,9 @@
 .pimm-machine[data-page-model="30G"] .pimm-bento {
   --pimm-bento-font: 'Outfit', 'IBM Plex Sans Thai', sans-serif;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: "controls controls" "capacity tooling" "configuration configuration";
-  align-items: end;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas: "capacity controls controls" "temperature temperature tooling" "air-pressure plunger plunger" "configuration configuration configuration";
+  align-items: stretch;
   gap: 16px;
 }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile {
@@ -273,13 +273,17 @@
   min-width: 0;
   margin: 0;
   background: #f3f5f6;
+  border: 0;
   border-radius: 14px;
   overflow: hidden;
 }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--capacity { grid-area: capacity; aspect-ratio: 1600 / 2200; }
-.pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls { grid-area: controls; aspect-ratio: 2; }
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls { grid-area: controls; }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--tooling { grid-area: tooling; aspect-ratio: 1600 / 2200; }
-.pimm-machine[data-page-model="30G"] .pimm-bento__tile--configuration { grid-area: configuration; aspect-ratio: 2; border: 1px solid #d9dde1; }
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--air-pressure { grid-area: air-pressure; aspect-ratio: 8 / 11; }
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger { grid-area: plunger; aspect-ratio: 16 / 11; }
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--temperature { grid-area: temperature; }
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--configuration { grid-area: configuration; aspect-ratio: 2; }
 .pimm-machine[data-page-model="30G"] .pimm-bento__tile--render .pimm-bento__copy {
   position: relative;
   z-index: 1;
@@ -287,10 +291,19 @@
   margin: 0 6% 6%;
   padding: 0;
 }
-.pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--configuration) .pimm-bento__copy {
+.pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--temperature, .pimm-bento__tile--plunger, .pimm-bento__tile--configuration) .pimm-bento__copy {
   align-self: center;
   width: 39%;
   margin: 32px 0 32px 5%;
+}
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--air-pressure .pimm-bento__copy {
+  align-self: start;
+  margin-top: 7%;
+}
+.pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy {
+  align-self: center;
+  width: 38%;
+  margin-left: 5%;
 }
 .pimm-machine[data-page-model="30G"] .pimm-bento__copy h3 {
   margin: 0 0 16px;
@@ -335,18 +348,76 @@
 }
 .pimm-machine[data-page-model="30G"] .pimm-bento__text-compact { display: none; }
 @media (min-width: 750px) and (max-width: 1199px) {
-  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--tooling .pimm-bento__text-full { display: none; }
-  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--tooling .pimm-bento__text-compact { display: inline; }
+  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--capacity, .pimm-bento__tile--air-pressure, .pimm-bento__tile--plunger, .pimm-bento__tile--tooling) .pimm-bento__text-full { display: none; }
+  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--capacity, .pimm-bento__tile--air-pressure, .pimm-bento__tile--plunger, .pimm-bento__tile--tooling) .pimm-bento__text-compact { display: inline; }
+}
+@media (max-width: 999px) {
+  .pimm-machine[data-page-model="30G"] .pimm-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "controls controls" "capacity tooling" "temperature temperature" "air-pressure plunger" "configuration configuration";
+    gap: 14px;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger {
+    aspect-ratio: auto;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__copy h3 {
+    font-size: clamp(2rem, 1.4rem + 1.8vw, 2.8rem) !important;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__copy p {
+    font-size: clamp(1.4rem, 1.2rem + .35vw, 1.6rem);
+  }
+}
+@media (min-width: 750px) and (max-width: 999px) {
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy {
+    align-self: start;
+    width: 64%;
+    margin: 7% 0 0 5%;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy p {
+    max-width: 24ch;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__media :is(img, video) {
+    object-position: 90% center;
+  }
 }
 @media (max-width: 749px) {
-  .pimm-machine[data-page-model="30G"] .pimm-bento { grid-template-columns: minmax(0, 1fr); grid-template-areas: "capacity" "controls" "tooling" "configuration"; }
-  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--configuration) { aspect-ratio: auto; min-height: 340px; }
-  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls { min-height: 280px; }
-  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--configuration) .pimm-bento__copy { width: 42%; margin-block: 32px; }
+  .pimm-machine[data-page-model="30G"] .pimm-bento { gap: 10px; }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile { border-radius: 10px; }
+  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--temperature, .pimm-bento__tile--configuration) {
+    aspect-ratio: 2 / 1;
+    min-height: 176px;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger { aspect-ratio: 8 / 11; }
+  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--controls, .pimm-bento__tile--temperature, .pimm-bento__tile--plunger, .pimm-bento__tile--configuration) .pimm-bento__copy {
+    width: 45%;
+    margin: 16px 0 16px 5%;
+  }
+  .pimm-machine[data-page-model="30G"] :is(.pimm-bento__tile--capacity, .pimm-bento__tile--tooling, .pimm-bento__tile--air-pressure) .pimm-bento__copy {
+    margin: 0 7% 7%;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--air-pressure .pimm-bento__copy {
+    margin-top: 7%;
+    margin-bottom: 0;
+  }
   .pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls img { object-position: 55% center; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__tile--controls video { object-position: 55% center; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__tile--configuration :is(img, canvas) { object-position: 76% center; }
-  .pimm-machine[data-page-model="30G"] .pimm-bento__copy h3 { font-size: 2.4rem !important; margin-bottom: 12px; }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__copy h3 {
+    font-size: 2rem !important;
+    line-height: 1.06 !important;
+    margin-bottom: clamp(6px, 1.5vw, 10px);
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__copy p {
+    font-size: 1.4rem;
+    line-height: 1.38;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy {
+    align-self: start;
+    width: 40%;
+    margin-top: 7%;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy p { max-width: 16ch; }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__media :is(img, video) { object-position: 100% center; }
   .pimm-machine[data-page-model="30G"] .pimm-bento:lang(en) .pimm-bento__copy h3 { text-transform: none; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__text-full { display: none; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__text-compact { display: inline; }
@@ -426,11 +497,10 @@
   padding: 32px 0 0;
   border-top: 1px solid #d9dde1;
 }
-.pimm-machine[data-page-model="30G"] pimm-support-motion { display: block; }
+.pimm-machine[data-page-model="30G"] .pimm-support-motion { display: block; }
 .pimm-machine[data-page-model="30G"] .pimm-support-services li { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; min-width: 0; color: #111315; font-family: 'Outfit', 'IBM Plex Sans Thai', sans-serif; font-weight: 700; font-size: clamp(1.9rem, 1.9vw, 2.6rem); line-height: 1.3; }
 .pimm-machine[data-page-model="30G"] .pimm-support-services li > span > span { display: block; }
-.pimm-machine[data-page-model="30G"] .pimm-support-services svg { width: 48px; height: 48px; flex: none; color: #005bb5; stroke: currentColor; stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
-.pimm-machine[data-page-model="30G"] .pimm-support-services [data-support-motion] { transform-box: fill-box; transform-origin: left center; }
+.pimm-machine[data-page-model="30G"] .pimm-support-services__icon { width: 48px; height: 48px; flex: none; color: #006fd6; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; shape-rendering: geometricPrecision; transform: translate3d(0, 0, 0); transform-origin: center; }
 .pimm-machine[data-page-model="30G"] .pimm-support-contact { flex-direction: row; flex-wrap: wrap; gap: 16px 32px; }
 .pimm-machine[data-page-model="30G"] .pimm-support-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 32px; }
 .pimm-machine[data-page-model="30G"] .pimm-support-origin { display: inline-flex; align-items: center; gap: 12px; color: #353a40; font-size: 1.6rem; font-weight: 500; line-height: 1.5; }
@@ -440,6 +510,8 @@
 .pimm-machine[data-page-model="30G"] .pimm-support-contact a:is(:hover, :focus-visible) { color: #005bb5; }
 .pimm-machine[data-page-model="30G"] .pimm-support-contact a:focus-visible { outline: 2px solid #005bb5; outline-offset: 5px; border-radius: 4px; }
 @media (prefers-reduced-motion: no-preference) {
+  .pimm-machine[data-page-model="30G"] .pimm-support-services__icon { transition: color 160ms ease-out, transform 240ms cubic-bezier(.16, 1, .3, 1); }
+  .pimm-machine[data-page-model="30G"] .pimm-support-services li:hover .pimm-support-services__icon { color: #005bb5; transform: translate3d(0, -3px, 0); }
   .pimm-machine[data-page-model="30G"] .pimm-support-contact svg { transition: transform 220ms cubic-bezier(.16, 1, .3, 1); }
   .pimm-machine[data-page-model="30G"] .pimm-support-contact a:is(:hover, :focus-visible) svg { transform: translateX(4px); }
 }

@@ -95,11 +95,10 @@ test('progressive still and localized keyboard slider have no controls buttons',
   assert.equal(state.element.handle.tabIndex, 0);
   assert.equal(state.element.hintLabel.textContent, 'Drag to rotate');
   assert.equal(state.element.hintIcon.className, 'pimm-bento-spin__hint-icon');
-  assert.match(state.element.hintIcon.innerHTML, /pimm-bento-spin__cube-scene/);
-  assert.match(state.element.hintIcon.innerHTML, /pimm-bento-spin__cube-face--front/);
-  assert.match(state.element.hintIcon.innerHTML, /pimm-bento-spin__cube-face--back/);
-  assert.match(state.element.hintIcon.innerHTML, /pimm-bento-spin__cube-face--bottom/);
-  assert.doesNotMatch(state.element.hintIcon.innerHTML, /pimm-bento-spin__hint-orbit|<svg/);
+  assert.match(state.element.hintIcon.innerHTML, /<svg class="pimm-bento-spin__cube"/);
+  assert.match(state.element.hintIcon.innerHTML, /shape-rendering="geometricPrecision"/);
+  assert.equal((state.element.hintIcon.innerHTML.match(/vector-effect="non-scaling-stroke"/g) ?? []).length, 2);
+  assert.doesNotMatch(state.element.hintIcon.innerHTML, /pimm-bento-spin__hint-orbit|cube-face/);
   assert.equal(state.element.hint.children[0], state.element.hintIcon);
   assert.equal(state.element.hint.children[1], state.element.hintLabel);
   assert.equal(state.element.hint.attributes['aria-hidden'], 'true');
@@ -383,12 +382,14 @@ test('two-axis touch area owns vertical gestures, without changing single-axis p
   assert.match(css, /\.pimm-bento-spin__hint\[hidden\] \{ display: none; \}/);
   assert.match(css, /top: clamp\(16px, 3vw, 28px\)/);
   assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint/);
-  assert.match(css, /justify-content: flex-start/);
-  assert.match(css, /gap: 8px;[\s\S]*?width: 44px;[\s\S]*?padding: 0 9px/);
-  assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint[\s\S]*?width: 148px/);
+  assert.match(css, /justify-content: center;[\s\S]*?gap: 0;[\s\S]*?width: 44px;[\s\S]*?padding: 0;/);
+  assert.match(css, /\.pimm-bento-spin__hint-icon \{[\s\S]*?display: grid;[\s\S]*?place-items: center;/);
+  assert.match(css, /\.pimm-bento-spin__cube \{[\s\S]*?stroke-width: 1\.75;[\s\S]*?shape-rendering: geometricPrecision;[\s\S]*?-webkit-backface-visibility: hidden;/);
+  assert.match(css, /pimm-bento-spin:hover \.pimm-bento-spin__hint[\s\S]*?width: 148px;[\s\S]*?gap: 8px/);
   assert.doesNotMatch(css, /\.pimm-bento-spin__hint\s*\{[^}]*clip-path:/s);
   assert.doesNotMatch(css, /pimm-bento-spin__hint-orbit|translate3d\(95px, 0, 0\)|translate3d\(-110px, 0, 0\)/);
   assert.match(css, /@keyframes pimm-spin-hint-cube/);
+  assert.doesNotMatch(css, /cube-face|rotateY|perspective:/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none !important/);
 });
 

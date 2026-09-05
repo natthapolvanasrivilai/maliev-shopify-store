@@ -68,7 +68,7 @@
       this.hint.setAttribute('aria-hidden', 'true');
       this.hintIcon = document.createElement('span');
       this.hintIcon.className = 'pimm-bento-spin__hint-icon';
-      this.hintIcon.innerHTML = '<span class="pimm-bento-spin__cube-scene"><span class="pimm-bento-spin__cube"><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--front"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--back"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--right"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--left"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--top"></i><i class="pimm-bento-spin__cube-face pimm-bento-spin__cube-face--bottom"></i></span></span>';
+      this.hintIcon.innerHTML = '<svg class="pimm-bento-spin__cube" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false" shape-rendering="geometricPrecision"><path vector-effect="non-scaling-stroke" d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path vector-effect="non-scaling-stroke" d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>';
       this.hintLabel = document.createElement('span');
       this.hintLabel.className = 'pimm-bento-spin__hint-label';
       this.hintLabel.textContent = 'Drag to rotate';

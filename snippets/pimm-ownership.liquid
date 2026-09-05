@@ -12,13 +12,13 @@
   </div>
 
   {% if page_model == '30G' %}
-    <pimm-support-motion>
+    <div class="pimm-support-motion">
     <ul class="pimm-support-services" role="list">
-      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 8c-4-3-8-3-12-2v20c4-1 8-1 12 2 4-3 8-3 12-2V6c-4-1-8-1-12 2Zm0 0v20"/><g data-support-motion="book"><path d="M19 11c2-1 4-1 6-1m-6 5c2-1 4-1 6-1m-6 5c2-1 4-1 6-1"/></g></svg><span><span>{{ 'pimm_support.guidance' | t }}</span><span>{{ 'pimm_support.documentation' | t }}</span></span></li>
-      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 15v8l11 6 11-6v-8M16 21v8"/><g data-support-motion="parts"><path d="m16 3 11 6-11 6L5 9 16 3Zm0 12v6M5 9v6l11 6 11-6V9M10.5 6l11 6"/></g></svg><span>{{ 'pimm_support.parts' | t }}</span></li>
-      <li><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M20 20h-8l-7 4 2-6c-2-2-3-4-3-6 0-5 4-8 10-8s10 3 10 8"/><path d="M9 10h9m-9 4h5"/><g data-support-motion="team"><path d="M20 15h5c3 0 5 2 5 5 0 2-1 3-2 4l1 5-5-3h-4c-3 0-5-2-5-5s2-6 5-6Z"/></g></svg><span>{{ 'pimm_support.team' | t }}</span></li>
+      <li><svg class="pimm-support-services__icon" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false"><path d="M7 4.5h14a4 4 0 0 1 4 4v19H10a3 3 0 0 1-3-3v-20Z"/><path d="M7 23.5h18M12 10h8m-8 5h8"/><path d="m12 19 1.7 1.7L17 17.4"/></svg><span><span>{{ 'pimm_support.guidance' | t }}</span><span>{{ 'pimm_support.documentation' | t }}</span></span></li>
+      <li><svg class="pimm-support-services__icon" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false"><path d="m5 10.5 11-6 11 6v12L16 28.5l-11-6v-12Z"/><path d="m5 10.5 11 6 11-6M16 16.5v12M10.5 7.5l11 6"/></svg><span>{{ 'pimm_support.parts' | t }}</span></li>
+      <li><svg class="pimm-support-services__icon" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false"><path d="M6 17v-3a10 10 0 0 1 20 0v3"/><path d="M6 16H4.5A2.5 2.5 0 0 0 2 18.5v3A2.5 2.5 0 0 0 4.5 24H7V16Zm20 0h1.5a2.5 2.5 0 0 1 2.5 2.5v3a2.5 2.5 0 0 1-2.5 2.5H25v-8Z"/><path d="M25 24c-1 3-3.5 4-7 4h-2"/></svg><span>{{ 'pimm_support.team' | t }}</span></li>
     </ul>
-    </pimm-support-motion>
+    </div>
     {% assign support_url = section.settings.support_url %}
     {% if support_url == blank %}{% assign support_url = routes.root_url | append: '/pages/contact' | replace: '//', '/' %}{% endif %}
     <div class="pimm-support-footer">

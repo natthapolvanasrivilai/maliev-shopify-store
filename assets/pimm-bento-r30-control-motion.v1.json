@@ -1,0 +1,62 @@
+{
+  "schema": "maliev.pimm-bento-control-motion/v1",
+  "generation": "pimm-controls-20260905-r56-aligned-air-callout-plunger-studio",
+  "assets": [
+    {
+      "shot": "air-pressure",
+      "approved_proof": "pneumatic-input-20260905-authoritative-step-proof-31 + mask-aligned-vector-callout-r56",
+      "approved_scene_sha256": "1eba8d670253888f4ebbbacd6cfc3269fae2ca64a540deb75d4c4a24de12ee46",
+      "filename": "pimm-bento-20260905-r56-30g-air-pressure-aligned-callout.mp4",
+      "sha256": "974146a21ad29b412797a0cba1691244438fd33a04c8e29d6c2c42297a6a6026",
+      "bytes": 103025,
+      "poster": "pimm-bento-20260905-r56-30g-air-pressure-aligned-callout.webp",
+      "poster_sha256": "5eed3bcfc8f68915e966f08e8783b131e38155c3791b66759031d315cb22f6fe",
+      "poster_bytes": 35440,
+      "callout_overlay": {
+        "source": "scripts/blender/pimm_production/pimm_air_callout_overlay.svg",
+        "source_sha256": "d1c43b3a09d3c42ab44d2c691dd8e45c40a9a2d330659fa4a25cdca67fce3791",
+        "center": [250, 315],
+        "radius": 115,
+        "pointer_tip": [139, 435],
+        "fade_frames": [57, 60, 253, 257]
+      },
+      "size": [400, 550],
+      "aspect_ratio": "8:11",
+      "fps": 24,
+      "frames": 288,
+      "duration_seconds": 12
+    },
+    {
+      "shot": "temperature",
+      "approved_proof": "temperature-control-20260905-far-clip-proof-06",
+      "approved_scene_sha256": "2fc9d4ad4db746fb0628d4da9739c325d8ff4f4ed0ec8eb1d9db82acc2b236d6",
+      "filename": "pimm-bento-20260905-r35-30g-temperature-far-clip.mp4",
+      "sha256": "06e1eab0d934d20428d506ca5491066305a73a929fc76a83d1ed1c828e4526c5",
+      "bytes": 149449,
+      "poster": "pimm-bento-20260905-r35-30g-temperature-far-clip.webp",
+      "poster_sha256": "8d1eaef12a8ef91732121650369b3634c9da473e438faf2eda6398abf6df72b6",
+      "poster_bytes": 435624,
+      "size": [1440, 960],
+      "aspect_ratio": "3:2",
+      "fps": 24,
+      "frames": 336,
+      "duration_seconds": 14
+    },
+    {
+      "shot": "plunger-actuator",
+      "approved_proof": "plunger-actuator-20260905-studio-23",
+      "approved_scene_sha256": "36b81f1101a13993c4068e12f106d29afdd71390358fc1380fab96885cb29909",
+      "filename": "pimm-bento-20260905-r55-30g-plunger-studio.mp4",
+      "sha256": "2c80478cf1edffadb864bdd5705071c26517a4c02cb2fd682643e966a176019d",
+      "bytes": 518315,
+      "poster": "pimm-bento-20260905-r55-30g-plunger-studio.webp",
+      "poster_sha256": "1ee9b54c42a138f7eeb2893a2a8eb662d5dfc7d3a6cc7c2f403bbc9a3759bc67",
+      "poster_bytes": 53912,
+      "size": [960, 660],
+      "aspect_ratio": "16:11",
+      "fps": 24,
+      "frames": 288,
+      "duration_seconds": 12
+    }
+  ]
+}

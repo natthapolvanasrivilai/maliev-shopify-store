@@ -21,6 +21,15 @@
     "controls_heading": "Pneumatic operation",
     "controls_body": "Compressed air drives the injection stroke. A pressure regulator, gauge and hand-operated valve keep pneumatic control within reach, while separate temperature controllers manage heating.",
     "controls_compact": "Compressed-air injection with a regulator, pressure gauge and hand-operated valve.",
+    "plunger_heading": "Simple injection control",
+    "plunger_body": "A simple pneumatic hand toggle controls injection and retraction, delivering up to 876 kgf of cylinder force for confident, repeatable shots.",
+    "plunger_compact": "One pneumatic toggle controls up to 876 kgf of injection force.",
+    "air_pressure_heading": "Control force with air",
+    "air_pressure_body": "Set input pressure for clear, repeatable injection force from shot to shot.",
+    "air_pressure_compact": "Set input pressure for repeatable injection force from shot to shot.",
+    "temperature_heading": "Precise temperature control",
+    "temperature_body": "Set each heating zone independently. The process value rises toward the set value for repeatable barrel temperature.",
+    "temperature_compact": "Set each heating zone independently for repeatable barrel temperature.",
     "tooling_heading": "Flexible fixture mounting",
     "tooling_body": "The threaded base plate provides mounting points for different molds and custom fixtures. Build a setup around your part, then reposition or change fixtures as your molding needs evolve.",
     "tooling_compact": "Mount different molds and custom fixtures on the threaded base plate. Adapt your setup to the part you want to make.",
@@ -682,6 +691,7 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Impostos, descontos e envio calculados na finalização da compra."
     },
     "footer": {
+      "explore_heading": "Keep exploring.",
       "payment": "Métodos de pagamento",
       "support_heading": "Support & visit",
       "policies_heading": "Policies",
