@@ -19,6 +19,22 @@ Renders one manufacturing service link from a header service block.
 
   assign preset_asset = blank
   case service_block.settings.image_preset
+    when 'nav-custom-manufacturing'
+      assign preset_asset = 'maliev-nav-preview-custom-manufacturing-20260905.webp'
+    when 'nav-cnc'
+      assign preset_asset = 'maliev-nav-preview-cnc-machining-20260905.webp'
+    when 'nav-3d-printing'
+      assign preset_asset = 'maliev-nav-preview-3d-printing-services-20260905.webp'
+    when 'nav-scanning'
+      assign preset_asset = 'maliev-nav-preview-3d-scanning-20260905.webp'
+    when 'nav-3d-design'
+      assign preset_asset = 'maliev-nav-preview-3d-design-20260905.webp'
+    when 'nav-silicone-casting'
+      assign preset_asset = 'maliev-nav-preview-silicone-casting-20260905.webp'
+    when 'nav-injection-molding'
+      assign preset_asset = 'maliev-nav-preview-low-volume-injection-20260905.webp'
+    when 'nav-finishing'
+      assign preset_asset = 'maliev-nav-preview-finishing-color-20260905.webp'
     when 'molds'
       assign preset_asset = 'maliev-catalogue-molds-parts.webp'
     when 'printed'
@@ -70,7 +86,7 @@ Renders one manufacturing service link from a header service block.
             alt: ''
         }}
       {%- else -%}
-        <img src="{{ preset_asset | asset_url }}" alt="" width="1086" height="1448" loading="lazy">
+        <img src="{{ preset_asset | asset_url }}" alt="" width="960" height="720" loading="lazy">
       {%- endif -%}
     </span>
   {%- endif -%}

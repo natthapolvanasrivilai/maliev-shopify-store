@@ -20,6 +20,30 @@
 
   assign preset_asset = blank
   case detail_block.settings.image_preset
+    when 'nav-products'
+      assign preset_asset = 'maliev-nav-preview-products-20260905.webp'
+    when 'nav-collections'
+      assign preset_asset = 'maliev-nav-preview-collections-20260905.webp'
+    when 'nav-simmount'
+      assign preset_asset = 'maliev-nav-preview-simmount-20260905.webp'
+    when 'nav-printed-items'
+      assign preset_asset = 'maliev-nav-preview-3d-printed-items-20260905.webp'
+    when 'nav-3d-printing'
+      assign preset_asset = 'maliev-nav-preview-3d-printing-services-20260905.webp'
+    when 'nav-cnc'
+      assign preset_asset = 'maliev-nav-preview-cnc-machining-20260905.webp'
+    when 'nav-scanning'
+      assign preset_asset = 'maliev-nav-preview-3d-scanning-20260905.webp'
+    when 'nav-documents'
+      assign preset_asset = 'maliev-nav-preview-product-documents-20260905.webp'
+    when 'nav-spares'
+      assign preset_asset = 'maliev-nav-preview-spare-parts-20260905.webp'
+    when 'nav-contact'
+      assign preset_asset = 'maliev-nav-preview-contact-20260905.webp'
+    when 'nav-mesh'
+      assign preset_asset = 'maliev-nav-preview-mesh-splitter-20260905.webp'
+    when 'nav-news'
+      assign preset_asset = 'maliev-nav-preview-news-20260905.webp'
     when 'machines'
       assign preset_asset = 'maliev-homepage-pimm-20260901-r14-navigation-alpha.webp'
     when 'simmount'
@@ -87,8 +111,8 @@
         <img
           src="{{ preset_asset | asset_url }}"
           alt=""
-          width="1086"
-          height="1448"
+          width="960"
+          height="720"
           loading="lazy"
         >
       {%- endif -%}
