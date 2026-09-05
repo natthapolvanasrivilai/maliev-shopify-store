@@ -1,28 +1,12 @@
 {{ 'maliev-chrome.css' | asset_url | stylesheet_tag }}
+{{ 'maliev-footer.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'maliev-footer.js' | asset_url }}" defer="defer"></script>
 
 {%- assign footer_logo_alt = settings.logo.alt | default: shop.name | escape -%}
 {%- assign footer_loading_label = 'accessibility.loading' | t -%}
 {%- assign footer_error_label = 'accessibility.error' | t -%}
 
-<footer class="mc-footer">
-  <div class="mc-footer__main">
-    <div class="mc-footer__brand">
-      <a class="mc-footer__wordmark" href="{{ routes.root_url }}" aria-label="{{ shop.name | escape }}">
-        {%- if settings.logo != blank -%}
-          {{ settings.logo | image_url: width: 280 | image_tag: widths: '120, 180, 240, 280', width: 140, alt: footer_logo_alt }}
-        {%- else -%}
-          {{ shop.name | escape }}
-        {%- endif -%}
-      </a>
-      {%- if section.settings.description != blank -%}
-        <div class="mc-footer__description rte">{{ section.settings.description }}</div>
-      {%- endif -%}
-      {%- if section.settings.show_social -%}
-        <div class="mc-footer__social">{% render 'social-icons' %}</div>
-      {%- endif -%}
-    </div>
-
+{%- capture footer_navigation -%}
     {%- for block in section.blocks -%}
       {%- case block.type -%}
         {%- when 'menu' -%}
@@ -79,6 +63,7 @@
             </details>
           </nav>
         {%- when 'newsletter' -%}
+          {%- capture footer_newsletter -%}
           <div class="mc-footer__newsletter" {{ block.shopify_attributes }}>
             <h2>{{ block.settings.heading | escape }}</h2>
             {%- if block.settings.text != blank -%}<p>{{ block.settings.text | escape }}</p>{%- endif -%}
@@ -113,8 +98,61 @@
               {%- endif -%}
             {%- endform -%}
           </div>
+          {%- endcapture -%}
       {%- endcase -%}
     {%- endfor -%}
+    {%- if section.settings.show_policies -%}
+      <nav class="mc-footer__menu" aria-labelledby="FooterPolicies-{{ section.id }}">
+        <details class="mc-footer__disclosure" open data-footer-disclosure>
+          <summary>
+            <h2 id="FooterPolicies-{{ section.id }}">{{ 'sections.footer.policies_heading' | t }}</h2>
+            <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
+          </summary>
+          <ul role="list">
+            {%- for policy in shop.policies -%}
+              {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </details>
+      </nav>
+    {%- endif -%}
+{%- endcapture -%}
+
+<footer class="mc-footer mc-footer--modular">
+  <div class="mc-footer__main">
+    <div class="mc-footer__primary">
+      {{ footer_newsletter }}
+      {%- if footer_navigation != blank -%}
+        <div class="mc-footer__navigation">
+          <h2 class="mc-footer__panel-heading">{{ 'sections.footer.explore_heading' | t }}</h2>
+          <div class="mc-footer__navigation-columns">{{ footer_navigation }}</div>
+        </div>
+      {%- endif -%}
+    </div>
+    <div class="mc-footer__secondary">
+      <div class="mc-footer__brand">
+        <a class="mc-footer__wordmark" href="{{ routes.root_url }}" aria-label="{{ shop.name | escape }}">
+          {%- if settings.logo != blank -%}
+            {{ settings.logo | image_url: width: 440 | image_tag: widths: '140, 220, 280, 440', width: 220, alt: footer_logo_alt }}
+          {%- else -%}
+            {{ shop.name | escape }}
+          {%- endif -%}
+        </a>
+        {%- if section.settings.description != blank -%}
+          <div class="mc-footer__description rte">{{ section.settings.description }}</div>
+        {%- endif -%}
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'support' and block.settings.contact_url != blank -%}
+            <a class="mc-footer__contact" href="{{ block.settings.contact_url }}">
+              <span>{{ 'sections.footer.contact' | t }}</span><span aria-hidden="true">↗</span>
+            </a>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+      {%- if section.settings.show_social -%}
+        <div class="mc-footer__social">{% render 'social-icons' %}</div>
+      {%- endif -%}
+    </div>
   </div>
 
   <div class="mc-footer__utility">
@@ -162,19 +200,6 @@
 
     <div class="mc-footer__legal">
       <p>&copy; {{ 'now' | date: '%Y' }} {{ shop.name | link_to: routes.root_url }}</p>
-      {%- if section.settings.show_policies -%}
-        <details class="mc-footer__disclosure mc-footer__legal-disclosure" open data-footer-disclosure>
-          <summary>
-            <span>{{ 'sections.footer.policies_heading' | t }}</span>
-            <span class="mc-footer__disclosure-icon" aria-hidden="true">+</span>
-          </summary>
-          <ul role="list">
-            {%- for policy in shop.policies -%}
-              {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
-            {%- endfor -%}
-          </ul>
-        </details>
-      {%- endif -%}
     </div>
 
     {%- if section.settings.show_payment_icons and shop.enabled_payment_types != empty -%}

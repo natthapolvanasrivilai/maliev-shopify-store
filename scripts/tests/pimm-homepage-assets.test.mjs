@@ -238,3 +238,14 @@ test('footer social links use quiet borderless surfaces with a distinct hover st
   assert.match(chrome, /\.mc-footer__social \.list-social__link\s*\{[\s\S]*background: rgba\(255, 255, 255, 0\.06\);[\s\S]*border: 0;[\s\S]*opacity: 0\.72;/);
   assert.match(chrome, /\.mc-footer__social \.list-social__link:hover\s*\{[\s\S]*background: rgba\(255, 255, 255, 0\.12\);[\s\S]*opacity: 1;/);
 });
+
+test('footer localization selects use spacious native pill controls', async () => {
+  const footer = await readFile(new URL('assets/maliev-footer.css', root), 'utf8');
+
+  assert.match(footer, /\.mc-footer--modular \.mc-footer__localization-form select\s*\{[\s\S]*appearance: none;[\s\S]*min-height: 4\.8rem;/);
+  assert.match(footer, /padding: 1rem 4\.8rem 1rem 1\.6rem;/);
+  assert.match(footer, /border-radius: 999px !important;/);
+  assert.match(footer, /background-position: right 1\.6rem center;/);
+  assert.match(footer, /background-image: url\("data:image\/svg\+xml,/);
+  assert.match(footer, /\.mc-footer--modular \.mc-footer__localization-form select:hover\s*\{[\s\S]*border-color: #bec4ca;/);
+});
