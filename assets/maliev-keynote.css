@@ -300,24 +300,10 @@
   right: clamp(3rem, 8vw, 14rem);
 }
 
-.template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture {
-  inset: 0;
-  position: absolute;
-}
-
-.template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture > img {
-  bottom: auto;
-  height: 100%;
-  object-fit: cover;
-  object-position: center bottom;
-  right: auto;
-  width: 100%;
-}
-
-/* The fixed transparent homepage header is part of the hero composition. */
+/* Fill the viewport below the shell header. */
 .mkey--hero-overlay .mkey__frame {
   grid-template-columns: minmax(0, 1fr);
-  min-height: 100svh;
+  min-height: calc(100svh - var(--maliev-header-h, 7.3rem) - 0.1rem);
   position: relative;
   z-index: 1;
 }
@@ -413,10 +399,6 @@
     min-height: 100svh;
   }
 
-  .template-index .mkey--hero-overlay .mkey__hero-bg {
-    top: 0;
-  }
-
   .template-index .mkey--hero-overlay .mkey__frame {
     max-width: none;
     min-height: 100svh;
@@ -456,22 +438,10 @@
     bottom: clamp(2rem, 3vh, 3.6rem);
     filter: none;
     height: 88%;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center bottom;
     right: clamp(4rem, 8vw, 13rem);
     width: auto;
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture {
-    inset: 0;
-    position: absolute;
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture > img {
-    height: 100%;
-    object-fit: cover;
-    object-position: center bottom;
-    width: 100%;
   }
 
   .template-index .mkey--hero-overlay .mkey__note {
@@ -1379,8 +1349,7 @@
     background:
       radial-gradient(ellipse at 50% 20%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.24) 44%, transparent 72%),
       linear-gradient(160deg, #f1f2f3 0%, #d0d4d7 100%);
-    aspect-ratio: 4 / 5;
-    min-height: 0;
+    min-height: clamp(38rem, 58vh, 52rem);
   }
 
   .template-index .mkey--hero-overlay .mkey__hero-bg--gallery::after {
@@ -1396,12 +1365,6 @@
     object-position: center bottom;
     position: absolute;
     right: 0;
-    width: 100%;
-  }
-
-  .template-index .mkey--hero-overlay .mkey__hero-bg--gallery > picture > img {
-    height: 100%;
-    object-fit: contain;
     width: 100%;
   }
 

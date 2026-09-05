@@ -15,7 +15,7 @@
         {%- if section.settings.image != blank -%}
           <img src="{{ section.settings.image | image_url: width: 2600 }}" alt="" width="2600" height="1463" fetchpriority="high">
         {%- elsif section.settings.asset_name != blank -%}
-          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="1200" fetchpriority="high">
+          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="2200" fetchpriority="high">
         {%- elsif section.settings.image_url != blank -%}
           <img src="{{ section.settings.image_url }}" alt="" width="2592" height="1458" fetchpriority="high">
         {%- endif -%}
@@ -30,10 +30,10 @@
       {%- endif -%}
       <div class="mkey__actions" data-mkr>
         {%- if section.settings.primary_label != blank -%}
-          <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/collections/เครื่องฉีดพลาสติก' }}">{{ section.settings.primary_label }}</a>
+          <a class="mkey__btn" href="{{ section.settings.primary_link | default: '/pages/contact' }}">{{ section.settings.primary_label }}</a>
         {%- endif -%}
         {%- if section.settings.secondary_label != blank -%}
-          <a class="mkey__textlink" href="{{ section.settings.secondary_link | default: '/pages/contact' }}">
+          <a class="mkey__textlink" href="{{ section.settings.secondary_link | default: '/collections/all' }}">
             {{ section.settings.secondary_label }}
             <span class="mkey__arrow" aria-hidden="true">&rarr;</span>
           </a>
@@ -96,7 +96,7 @@
       "type": "text",
       "id": "primary_label",
       "label": "Primary button label",
-      "default": "Explore the machines"
+      "default": "Book a factory visit"
     },
     {
       "type": "url",
@@ -107,7 +107,7 @@
       "type": "text",
       "id": "secondary_label",
       "label": "Secondary button label",
-      "default": "Book a demo session"
+      "default": "Explore the machines"
     },
     {
       "type": "url",

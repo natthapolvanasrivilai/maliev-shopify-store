@@ -125,12 +125,12 @@
   </div>
 
   {%- if featured_service != nil -%}
-    <aside class="mc-nav__feature" aria-label="{{ featured_service.settings.title | escape }}" data-mc-menu-feature>
+    <aside class="mc-nav__feature" aria-label="{{ featured_service.settings.title | escape }}">
       <p class="mc-nav__group-label">{{ featured_label | escape }}</p>
       {% render 'maliev-service-link', service_block: featured_service, variant: 'featured', show_arrow: true %}
     </aside>
   {%- elsif featured_link != nil -%}
-    <aside class="mc-nav__feature" aria-label="{{ featured_link.title | escape }}" data-mc-menu-feature>
+    <aside class="mc-nav__feature" aria-label="{{ featured_link.title | escape }}">
       <p class="mc-nav__group-label">{{ featured_label | escape }}</p>
       {% render 'maliev-menu-link', menu_link: featured_link, section: section, variant: 'featured', show_arrow: true %}
     </aside>

@@ -19,8 +19,8 @@
 
     function syncHeader() {
       frameRequested = false;
-      var solidThreshold = Math.max(16, Math.round(header.offsetHeight * 0.25));
-      header.classList.toggle('is-solid', window.scrollY > solidThreshold);
+      var heroBottom = hero.getBoundingClientRect().bottom;
+      header.classList.toggle('is-solid', heroBottom <= header.offsetHeight + 1);
     }
 
     function requestSync() {

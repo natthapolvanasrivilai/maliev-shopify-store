@@ -36,7 +36,7 @@
             "link_title": "Products",
             "description": "Browse every machine, component, material, and MALIEV-made item.",
             "description_th": "เลือกดูเครื่องจักร ชิ้นส่วน วัสดุ และสินค้าที่ผลิตโดย MALIEV",
-            "image_preset": "nav-products"
+            "image_preset": "machines"
           }
         },
         "menu-collections": {
@@ -45,7 +45,7 @@
             "link_title": "Collections",
             "description": "Explore the catalogue by product family and workshop use.",
             "description_th": "เลือกดูแคตตาล็อกตามประเภทสินค้าและการใช้งานในเวิร์กช็อป",
-            "image_preset": "nav-collections"
+            "image_preset": "materials"
           }
         },
         "menu-simmount": {
@@ -54,7 +54,7 @@
             "link_title": "SimMount",
             "description": "Monitor and bass-shaker hardware for 40 mm-series aluminium profiles.",
             "description_th": "อุปกรณ์ยึดจอและเบสเชคเกอร์สำหรับโปรไฟล์อะลูมิเนียมซีรีส์ 40 มม.",
-            "image_preset": "nav-simmount"
+            "image_preset": "simmount"
           }
         },
         "menu-printed": {
@@ -63,7 +63,7 @@
             "link_title": "3D Printed Items",
             "description": "Functional accessories designed and printed by MALIEV.",
             "description_th": "อุปกรณ์ใช้งานจริงที่ออกแบบและพิมพ์โดย MALIEV",
-            "image_preset": "nav-printed-items"
+            "image_preset": "printed"
           }
         },
         "menu-printing-service": {
@@ -72,7 +72,7 @@
             "link_title": "3D Printing Services",
             "description": "Rapid prototypes and production parts in practical engineering materials.",
             "description_th": "ผลิตต้นแบบและชิ้นส่วนใช้งานจริงด้วยวัสดุวิศวกรรมที่เหมาะกับงาน",
-            "image_preset": "nav-3d-printing"
+            "image_preset": "printed"
           }
         },
         "menu-cnc-service": {
@@ -81,7 +81,7 @@
             "link_title": "CNC Machining Services",
             "description": "Precision metal and plastic parts made from your CAD model or drawing.",
             "description_th": "ผลิตชิ้นส่วนโลหะและพลาสติกความแม่นยำสูงจากไฟล์ CAD หรือแบบงาน",
-            "image_preset": "nav-cnc"
+            "image_preset": "molds"
           }
         },
         "menu-scanning-service": {
@@ -90,7 +90,7 @@
             "link_title": "3D Scanning Services",
             "description": "High-resolution capture for reverse engineering, inspection, and fit checks.",
             "description_th": "สแกนความละเอียดสูงสำหรับวิศวกรรมย้อนกลับ การตรวจสอบ และเช็กระยะประกอบ",
-            "image_preset": "nav-scanning"
+            "image_preset": "none"
           }
         },
         "service-custom-manufacturing": {
@@ -101,7 +101,7 @@
             "url": "https://www.maliev.com/services/custom-manufacturing",
             "description": "Start with your drawing, sample, material, quantity, and intended use.",
             "description_th": "เริ่มจากแบบ ตัวอย่าง วัสดุ จำนวน และการใช้งาน เพื่อเลือกกระบวนการที่เหมาะสม",
-            "image_preset": "nav-custom-manufacturing"
+            "image_preset": "none"
           }
         },
         "service-cnc-machining": {
@@ -112,7 +112,7 @@
             "url": "https://www.maliev.com/services/cnc-machining",
             "description": "Precision metal and engineering-plastic parts from CAD models or drawings.",
             "description_th": "ผลิตชิ้นส่วนโลหะและพลาสติกวิศวกรรมความแม่นยำสูงจาก CAD หรือแบบงาน",
-            "image_preset": "nav-cnc"
+            "image_preset": "molds"
           }
         },
         "service-3d-printing": {
@@ -123,7 +123,7 @@
             "url": "https://www.maliev.com/services/3d-printing",
             "description": "Rapid prototypes and production parts across practical additive processes.",
             "description_th": "ผลิตต้นแบบและชิ้นส่วนใช้งานจริงอย่างรวดเร็วด้วยกระบวนการพิมพ์ที่เหมาะกับงาน",
-            "image_preset": "nav-3d-printing"
+            "image_preset": "printed"
           }
         },
         "service-3d-scanning": {
@@ -134,7 +134,7 @@
             "url": "https://www.maliev.com/services/3d-scanning",
             "description": "High-resolution capture for reverse engineering, inspection, and fit checks.",
             "description_th": "สแกนความละเอียดสูงสำหรับวิศวกรรมย้อนกลับ การตรวจสอบ และเช็กระยะประกอบ",
-            "image_preset": "nav-scanning"
+            "image_preset": "none"
           }
         },
         "service-3d-design": {
@@ -145,7 +145,7 @@
             "url": "https://www.maliev.com/services/3d-design",
             "description": "Turn ideas, sketches, or scan data into manufacturing-ready CAD with DFM guidance.",
             "description_th": "เปลี่ยนไอเดีย ภาพร่าง หรือข้อมูลสแกนเป็น CAD พร้อมผลิตและคำแนะนำ DFM",
-            "image_preset": "nav-3d-design"
+            "image_preset": "none"
           }
         },
         "service-silicone-casting": {
@@ -156,7 +156,7 @@
             "url": "https://www.maliev.com/services/silicone-casting",
             "description": "Low-volume silicone parts made with application-appropriate 3D-printed molds.",
             "description_th": "ผลิตชิ้นงานซิลิโคนจำนวนน้อยด้วยแม่พิมพ์พิมพ์ 3 มิติที่เหมาะกับการใช้งาน",
-            "image_preset": "nav-silicone-casting"
+            "image_preset": "none"
           }
         },
         "service-injection-molding": {
@@ -167,7 +167,7 @@
             "url": "https://www.maliev.com/services/low-volume-injection-molding",
             "description": "Small-batch plastic molding for validated parts, materials, and tooling requirements.",
             "description_th": "ฉีดพลาสติกจำนวนน้อยหลังตรวจสอบชิ้นงาน วัสดุ และข้อกำหนดของแม่พิมพ์",
-            "image_preset": "nav-injection-molding"
+            "image_preset": "materials"
           }
         },
         "service-finishing-color": {
@@ -178,7 +178,7 @@
             "url": "https://www.maliev.com/services/finishing-and-color",
             "description": "Surface preparation, controlled color references, and matte, satin, or gloss finishes.",
             "description_th": "เตรียมผิว เทียบสีตามมาตรฐาน และเลือกผิวด้าน ซาติน หรือเงาอย่างชัดเจน",
-            "image_preset": "nav-finishing"
+            "image_preset": "none"
           }
         },
         "menu-documents": {
@@ -187,7 +187,7 @@
             "link_title": "Product Documents",
             "description": "Manuals, specifications, setup guides, and technical references.",
             "description_th": "คู่มือ ข้อมูลจำเพาะ วิธีติดตั้ง และเอกสารอ้างอิงทางเทคนิค",
-            "image_preset": "nav-documents"
+            "image_preset": "none"
           }
         },
         "menu-spares": {
@@ -196,7 +196,7 @@
             "link_title": "Spare Parts",
             "description": "Genuine replacement parts and workshop-ready machine components.",
             "description_th": "อะไหล่แท้และชิ้นส่วนพร้อมใช้งานสำหรับเวิร์กช็อป",
-            "image_preset": "nav-spares"
+            "image_preset": "molds"
           }
         },
         "menu-contact": {
@@ -204,8 +204,8 @@
           "settings": {
             "link_title": "Contact Us",
             "description": "Talk with our team or request a machine demonstration in Pak Kret.",
-            "description_th": "พูดคุยกับทีมงานหรือจองรอบสาธิตเครื่องที่สำนักงานใหญ่ปากเกร็ด",
-            "image_preset": "nav-contact"
+            "description_th": "พูดคุยกับทีมงานหรือนัดชมเครื่องที่สำนักงานใหญ่ปากเกร็ด",
+            "image_preset": "none"
           }
         },
         "menu-mesh": {
@@ -214,7 +214,7 @@
             "link_title": "Mesh Splitter",
             "description": "Split large STL files into keyed, printable sections in your browser.",
             "description_th": "แบ่งไฟล์ STL ขนาดใหญ่เป็นชิ้นส่วนพร้อมเดือยประกอบผ่านเบราว์เซอร์",
-            "image_preset": "nav-mesh"
+            "image_preset": "mesh"
           }
         },
         "menu-news": {
@@ -223,7 +223,7 @@
             "link_title": "News",
             "description": "Product releases, practical workshop guides, and MALIEV updates.",
             "description_th": "ข่าวสินค้า คู่มือเวิร์กช็อป และอัปเดตจาก MALIEV",
-            "image_preset": "nav-news"
+            "image_preset": "none"
           }
         },
         "panel-products": {
