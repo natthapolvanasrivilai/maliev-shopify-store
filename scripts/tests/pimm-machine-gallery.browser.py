@@ -40,11 +40,7 @@ def run():
         assert page.locator('[data-gallery-preview]').evaluate_all('(vs) => vs.every(v => v.muted && v.loop && v.playsInline && !v.error)')
         page.wait_for_timeout(6800)
         assert page.locator('[data-gallery-preview]').evaluate_all('(vs) => vs.every(v => !v.paused && v.currentTime < 6.1 && v.duration === 6)')
-        page.locator('[data-gallery-pause]').click()
-        assert page.locator('[data-gallery-preview]').evaluate_all('(vs) => vs.every(v => v.paused)')
-        page.locator('[data-gallery-pause]').click()
-        reveal(page)
-        page.wait_for_function("[...document.querySelectorAll('[data-gallery-preview]')].every(v => !v.paused)")
+        assert page.locator('[data-gallery-pause]').count() == 0
         page.locator('[data-gallery-open]').first.click()
         assert page.locator('dialog.pimm-gallery__viewer').evaluate('(d) => d.open')
         assert page.locator('[data-gallery-preview]').evaluate_all('(vs) => vs.every(v => v.paused)')
@@ -81,7 +77,7 @@ def run():
         page.wait_for_timeout(400)
         assert page.locator('[data-gallery-preview]').evaluate_all('(vs) => vs.every(v => v.paused)')
         context.close()
-        print('PASS: video-only defaults, lazy autoplay, six-second loop, pause/resume, full videos, wraparound, Escape, focus and offscreen pause')
+        print('PASS: video-only defaults, lazy autoplay, six-second loop, no pause control, full videos, wraparound, Escape, focus and offscreen pause')
 
         for language in ['en', 'th']:
             for width in [320, 390, 768, 1440]:
@@ -93,6 +89,9 @@ def run():
                 assert page.locator('.pimm-gallery__heading h2').inner_text() == ('ชมการทำงานของ 30G' if language == 'th' else 'See the 30G in action.')
                 assert page.locator('pimm-machine-gallery').evaluate('(g) => g.nextElementSibling.classList.contains("pimm-machine__purchase")')
                 assert page.locator('[data-gallery-item]').evaluate_all('(items) => items.every(i => { const a=i.querySelector(".pimm-gallery__media").getBoundingClientRect(), b=i.querySelector(".pimm-gallery__caption").getBoundingClientRect(); return a.bottom <= b.top + 1; })')
+                expected_columns = 4 if width >= 1100 else 3 if width >= 700 else 2
+                assert page.locator('.pimm-gallery__grid').evaluate('(grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length') == expected_columns
+                assert page.locator('[data-gallery-item]').evaluate_all('(items) => items.every((item) => { const media=item.querySelector(".pimm-gallery__media").getBoundingClientRect(); return Math.abs(media.width / media.height - 4 / 3) < .03; })')
                 if width in [390, 1440]:
                     page.locator('pimm-machine-gallery').screenshot(path=str(OUT / f'gallery-{language}-{width}.png'))
                 page.locator('[data-gallery-open]').first.click()
@@ -105,7 +104,7 @@ def run():
         reveal(page)
         page.wait_for_timeout(800)
         assert page.locator('[data-gallery-preview][src]').count() == 0
-        assert page.locator('[data-gallery-pause]').is_hidden()
+        assert page.locator('[data-gallery-pause]').count() == 0
         page.locator('[data-gallery-open]').first.click()
         assert page.locator('dialog.pimm-gallery__viewer').evaluate('(d) => d.open')
         context.close()

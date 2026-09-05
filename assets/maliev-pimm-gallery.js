@@ -9,10 +9,8 @@
       if (!this.items.length) return;
       this.dialog = this.querySelector('dialog');
       this.stage = this.querySelector('[data-gallery-stage]');
-      this.pauseButton = this.querySelector('[data-gallery-pause]');
       this.motion = matchMedia('(prefers-reduced-motion: reduce)');
       this.connection = navigator.connection;
-      this.paused = false;
       this.activeIndex = 0;
       this.previews = this.items.flatMap(item => {
         const video = item.querySelector('[data-gallery-preview]');
@@ -44,11 +42,6 @@
       document.addEventListener('visibilitychange', () => this.syncPreviews(), options);
       this.motion.addEventListener('change', () => this.syncPreviews(), options);
       this.connection?.addEventListener('change', () => this.syncPreviews(), options);
-      this.pauseButton.addEventListener('click', () => {
-        this.paused = !this.paused;
-        this.syncPreviews();
-      }, options);
-
       if (typeof this.dialog.showModal === 'function') {
         this.items.forEach((item, index) => {
           const link = item.querySelector('[data-gallery-open]');
@@ -98,7 +91,7 @@
     }
 
     canPreview(record) {
-      return this.isConnected && record.visible && !record.failed && !this.paused && !document.hidden &&
+      return this.isConnected && record.visible && !record.failed && !document.hidden &&
         !this.motion.matches && !this.connection?.saveData && !this.dialog.open;
     }
 
@@ -112,9 +105,6 @@
     }
 
     syncPreviews() {
-      this.pauseButton.hidden = !this.previews.some(record => !record.failed) || this.motion.matches || Boolean(this.connection?.saveData);
-      this.pauseButton.textContent = this.paused ? this.dataset.resumeLabel : this.dataset.pauseLabel;
-      this.pauseButton.setAttribute('aria-pressed', String(this.paused));
       for (const record of this.previews) {
         const { video } = record;
         if (!this.canPreview(record)) {

@@ -14,9 +14,7 @@
 {% if gallery_items != blank %}
   {{ 'maliev-pimm-gallery.css' | asset_url | stylesheet_tag }}
   <script src="{{ 'maliev-pimm-gallery.js' | asset_url }}" defer="defer"></script>
-  <pimm-machine-gallery class="pimm-gallery" aria-labelledby="PimmGalleryHeading-{{ section.id }}"
-    data-pause-label="{{ 'pimm_gallery.pause' | t | escape }}"
-    data-resume-label="{{ 'pimm_gallery.resume' | t | escape }}">
+  <pimm-machine-gallery class="pimm-gallery" aria-labelledby="PimmGalleryHeading-{{ section.id }}">
     <header class="pimm-gallery__heading">
       <div>
         <h2 id="PimmGalleryHeading-{{ section.id }}">{{ 'pimm_gallery.heading' | t }}</h2>
@@ -29,7 +27,6 @@
     <div class="pimm-gallery__grid">{{ gallery_items }}</div>
     <div class="pimm-gallery__footer">
       <p>{{ 'pimm_gallery.hint' | t }}</p>
-      <button type="button" class="pimm-gallery__pause" data-gallery-pause aria-pressed="false" hidden>{{ 'pimm_gallery.pause' | t }}</button>
     </div>
     <dialog class="pimm-gallery__viewer" aria-labelledby="PimmGalleryTitle-{{ section.id }}">
       <div class="pimm-gallery__viewer-header">

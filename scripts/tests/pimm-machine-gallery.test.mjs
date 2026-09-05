@@ -95,6 +95,15 @@ test('captions remain escaped and 48 items fit alongside the two model records',
   assert.match(output, /&lt;script&gt;/);
 });
 
+test('gallery uses compact equal-weight thumbnails for a growing media library', async () => {
+  const css = await read('assets/maliev-pimm-gallery.css');
+  assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(min-width: 700px\)[\s\S]*?repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(min-width: 1100px\)[\s\S]*?repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.pimm-gallery__media[^}]*aspect-ratio:\s*4 \/ 3/);
+  assert.doesNotMatch(css, /\.pimm-gallery__item:first-child/);
+});
+
 async function controller() {
   let Controller;
   const document = { hidden: false };
@@ -102,18 +111,18 @@ async function controller() {
     HTMLElement: class {}, customElements: { get() {}, define(_name, value) { Controller = value; } }, document,
   });
   const element = new Controller();
-  Object.assign(element, { isConnected: true, motion: { matches: false }, connection: { saveData: false }, dialog: { open: false }, paused: false });
+  Object.assign(element, { isConnected: true, motion: { matches: false }, connection: { saveData: false }, dialog: { open: false } });
   return { element, document };
 }
 
-test('autoplay gates cover offscreen, hidden tab, reduced motion, data saving, modal, failure, pause and removal', async () => {
+test('autoplay gates cover offscreen, hidden tab, reduced motion, data saving, modal, failure and removal', async () => {
   const { element, document } = await controller();
   const record = { visible: true, failed: false };
   assert.equal(element.canPreview(record), true);
   for (const [target, key, value] of [
     [record, 'visible', false], [record, 'failed', true], [document, 'hidden', true],
     [element.motion, 'matches', true], [element.connection, 'saveData', true], [element.dialog, 'open', true],
-    [element, 'paused', true], [element, 'isConnected', false],
+    [element, 'isConnected', false],
   ]) {
     const previous = target[key]; target[key] = value;
     assert.equal(element.canPreview(record), false, key);
@@ -137,7 +146,6 @@ test('autoplay rejection retains a usable still instead of retrying endlessly', 
     getAttribute() { return null; }, play() { return Promise.reject(new Error('NotAllowedError')); }, pause() {},
   } };
   element.previews = [record];
-  element.pauseButton = { setAttribute() {} }; element.dataset = {};
   element.syncPreviews();
   await Promise.resolve(); await Promise.resolve();
   assert.equal(record.failed, true); assert.equal(record.video.hidden, true);
