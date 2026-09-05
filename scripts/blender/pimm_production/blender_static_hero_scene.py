@@ -1,0 +1,651 @@
+"""Author deterministic linked straight-on PIMM static hero scenes."""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import sys
+from typing import Any, Sequence
+
+try:
+    from .io_contract import atomic_write_json, sha256_file
+    from .paths import ASSET_ROOT, require_within
+    from .scene_contract import SceneContract, canonical_scene_contract_json, validate_scene_contract
+except ImportError:  # Blender executes checked-in scripts outside package mode.
+    repository_root = Path(__file__).resolve().parents[3]
+    if str(repository_root) not in sys.path:
+        sys.path.insert(0, str(repository_root))
+    from scripts.blender.pimm_production.io_contract import atomic_write_json, sha256_file
+    from scripts.blender.pimm_production.paths import ASSET_ROOT, require_within
+    from scripts.blender.pimm_production.scene_contract import (
+        SceneContract,
+        canonical_scene_contract_json,
+        validate_scene_contract,
+    )
+
+
+RESULT_MARKER = "PIMM_STATIC_HERO_JSON="
+DEFAULT_EXPOSURE = 0.0
+DEFAULT_WORLD_STRENGTH = 0.5
+DEFAULT_WORLD_COLOR = (0.18, 0.18, 0.18, 1.0)
+DEFAULT_HDRI_RELATIVE_PATH = Path("assets") / "hdri" / "studio_kontrast_04_4k.exr"
+DEFAULT_HDRI_SHA256 = "9A982ADE8702402A895F3297BF3CB652CB6F9C8C9CCCA961D2C7603107094A06"
+DEFAULT_HDRI_ROTATION_DEGREES = 0.0
+DEFAULT_PITCH_DEGREES = 0.0
+DEFAULT_LOOK = "AgX - Medium High Contrast"
+DEFAULT_FOCAL_LENGTH_MM = 85.0
+DEFAULT_SENSOR_WIDTH_MM = 36.0
+DEFAULT_APERTURE_FSTOP = 11.0
+DEFAULT_CLIP_START = 1.0
+DEFAULT_CLIP_END = 10_000.0
+DEFAULT_LIGHT_TEMPERATURE_KELVIN = 5500.0
+# Cycles evaluates inverse-square falloff from the raw linked CAD coordinates,
+# while this project's unit scale declares those coordinates as millimeters.
+# Bake the empirically calibrated 3.5-stop correction into lamp power so proofs
+# and finals can both remain at the governed zero scene exposure.
+PHOTOMETRIC_COORDINATE_COMPENSATION = 2.0**3.5
+
+
+@dataclass(frozen=True)
+class MachineConfig:
+    machine: str
+    scene_id: str
+    source_path: Path
+    output_path: Path
+    contract_path: Path
+    master_path: Path
+    output_width: int = 1800
+    output_height: int = 2200
+
+
+@dataclass(frozen=True)
+class CameraPose:
+    location: tuple[float, float, float]
+    target: tuple[float, float, float]
+    pitch_degrees: float
+
+
+@dataclass(frozen=True)
+class LightSpec:
+    name: str
+    location: tuple[float, float, float]
+    energy: float
+    shape: str
+    size_x: float
+    size_y: float
+    temperature_kelvin: float
+    target: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class EnvironmentSpec:
+    name: str
+    role: str
+    material_id: str
+    center_x: float
+    center_y: float
+    z: float
+    width: float
+    depth: float
+    base_color: tuple[float, float, float, float]
+    roughness: float
+
+
+@dataclass(frozen=True)
+class WorldEnvironmentSpec:
+    path: Path
+    sha256: str
+    strength: float
+    rotation_degrees: float
+
+
+MACHINE_CONFIGS = {
+    machine: MachineConfig(
+        machine=machine,
+        scene_id=f"pimm-{machine.lower()}--hero--front",
+        source_path=ASSET_ROOT
+        / "scenes"
+        / "shared-templates"
+        / f"pimm-{machine.lower()}--hero--three-quarter.blend",
+        output_path=ASSET_ROOT
+        / "scenes"
+        / "stills"
+        / f"pimm-{machine.lower()}--hero--front.blend",
+        contract_path=ASSET_ROOT
+        / "scenes"
+        / "contracts"
+        / f"pimm-{machine.lower()}--hero--front.json",
+        master_path=ASSET_ROOT / "masters" / f"PIMM-{machine}-MASTER.blend",
+    )
+    for machine in ("30G", "50G")
+}
+
+
+def _center_and_size(
+    bounds_min: Sequence[float], bounds_max: Sequence[float]
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    if len(bounds_min) != 3 or len(bounds_max) != 3:
+        raise ValueError("product bounds must contain three coordinates")
+    center = tuple((float(bounds_min[index]) + float(bounds_max[index])) / 2 for index in range(3))
+    size = tuple(float(bounds_max[index]) - float(bounds_min[index]) for index in range(3))
+    if any(component <= 0 for component in size):
+        raise ValueError("product bounds must have positive extent")
+    return center, size
+
+
+def front_camera_pose(
+    bounds_min: Sequence[float],
+    bounds_max: Sequence[float],
+    distance: float,
+    pitch_degrees: float = DEFAULT_PITCH_DEGREES,
+) -> CameraPose:
+    """Return a centered front-axis camera pose with a bounded downward pitch."""
+
+    center, _size = _center_and_size(bounds_min, bounds_max)
+    if float(distance) <= 0:
+        raise ValueError("camera distance must be positive")
+    if not 0 <= float(pitch_degrees) <= 3:
+        raise ValueError("front hero pitch must be between zero and three degrees")
+    pitch = math.radians(float(pitch_degrees))
+    horizontal = float(distance) * math.cos(pitch)
+    vertical = float(distance) * math.sin(pitch)
+    return CameraPose(
+        location=(center[0], center[1] - horizontal, center[2] + vertical),
+        target=center,
+        pitch_degrees=float(pitch_degrees),
+    )
+
+
+def scaled_camera_distance(
+    source_distance: float, source_focal_length: float, target_focal_length: float
+) -> float:
+    """Scale working distance with focal length to preserve subject framing."""
+
+    values = (source_distance, source_focal_length, target_focal_length)
+    if any(float(value) <= 0 for value in values):
+        raise ValueError("camera distances and focal lengths must be positive")
+    return float(source_distance) * float(target_focal_length) / float(source_focal_length)
+
+
+def studio_light_specs(
+    bounds_min: Sequence[float], bounds_max: Sequence[float]
+) -> tuple[LightSpec, ...]:
+    """Return a controlled key/fill/base-bounce/two-strip studio arrangement."""
+
+    center, size = _center_and_size(bounds_min, bounds_max)
+    width, depth, height = size
+    return (
+        LightSpec(
+            "KEY_SOFTBOX",
+            (center[0] - width * 1.2, center[1] - depth * 2.5, center[2] + height * 0.8),
+            900_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.8, 650.0),
+            max(height * 1.35, 1_050.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            center,
+        ),
+        LightSpec(
+            "FILL_SOFTBOX",
+            (center[0] + width * 1.2, center[1] - depth * 2.2, center[2] + height * 0.3),
+            225_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.7, 600.0),
+            max(height * 1.15, 950.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            (center[0], center[1], center[2] - height * 0.08),
+        ),
+        LightSpec(
+            "BASE_BOUNCE",
+            (
+                center[0],
+                center[1] - depth * 2.0,
+                float(bounds_min[2]) + height * 0.12,
+            ),
+            180_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(width * 2.2, 1_050.0),
+            max(height * 0.5, 480.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            (center[0], center[1], float(bounds_min[2]) + height * 0.22),
+        ),
+        LightSpec(
+            "STRIP_LEFT",
+            (center[0] - width * 1.7, center[1] + depth * 1.2, center[2] + height * 0.45),
+            250_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.18, 160.0),
+            max(height * 1.2, 1_000.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            center,
+        ),
+        LightSpec(
+            "STRIP_RIGHT",
+            (center[0] + width * 1.7, center[1] + depth * 1.2, center[2] + height * 0.45),
+            250_000.0 * PHOTOMETRIC_COORDINATE_COMPENSATION,
+            "RECTANGLE",
+            max(height * 0.18, 160.0),
+            max(height * 1.2, 1_000.0),
+            DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            center,
+        ),
+    )
+
+
+def studio_environment_specs(
+    bounds_min: Sequence[float], bounds_max: Sequence[float]
+) -> tuple[EnvironmentSpec, ...]:
+    """Return the exact white studio floor used for physical contact shadows."""
+
+    center, size = _center_and_size(bounds_min, bounds_max)
+    width, depth, _height = size
+    return (
+        EnvironmentSpec(
+            name="PIMM_SCENE_SHADOW_CATCHER",
+            role="shadow-catcher",
+            material_id="SCENE_SHADOW_CATCHER",
+            center_x=center[0],
+            center_y=center[1],
+            z=float(bounds_min[2]),
+            width=max(width * 6.0, 3_000.0),
+            depth=max(depth * 30.0, 12_000.0),
+            base_color=(0.86, 0.86, 0.86, 1.0),
+            roughness=0.72,
+        ),
+    )
+
+
+def studio_world_environment_spec() -> WorldEnvironmentSpec:
+    """Return the owner-approved, content-pinned studio HDRI calibration."""
+
+    return WorldEnvironmentSpec(
+        path=ASSET_ROOT / DEFAULT_HDRI_RELATIVE_PATH,
+        sha256=DEFAULT_HDRI_SHA256,
+        strength=DEFAULT_WORLD_STRENGTH,
+        rotation_degrees=DEFAULT_HDRI_ROTATION_DEGREES,
+    )
+
+
+def _product_bounds(bpy: Any) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    from mathutils import Vector
+
+    points = []
+    for obj in bpy.context.scene.objects:
+        if obj.type == "MESH" and obj.get("pimm_stable_id"):
+            points.extend(obj.matrix_world @ Vector(corner) for corner in obj.bound_box)
+    if not points:
+        raise ValueError("linked scene contains no stable-ID product meshes")
+    return (
+        tuple(min(point[index] for point in points) for index in range(3)),
+        tuple(max(point[index] for point in points) for index in range(3)),
+    )
+
+
+def _point_at(obj: Any, target: Sequence[float]) -> None:
+    from mathutils import Vector
+
+    obj.rotation_euler = (Vector(target) - obj.location).to_track_quat("-Z", "Y").to_euler()
+
+
+def _set_world_strength(scene: Any, strength: float) -> None:
+    if scene.world is None:
+        import bpy
+
+        scene.world = bpy.data.worlds.new("PIMM_STUDIO_WORLD")
+    background = scene.world.node_tree.nodes.get("Background")
+    if background is None:
+        raise ValueError("studio world is missing its Background node")
+    background.inputs["Color"].default_value = DEFAULT_WORLD_COLOR
+    background.inputs["Strength"].default_value = float(strength)
+
+
+def _install_world_environment(
+    bpy: Any, scene: Any, spec: WorldEnvironmentSpec
+) -> None:
+    path = require_within(spec.path, ASSET_ROOT / "assets" / "hdri")
+    if not path.is_file():
+        raise FileNotFoundError(f"studio HDRI is missing: {path}")
+    actual_sha256 = sha256_file(path)
+    if actual_sha256 != spec.sha256:
+        raise ValueError(
+            "studio HDRI SHA-256 mismatch: "
+            f"expected {spec.sha256}, found {actual_sha256}"
+        )
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("PIMM_STUDIO_WORLD")
+    tree = scene.world.node_tree
+    background = tree.nodes.get("Background")
+    output = tree.nodes.get("World Output")
+    if background is None or output is None:
+        raise ValueError("studio world is missing its Background or World Output node")
+    for name in (
+        "PIMM_STUDIO_HDRI_COORDINATES",
+        "PIMM_STUDIO_HDRI_MAPPING",
+        "PIMM_STUDIO_HDRI_ENVIRONMENT",
+    ):
+        existing = tree.nodes.get(name)
+        if existing is not None:
+            tree.nodes.remove(existing)
+    coordinates = tree.nodes.new("ShaderNodeTexCoord")
+    coordinates.name = "PIMM_STUDIO_HDRI_COORDINATES"
+    mapping = tree.nodes.new("ShaderNodeMapping")
+    mapping.name = "PIMM_STUDIO_HDRI_MAPPING"
+    environment = tree.nodes.new("ShaderNodeTexEnvironment")
+    environment.name = "PIMM_STUDIO_HDRI_ENVIRONMENT"
+    environment.image = bpy.data.images.load(str(path), check_existing=True)
+    environment.interpolation = "Linear"
+    environment.projection = "EQUIRECTANGULAR"
+    mapping.inputs["Rotation"].default_value[2] = math.radians(spec.rotation_degrees)
+    for link in list(background.inputs["Color"].links):
+        tree.links.remove(link)
+    tree.links.new(coordinates.outputs["Generated"], mapping.inputs["Vector"])
+    tree.links.new(mapping.outputs["Vector"], environment.inputs["Vector"])
+    tree.links.new(environment.outputs["Color"], background.inputs["Color"])
+    background.inputs["Strength"].default_value = float(spec.strength)
+
+
+def _install_lights(bpy: Any, specs: Sequence[LightSpec]) -> None:
+    for obj in list(bpy.context.scene.objects):
+        if obj.type == "LIGHT" and obj.library is None:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    for spec in specs:
+        data = bpy.data.lights.new(f"{spec.name}_DATA", type="AREA")
+        data.energy = spec.energy
+        data.shape = spec.shape
+        data.size = spec.size_x
+        data.size_y = spec.size_y
+        data.normalize = True
+        if hasattr(data, "use_temperature"):
+            data.use_temperature = True
+            data.temperature = spec.temperature_kelvin
+        obj = bpy.data.objects.new(spec.name, data)
+        bpy.context.scene.collection.objects.link(obj)
+        obj.location = spec.location
+        _point_at(obj, spec.target)
+
+
+def _install_environment(bpy: Any, specs: Sequence[EnvironmentSpec]) -> None:
+    for obj in list(bpy.context.scene.objects):
+        if obj.library is None and obj.get("pimm_scene_environment_role") is not None:
+            mesh = obj.data
+            materials = list(mesh.materials)
+            bpy.data.objects.remove(obj, do_unlink=True)
+            bpy.data.meshes.remove(mesh)
+            for material in materials:
+                if material.users == 0:
+                    bpy.data.materials.remove(material)
+    for spec in specs:
+        mesh = bpy.data.meshes.new(spec.name)
+        mesh["pimm_scene_environment_role"] = spec.role
+        half_width = spec.width / 2.0
+        half_depth = spec.depth / 2.0
+        mesh.from_pydata(
+            [
+                (spec.center_x - half_width, spec.center_y - half_depth, spec.z),
+                (spec.center_x + half_width, spec.center_y - half_depth, spec.z),
+                (spec.center_x + half_width, spec.center_y + half_depth, spec.z),
+                (spec.center_x - half_width, spec.center_y + half_depth, spec.z),
+            ],
+            [],
+            [(0, 1, 2, 3)],
+        )
+        material = bpy.data.materials.new(f"{spec.name}_MATERIAL")
+        material["pimm_scene_environment_role"] = spec.role
+        material["pimm_material_id"] = spec.material_id
+        material.diffuse_color = spec.base_color
+        principled = material.node_tree.nodes.get("Principled BSDF")
+        if principled is None:
+            raise ValueError("studio shadow-catcher material lacks Principled BSDF")
+        principled.inputs["Base Color"].default_value = spec.base_color
+        principled.inputs["Roughness"].default_value = spec.roughness
+        mesh.materials.append(material)
+        obj = bpy.data.objects.new(spec.name, mesh)
+        obj["pimm_scene_environment_role"] = spec.role
+        obj.is_shadow_catcher = True
+        bpy.context.scene.collection.objects.link(obj)
+
+
+def contract_payload(config: MachineConfig) -> dict[str, object]:
+    material_path = ASSET_ROOT / "masters" / "PIMM-MATERIAL-LIBRARY.blend"
+    return {
+        "animation_contract": None,
+        "camera_name": "CAM_HERO",
+        "complete_product": True,
+        "machine": config.machine,
+        "master_collection": "PIMM_PUBLISHED",
+        "master_path": config.master_path.relative_to(ASSET_ROOT).as_posix(),
+        "master_sha256": sha256_file(config.master_path),
+        "material_library_path": material_path.relative_to(ASSET_ROOT).as_posix(),
+        "material_library_sha256": sha256_file(material_path),
+        "output_contract": {
+            "alpha": True,
+            "height": config.output_height,
+            "width": config.output_width,
+        },
+        "purpose": "hero",
+        "scene_id": config.scene_id,
+        "scene_path": config.output_path.relative_to(ASSET_ROOT).as_posix(),
+        "schema_version": 1,
+        "static_render_setup": {
+            "camera": {
+                "aperture_fstop": DEFAULT_APERTURE_FSTOP,
+                "clip_end": DEFAULT_CLIP_END,
+                "clip_start": DEFAULT_CLIP_START,
+                "focal_length_mm": DEFAULT_FOCAL_LENGTH_MM,
+                "sensor_width_mm": DEFAULT_SENSOR_WIDTH_MM,
+                "view": "front",
+            },
+            "color_management": {
+                "exposure": DEFAULT_EXPOSURE,
+                "gamma": 1.0,
+                "look": DEFAULT_LOOK,
+                "view_transform": "AgX",
+            },
+            "lighting": {
+                "lower_bounce_name": "BASE_BOUNCE",
+                "required_light_names": [
+                    "KEY_SOFTBOX",
+                    "FILL_SOFTBOX",
+                    "BASE_BOUNCE",
+                    "STRIP_LEFT",
+                    "STRIP_RIGHT",
+                ],
+                "temperature_kelvin": DEFAULT_LIGHT_TEMPERATURE_KELVIN,
+            },
+            "physical_shadow": {
+                "catcher_name": "PIMM_SCENE_SHADOW_CATCHER",
+                "gate": "required",
+            },
+            "world": {
+                "hdri_path": DEFAULT_HDRI_RELATIVE_PATH.as_posix(),
+                "hdri_sha256": DEFAULT_HDRI_SHA256,
+                "rotation_degrees": DEFAULT_HDRI_ROTATION_DEGREES,
+                "strength": DEFAULT_WORLD_STRENGTH,
+            },
+        },
+    }
+
+
+def prepare_contract(config: MachineConfig) -> dict[str, object]:
+    payload = contract_payload(config)
+    contract = SceneContract.from_mapping(payload)
+    errors = validate_scene_contract(contract)
+    if errors:
+        raise ValueError("invalid front scene contract: " + "; ".join(errors))
+    destination = require_within(config.contract_path, ASSET_ROOT / "scenes" / "contracts")
+    if destination.exists():
+        raise FileExistsError(f"front scene contract already exists: {destination}")
+    atomic_write_json(destination, payload)
+    return {"status": "contract_created", "path": str(destination), "payload": payload}
+
+
+def author_front_scene(bpy: Any, config: MachineConfig) -> dict[str, object]:
+    source = Path(str(bpy.data.filepath)).resolve()
+    if source != config.source_path.resolve():
+        raise ValueError(f"open source scene does not match {config.machine}: {source}")
+    destination = require_within(config.output_path, ASSET_ROOT / "scenes" / "stills")
+    if destination.exists():
+        raise FileExistsError(f"front still scene already exists: {destination}")
+    contract_bytes = config.contract_path.read_bytes()
+    contract = SceneContract.from_mapping(json.loads(contract_bytes.decode("utf-8")))
+    if contract.scene_id != config.scene_id or contract.machine != config.machine:
+        raise ValueError("front scene contract does not match machine configuration")
+
+    bounds_min, bounds_max = _product_bounds(bpy)
+    camera = bpy.context.scene.camera
+    if camera is None or camera.name != contract.camera_name:
+        raise ValueError("source scene is missing contracted CAM_HERO")
+    center, _size = _center_and_size(bounds_min, bounds_max)
+    distance = scaled_camera_distance(
+        math.dist(tuple(camera.location), center),
+        float(camera.data.lens),
+        DEFAULT_FOCAL_LENGTH_MM,
+    )
+    pose = front_camera_pose(bounds_min, bounds_max, distance)
+    camera.location = pose.location
+    _point_at(camera, pose.target)
+    camera.data.lens = DEFAULT_FOCAL_LENGTH_MM
+    camera.data.sensor_fit = "HORIZONTAL"
+    camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
+    camera.data.clip_start = DEFAULT_CLIP_START
+    camera.data.clip_end = DEFAULT_CLIP_END
+    camera.data.shift_x = 0.0
+    camera.data.shift_y = 0.0
+    camera.data.dof.use_dof = True
+    camera.data.dof.focus_distance = distance
+    camera.data.dof.aperture_fstop = DEFAULT_APERTURE_FSTOP
+
+    scene = bpy.context.scene
+    _install_lights(bpy, studio_light_specs(bounds_min, bounds_max))
+    _install_environment(bpy, studio_environment_specs(bounds_min, bounds_max))
+    world_environment = studio_world_environment_spec()
+    _install_world_environment(bpy, scene, world_environment)
+    scene.view_settings.view_transform = "AgX"
+    scene.view_settings.look = DEFAULT_LOOK
+    scene.view_settings.exposure = DEFAULT_EXPOSURE
+    scene.view_settings.gamma = 1.0
+    scene.render.resolution_x = config.output_width
+    scene.render.resolution_y = config.output_height
+    scene.render.resolution_percentage = 100
+    scene.render.film_transparent = True
+    scene.render.filepath = str(
+        (ASSET_ROOT / "renders" / "proofs" / "unapproved" / config.scene_id).resolve()
+    )
+    scene["pimm_scene_contract_payload"] = canonical_scene_contract_json(contract)
+    scene["pimm_scene_contract_snapshot_sha256"] = hashlib.sha256(contract_bytes).hexdigest().upper()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=str(destination), check_existing=False)
+    return {
+        "status": "scene_created",
+        "machine": config.machine,
+        "scene_id": config.scene_id,
+        "path": str(destination),
+        "camera": {
+            "location": list(pose.location),
+            "target": list(pose.target),
+            "pitch_degrees": pose.pitch_degrees,
+            "lens": camera.data.lens,
+        },
+        "lights": [spec.name for spec in studio_light_specs(bounds_min, bounds_max)],
+        "environment": [spec.name for spec in studio_environment_specs(bounds_min, bounds_max)],
+        "exposure": scene.view_settings.exposure,
+        "world_strength": DEFAULT_WORLD_STRENGTH,
+        "world_environment": {
+            "path": world_environment.path.relative_to(ASSET_ROOT).as_posix(),
+            "rotation_degrees": world_environment.rotation_degrees,
+            "sha256": world_environment.sha256,
+            "strength": world_environment.strength,
+        },
+    }
+
+
+def upgrade_existing_contract(bpy: Any, config: MachineConfig) -> dict[str, object]:
+    """Upgrade one existing hero scene and its contract without changing its look."""
+
+    source = Path(str(bpy.data.filepath)).resolve()
+    destination = config.output_path.resolve()
+    if source != destination:
+        raise ValueError(f"open scene does not match governed {config.machine} hero: {source}")
+    if not config.contract_path.is_file():
+        raise FileNotFoundError(f"existing hero contract is missing: {config.contract_path}")
+    payload = contract_payload(config)
+    contract = SceneContract.from_mapping(payload)
+    errors = validate_scene_contract(contract)
+    if errors:
+        raise ValueError("invalid upgraded front scene contract: " + "; ".join(errors))
+    camera = bpy.context.scene.camera
+    if camera is None or camera.name != contract.camera_name:
+        raise ValueError("existing hero scene is missing contracted CAM_HERO")
+    camera.data.lens = DEFAULT_FOCAL_LENGTH_MM
+    camera.data.sensor_fit = "HORIZONTAL"
+    camera.data.sensor_width = DEFAULT_SENSOR_WIDTH_MM
+    camera.data.clip_start = DEFAULT_CLIP_START
+    camera.data.clip_end = DEFAULT_CLIP_END
+    camera.data.dof.aperture_fstop = DEFAULT_APERTURE_FSTOP
+
+    old_contract_bytes = config.contract_path.read_bytes()
+    try:
+        atomic_write_json(config.contract_path, payload)
+        contract_bytes = config.contract_path.read_bytes()
+        scene = bpy.context.scene
+        scene["pimm_scene_contract_payload"] = canonical_scene_contract_json(contract)
+        scene["pimm_scene_contract_snapshot_sha256"] = hashlib.sha256(
+            contract_bytes
+        ).hexdigest().upper()
+        bpy.ops.wm.save_as_mainfile(filepath=str(destination), check_existing=False)
+    except Exception:
+        rollback = config.contract_path.with_suffix(config.contract_path.suffix + ".rollback")
+        rollback.write_bytes(old_contract_bytes)
+        os.replace(rollback, config.contract_path)
+        raise
+    return {
+        "status": "scene_contract_upgraded",
+        "machine": config.machine,
+        "scene_id": config.scene_id,
+        "scene_path": str(destination),
+        "scene_sha256": sha256_file(destination),
+        "contract_path": str(config.contract_path),
+        "contract_sha256": sha256_file(config.contract_path),
+    }
+
+
+def _arguments(argv: Sequence[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--machine", choices=sorted(MACHINE_CONFIGS), required=True)
+    parser.add_argument("--prepare-contract", action="store_true")
+    parser.add_argument("--upgrade-existing-contract", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    arguments = _arguments(
+        list(argv)
+        if argv is not None
+        else sys.argv[sys.argv.index("--") + 1 :]
+        if "--" in sys.argv
+        else sys.argv[1:]
+    )
+    config = MACHINE_CONFIGS[arguments.machine]
+    if arguments.prepare_contract and arguments.upgrade_existing_contract:
+        raise ValueError("choose only one hero contract operation")
+    if arguments.prepare_contract:
+        result = prepare_contract(config)
+    else:
+        import bpy
+
+        result = (
+            upgrade_existing_contract(bpy, config)
+            if arguments.upgrade_existing_contract
+            else author_front_scene(bpy, config)
+        )
+    print(RESULT_MARKER + json.dumps(result, sort_keys=True), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

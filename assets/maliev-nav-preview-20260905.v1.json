@@ -1,0 +1,110 @@
+{
+  "version": "maliev-nav-preview.v1",
+  "generated_at": "2026-09-05",
+  "generator": "OpenAI image generation",
+  "shared_direction": "Photorealistic 4:3 landscape navigation card; bright premium neutral-gray studio; crisp subject detail; no watermark, logo, readable text, or distant horizon.",
+  "assets": [
+    {
+      "preset": "nav-products",
+      "title": "Products",
+      "file": "maliev-nav-preview-products-20260905.webp",
+      "prompt": "Compact pneumatic injection molding machine with precision mold tooling and a small finished polymer part."
+    },
+    {
+      "preset": "nav-collections",
+      "title": "Collections",
+      "file": "maliev-nav-preview-collections-20260905.webp",
+      "prompt": "Curated material and product library with machined aluminum, molded polymer, silicone, and 3D-printed samples."
+    },
+    {
+      "preset": "nav-simmount",
+      "title": "SimMount",
+      "file": "maliev-nav-preview-simmount-20260905.webp",
+      "prompt": "Modular precision fixture plate with clamps, locating pins, and mounting hardware."
+    },
+    {
+      "preset": "nav-printed-items",
+      "title": "3D Printed Items",
+      "file": "maliev-nav-preview-3d-printed-items-20260905.webp",
+      "prompt": "Group of distinct functional 3D-printed products including an enclosure, cable guide, control knob, and geometric container."
+    },
+    {
+      "preset": "nav-3d-printing",
+      "title": "3D Printing Services",
+      "file": "maliev-nav-preview-3d-printing-services-20260905.webp",
+      "prompt": "Active industrial FDM and resin printers producing functional engineering prototypes."
+    },
+    {
+      "preset": "nav-cnc",
+      "title": "CNC Machining Services",
+      "file": "maliev-nav-preview-cnc-machining-20260905.webp",
+      "prompt": "CNC mill workspace with a freshly machined aluminum component, precision vise, tooling, and finished parts."
+    },
+    {
+      "preset": "nav-scanning",
+      "title": "3D Scanning Services",
+      "file": "maliev-nav-preview-3d-scanning-20260905.webp",
+      "prompt": "Structured-light scanner capturing a detailed mechanical component on a turntable with visible blue scan light."
+    },
+    {
+      "preset": "nav-custom-manufacturing",
+      "title": "Custom Part Manufacturing",
+      "file": "maliev-nav-preview-custom-manufacturing-20260905.webp",
+      "prompt": "Drawing-to-part sequence with an unmarked drawing, raw billet, prototype, and finished precision component."
+    },
+    {
+      "preset": "nav-3d-design",
+      "title": "3D Design Services",
+      "file": "maliev-nav-preview-3d-design-20260905.webp",
+      "prompt": "Engineering workstation displaying a generic parametric assembly beside a physical prototype and calipers."
+    },
+    {
+      "preset": "nav-silicone-casting",
+      "title": "Silicone Casting",
+      "file": "maliev-nav-preview-silicone-casting-20260905.webp",
+      "prompt": "Open silicone mold halves, controlled mixing pour, and several finished flexible parts."
+    },
+    {
+      "preset": "nav-injection-molding",
+      "title": "Low-Volume Injection Molding",
+      "file": "maliev-nav-preview-low-volume-injection-20260905.webp",
+      "prompt": "Compact injection molding cell with an open precision mold and a tidy short-run batch of identical parts."
+    },
+    {
+      "preset": "nav-finishing",
+      "title": "Finishing & Color Standards",
+      "file": "maliev-nav-preview-finishing-color-20260905.webp",
+      "prompt": "Same component in matte, satin, and gloss finishes beside restrained industrial color swatches."
+    },
+    {
+      "preset": "nav-documents",
+      "title": "Product Documents",
+      "file": "maliev-nav-preview-product-documents-20260905.webp",
+      "prompt": "Technical documentation with schematic and exploded-view diagrams beside calipers and a matching component."
+    },
+    {
+      "preset": "nav-spares",
+      "title": "Spare Parts",
+      "file": "maliev-nav-preview-spare-parts-20260905.webp",
+      "prompt": "Organized machine service kit with seals, springs, heater bands, fittings, thermocouple, fasteners, and adapter."
+    },
+    {
+      "preset": "nav-contact",
+      "title": "Contact Us",
+      "file": "maliev-nav-preview-contact-20260905.webp",
+      "prompt": "Thai engineer and Thai customer reviewing a manufactured part and unmarked drawing in a bright workshop office."
+    },
+    {
+      "preset": "nav-mesh",
+      "title": "Mesh Splitter",
+      "file": "maliev-nav-preview-mesh-splitter-20260905.webp",
+      "prompt": "Engineering workstation showing a triangulated mechanical mesh separated into color-coded printable shells with matching prints."
+    },
+    {
+      "preset": "nav-news",
+      "title": "News",
+      "file": "maliev-nav-preview-news-20260905.webp",
+      "prompt": "Thai technician inspecting a newly assembled compact machine prototype with a camera and notebook nearby."
+    }
+  ]
+}

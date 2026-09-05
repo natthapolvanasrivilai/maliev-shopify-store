@@ -1,0 +1,916 @@
+"""Governed owner approval and native editorial final-release coverage."""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import struct
+import sys
+from tempfile import TemporaryDirectory
+import time
+from types import SimpleNamespace
+from typing import Mapping
+import unittest
+from unittest.mock import patch
+
+from PIL import Image
+
+from scripts.blender.pimm_production import blender_editorial_preview as preview_module
+from scripts.blender.pimm_production import editorial_final_contract as contract_module
+from scripts.blender.pimm_production import blender_editorial_final as final_module
+from scripts.blender.pimm_production.editorial_final_contract import (
+    APPROVED_GENERATION_ID,
+    RELEASE_ID,
+    authorize_editorial_final_release,
+    record_editorial_owner_approval,
+    validate_editorial_final_contract,
+    validate_editorial_owner_approval,
+)
+from scripts.blender.pimm_production.blender_editorial_final import (
+    _controller_authority_snapshot,
+    _load_worker_contract,
+    _parse_openexr,
+    _validate_ephemeral_render_delta,
+    publish_editorial_native_release,
+    reject_editorial_native_release,
+)
+from scripts.blender.pimm_production.io_contract import sha256_file
+from scripts.blender.pimm_production.tests import test_editorial_preview as _preview_tests
+
+
+class EditorialFinalReleaseTests(unittest.TestCase):
+    @staticmethod
+    def _minimal_exr(width: int, height: int, *, version_word: int = 2) -> bytes:
+        def attr(name: str, kind: str, value: bytes) -> bytes:
+            return name.encode() + b"\0" + kind.encode() + b"\0" + struct.pack("<I", len(value)) + value
+        channel = lambda name: name.encode() + b"\0" + struct.pack("<iB3xii", 1, 0, 1, 1)
+        channels = channel("B") + channel("G") + channel("R") + b"\0"
+        box = struct.pack("<iiii", 0, 0, width - 1, height - 1)
+        header = b"".join((
+            attr("channels", "chlist", channels), attr("compression", "compression", b"\0"),
+            attr("dataWindow", "box2i", box), attr("displayWindow", "box2i", box),
+            attr("lineOrder", "lineOrder", b"\0"),
+            attr("pixelAspectRatio", "float", struct.pack("<f", 1.0)),
+            attr("screenWindowCenter", "v2f", struct.pack("<ff", 0.0, 0.0)),
+            attr("screenWindowWidth", "float", struct.pack("<f", 1.0)), b"\0",
+        ))
+        prefix = b"\x76\x2f\x31\x01" + struct.pack("<I", version_word) + header
+        chunks = []
+        offset = len(prefix) + height * 8
+        offsets = []
+        row = b"\0\0" * width * 3
+        for y in range(height):
+            chunk = struct.pack("<ii", y, len(row)) + row
+            offsets.append(offset)
+            chunks.append(chunk)
+            offset += len(chunk)
+        return prefix + b"".join(struct.pack("<Q", value) for value in offsets) + b"".join(chunks)
+
+    def setUp(self) -> None:
+        self.preview = _preview_tests.EditorialPreviewTests("runTest")
+        self.preview.setUp()
+        self.asset_root = self.preview.asset_root
+        pending = self.preview._render()
+        self.accepted = preview_module.accept_editorial_preview_generation(
+            self.asset_root,
+            pending.generation_id,
+            self.preview._visual_decision(pending),
+        )
+        self._original_generation = contract_module.APPROVED_GENERATION_ID
+        self._original_hashes = dict(contract_module.EXPECTED_ACCEPTED_HASHES)
+        accepted = preview_module.validate_accepted_editorial_generation(
+            self.asset_root, self.accepted.generation_id
+        )
+        contract_module.APPROVED_GENERATION_ID = self.accepted.generation_id
+        contract_module.EXPECTED_ACCEPTED_HASHES = {
+            field: accepted[field] for field in contract_module.EXPECTED_ACCEPTED_HASHES
+        }
+        self._real_ffprobe_decode = final_module._ffprobe_decode_exr
+        self._ffprobe_patch = patch.object(
+            final_module, "_ffprobe_decode_exr",
+            side_effect=lambda _path, width, height, _ffprobe=None: {
+                "status": "pass", "tool_sha256": final_module.FFPROBE_SHA256,
+                "codec": "exr", "dimensions": [width, height],
+                "pixel_format": "gbrpf32le", "decoded_frames": 1,
+            },
+        )
+        self._ffprobe_patch.start()
+
+    def tearDown(self) -> None:
+        self._ffprobe_patch.stop()
+        contract_module.APPROVED_GENERATION_ID = self._original_generation
+        contract_module.EXPECTED_ACCEPTED_HASHES = self._original_hashes
+        self.preview.tearDown()
+
+    def _approval(self) -> Path:
+        return record_editorial_owner_approval(
+            self.asset_root,
+            self.accepted.generation_id,
+            owner="natth",
+            notes="Approved all four exact editorial previews for native final rendering",
+        )
+
+    def _staging_fixture(self, contract_path: Path) -> tuple[Path, dict[str, object]]:
+        contract = validate_editorial_final_contract(contract_path, self.asset_root)
+        staging = (
+            self.asset_root / "renders" / "final" / "editorial-concepts-v1"
+            / f".{RELEASE_ID}.pending-fixture"
+        )
+        staging.mkdir(parents=True)
+        shots = []
+        for index, approved in enumerate(contract["shots"]):
+            width, height = (3840, 2160) if index < 3 else (2400, 3000)
+            png = staging / f"{approved['shot_id']}.png"
+            exr = staging / f"{approved['shot_id']}.exr"
+            Image.new("RGB", (width, height), (80 + index, 90, 100)).save(png)
+            exr.write_bytes(self._minimal_exr(width, height))
+            authority = approved["authority"]
+            shot_record = {
+                "shot_id": approved["shot_id"], "process_id": 1000 + index,
+                "png": png.name, "png_sha256": sha256_file(png),
+                "exr": exr.name, "exr_sha256": sha256_file(exr), "dimensions": [width, height],
+                "samples": 256, "denoise": True, "film_transparent": False,
+                "authority_status": "pass", "scene_sha256": authority["scene_sha256"],
+                "contract_sha256": authority["contract_sha256"],
+                "completion_marker_sha256": authority["completion_marker_sha256"],
+                "exr_validation": _parse_openexr(exr),
+            }
+            result_sha256 = hashlib.sha256(
+                final_module._json_bytes(shot_record)
+            ).hexdigest().upper()
+            shot_record["worker_phase_evidence"] = {
+                "status": "pass", "phase": "result-ready",
+                "phase_sha256": "A" * 64, "result_sha256": result_sha256,
+            }
+            shot_record["ffprobe_exr_decode"] = {
+                "status": "pass", "tool_sha256": final_module.FFPROBE_SHA256,
+                "codec": "exr", "dimensions": [width, height],
+                "pixel_format": "gbrpf32le", "decoded_frames": 1,
+            }
+            shots.append(shot_record)
+        sheet = staging / "sheet-editorial-finals.png"
+        Image.new("RGB", (2560, 1800), (30, 40, 50)).save(sheet)
+        report = {
+            "schema": "maliev.pimm-editorial-native-report/v1", "status": "pending-actual-pixel-review",
+            "release_id": RELEASE_ID, "generation_id": contract["generation_id"],
+            "contract_path": str(contract_path), "contract_sha256": sha256_file(contract_path),
+            "fresh_blender_processes": 4, "samples": 256, "denoise": True,
+            "shots": shots,
+            "contact_sheet": {"path": sheet.name, "sha256": sha256_file(sheet), "dimensions": [2560, 1800]},
+        }
+        (staging / "native-report.json").write_text(json.dumps(report), encoding="utf-8")
+        disposition = {
+            "decision": "accept", "reviewer": "Codex actual-pixel reviewer",
+            "reviewed_at": "2026-08-30T13:00:00Z",
+            "contact_sheet": {"sha256": report["contact_sheet"]["sha256"], "pixel_review": "pass"},
+            "shots": [
+                {"shot_id": shot["shot_id"], "png_sha256": shot["png_sha256"],
+                 "exr_sha256": shot["exr_sha256"], "pixel_review": "pass",
+                 "grounding": "pass", "clipping": "pass", "props": "pass",
+                 "exposure": "pass", "detail": "pass", "decals": "pass", "notes": "reviewed"}
+                for shot in shots
+            ],
+        }
+        return staging, disposition
+
+    @staticmethod
+    def _tree_bytes(root: Path) -> tuple[tuple[str, bytes], ...]:
+        return tuple(
+            (path.relative_to(root).as_posix(), path.read_bytes())
+            for path in sorted(root.rglob("*")) if path.is_file()
+        )
+
+    def test_owner_approval_binds_every_exact_accepted_image_and_authority(self) -> None:
+        """Catches approval that binds only a generation label or contact sheet."""
+
+        approval_path = self._approval()
+        approval = validate_editorial_owner_approval(approval_path, self.asset_root)
+
+        self.assertEqual(approval["owner"], "natth")
+        self.assertEqual(approval["decision"], "approved")
+        self.assertEqual(len(approval["shots"]), 4)
+        self.assertEqual(
+            {shot["output_sha256"] for shot in approval["shots"]},
+            {
+                shot["output_sha256"]
+                for shot in preview_module.validate_accepted_editorial_generation(
+                    self.asset_root, self.accepted.generation_id
+                )["shots"]
+            },
+        )
+        self.assertTrue(all(shot["authority"] for shot in approval["shots"]))
+
+    def test_approval_requires_owner_notes_and_exclusive_revision(self) -> None:
+        """Catches anonymous, context-free, or replayed approval authority."""
+
+        for owner, notes in (("", "approved"), ("natth", "")):
+            with self.subTest(owner=owner, notes=notes):
+                with self.assertRaisesRegex(ValueError, "owner|notes"):
+                    record_editorial_owner_approval(
+                        self.asset_root,
+                        self.accepted.generation_id,
+                        owner=owner,
+                        notes=notes,
+                    )
+        approval_path = self._approval()
+        with self.assertRaisesRegex(FileExistsError, "approval-r01"):
+            self._approval()
+        self.assertTrue(approval_path.is_file())
+
+    def test_r01_rejects_every_other_accepted_generation(self) -> None:
+        """Catches release r01 authority being reused for a later accepted generation."""
+
+        pending = self.preview._render()
+        another = preview_module.accept_editorial_preview_generation(
+            self.asset_root, pending.generation_id, self.preview._visual_decision(pending)
+        )
+        with self.assertRaisesRegex(ValueError, "exact|generation"):
+            record_editorial_owner_approval(
+                self.asset_root, another.generation_id, owner="natth", notes="wrong generation"
+            )
+
+    def test_approval_rejects_any_accepted_generation_or_current_authority_drift(self) -> None:
+        """Catches final authorization after preview bytes or protected scene bytes change."""
+
+        approval_path = self._approval()
+        approved = validate_editorial_owner_approval(approval_path, self.asset_root)
+        shot_path = Path(approved["shots"][0]["output_path"])
+        original = shot_path.read_bytes()
+        shot_path.write_bytes(b"drift")
+        try:
+            with self.assertRaisesRegex(ValueError, "PNG|hash|drift"):
+                validate_editorial_owner_approval(approval_path, self.asset_root)
+        finally:
+            shot_path.write_bytes(original)
+
+        scene_path = self.preview.paths[next(iter(self.preview.paths))]["scene"]
+        original_scene = scene_path.read_bytes()
+        scene_path.write_bytes(b"scene drift")
+        try:
+            with self.assertRaisesRegex(ValueError, "authority|scene|drift"):
+                validate_editorial_owner_approval(approval_path, self.asset_root)
+        finally:
+            scene_path.write_bytes(original_scene)
+
+    def test_final_contract_is_preview_immutable_and_allows_only_native_ephemeral_deltas(self) -> None:
+        """Catches campaign mutation or camera/light/world changes disguised as final settings."""
+
+        approval_path = self._approval()
+        contract_path = authorize_editorial_final_release(
+            approval_path,
+            self.asset_root,
+            RELEASE_ID,
+        )
+        contract = validate_editorial_final_contract(contract_path, self.asset_root)
+
+        self.assertEqual(contract["samples"], 256)
+        self.assertEqual(contract["landscape_dimensions"], [3840, 2160])
+        self.assertEqual(contract["portrait_dimensions"], [2400, 3000])
+        self.assertEqual(contract["allowed_scene_mutations"], [
+            "resolution_x", "resolution_y", "resolution_percentage", "cycles.samples",
+            "cycles.use_denoising", "render.filepath", "image_settings.file_format",
+            "image_settings.color_mode", "image_settings.color_depth",
+        ])
+        baseline = {
+            "camera": "A", "lights": "B", "world": "C", "compositor": "D",
+            "resolution_x": 1280, "resolution_y": 720, "resolution_percentage": 100,
+            "cycles.samples": 32, "cycles.use_denoising": True,
+            "render.filepath": "preview.png", "image_settings.file_format": "PNG",
+            "image_settings.color_mode": "RGB", "image_settings.color_depth": "8",
+        }
+        final = {**baseline, "resolution_x": 3840, "resolution_y": 2160,
+                 "cycles.samples": 256, "render.filepath": "final.png"}
+        _validate_ephemeral_render_delta(baseline, final, contract)
+        for field in ("camera", "lights", "world", "compositor"):
+            with self.subTest(field=field):
+                changed = {**final, field: "drift"}
+                with self.assertRaisesRegex(ValueError, field):
+                    _validate_ephemeral_render_delta(baseline, changed, contract)
+
+    def test_contract_rejects_replay_extra_fields_and_superseded_approval(self) -> None:
+        """Catches contract replay, loose schemas, or approval-head substitution."""
+
+        approval_path = self._approval()
+        contract_path = authorize_editorial_final_release(
+            approval_path, self.asset_root, RELEASE_ID
+        )
+        with self.assertRaisesRegex(FileExistsError, "campaign-contract-r01"):
+            authorize_editorial_final_release(approval_path, self.asset_root, RELEASE_ID)
+        payload = json.loads(contract_path.read_text(encoding="utf-8"))
+        payload["unexpected"] = True
+        contract_path.chmod(0o644)
+        contract_path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "fields"):
+            validate_editorial_final_contract(contract_path, self.asset_root)
+
+    def test_atomic_publication_requires_complete_hash_bound_actual_pixel_disposition(self) -> None:
+        """Catches partial visual acceptance, missing archive pairs, or marker-first release."""
+
+        approval_path = self._approval()
+        contract_path = authorize_editorial_final_release(
+            approval_path, self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        disposition["shots"][0]["pixel_review"] = "fail"
+        with self.assertRaisesRegex(ValueError, "pixel|pass"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertFalse((staging.parent / RELEASE_ID).exists())
+
+    def test_staging_rejects_invalid_exr_magic_and_missing_native_evidence(self) -> None:
+        """Catches arbitrary bytes or incomplete claims being accepted as native finals."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        report_path = staging / "native-report.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        exr = staging / report["shots"][0]["exr"]
+
+        def rebind_phase() -> None:
+            worker_record = {
+                key: value for key, value in report["shots"][0].items()
+                if key not in {"worker_phase_evidence", "ffprobe_exr_decode"}
+            }
+            report["shots"][0]["worker_phase_evidence"]["result_sha256"] = (
+                hashlib.sha256(final_module._json_bytes(worker_record)).hexdigest().upper()
+            )
+
+        exr.write_bytes(b"not an exr")
+        report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        rebind_phase()
+        disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "EXR|exr"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+        exr.write_bytes(b"\x76\x2f\x31\x01truncated-junk")
+        report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        rebind_phase()
+        disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "EXR|exr"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+        width, height = report["shots"][0]["dimensions"]
+        exr.write_bytes(self._minimal_exr(width, height))
+        report["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report["shots"][0].pop("authority_status")
+        rebind_phase()
+        disposition["shots"][0]["exr_sha256"] = sha256_file(exr)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "authority|evidence"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+    def test_staging_rejects_missing_ffprobe_exr_decode_evidence(self) -> None:
+        """Catches structurally framed EXRs that were never decoded by the controller."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        report_path = staging / "native-report.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report["shots"][0].pop("ffprobe_exr_decode")
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "EXR|decode"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+
+    def test_ffprobe_exr_decode_is_pinned_bounded_and_exact(self) -> None:
+        """Catches 4K EXR validation hanging or trusting wrong decode metadata."""
+
+        success = json.dumps({
+            "streams": [{"codec_name": "exr", "width": 3840, "height": 2160,
+                         "pix_fmt": "gbrpf32le"}],
+            "frames": [{"media_type": "video", "width": 3840, "height": 2160,
+                        "pix_fmt": "gbrpf32le", "pkt_size": "100"}],
+        })
+        with TemporaryDirectory() as root:
+            tool = Path(root) / "ffprobe.exe"
+            tool.write_bytes(b"pinned tool")
+            with (
+                patch.object(final_module, "sha256_file", return_value=final_module.FFPROBE_SHA256),
+                patch.object(
+                    final_module, "_run_bounded_process",
+                    return_value=subprocess.CompletedProcess([], 0, success, ""),
+                ) as run,
+            ):
+                evidence = self._real_ffprobe_decode(
+                    Path("archive.exr"), 3840, 2160, tool
+                )
+            self.assertEqual(evidence["dimensions"], [3840, 2160])
+            self.assertEqual(evidence["pixel_format"], "gbrpf32le")
+            self.assertEqual(run.call_args.args[1:], (60, 65536, 8192))
+
+    def test_ffprobe_exr_decode_rejects_timeout_malformed_and_wrong_dimensions(self) -> None:
+        """Catches decode hangs, invalid files, or metadata substitution passing authority."""
+
+        with TemporaryDirectory() as root:
+            tool = Path(root) / "ffprobe.exe"
+            tool.write_bytes(b"pinned tool")
+            cases = (
+                (ValueError("FFprobe EXR decode timed out"), "timed out"),
+                (subprocess.CompletedProcess([], 0, "not-json", ""), "malformed"),
+                (subprocess.CompletedProcess([], 0, json.dumps({
+                    "streams": [{"codec_name": "exr", "width": 1, "height": 1,
+                                 "pix_fmt": "gbrpf32le"}],
+                    "frames": [{"media_type": "video", "width": 1, "height": 1,
+                                "pix_fmt": "gbrpf32le"}],
+                }), ""), "dimensions"),
+            )
+            for outcome, message in cases:
+                run_options = (
+                    {"side_effect": outcome}
+                    if isinstance(outcome, BaseException)
+                    else {"return_value": outcome}
+                )
+                with self.subTest(message=message), patch.object(
+                    final_module, "sha256_file", return_value=final_module.FFPROBE_SHA256
+                ), patch.object(final_module, "_run_bounded_process", **run_options):
+                    with self.assertRaisesRegex(ValueError, message):
+                        self._real_ffprobe_decode(
+                            Path("archive.exr"), 3840, 2160, tool
+                        )
+
+    def test_bounded_process_terminates_dual_stream_overflow_without_full_retention(self) -> None:
+        """Catches pipe deadlock or full output materialization before cap enforcement."""
+
+        script = (
+            "import os;os.write(1,b'x'*100000);os.write(2,b'y'*100000)"
+        )
+        started = time.monotonic()
+        with self.assertRaisesRegex(ValueError, "bounded evidence limit") as raised:
+            final_module._run_bounded_process(
+                [sys.executable, "-c", script], 10, 4096, 4096
+            )
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertLess(len(str(raised.exception)), 5000)
+
+    def test_bounded_process_timeout_terminates_and_joins_stream_drains(self) -> None:
+        """Catches timeout returning while the decoder or pipe readers remain alive."""
+
+        started = time.monotonic()
+        with self.assertRaisesRegex(ValueError, "timed out"):
+            final_module._run_bounded_process(
+                [sys.executable, "-c", "import time;time.sleep(30)"],
+                0.1, 4096, 4096,
+            )
+        self.assertLess(time.monotonic() - started, 5)
+
+    def test_openexr_parser_reads_real_data_window_channels_and_chunks(self) -> None:
+        """Catches magic-only acceptance without a decodable OpenEXR structure."""
+
+        with TemporaryDirectory() as root:
+            path = Path(root) / "fixture.exr"
+            path.write_bytes(self._minimal_exr(4, 3))
+            self.assertEqual(_parse_openexr(path), {
+                "dimensions": [4, 3], "channels": ["B", "G", "R"],
+                "compression": 0, "chunk_count": 3,
+            })
+
+    def test_openexr_parser_allows_blender_long_names_but_rejects_other_layouts(self) -> None:
+        """Catches Blender 5.2's real 0x402 version word being mistaken for multipart."""
+
+        with TemporaryDirectory() as root:
+            path = Path(root) / "fixture.exr"
+            path.write_bytes(self._minimal_exr(4, 3, version_word=0x402))
+            self.assertEqual(_parse_openexr(path)["dimensions"], [4, 3])
+            for unsupported in (0x202, 0x802, 0x1002):
+                path.write_bytes(self._minimal_exr(4, 3, version_word=unsupported))
+                with self.assertRaisesRegex(ValueError, "single-part scanline"):
+                    _parse_openexr(path)
+
+    def test_reject_flow_is_hash_bound_exclusive_and_never_publishes(self) -> None:
+        """Catches visual rejection being deleted, overwritten, or moved into final release."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        disposition["decision"] = "reject"
+        disposition["shots"][0]["pixel_review"] = "fail"
+        disposition["shots"][0]["notes"] = "Rejected at actual pixels"
+        rejected = reject_editorial_native_release(staging, contract_path, disposition)
+        self.assertTrue((rejected / "rejected-disposition.json").is_file())
+        self.assertFalse((staging.parent / RELEASE_ID).exists())
+        with self.assertRaisesRegex(ValueError, "staging|claim|missing"):
+            reject_editorial_native_release(staging, contract_path, disposition)
+
+    def test_accept_then_reject_is_blocked_by_shared_terminal_claim(self) -> None:
+        """Catches one pending tree being accepted and then separately rejected."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        published = publish_editorial_native_release(staging, contract_path, disposition)
+        rejected_disposition = deepcopy(disposition)
+        rejected_disposition["decision"] = "reject"
+        rejected_disposition["shots"][0]["pixel_review"] = "fail"
+        with self.assertRaisesRegex(ValueError, "accepted|terminal|claim"):
+            reject_editorial_native_release(
+                staging, contract_path, rejected_disposition
+            )
+        self.assertTrue(published.is_dir())
+
+    def test_reject_then_accept_is_blocked_by_shared_terminal_claim(self) -> None:
+        """Catches one pending tree being rejected and then separately accepted."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        rejected_disposition = deepcopy(disposition)
+        rejected_disposition["decision"] = "reject"
+        rejected_disposition["shots"][0]["pixel_review"] = "fail"
+        rejected = reject_editorial_native_release(
+            staging, contract_path, rejected_disposition
+        )
+        with self.assertRaisesRegex(ValueError, "terminal|claim"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertTrue(rejected.is_dir())
+        self.assertFalse((staging.parent / RELEASE_ID).exists())
+
+    def test_shared_claim_excludes_concurrent_opposing_decisions(self) -> None:
+        """Catches accept and reject acquiring different locks for the same pending bytes."""
+
+        staging = self.asset_root / "renders" / "final" / "editorial-concepts-v1" / ".race"
+        staging.mkdir(parents=True)
+        (staging / "evidence.bin").write_bytes(b"immutable")
+        fingerprint = final_module._tree_fingerprint(staging)
+
+        def acquire(decision: str) -> object:
+            try:
+                return final_module._acquire_disposition_claim(
+                    staging, self.asset_root, RELEASE_ID, decision, fingerprint
+                )
+            except ValueError as error:
+                return error
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(acquire, ("accept", "reject")))
+        claims = [outcome for outcome in outcomes if isinstance(outcome, Path)]
+        errors = [outcome for outcome in outcomes if isinstance(outcome, ValueError)]
+        self.assertEqual(len(claims), 1)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("active disposition", str(errors[0]))
+
+    def test_partial_claim_write_is_cleaned_and_retryable(self) -> None:
+        """Catches write-after-create faults leaving an ownerless partial external claim."""
+
+        staging = self.asset_root / "renders" / "final" / "editorial-concepts-v1" / ".partial"
+        staging.mkdir(parents=True)
+        (staging / "evidence.bin").write_bytes(b"immutable")
+        fingerprint = final_module._tree_fingerprint(staging)
+        real_json = final_module._exclusive_json
+
+        def partial_then_fail(path: Path, payload: Mapping[str, object]) -> None:
+            if path.name == "decision.json":
+                path.write_bytes(b"{")
+                raise OSError("injected write-after-create fault")
+            real_json(path, payload)
+
+        with patch.object(final_module, "_exclusive_json", side_effect=partial_then_fail):
+            with self.assertRaisesRegex(OSError, "write-after-create"):
+                final_module._acquire_disposition_claim(
+                    staging, self.asset_root, RELEASE_ID, "accept", fingerprint
+                )
+        active, accepted, rejected = final_module._disposition_claim_paths(
+            staging, self.asset_root
+        )
+        self.assertFalse(active.exists())
+        self.assertFalse(accepted.exists())
+        self.assertFalse(rejected.exists())
+        retry = final_module._acquire_disposition_claim(
+            staging, self.asset_root, RELEASE_ID, "reject", fingerprint
+        )
+        self.assertTrue((retry / "decision.json").is_file())
+
+    def test_accept_collision_preserves_reviewed_staging_without_release_marker(self) -> None:
+        """Catches target races leaving a marker-certified hidden tree or deleting evidence."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        before = self._tree_bytes(staging)
+        target = staging.parent / RELEASE_ID
+        target.mkdir()
+        with self.assertRaisesRegex(ValueError, "competing|replay|collision"):
+            publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertEqual(self._tree_bytes(staging), before)
+        self.assertFalse((staging / "release-manifest.json").exists())
+
+    def test_accept_rename_fault_rolls_back_candidate_and_keeps_pending_exact(self) -> None:
+        """Catches post-marker rename faults poisoning or changing the pending source."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        staging, disposition = self._staging_fixture(contract_path)
+        before = self._tree_bytes(staging)
+        real_rename = final_module.os.rename
+
+        def fail_final_rename(source: object, destination: object) -> None:
+            if Path(destination).name == RELEASE_ID:
+                raise OSError("injected final rename fault")
+            real_rename(source, destination)
+
+        with patch.object(final_module.os, "rename", side_effect=fail_final_rename):
+            with self.assertRaisesRegex(ValueError, "rename|publication|fault"):
+                publish_editorial_native_release(staging, contract_path, disposition)
+        self.assertEqual(self._tree_bytes(staging), before)
+        transaction_root = self.asset_root / "renders" / "final-transactions" / "editorial-concepts-v1"
+        self.assertEqual(list(transaction_root.glob(f".{RELEASE_ID}.*")), [])
+
+    def test_accept_metadata_write_faults_discard_candidate_and_keep_pending_exact(self) -> None:
+        """Catches disposition or marker faults leaving hidden poison trees or changed evidence."""
+
+        for failed_name in ("actual-pixel-disposition.json", "release-manifest.json"):
+            with self.subTest(failed_name=failed_name):
+                self.tearDown()
+                self.setUp()
+                contract_path = authorize_editorial_final_release(
+                    self._approval(), self.asset_root, RELEASE_ID
+                )
+                staging, disposition = self._staging_fixture(contract_path)
+                before = self._tree_bytes(staging)
+                real_json = final_module._exclusive_json
+
+                def fail_json(path: Path, payload: Mapping[str, object]) -> None:
+                    if path.name == failed_name:
+                        raise OSError(f"injected {failed_name} write fault")
+                    real_json(path, payload)
+
+                with patch.object(final_module, "_exclusive_json", side_effect=fail_json):
+                    with self.assertRaisesRegex(ValueError, "publication transaction failed"):
+                        publish_editorial_native_release(staging, contract_path, disposition)
+                self.assertEqual(self._tree_bytes(staging), before)
+                transaction_root = (
+                    self.asset_root / "renders" / "final-transactions" /
+                    "editorial-concepts-v1"
+                )
+                self.assertEqual(list(transaction_root.glob(f".{RELEASE_ID}.*")), [])
+                self.assertFalse((staging.parent / RELEASE_ID).exists())
+
+    def test_reject_write_and_rename_faults_leave_pending_exact_and_retryable(self) -> None:
+        """Catches rejected-disposition or move faults corrupting the source evidence."""
+
+        for fault in ("write", "rename"):
+            with self.subTest(fault=fault):
+                self.tearDown()
+                self.setUp()
+                contract_path = authorize_editorial_final_release(
+                    self._approval(), self.asset_root, RELEASE_ID
+                )
+                staging, disposition = self._staging_fixture(contract_path)
+                disposition["decision"] = "reject"
+                disposition["shots"][0]["pixel_review"] = "fail"
+                before = self._tree_bytes(staging)
+                real_json = final_module._exclusive_json
+                real_rename = final_module.os.rename
+
+                def fail_json(path: Path, payload: Mapping[str, object]) -> None:
+                    if path.name == "rejected-disposition.json":
+                        raise OSError("injected reject write fault")
+                    real_json(path, payload)
+
+                def fail_rename(source: object, destination: object) -> None:
+                    if "-rejected-" in Path(destination).name:
+                        raise OSError("injected reject rename fault")
+                    real_rename(source, destination)
+
+                patcher = patch.object(
+                    final_module,
+                    "_exclusive_json",
+                    side_effect=fail_json,
+                ) if fault == "write" else patch.object(
+                    final_module.os, "rename", side_effect=fail_rename
+                )
+                with patcher:
+                    with self.assertRaises((OSError, ValueError)):
+                        reject_editorial_native_release(staging, contract_path, disposition)
+                self.assertEqual(self._tree_bytes(staging), before)
+
+    def test_blender_worker_script_bootstraps_outside_package_mode(self) -> None:
+        """Catches Blender executing the checked-in worker with unresolved relative imports."""
+
+        script = Path(__file__).parents[1] / "blender_editorial_final.py"
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--render-shot", completed.stdout)
+
+    def test_worker_png_validation_passes_headless_render_result_size(self) -> None:
+        """Catches drift when the shared PNG validator adds required Blender evidence."""
+
+        with TemporaryDirectory() as root:
+            png = Path(root) / "shot.png"
+            Image.new("RGB", (40, 30), (1, 2, 3)).save(png)
+            bpy = SimpleNamespace(
+                data=SimpleNamespace(
+                    images={"Render Result": SimpleNamespace(size=(0, 0))}
+                )
+            )
+            evidence = final_module._validate_worker_png(bpy, png, 40, 30)
+        self.assertEqual(evidence["png_dimensions"], [40, 30])
+        self.assertEqual(evidence["render_result_size"], [0, 0])
+
+    def test_missing_worker_marker_preserves_blender_traceback_tail(self) -> None:
+        """Catches subprocess diagnostics being discarded from immutable failure evidence."""
+
+        completed = subprocess.CompletedProcess(
+            args=["blender"], returncode=0,
+            stdout="Blender output\nTraceback: signature drift",
+            stderr="worker stderr",
+        )
+        with self.assertRaisesRegex(ValueError, "signature drift"):
+            final_module._parse_worker(completed, "shot-one")
+
+    def test_worker_success_flushes_result_before_forced_blender_exit(self) -> None:
+        """Catches forced teardown becoming reachable before the signed result is durable."""
+
+        events: list[str] = []
+
+        class Stream:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            def write(self, value: str) -> None:
+                self.value = value
+                events.append(f"{self.name}-write")
+
+            def flush(self) -> None:
+                events.append(f"{self.name}-flush")
+
+        stdout, stderr = Stream("stdout"), Stream("stderr")
+        with (
+            patch.object(final_module.sys, "stdout", stdout),
+            patch.object(final_module.sys, "stderr", stderr),
+            patch.object(
+                final_module.os, "_exit",
+                side_effect=lambda code: events.append(f"exit-{code}"),
+            ),
+        ):
+            final_module._emit_worker_success({"shot_id": "shot-one"})
+        self.assertTrue(stdout.value.startswith(final_module.WORKER_MARKER))
+        self.assertEqual(events, [
+            "stdout-write", "stdout-flush", "stderr-flush", "exit-0",
+        ])
+
+    def test_worker_error_path_never_forces_success_exit(self) -> None:
+        """Catches worker exceptions being converted into a successful hard exit."""
+
+        arguments = SimpleNamespace(
+            render_shot=True, asset_root=Path("root"), contract=Path("contract"),
+            staging_root=Path("staging"), shot_id="shot-one",
+            expected_contract_sha256="A" * 64, expected_bindings_json="{}",
+        )
+        with (
+            patch.object(final_module, "_arguments", return_value=arguments),
+            patch.dict(sys.modules, {"bpy": SimpleNamespace()}),
+            patch.object(final_module, "_render_worker", side_effect=ValueError("gate failed")),
+            patch.object(final_module.os, "_exit") as forced_exit,
+        ):
+            with self.assertRaisesRegex(ValueError, "gate failed"):
+                final_module.main([])
+        forced_exit.assert_not_called()
+
+    def test_worker_phase_must_be_hash_bound_result_ready_before_consumption(self) -> None:
+        """Catches controller acceptance of an early or differently hashed worker phase."""
+
+        with TemporaryDirectory() as root:
+            staging = Path(root)
+            record = {"shot_id": "shot-one", "status": "pending"}
+            final_module._write_worker_phase(staging, "shot-one", "exr-pass")
+            with self.assertRaisesRegex(ValueError, "result-ready"):
+                final_module._consume_worker_phase(staging, "shot-one", record)
+            result_sha256 = hashlib.sha256(
+                final_module._json_bytes(record)
+            ).hexdigest().upper()
+            final_module._write_worker_phase(
+                staging, "shot-one", "result-ready", result_sha256=result_sha256
+            )
+            evidence = final_module._consume_worker_phase(
+                staging, "shot-one", record
+            )
+            self.assertEqual(evidence["result_sha256"], result_sha256)
+            self.assertFalse(final_module._worker_phase_path(staging, "shot-one").exists())
+
+    def test_worker_phase_paths_stay_short_and_collision_safe_at_long_unc_root(self) -> None:
+        """Catches full shot IDs or UUIDs overflowing the real Windows staging root."""
+
+        staging = Path(
+            r"\\maliev\maliev\30_Products\00_Pneumatic Injection Molding Machine"
+            r"\blender-product-renders\renders\final\editorial-concepts-v1"
+        ) / (
+            ".editorial-release-2026-08-30-r01.pending-"
+            + "a" * 32
+        )
+        long_shot = "editorial-lifestyle-pneumatic-side-" + "x" * 256
+        phase = final_module._worker_phase_path(staging, long_shot)
+
+        self.assertLess(len(str(phase)), 260)
+        self.assertLessEqual(len(phase.name), len(".phase-") + 16 + len(".json"))
+        self.assertNotIn(long_shot, phase.name)
+        self.assertEqual(len({
+            final_module._worker_phase_path(
+                staging, f"editorial-shot-{index}-" + "x" * 256
+            )
+            for index in range(100)
+        }), 100)
+
+        with patch.object(
+            final_module.uuid, "uuid4",
+            side_effect=[
+                SimpleNamespace(hex="b" * 32),
+                SimpleNamespace(hex="c" * 32),
+            ],
+        ):
+            first_temp = final_module._worker_phase_temporary_path(staging)
+            second_temp = final_module._worker_phase_temporary_path(staging)
+        self.assertLess(len(str(first_temp)), 260)
+        self.assertEqual(first_temp.name, ".phase-bbbbbbbbbbbbbbbb.tmp")
+        self.assertNotEqual(first_temp, second_temp)
+
+    def test_blender_worker_import_does_not_require_pillow(self) -> None:
+        """Catches fresh Blender exiting before render because its Python lacks Pillow."""
+
+        script = Path(__file__).parents[1] / "blender_editorial_final.py"
+        probe = (
+            "import builtins,runpy,sys;"
+            "real=builtins.__import__;"
+            "builtins.__import__=lambda name,*a,**k: "
+            "(_ for _ in ()).throw(ModuleNotFoundError('blocked Pillow')) "
+            "if name=='PIL' or name.startswith('PIL.') else real(name,*a,**k);"
+            f"sys.argv=[{str(script)!r},'--help'];"
+            f"runpy.run_path({str(script)!r},run_name='__main__')"
+        )
+        completed = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_fresh_blender_worker_uses_hash_bound_headless_contract_validation(self) -> None:
+        """Catches worker re-entering Pillow-dependent accepted-image validation."""
+
+        approval_path = self._approval()
+        contract_path = authorize_editorial_final_release(
+            approval_path, self.asset_root, RELEASE_ID
+        )
+        expected_sha = sha256_file(contract_path)
+        held = _controller_authority_snapshot(contract_path, self.asset_root)
+        bindings = {
+            key: value for key, value in held.items()
+            if not key.startswith("_") and key != "contract_sha256"
+        }
+        with patch(
+            "scripts.blender.pimm_production.blender_editorial_final.validate_editorial_final_contract",
+            side_effect=ModuleNotFoundError("Pillow unavailable in Blender"),
+        ):
+            contract = _load_worker_contract(
+                contract_path, self.asset_root, expected_sha, bindings
+            )
+        self.assertEqual(contract["release_id"], RELEASE_ID)
+        self.assertEqual(contract["samples"], 256)
+        drifted = {**bindings, "manifest_sha256": "0" * 64}
+        with self.assertRaisesRegex(ValueError, "binding drift"):
+            _load_worker_contract(contract_path, self.asset_root, expected_sha, drifted)
+
+    def test_controller_capture_rejects_contract_mutation_during_full_validation(self) -> None:
+        """Catches validating one contract tuple and passing later bytes to Blender."""
+
+        contract_path = authorize_editorial_final_release(
+            self._approval(), self.asset_root, RELEASE_ID
+        )
+        original_bytes = contract_path.read_bytes()
+        original_validate = final_module.validate_editorial_final_contract
+
+        def mutate_after_validation(path: Path, root: Path) -> dict[str, object]:
+            validated = original_validate(path, root)
+            Path(path).chmod(0o644)
+            Path(path).write_bytes(original_bytes + b" ")
+            return validated
+
+        try:
+            with patch.object(
+                final_module, "validate_editorial_final_contract",
+                side_effect=mutate_after_validation,
+            ):
+                with self.assertRaisesRegex(ValueError, "capture|tuple|drift"):
+                    _controller_authority_snapshot(contract_path, self.asset_root)
+        finally:
+            contract_path.chmod(0o644)
+            contract_path.write_bytes(original_bytes)
+
+
+if __name__ == "__main__":
+    unittest.main()

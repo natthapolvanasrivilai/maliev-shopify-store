@@ -20,8 +20,32 @@
 
   assign preset_asset = blank
   case detail_block.settings.image_preset
+    when 'nav-products'
+      assign preset_asset = 'maliev-nav-preview-products-20260905.webp'
+    when 'nav-collections'
+      assign preset_asset = 'maliev-nav-preview-collections-20260905.webp'
+    when 'nav-simmount'
+      assign preset_asset = 'maliev-nav-preview-simmount-20260905.webp'
+    when 'nav-printed-items'
+      assign preset_asset = 'maliev-nav-preview-3d-printed-items-20260905.webp'
+    when 'nav-3d-printing'
+      assign preset_asset = 'maliev-nav-preview-3d-printing-services-20260905.webp'
+    when 'nav-cnc'
+      assign preset_asset = 'maliev-nav-preview-cnc-machining-20260905.webp'
+    when 'nav-scanning'
+      assign preset_asset = 'maliev-nav-preview-3d-scanning-20260905.webp'
+    when 'nav-documents'
+      assign preset_asset = 'maliev-nav-preview-product-documents-20260905.webp'
+    when 'nav-spares'
+      assign preset_asset = 'maliev-nav-preview-spare-parts-20260905.webp'
+    when 'nav-contact'
+      assign preset_asset = 'maliev-nav-preview-contact-20260905.webp'
+    when 'nav-mesh'
+      assign preset_asset = 'maliev-nav-preview-mesh-splitter-20260905.webp'
+    when 'nav-news'
+      assign preset_asset = 'maliev-nav-preview-news-20260905.webp'
     when 'machines'
-      assign preset_asset = 'maliev-catalogue-machines.webp'
+      assign preset_asset = 'maliev-homepage-pimm-20260901-r14-navigation-alpha.webp'
     when 'simmount'
       assign preset_asset = 'maliev-catalogue-simmount.webp'
     when 'printed'
@@ -45,6 +69,14 @@
     assign has_link_image = true
   endif
 
+  if link_image != blank
+    assign preview_image_url = link_image | image_url: width: 640
+  elsif preset_asset != blank
+    assign preview_image_url = preset_asset | asset_url
+  else
+    assign preview_image_url = 'maliev-catalogue-manufacturing-services.webp' | asset_url
+  endif
+
   assign show_link_image = false
   if has_link_image and variant != 'compact'
     assign show_link_image = true
@@ -55,6 +87,13 @@
   class="mc-menu-link mc-menu-link--{{ variant }}{% if show_link_image %} mc-menu-link--with-media{% endif %}"
   href="{{ menu_link.url }}"
   {% if menu_link.current %}aria-current="page"{% endif %}
+  {% if variant == 'compact' %}
+    data-mc-menu-preview
+    data-preview-title="{{ menu_link.title | escape }}"
+    data-preview-description="{{ link_description | strip_html | escape }}"
+    data-preview-url="{{ menu_link.url | escape }}"
+    data-preview-image="{{ preview_image_url | escape }}"
+  {% endif %}
 >
   {%- if show_link_image -%}
     <span class="mc-menu-link__media" aria-hidden="true">
@@ -72,8 +111,8 @@
         <img
           src="{{ preset_asset | asset_url }}"
           alt=""
-          width="1086"
-          height="1448"
+          width="960"
+          height="720"
           loading="lazy"
         >
       {%- endif -%}

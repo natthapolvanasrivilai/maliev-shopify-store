@@ -1,0 +1,18 @@
+{
+  "animation": {
+    "allowed_controls": [],
+    "status": "blocked_pending_owner_motion_map"
+  },
+  "controller": {
+    "allow_font": false,
+    "allow_image_overlay": false,
+    "display_values": [
+      "300",
+      "300"
+    ],
+    "geometry_mode": "physical-seven-segment-mesh",
+    "inactive_segments_required": true
+  },
+  "machine": "30G",
+  "schema_version": 1
+}

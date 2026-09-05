@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "createdDate": "2026-09-03",
+  "purpose": "Approved 30G gallery silent local-preview footage",
+  "authorization": "Owner authorized downloading these MALIEV-owned public YouTube videos for short muted gallery previews. No upload or deployment authorized by this asset-production step.",
+  "sourceChannel": "MALIEV - CNC, 3D Scanning and 3D Printing Services",
+  "retrieval": {
+    "tool": "yt-dlp 2026.8.19",
+    "authentication": "None; public downloads without cookies",
+    "workingDirectory": ".codex-tmp/gallery-media (Git-ignored)",
+    "note": "YouTube extractor warned that no supported JavaScript runtime was enabled; all three selected public video formats downloaded successfully."
+  },
+  "encoding": {
+    "videoCodec": "h264",
+    "pixelFormat": "yuv420p",
+    "audioStreams": 0,
+    "durationSeconds": 6,
+    "width": 406,
+    "height": 720,
+    "aspectHandling": "Full portrait frame, no crop; 9:16 source width rounded from 405 to the nearest even 406 pixels for yuv420p compatibility.",
+    "encoder": "libx264",
+    "crf": 25,
+    "preset": "slow",
+    "faststart": true,
+    "posterCodec": "webp",
+    "posterQuality": 82,
+    "posterSource": "Frame extracted from the encoded preview; no generated imagery or animation."
+  },
+  "assets": [
+    {
+      "key": "demonstration",
+      "sourceUrl": "https://www.youtube.com/watch?v=SlCkqUcpZ_Y",
+      "sourceTitle": "เครื่องฉีดพลาสติก",
+      "sourceFormatId": "398",
+      "sourceWidth": 720,
+      "sourceHeight": 1280,
+      "sourceFrameRate": 60,
+      "sourceDurationSeconds": 124,
+      "startSeconds": 54,
+      "endSeconds": 60,
+      "selection": "Front view of the machine and manual pneumatic control during operation, after the opening titles.",
+      "frameRate": 30,
+      "frameCount": 180,
+      "video": {
+        "path": "assets/pimm-gallery-20260903-demonstration.mp4",
+        "bytes": 598643,
+        "sha256": "eb0461abb2c25af14242958358cd01789e37fcc5a6d62224486a326e231ca766"
+      },
+      "poster": {
+        "path": "assets/pimm-gallery-20260903-demonstration.webp",
+        "previewTimeSeconds": 1,
+        "sourceTimeSeconds": 55,
+        "bytes": 37782,
+        "sha256": "a349694b74739cf94bc9cc6e445eb898230bd7c0e805f9c12ec21a0c547547ea"
+      }
+    },
+    {
+      "key": "molding",
+      "sourceUrl": "https://www.youtube.com/watch?v=PHqab73X5C0",
+      "sourceTitle": "เครื่องฉีดพลาสติก จาก MALIEV",
+      "sourceFormatId": "247",
+      "sourceWidth": 720,
+      "sourceHeight": 1280,
+      "sourceFrameRate": 30,
+      "sourceDurationSeconds": 262,
+      "startSeconds": 100,
+      "endSeconds": 106,
+      "selection": "Close view of mold positioning and machine operation with the mold beneath the injection nozzle.",
+      "frameRate": 30,
+      "frameCount": 180,
+      "video": {
+        "path": "assets/pimm-gallery-20260903-molding.mp4",
+        "bytes": 214205,
+        "sha256": "099fc00e21bf0a9fc99aa331a7f2770436ee749102415718571dc068037f3665"
+      },
+      "poster": {
+        "path": "assets/pimm-gallery-20260903-molding.webp",
+        "previewTimeSeconds": 4,
+        "sourceTimeSeconds": 104,
+        "bytes": 25764,
+        "sha256": "eb00d4ce696b3c2fdd27992538c783529cafceee551f5254e39fd0d7beb7351b"
+      }
+    },
+    {
+      "key": "end-caps",
+      "sourceUrl": "https://www.youtube.com/watch?v=zoRajgCbsko",
+      "sourceTitle": "Making Aluminum Profile End Caps",
+      "sourceFormatId": "398",
+      "sourceWidth": 720,
+      "sourceHeight": 1280,
+      "sourceFrameRate": 25,
+      "sourceDurationSeconds": 288,
+      "startSeconds": 11,
+      "endSeconds": 17,
+      "selection": "Actual molded end-cap trimming and fitting to an aluminum extrusion, before the mold-design title sequence.",
+      "frameRate": 25,
+      "frameCount": 150,
+      "video": {
+        "path": "assets/pimm-gallery-20260903-end-caps.mp4",
+        "bytes": 196005,
+        "sha256": "b57ffd6aa0c6a87306dd78dc5480a08facc98ba69af8e138056254043ba96f13"
+      },
+      "poster": {
+        "path": "assets/pimm-gallery-20260903-end-caps.webp",
+        "previewTimeSeconds": 3,
+        "sourceTimeSeconds": 14,
+        "bytes": 15918,
+        "sha256": "eb155f068fce2ad092994f452da9854d62f448e614a88d972cda02479a29013d"
+      }
+    }
+  ],
+  "validation": {
+    "visual": "Inspected source contact sheets, one-second selection samples, and all three extracted posters.",
+    "metadata": "ffprobe verified H.264, yuv420p, 406x720, six-second duration, frame rates and frame counts; video-only streams with no audio.",
+    "decode": "All three previews fully decoded with ffmpeg -v error -i <file> -f null - and no errors.",
+    "faststart": "Parsed MP4 top-level atoms: ftyp, moov, free, mdat for each file; moov precedes media data.",
+    "checksums": "SHA-256 and byte counts recorded for all six delivered assets.",
+    "buildAndTests": "Not applicable to standalone binary media; integrating theme must run its own theme checks and browser validation."
+  }
+}

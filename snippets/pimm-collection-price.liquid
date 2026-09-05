@@ -1,0 +1,29 @@
+{% doc %}
+  Formats the governed full-machine THB amount, independent of deposit pricing.
+  @param {number} amount_cents - Full machine price in satang.
+{% enddoc %}
+{%- liquid
+  assign whole_baht = amount_cents | divided_by: 100 | floor
+  assign satang = amount_cents | modulo: 100 | round
+  assign digits = whole_baht | append: '' | split: '' | reverse
+  capture reversed_amount
+    for digit in digits
+      echo digit
+      assign group_position = forloop.index | modulo: 3
+      if group_position == 0 and forloop.last == false
+        echo ','
+      endif
+    endfor
+  endcapture
+  assign grouped_amount = reversed_amount | split: '' | reverse | join: ''
+  echo grouped_amount
+  if satang > 0
+    echo '.'
+    if satang < 10
+      echo '0'
+    endif
+    echo satang
+  endif
+  echo ' '
+  echo 'products.pimm_collection.currency_unit' | t
+-%}

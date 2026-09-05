@@ -1,0 +1,30 @@
+{
+  "schema": "maliev.pimm-bento-approval/v1",
+  "generation": "bento-20260903-r06",
+  "decision": "approved",
+  "owner_message": "approve.",
+  "approved_date": "2026-09-03",
+  "scope": "Exact reviewed scenes at contracted native dimensions; local storefront preview only.",
+  "shots": [
+    {
+      "contract_sha256": "E4A47E6BE28868F599DE278B70DF5A98B25492656E85E5BC6ED0A359B9FEB1C4",
+      "shot": "capacity",
+      "contract_path": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/scenes/contracts/pimm-30g--bento-bento-20260903-r06--capacity.json"
+    },
+    {
+      "contract_sha256": "27E3CE476F12B9D6FDEA483964F3C3EF5D1D7F121D701F0B6E1D0805AA8848B8",
+      "shot": "controls",
+      "contract_path": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/scenes/contracts/pimm-30g--bento-bento-20260903-r06--controls.json"
+    },
+    {
+      "contract_sha256": "E05CBE65F679124B005B870104588B6750FAA00641F8CB214710A066F6BE3170",
+      "shot": "tooling",
+      "contract_path": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/scenes/contracts/pimm-30g--bento-bento-20260903-r06--tooling.json"
+    },
+    {
+      "contract_sha256": "ED3BC219FACF04E6AA0AD0DADCD01AE856582DFF8AAD6C7BF4014D7514B8B29A",
+      "shot": "configuration",
+      "contract_path": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/scenes/contracts/pimm-30g--bento-bento-20260903-r06--configuration.json"
+    }
+  ]
+}
