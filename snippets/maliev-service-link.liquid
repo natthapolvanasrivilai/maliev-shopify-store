@@ -25,9 +25,18 @@ Renders one manufacturing service link from a header service block.
       assign preset_asset = 'maliev-catalogue-3d-printed.webp'
     when 'materials'
       assign preset_asset = 'maliev-catalogue-molding-materials.webp'
+    when 'manufacturing'
+      assign preset_asset = 'maliev-catalogue-manufacturing-services.webp'
   endcase
 
   assign service_image = service_block.settings.image
+  if service_image != blank
+    assign preview_image_url = service_image | image_url: width: 640
+  elsif preset_asset != blank
+    assign preview_image_url = preset_asset | asset_url
+  else
+    assign preview_image_url = 'maliev-catalogue-manufacturing-services.webp' | asset_url
+  endif
   assign show_link_image = false
   if variant == 'featured'
     if service_image != blank or preset_asset != blank
@@ -40,6 +49,13 @@ Renders one manufacturing service link from a header service block.
   class="mc-menu-link mc-menu-link--{{ variant }}{% if show_link_image %} mc-menu-link--with-media{% endif %}"
   href="{{ service_block.settings.url }}"
   {{ service_block.shopify_attributes }}
+  {% if variant == 'compact' %}
+    data-mc-menu-preview
+    data-preview-title="{{ service_title | escape }}"
+    data-preview-description="{{ service_description | strip_html | escape }}"
+    data-preview-url="{{ service_block.settings.url | escape }}"
+    data-preview-image="{{ preview_image_url | escape }}"
+  {% endif %}
 >
   {%- if show_link_image -%}
     <span class="mc-menu-link__media" aria-hidden="true">

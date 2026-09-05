@@ -325,7 +325,7 @@
                     </ul>
                   </div>
                   {%- if utility_featured_link != nil -%}
-                    <aside class="mc-nav__feature" aria-label="{{ utility_featured_link.title | escape }}">
+                    <aside class="mc-nav__feature" aria-label="{{ utility_featured_link.title | escape }}" data-mc-menu-feature>
                       <p class="mc-nav__group-label">{{ utility_featured_label | escape }}</p>
                       {% render 'maliev-menu-link', menu_link: utility_featured_link, section: section, variant: 'featured', show_arrow: true %}
                     </aside>
@@ -492,7 +492,8 @@
             { "value": "molds", "label": "Molds and machined parts" },
             { "value": "mesh", "label": "Mesh Splitter" },
             { "value": "materials", "label": "Molding materials" },
-            { "value": "digital", "label": "Digital files" }
+            { "value": "digital", "label": "Digital files" },
+            { "value": "manufacturing", "label": "Manufacturing services" }
           ]
         }
       ]
@@ -541,7 +542,8 @@
             { "value": "none", "label": "No fallback image" },
             { "value": "molds", "label": "Molds and machined parts" },
             { "value": "printed", "label": "3D printed products" },
-            { "value": "materials", "label": "Molding materials" }
+            { "value": "materials", "label": "Molding materials" },
+            { "value": "manufacturing", "label": "Manufacturing services" }
           ]
         }
       ]

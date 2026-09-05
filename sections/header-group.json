@@ -90,7 +90,7 @@
             "link_title": "3D Scanning Services",
             "description": "High-resolution capture for reverse engineering, inspection, and fit checks.",
             "description_th": "สแกนความละเอียดสูงสำหรับวิศวกรรมย้อนกลับ การตรวจสอบ และเช็กระยะประกอบ",
-            "image_preset": "none"
+            "image_preset": "manufacturing"
           }
         },
         "service-custom-manufacturing": {
@@ -101,7 +101,7 @@
             "url": "https://www.maliev.com/services/custom-manufacturing",
             "description": "Start with your drawing, sample, material, quantity, and intended use.",
             "description_th": "เริ่มจากแบบ ตัวอย่าง วัสดุ จำนวน และการใช้งาน เพื่อเลือกกระบวนการที่เหมาะสม",
-            "image_preset": "none"
+            "image_preset": "manufacturing"
           }
         },
         "service-cnc-machining": {
@@ -134,7 +134,7 @@
             "url": "https://www.maliev.com/services/3d-scanning",
             "description": "High-resolution capture for reverse engineering, inspection, and fit checks.",
             "description_th": "สแกนความละเอียดสูงสำหรับวิศวกรรมย้อนกลับ การตรวจสอบ และเช็กระยะประกอบ",
-            "image_preset": "none"
+            "image_preset": "manufacturing"
           }
         },
         "service-3d-design": {
@@ -145,7 +145,7 @@
             "url": "https://www.maliev.com/services/3d-design",
             "description": "Turn ideas, sketches, or scan data into manufacturing-ready CAD with DFM guidance.",
             "description_th": "เปลี่ยนไอเดีย ภาพร่าง หรือข้อมูลสแกนเป็น CAD พร้อมผลิตและคำแนะนำ DFM",
-            "image_preset": "none"
+            "image_preset": "molds"
           }
         },
         "service-silicone-casting": {
@@ -156,7 +156,7 @@
             "url": "https://www.maliev.com/services/silicone-casting",
             "description": "Low-volume silicone parts made with application-appropriate 3D-printed molds.",
             "description_th": "ผลิตชิ้นงานซิลิโคนจำนวนน้อยด้วยแม่พิมพ์พิมพ์ 3 มิติที่เหมาะกับการใช้งาน",
-            "image_preset": "none"
+            "image_preset": "printed"
           }
         },
         "service-injection-molding": {
@@ -178,7 +178,7 @@
             "url": "https://www.maliev.com/services/finishing-and-color",
             "description": "Surface preparation, controlled color references, and matte, satin, or gloss finishes.",
             "description_th": "เตรียมผิว เทียบสีตามมาตรฐาน และเลือกผิวด้าน ซาติน หรือเงาอย่างชัดเจน",
-            "image_preset": "none"
+            "image_preset": "manufacturing"
           }
         },
         "menu-documents": {
@@ -187,7 +187,7 @@
             "link_title": "Product Documents",
             "description": "Manuals, specifications, setup guides, and technical references.",
             "description_th": "คู่มือ ข้อมูลจำเพาะ วิธีติดตั้ง และเอกสารอ้างอิงทางเทคนิค",
-            "image_preset": "none"
+            "image_preset": "digital"
           }
         },
         "menu-spares": {
@@ -205,7 +205,7 @@
             "link_title": "Contact Us",
             "description": "Talk with our team or request a machine demonstration in Pak Kret.",
             "description_th": "พูดคุยกับทีมงานหรือจองรอบสาธิตเครื่องที่สำนักงานใหญ่ปากเกร็ด",
-            "image_preset": "none"
+            "image_preset": "manufacturing"
           }
         },
         "menu-mesh": {
@@ -223,7 +223,7 @@
             "link_title": "News",
             "description": "Product releases, practical workshop guides, and MALIEV updates.",
             "description_th": "ข่าวสินค้า คู่มือเวิร์กช็อป และอัปเดตจาก MALIEV",
-            "image_preset": "none"
+            "image_preset": "manufacturing"
           }
         },
         "panel-products": {

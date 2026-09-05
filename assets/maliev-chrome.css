@@ -300,7 +300,9 @@
 
 .mc-menu-link--compact {
   min-height: 8.4rem;
-  padding-block: 1.4rem;
+  padding: 1.4rem 1.2rem;
+  border-radius: var(--maliev-radius-compact);
+  transition: background-color var(--maliev-transition), color var(--maliev-transition);
 }
 
 .mc-menu-link--featured {
@@ -377,6 +379,11 @@
 .mc-menu-link[aria-current='page'],
 .mc-nav__column > ul a:hover,
 .mc-nav__column > ul a[aria-current='page'] {
+  color: var(--maliev-blue);
+}
+
+.mc-menu-link--compact:is(:hover, :focus-visible, .is-preview-active) {
+  background: var(--maliev-canvas);
   color: var(--maliev-blue);
 }
 
