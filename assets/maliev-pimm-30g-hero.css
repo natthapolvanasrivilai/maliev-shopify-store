@@ -351,6 +351,34 @@
   .pimm-machine[data-page-model="30G"] .pimm-bento__text-full { display: none; }
   .pimm-machine[data-page-model="30G"] .pimm-bento__text-compact { display: inline; }
 }
+@media (min-width: 560px) and (max-width: 749px) {
+  .pimm-machine[data-page-model="30G"] .pimm-bento {
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger {
+    aspect-ratio: 1;
+  }
+}
+@media (max-width: 559px) {
+  .pimm-machine[data-page-model="30G"] .pimm-bento {
+    grid-template-areas: "controls controls" "capacity tooling" "temperature temperature" "air-pressure air-pressure" "plunger plunger" "configuration configuration";
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger {
+    aspect-ratio: 16 / 11;
+    min-height: clamp(220px, 65vw, 340px);
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy {
+    width: 47%;
+    margin: 14px 0 14px 5%;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy h3 {
+    font-size: clamp(1.7rem, 5vw, 2rem) !important;
+  }
+  .pimm-machine[data-page-model="30G"] .pimm-bento__tile--plunger .pimm-bento__copy p {
+    font-size: clamp(1.25rem, 3.5vw, 1.4rem);
+    max-width: 19ch;
+  }
+}
 
 .pimm-machine[data-page-model="30G"] .pimm-machine__ownership {
   grid-template-columns: minmax(0, 1fr);
