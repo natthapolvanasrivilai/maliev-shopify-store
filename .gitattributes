@@ -5,6 +5,3 @@
 *.jpeg binary
 *.webp binary
 *.ttf binary
-# Preserve exact bytes in the immutable, hash-linked native render receipts.
-assets/pimm-bento-r11-motion.v1.json -text
-assets/pimm-bento-r12-assets.v1.json -text

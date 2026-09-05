@@ -27,7 +27,6 @@ from typing import Iterable
 # construction continues to run only inside Blender.
 STANDALONE_CONTAINMENT_MODE = "--contain-rendered-frames" in sys.argv
 if not STANDALONE_CONTAINMENT_MODE:
-    import bmesh
     import bpy
     from mathutils import Vector
 else:
@@ -45,7 +44,7 @@ SOURCE_BLEND = Path(
 )
 TARGET_BLEND = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders"
-    r"\PIMM-50g-red-stage-loop-v2.blend"
+    r"\PIMM-50g-red-stage-loop.blend"
 )
 PRODUCT_COLLECTION = "Machine_50g"
 EXPECTED_MACHINE_MESH_COUNT = 481
@@ -85,17 +84,16 @@ FILL_LIGHT = f"{PREFIX}FILL_5000K"
 RED_BACKLIGHT = f"{PREFIX}RED_REAR_EFFECT"
 FOG_VOLUME = f"{PREFIX}FOG_VOLUME"
 FOG_MATERIAL = f"{PREFIX}FOG_MATERIAL"
-SMOKE_CARD_MATERIAL = f"{PREFIX}SMOKE_CARD_MATERIAL"
 GROUND_MATERIAL = f"{PREFIX}GROUND_MATERIAL"
 WORLD_NAME = f"{PREFIX}WORLD"
 
 DESKTOP_OUTPUT = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders"
-    r"\renders\product-story\50g-red-stage-v2\desktop"
+    r"\renders\product-story\50g-red-stage\desktop"
 )
 MOBILE_OUTPUT = Path(
     r"M:\30_Products\00_Pneumatic Injection Molding Machine\blender-product-renders"
-    r"\renders\product-story\50g-red-stage-v2\mobile"
+    r"\renders\product-story\50g-red-stage\mobile"
 )
 CONTAINED_OUTPUT = DESKTOP_OUTPUT.parent / "contained"
 PROOF_FRAMES = (1, 20, 84, 101, 121)
@@ -104,38 +102,42 @@ FPS = 24
 FRAME_START = 1
 FRAME_END = 120
 LOOP_BOUNDARY_FRAME = 121
-CYCLES_SAMPLES = 256
+CYCLES_SAMPLES = 128
 LIGHT_TEMPERATURE_K = 5000
-CAMERA_EXPOSURE_EV = -0.45
-CONTROLLER_MAX_TEMPERATURE_C = 350
+CAMERA_EXPOSURE_EV = -0.35
 
 # One fixed camera and one exposure per composition; depth of field is off so
 # the complete machine remains sharp from its feet to its top cylinder.
 CAMERA_SPECS = {
     "desktop": {
         "name": DESKTOP_CAMERA,
-        "location": (0.72, -3.20, 0.42),
-        "lens_mm": 54.0,
-        "sensor_fit": "VERTICAL",
-        "resolution": (1800, 1600),
+        "location": (0.55, -4.25, 0.58),
+        "lens_mm": 72.0,
+        "sensor_fit": "HORIZONTAL",
+        "resolution": (2400, 1350),
         "scene": DESKTOP_SCENE,
         "output": DESKTOP_OUTPUT,
     },
     "mobile": {
         "name": MOBILE_CAMERA,
-        "location": (0.42, -2.55, 0.43),
-        "lens_mm": 61.0,
+        "location": (0.38, -2.90, 0.57),
+        "lens_mm": 77.0,
         "sensor_fit": "VERTICAL",
         "resolution": (1350, 1800),
         "scene": MOBILE_SCENE,
         "output": MOBILE_OUTPUT,
     },
 }
-CAMERA_TARGET_LOCATION = (0.012, -0.006, 0.565)
-MACHINE_ROTATION_Z_DEGREES = -17.0
+CAMERA_TARGET_LOCATION = (0.012, -0.006, 0.500)
+MACHINE_ROTATION_Z_DEGREES = -11.0
 
-RED_LIGHT_BASE_ENERGY = 15.0
-RED_LIGHT_PULSE_ENERGY = 70.0
+RED_LIGHT_KEYFRAMES = (
+    (1, 180.0),
+    (20, 180.0),
+    (84, 1050.0),
+    (101, 520.0),
+    (121, 180.0),
+)
 
 # Faint shadow-catcher alpha extends to the raw render bounds even though the
 # actual machine and red fog are safely inset. These fixed, composition-aware
@@ -231,12 +233,10 @@ def contain_rgba_frame(source: Path, destination: Path, gutters: dict[str, int])
     red, green, blue, alpha = rgba.split()
     contained_alpha = ImageChops.multiply(alpha, mask)
 
-    # Chroma-subsampled WebM/WebP can bleed saturated RGB from almost invisible
-    # pixels. Taper RGB through the low-alpha fringe while preserving full
-    # straight colour from alpha 43 upward; clear RGB completely below alpha 4.
-    visible = contained_alpha.point(
-        lambda value: 0 if value < 4 else min(255, value * 6)
-    )
+    # PNG stores straight alpha. Preserve RGB wherever alpha remains visible,
+    # and clear hidden RGB only when alpha becomes exactly zero so downstream
+    # VP9 encoding cannot introduce a matte fringe at the canvas boundary.
+    visible = contained_alpha.point(lambda value: 255 if value else 0)
     contained = Image.merge(
         "RGBA",
         (
@@ -488,27 +488,42 @@ def create_area_light(
     return obj
 
 
-def drive_periodic_red_energy(light: bpy.types.Object) -> None:
-    """Create a seamless five-second pulse with matching endpoint derivatives."""
-
-    light.data.energy = RED_LIGHT_BASE_ENERGY
-    curve = light.data.driver_add("energy")
-    curve.driver.type = "SCRIPTED"
-    curve.driver.expression = (
-        f"{RED_LIGHT_BASE_ENERGY}+{RED_LIGHT_PULSE_ENERGY}*"
-        "(0.5-0.5*cos(2*pi*((frame-1)%120)/120))"
-    )
+def keyframe_energy(light: bpy.types.Object, values: Iterable[tuple[int, float]]) -> None:
+    for frame, energy in values:
+        light.data.energy = energy
+        light.data.keyframe_insert("energy", frame=frame)
+    action = light.data.animation_data.action
+    # Blender 5.0+ stores F-curves in layered action channelbags. Retain the
+    # legacy path so the production script remains usable in Blender 4.x too.
+    if hasattr(action, "fcurves"):
+        curves = list(action.fcurves)
+    else:
+        curves = []
+        for layer in action.layers:
+            for strip in layer.strips:
+                if strip.type != "KEYFRAME":
+                    continue
+                for slot in action.slots:
+                    channelbag = strip.channelbag(slot)
+                    if channelbag is not None:
+                        curves.extend(channelbag.fcurves)
+    if not curves:
+        raise RuntimeError("Red-light animation created no editable F-curves.")
+    for curve in curves:
+        for point in curve.keyframe_points:
+            point.interpolation = "BEZIER"
+            point.handle_left_type = "AUTO_CLAMPED"
+            point.handle_right_type = "AUTO_CLAMPED"
 
 
 def create_lighting(collection: bpy.types.Collection, target: Vector) -> dict[str, bpy.types.Object]:
-    # Exactly one dominant neutral key from camera-left. The tighter source
-    # creates legible metal gradients and a decisive grounded contact shadow.
+    # Exactly one dominant neutral key from camera-left.
     key = create_area_light(
         collection,
         KEY_LIGHT,
-        (-1.10, -1.40, 2.60),
-        energy=620.0,
-        size=0.92,
+        (-0.58, -0.62, 3.60),
+        energy=850.0,
+        size=1.50,
         target=target,
     )
     key.data.volume_factor = 0.0
@@ -516,34 +531,34 @@ def create_lighting(collection: bpy.types.Collection, target: Vector) -> dict[st
     fill = create_area_light(
         collection,
         FILL_LIGHT,
-        (0.86, -1.05, 1.18),
-        energy=72.0,
-        size=1.20,
+        (0.92, -0.95, 1.18),
+        energy=145.0,
+        size=1.40,
         target=target,
     )
     fill.data.volume_factor = 0.0
 
     red_data = bpy.data.lights.new(name=RED_BACKLIGHT, type="AREA")
     red_data.color = (1.0, 0.004, 0.004)
-    red_data.energy = RED_LIGHT_BASE_ENERGY
+    red_data.energy = RED_LIGHT_KEYFRAMES[0][1]
     red_data.shape = "DISK"
-    red_data.size = 1.60
+    red_data.size = 0.70
     red_data.use_shadow = True
-    # The rear effect remains much weaker than the neutral key, but now reaches
-    # the product just enough to produce the requested red edge separation.
-    red_data.diffuse_factor = 0.004
-    red_data.specular_factor = 0.015
+    # This is a genuine volume-only rear light. Surface factors remain zero as
+    # a second hard boundary in addition to collection light linking.
+    red_data.diffuse_factor = 0.0
+    red_data.specular_factor = 0.0
     red_data.transmission_factor = 0.0
     # Preserve a real rear area light while making smooth in-volume emission do
     # most of the visible work. A small direct-scatter contribution avoids the
     # grainy grey veil produced by lighting a large participating medium.
     red_data.volume_factor = 0.02
     red = link_object(collection, bpy.data.objects.new(RED_BACKLIGHT, red_data))
-    red.location = (0.035, 0.920, 0.720)
+    red.location = (0.035, 0.620, 0.720)
     orient_towards(red, Vector((0.035, 0.355, 0.660)))
     red.hide_render = False
-    red["role"] = "subordinate red rear effect for smoke and edge separation"
-    drive_periodic_red_energy(red)
+    red["role"] = "volume-only rear red backlight"
+    keyframe_energy(red, RED_LIGHT_KEYFRAMES)
     return {"key": key, "fill": fill, "red": red}
 
 
@@ -557,9 +572,9 @@ def create_fog_material(red_light: bpy.types.Object) -> bpy.types.Material:
     output.name = f"{PREFIX}FOG_OUTPUT"
     volume = nodes.new("ShaderNodeVolumePrincipled")
     volume.name = f"{PREFIX}PRINCIPLED_VOLUME"
-    volume.inputs["Color"].default_value = (0.055, 0.003, 0.002, 1.0)
-    volume.inputs["Anisotropy"].default_value = 0.16
-    volume.inputs["Emission Color"].default_value = (0.70, 0.004, 0.002, 1.0)
+    volume.inputs["Color"].default_value = (0.22, 0.004, 0.002, 1.0)
+    volume.inputs["Anisotropy"].default_value = 0.08
+    volume.inputs["Emission Color"].default_value = (1.0, 0.002, 0.001, 1.0)
     volume.inputs["Emission Strength"].default_value = 0.0
 
     texcoord = nodes.new("ShaderNodeTexCoord")
@@ -567,21 +582,21 @@ def create_fog_material(red_light: bpy.types.Object) -> bpy.types.Material:
     mapping.name = f"{PREFIX}PERIODIC_MAPPING"
     # Keep the 4D field coherent through the shallow volume depth so camera
     # integration preserves smoke lobes instead of averaging them to a glow.
-    mapping.inputs["Scale"].default_value = (0.74, 0.16, 1.16)
+    mapping.inputs["Scale"].default_value = (1.0, 0.18, 1.0)
     noise = nodes.new("ShaderNodeTexNoise")
     noise.name = f"{PREFIX}PERIODIC_NOISE"
     noise.noise_dimensions = "4D"
-    noise.inputs["Scale"].default_value = 2.35
-    noise.inputs["Detail"].default_value = 6.0
-    noise.inputs["Roughness"].default_value = 0.72
-    noise.inputs["Distortion"].default_value = 0.36
+    noise.inputs["Scale"].default_value = 2.25
+    noise.inputs["Detail"].default_value = 2.1
+    noise.inputs["Roughness"].default_value = 0.48
+    noise.inputs["Distortion"].default_value = 0.65
 
     ramp = nodes.new("ShaderNodeValToRGB")
     ramp.name = f"{PREFIX}FOG_SHAPING"
     ramp.color_ramp.interpolation = "EASE"
-    ramp.color_ramp.elements[0].position = 0.38
+    ramp.color_ramp.elements[0].position = 0.40
     ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    ramp.color_ramp.elements[1].position = 0.68
+    ramp.color_ramp.elements[1].position = 0.64
     ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
 
     edge_distance = nodes.new("ShaderNodeVectorMath")
@@ -606,7 +621,7 @@ def create_fog_material(red_light: bpy.types.Object) -> bpy.types.Material:
     density = nodes.new("ShaderNodeMath")
     density.name = f"{PREFIX}DENSITY_LIMIT"
     density.operation = "MULTIPLY"
-    density.inputs[1].default_value = 0.500
+    density.inputs[1].default_value = 0.32
 
     links = material.node_tree.links
     links.new(texcoord.outputs["Generated"], mapping.inputs["Vector"])
@@ -631,7 +646,7 @@ def create_fog_material(red_light: bpy.types.Object) -> bpy.types.Material:
     emission_variable.targets[0].id_type = "LIGHT"
     emission_variable.targets[0].id = red_light.data
     emission_variable.targets[0].data_path = "energy"
-    emission_curve.driver.expression = "0.010+rear_energy*0.00110"
+    emission_curve.driver.expression = "0.015+rear_energy*0.00065"
 
     # Analytic periodic drivers: frame 1 and frame 121 evaluate identically.
     driver_specs = (
@@ -654,22 +669,31 @@ def create_fog(
 ) -> bpy.types.Object:
     material = create_fog_material(red_light)
     mesh = bpy.data.meshes.new(f"{PREFIX}FOG_MESH")
-    fog_geometry = bmesh.new()
-    bmesh.ops.create_uvsphere(
-        fog_geometry,
-        u_segments=64,
-        v_segments=32,
-        radius=1.0,
+    vertices = (
+        (-0.5, -0.5, -0.5),
+        (0.5, -0.5, -0.5),
+        (0.5, 0.5, -0.5),
+        (-0.5, 0.5, -0.5),
+        (-0.5, -0.5, 0.5),
+        (0.5, -0.5, 0.5),
+        (0.5, 0.5, 0.5),
+        (-0.5, 0.5, 0.5),
     )
-    fog_geometry.to_mesh(mesh)
-    fog_geometry.free()
+    faces = (
+        (0, 3, 2, 1),
+        (4, 5, 6, 7),
+        (0, 1, 5, 4),
+        (1, 2, 6, 5),
+        (2, 3, 7, 6),
+        (3, 0, 4, 7),
+    )
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
     obj = link_object(collection, bpy.data.objects.new(FOG_VOLUME, mesh))
-    obj.location = (-0.12, 0.46, 0.76)
+    obj.location = (0.14, 0.34, 0.66)
     # A low-depth closed volume stays behind the silhouette. The normalized
     # 3D radial falloff reaches zero on every face, hiding the container.
-    # An ellipsoidal container removes the rectangular volume boundary while
-    # keeping the shallow participating medium behind the product silhouette.
-    obj.scale = (0.58, 0.055, 0.72)
+    obj.scale = (0.58, 0.20, 0.82)
     obj.data.materials.append(material)
     # Camera and volume-scatter rays see the atmosphere; surface paths do not,
     # preventing any reflected red cast on the authentic product materials.
@@ -681,145 +705,7 @@ def create_fog(
     obj.visible_volume_scatter = True
     obj["camera_side"] = "behind product only; genuine volume"
     obj["front_y_metres"] = obj.location.y - obj.scale.y / 2.0
-    # Two additional asymmetric lobes create a layered smoke plume instead of
-    # a uniform red field. They share the same animated 4D density material so
-    # the five-second loop remains deterministic and seamless.
-    for suffix, location, scale in (
-        ("_MID", (0.34, 0.49, 0.59), (0.44, 0.050, 0.56)),
-        ("_LOW", (0.02, 0.43, 0.30), (0.55, 0.045, 0.42)),
-    ):
-        lobe = link_object(
-            collection,
-            bpy.data.objects.new(f"{FOG_VOLUME}{suffix}", mesh.copy()),
-        )
-        lobe.location = location
-        lobe.scale = scale
-        lobe.visible_camera = True
-        lobe.visible_glossy = False
-        lobe.visible_diffuse = False
-        lobe.visible_transmission = False
-        lobe.visible_shadow = False
-        lobe.visible_volume_scatter = True
-        lobe["camera_side"] = "behind product only; secondary smoke lobe"
-    create_smoke_cards(collection)
     return obj
-
-
-def create_smoke_card_material() -> bpy.types.Material:
-    """Build soft animated red smoke that survives transparent-film encoding.
-
-    The genuine participating volume remains in the scene for light transport.
-    These low-energy emissive wisps carry its visible silhouette into alpha so
-    VP9/WebM does not collapse the fog into a featureless dark veil.
-    """
-
-    material = bpy.data.materials.new(SMOKE_CARD_MATERIAL)
-    material.use_nodes = True
-    nodes = material.node_tree.nodes
-    nodes.clear()
-
-    output = nodes.new("ShaderNodeOutputMaterial")
-    transparent = nodes.new("ShaderNodeBsdfTransparent")
-    emission = nodes.new("ShaderNodeEmission")
-    emission.inputs["Color"].default_value = (0.42, 0.0015, 0.0008, 1.0)
-    emission.inputs["Strength"].default_value = 0.24
-    mix = nodes.new("ShaderNodeMixShader")
-
-    texcoord = nodes.new("ShaderNodeTexCoord")
-    mapping = nodes.new("ShaderNodeMapping")
-    mapping.inputs["Scale"].default_value = (1.30, 0.82, 1.0)
-    noise = nodes.new("ShaderNodeTexNoise")
-    noise.noise_dimensions = "4D"
-    noise.inputs["Scale"].default_value = 2.70
-    noise.inputs["Detail"].default_value = 7.0
-    noise.inputs["Roughness"].default_value = 0.74
-    noise.inputs["Distortion"].default_value = 0.42
-    ramp = nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.interpolation = "EASE"
-    ramp.color_ramp.elements[0].position = 0.43
-    ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    ramp.color_ramp.elements[1].position = 0.72
-    ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
-
-    distance = nodes.new("ShaderNodeVectorMath")
-    distance.operation = "DISTANCE"
-    distance.inputs[1].default_value = (0.5, 0.5, 0.0)
-    edge = nodes.new("ShaderNodeMapRange")
-    edge.clamp = True
-    edge.inputs["From Min"].default_value = 0.10
-    edge.inputs["From Max"].default_value = 0.46
-    edge.inputs["To Min"].default_value = 1.0
-    edge.inputs["To Max"].default_value = 0.0
-    opacity = nodes.new("ShaderNodeMath")
-    opacity.operation = "MULTIPLY"
-    opacity.inputs[1].default_value = 0.60
-
-    links = material.node_tree.links
-    links.new(texcoord.outputs["UV"], mapping.inputs["Vector"])
-    links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
-    links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
-    links.new(texcoord.outputs["UV"], distance.inputs[0])
-    links.new(distance.outputs["Value"], edge.inputs["Value"])
-    links.new(ramp.outputs["Color"], opacity.inputs[0])
-    links.new(edge.outputs["Result"], opacity.inputs[1])
-    links.new(transparent.outputs["BSDF"], mix.inputs[1])
-    links.new(emission.outputs["Emission"], mix.inputs[2])
-    links.new(opacity.outputs[0], mix.inputs[0])
-    links.new(mix.outputs["Shader"], output.inputs["Surface"])
-
-    for socket, index, expression in (
-        (mapping.inputs["Location"], 0, "0.08*sin(2*pi*((frame-1)%120)/120)"),
-        (mapping.inputs["Location"], 1, "0.10*cos(2*pi*((frame-1)%120)/120)"),
-        (noise.inputs["W"], -1, "0.38*sin(2*pi*((frame-1)%120)/120)+0.22*cos(2*pi*((frame-1)%120)/120)"),
-    ):
-        curve = socket.driver_add("default_value", index) if index >= 0 else socket.driver_add("default_value")
-        curve.driver.type = "SCRIPTED"
-        curve.driver.expression = expression
-
-    material.surface_render_method = "DITHERED"
-    material.use_transparency_overlap = False
-    material["period_frames"] = 120
-    return material
-
-
-def create_smoke_cards(collection: bpy.types.Collection) -> list[bpy.types.Object]:
-    material = create_smoke_card_material()
-    cards: list[bpy.types.Object] = []
-    for index, (location, scale, rotation) in enumerate(
-        (
-            ((-0.18, 0.54, 0.72), (0.78, 1.08), -7.0),
-            ((0.32, 0.56, 0.57), (0.62, 0.82), 11.0),
-            ((0.02, 0.52, 0.28), (0.74, 0.54), -3.0),
-        ),
-        start=1,
-    ):
-        mesh = bpy.data.meshes.new(f"{PREFIX}SMOKE_CARD_{index}_MESH")
-        mesh.from_pydata(
-            [(-0.5, 0.0, -0.5), (0.5, 0.0, -0.5), (0.5, 0.0, 0.5), (-0.5, 0.0, 0.5)],
-            [],
-            [(0, 1, 2, 3)],
-        )
-        mesh.update()
-        uv_layer = mesh.uv_layers.new(name="UVMap")
-        uv_by_vertex = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
-        for polygon in mesh.polygons:
-            for loop_index in polygon.loop_indices:
-                uv_layer.data[loop_index].uv = uv_by_vertex[mesh.loops[loop_index].vertex_index]
-        obj = link_object(
-            collection,
-            bpy.data.objects.new(f"{PREFIX}SMOKE_CARD_{index}", mesh),
-        )
-        obj.location = location
-        obj.scale = (scale[0], 1.0, scale[1])
-        obj.rotation_euler[1] = math.radians(rotation)
-        obj.data.materials.append(material)
-        obj.visible_glossy = False
-        obj.visible_diffuse = False
-        obj.visible_transmission = False
-        obj.visible_shadow = False
-        obj["role"] = "animated red smoke silhouette behind product"
-        cards.append(obj)
-    return cards
 
 
 def create_ground(collection: bpy.types.Collection) -> bpy.types.Object:
@@ -921,12 +807,12 @@ def configure_volume_alpha_compositor(scene: bpy.types.Scene) -> None:
     volume_threshold = nodes.new("ShaderNodeMath")
     volume_threshold.name = f"{PREFIX}VOLUME_ALPHA_THRESHOLD"
     volume_threshold.operation = "SUBTRACT"
-    volume_threshold.inputs[1].default_value = 0.004
+    volume_threshold.inputs[1].default_value = 0.20
     volume_threshold.use_clamp = True
     volume_alpha = nodes.new("ShaderNodeMath")
     volume_alpha.name = f"{PREFIX}VOLUME_ALPHA_GAIN"
     volume_alpha.operation = "MULTIPLY"
-    volume_alpha.inputs[1].default_value = 7.00
+    volume_alpha.inputs[1].default_value = 3.0
     volume_alpha.use_clamp = True
     alpha_union = nodes.new("ShaderNodeMath")
     alpha_union.name = f"{PREFIX}ALPHA_UNION"
@@ -936,9 +822,6 @@ def configure_volume_alpha_compositor(scene: bpy.types.Scene) -> None:
     set_alpha = nodes.new("CompositorNodeSetAlpha")
     set_alpha.name = f"{PREFIX}SET_VOLUME_ALPHA"
     set_alpha.inputs["Type"].default_value = "Replace Alpha"
-    premultiply = nodes.new("CompositorNodePremulKey")
-    premultiply.name = f"{PREFIX}PREMULTIPLY_ALPHA"
-    premultiply.inputs["Type"].default_value = "To Premultiplied"
     output = nodes.new("NodeGroupOutput")
     output.name = f"{PREFIX}COMPOSITOR_OUTPUT"
 
@@ -953,8 +836,7 @@ def configure_volume_alpha_compositor(scene: bpy.types.Scene) -> None:
     links.new(volume_alpha.outputs[0], alpha_union.inputs[1])
     links.new(render_layers.outputs["Image"], set_alpha.inputs["Image"])
     links.new(alpha_union.outputs[0], set_alpha.inputs["Alpha"])
-    links.new(set_alpha.outputs["Image"], premultiply.inputs["Image"])
-    links.new(premultiply.outputs["Image"], output.inputs["Image"])
+    links.new(set_alpha.outputs["Image"], output.inputs["Image"])
     scene.compositing_node_group = group
 
 
@@ -1008,35 +890,11 @@ def assert_machine_materials_unchanged(snapshot: dict[str, tuple[str | None, ...
         raise RuntimeError(f"Machine material slots changed unexpectedly: {changed[:20]}")
 
 
-def enable_verified_controller_readout(
-    product_collection: bpy.types.Collection,
-) -> list[str]:
-    """Restore the authentic 350°C controller readout on the render copy.
-
-    The authentic controller housings, black glass and unlit segments remain
-    visible. Geometry and material slots are not edited; this pass only makes
-    those verified display meshes visible in the independent production copy.
-    """
-
-    enabled: list[str] = []
-    for obj in collection_mesh_objects(product_collection):
-        slot_names = {name for name in material_slots(obj) if name}
-        if slot_names.intersection({"MAT_Display_LED_Red", "MAT_Display_LED_Green"}):
-            obj.hide_render = False
-            obj.pop("pimm50_red_stage_unverified_readout_hidden", None)
-            obj["pimm50_red_stage_controller_readout_c"] = CONTROLLER_MAX_TEMPERATURE_C
-            enabled.append(obj.name)
-    if not enabled:
-        raise RuntimeError("No verified illuminated controller segments were found.")
-    return enabled
-
-
 def create_stage(
     product_collection: bpy.types.Collection,
     material_snapshot: dict[str, tuple[str | None, ...]],
 ) -> dict[str, object]:
     remove_prefixed_data()
-    controller_readout_objects = enable_verified_controller_readout(product_collection)
 
     root = bpy.data.collections.new(ROOT_COLLECTION)
     root[OWNER_PROPERTY] = True
@@ -1061,6 +919,9 @@ def create_stage(
 
     lighting = create_lighting(stage_collections["RED_STAGE_LIGHTS"], target)
     fog = create_fog(stage_collections["RED_STAGE_FOG"], lighting["red"])
+    # Keep the sole receiver explicit so the physical rear light cannot spill
+    # onto product materials.
+    lighting["red"].light_linking.receiver_collection = stage_collections["RED_STAGE_FOG"]
     ground = create_ground(stage_collections["RED_STAGE_GROUND"])
     cameras = {
         label: create_camera(stage_collections["RED_STAGE_CAMERAS"], spec, target)
@@ -1083,7 +944,6 @@ def create_stage(
         "lighting": lighting,
         "fog": fog,
         "ground": ground,
-        "controller_readout_objects": controller_readout_objects,
         "devices": configure_cycles_gpu(),
     }
 
@@ -1105,13 +965,17 @@ def assert_scene_contract(
         lighting["red"].data.volume_factor, 0.02, abs_tol=1e-6
     ):
         raise RuntimeError("The rear red backlight must render as a volume-only light.")
-    if lighting["red"].data.transmission_factor != 0.0:
-        raise RuntimeError("The red rear effect must not transmit through product materials.")
-    if not (
-        0.0 < lighting["red"].data.diffuse_factor < 0.12
-        and 0.0 < lighting["red"].data.specular_factor < 0.35
+    if any(
+        factor != 0.0
+        for factor in (
+            lighting["red"].data.diffuse_factor,
+            lighting["red"].data.specular_factor,
+            lighting["red"].data.transmission_factor,
+        )
     ):
-        raise RuntimeError("The red edge light must stay visibly subordinate to the neutral key.")
+        raise RuntimeError("The rear red backlight must not illuminate product surfaces.")
+    if lighting["red"].light_linking.receiver_collection != collections["RED_STAGE_FOG"]:
+        raise RuntimeError("The red rear effect must be light-linked only to RED_STAGE_FOG.")
     if fog.location.y - fog.scale.y / 2.0 <= 0.22:
         raise RuntimeError("Fog plume drifted in front of the rotated product bounds.")
     fog_output = bpy.data.materials[FOG_MATERIAL].node_tree.nodes[f"{PREFIX}FOG_OUTPUT"]
@@ -1201,7 +1065,7 @@ def scene_summary(build: dict[str, object]) -> dict[str, object]:
             },
             "red": {
                 "name": RED_BACKLIGHT,
-                "driver": "periodic cosine pulse, 120-frame period",
+                "keyframes": list(RED_LIGHT_KEYFRAMES),
                 "current_energy": red.data.energy,
             },
         },
@@ -1217,12 +1081,7 @@ def scene_summary(build: dict[str, object]) -> dict[str, object]:
             "period_frames": fog_material["period_frames"],
             "simulation_cache": fog_material["simulation_cache"],
         },
-        "controller_readout": {
-            "temperature_c": CONTROLLER_MAX_TEMPERATURE_C,
-            "enabled_segments": len(build["controller_readout_objects"]),
-        },
         "cycles_devices": build["devices"],
-        "verified_controller_segments": build["controller_readout_objects"],
     }
 
 

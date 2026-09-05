@@ -1,0 +1,1197 @@
+{%- assign main_product_section_id = section.id | replace: '__launch', '__main' -%}
+{%- assign selected_variant = product.selected_or_first_available_variant -%}
+{%- assign is_thai = false -%}
+{%- if localization.language.iso_code == 'th' or request.locale.iso_code == 'th' -%}
+  {%- assign is_thai = true -%}
+{%- endif -%}
+
+{%- if is_thai -%}
+  {%- assign hero_label = 'NEW' -%}
+  {%- assign hero_title = 'Pneumatic Injection Molding Machine 50g' -%}
+  {%- capture hero_lead -%}เครื่องฉีดพลาสติกระบบนิวเมติกสำหรับงานผลิตชิ้นงานพลาสติกจำนวนน้อย เพิ่มความจุ shot เป็น 50g อัปเกรดโซนหลอมเป็นเหล็ก และใช้ฮีตเตอร์ hot runner 2 x 350W เพื่อการทำอุณหภูมิที่เร็วขึ้นและทนทานขึ้น{%- endcapture -%}
+  {%- assign price_label = 'ราคาเปิดตัว' -%}
+  {%- assign configure_label = 'เลือกสเปกและสั่งซื้อ' -%}
+  {%- assign mold_label = 'ปรึกษาเรื่องแม่พิมพ์ผ่าน LINE' -%}
+  {%- assign tab_overview = 'ภาพรวม' -%}
+  {%- assign tab_full = 'เครื่องทั้งตัว' -%}
+  {%- assign tab_air = 'ลมและคอนโทรล' -%}
+  {%- assign tab_melt = 'โซนหลอมเหล็ก' -%}
+  {%- assign tab_base = 'ฐานและพื้นที่แม่พิมพ์' -%}
+  {%- assign dock_specs = 'ความจุ 50g · โซนหลอมเหล็ก · ระยะเวลาผลิต 30 วัน' -%}
+  {%- assign nav_features = 'จุดเด่น' -%}
+  {%- assign nav_upgrades = 'สิ่งที่อัปเกรด' -%}
+  {%- assign nav_specs = 'สเปก' -%}
+  {%- assign order_label = 'สั่งซื้อ ฿170,000' -%}
+  {%- assign stat_capacity = 'ความจุ shot จากกระบอกที่ใหญ่ขึ้น' -%}
+  {%- assign stat_steel = 'โซนหลอมทนอุณหภูมิสูงขึ้น' -%}
+  {%- assign stat_heater = 'ฮีตเตอร์ hot runner 220V' -%}
+  {%- assign stat_height = 'ความสูงรวมของเครื่อง' -%}
+  {%- assign features_title = 'อัปเกรดสำคัญของรุ่น 50g' -%}
+  {%- capture features_intro -%}แสดงจุดเปลี่ยนหลักจากเครื่อง 30g ให้เห็นชัด ทั้งความจุ โซนหลอม ฮีตเตอร์ ความสูงเครื่อง และพื้นที่แม่พิมพ์{%- endcapture -%}
+  {%- assign cap_kicker = 'ความจุกระบอกใหญ่ขึ้น' -%}
+  {%- assign cap_title = 'รองรับ shot สูงสุด 50g' -%}
+  {%- capture cap_text -%}กระบอกที่ใหญ่ขึ้นช่วยเพิ่มพื้นที่การทำงานสำหรับชิ้นงานใหญ่ขึ้น ผนังชิ้นงานหนาขึ้น และงานผลิตจำนวนน้อยที่ต้องการความจุมากกว่ารุ่น 30g{%- endcapture -%}
+  {%- assign cap_spec = 'ความจุ shot สูงสุดที่รองรับ' -%}
+  {%- assign melt_kicker = 'อัปเกรดวัสดุ' -%}
+  {%- assign melt_title = 'โซนหลอมเหล็ก' -%}
+  {%- capture melt_text -%}เปลี่ยนวัสดุโซนหลอมจากอะลูมิเนียมเป็นเหล็ก เพื่อความทนทานและเหมาะกับการใช้งานที่อุณหภูมิสูงมากขึ้น{%- endcapture -%}
+  {%- assign melt_spec = 'แทนที่โซนหลอมอะลูมิเนียมในรุ่น 30g' -%}
+  {%- assign heat_kicker = 'ชุดทำความร้อน' -%}
+  {%- assign heat_title = 'ฮีตเตอร์ 350W สองตัว' -%}
+  {%- capture heat_text -%}ใช้ฮีตเตอร์ hot runner 220V 350W จำนวนสองตัว แทนชุด 300W เดิม เพื่อช่วยให้อุณหภูมิขึ้นเร็วขึ้นและเพิ่มความทนทานของระบบทำความร้อน{%- endcapture -%}
+  {%- assign heat_spec = 'ฮีตเตอร์ hot runner 220V' -%}
+  {%- assign height_kicker = 'ความสูงเครื่อง' -%}
+  {%- assign height_title = 'เครื่องสูงขึ้นเป็น 1014.5mm' -%}
+  {%- capture height_text -%}ความสูงรวมเพิ่มขึ้นจากรุ่น 30g เพื่อรองรับโครงสร้าง 50g ที่ใหญ่ขึ้น โดยยังคงแนวคิดเครื่องนิวเมติกขนาดกะทัดรัดของ MALIEV{%- endcapture -%}
+  {%- assign height_spec = 'ความสูงรวมของเครื่อง' -%}
+  {%- assign mold_kicker = 'ขนาดแม่พิมพ์' -%}
+  {%- assign mold_title = 'รองรับแม่พิมพ์ 240 x 240 x 100mm' -%}
+  {%- capture mold_text -%}รุ่น 50g รองรับขนาดแม่พิมพ์สูงสุด 240 x 240 x 100mm พร้อมพื้นที่ด้านล่างที่เปิดโล่งให้วางแผนแม่พิมพ์ได้ชัดเจน{%- endcapture -%}
+  {%- assign mold_spec = 'ขนาดแม่พิมพ์สูงสุดที่รองรับ' -%}
+  {%- assign upgrades_title = 'เปลี่ยนอะไรจากรุ่น 30g' -%}
+  {%- capture upgrades_intro -%}รุ่น 50g ยังคง workflow แบบ pneumatic ที่กะทัดรัด แต่เพิ่มชิ้นส่วนสำคัญสำหรับ shot ที่ใหญ่ขึ้นและการทำความร้อนที่หนักขึ้น{%- endcapture -%}
+  {%- assign up_capacity = 'ความจุ' -%}
+  {%- assign up_capacity_text = 'กระบอกที่ใหญ่ขึ้นเพิ่ม headroom สำหรับชิ้นงานฉีดพลาสติกจำนวนน้อยที่มีขนาดใหญ่ขึ้น' -%}
+  {%- assign up_melt = 'โซนหลอม' -%}
+  {%- assign up_melt_delta = 'อะลูมิเนียม → เหล็ก' -%}
+  {%- assign up_melt_text = 'วัสดุโซนหลอมทนขึ้น เหมาะกับการใช้งานที่อุณหภูมิสูงและอายุการใช้งานที่ยาวขึ้น' -%}
+  {%- assign up_heaters = 'ฮีตเตอร์' -%}
+  {%- assign up_heaters_text = 'ฮีตเตอร์ hot runner 220V 350W สองตัว ช่วยเพิ่มประสิทธิภาพการทำอุณหภูมิจากชุดมาตรฐาน' -%}
+  {%- assign specs_title = 'สเปกเครื่อง 50g' -%}
+  {%- capture specs_intro -%}รุ่น 50g ออกแบบสำหรับ shot สูงสุด 50g พร้อมโครงเครื่องที่สูงขึ้น และรองรับแม่พิมพ์สูงสุด 240 x 240 x 100mm{%- endcapture -%}
+  {%- assign spec_shot = 'ความจุ shot' -%}
+  {%- assign spec_shot_value = 'สูงสุด 50g' -%}
+  {%- assign spec_melt = 'วัสดุโซนหลอม' -%}
+  {%- assign spec_melt_value = 'เหล็ก' -%}
+  {%- assign spec_heater = 'ฮีตเตอร์' -%}
+  {%- assign spec_heater_value = 'hot runner 2 x 220V 350W' -%}
+  {%- assign spec_height = 'ความสูงรวม' -%}
+  {%- assign spec_mold = 'แม่พิมพ์ใหญ่สุดที่รองรับ' -%}
+  {%- assign spec_lead = 'ระยะเวลาผลิต' -%}
+  {%- assign spec_lead_value = '30 วัน' -%}
+{%- else -%}
+  {%- assign hero_label = 'NEW' -%}
+  {%- assign hero_title = 'Pneumatic Injection Molding Machine 50g' -%}
+  {%- capture hero_lead -%}Built for customers who need a larger shot size and more durable high-temperature operation, the 50g machine upgrades the melt zone, heater package, and frame height while keeping the compact pneumatic workflow of the original MALIEV machine.{%- endcapture -%}
+  {%- assign price_label = 'Launch price' -%}
+  {%- assign configure_label = 'Configure order' -%}
+  {%- assign mold_label = 'Ask about molds' -%}
+  {%- assign tab_overview = 'Overview' -%}
+  {%- assign tab_full = 'Full machine' -%}
+  {%- assign tab_air = 'Air and controls' -%}
+  {%- assign tab_melt = 'Steel melt zone' -%}
+  {%- assign tab_base = 'Base and mold space' -%}
+  {%- assign dock_specs = '50g capacity · steel melt zone · 30 day lead time' -%}
+  {%- assign nav_features = 'Features' -%}
+  {%- assign nav_upgrades = 'Upgrades' -%}
+  {%- assign nav_specs = 'Specs' -%}
+  {%- assign order_label = 'Order ฿170,000' -%}
+  {%- assign stat_capacity = 'larger bore shot capacity' -%}
+  {%- assign stat_steel = 'higher-temperature melt zone' -%}
+  {%- assign stat_heater = '220V hot runner heater bands' -%}
+  {%- assign stat_height = 'overall machine height' -%}
+  {%- assign features_title = 'Feature-by-feature upgrades' -%}
+  {%- capture features_intro -%}Each launch feature has its own visual so customers can understand what changed from the 30g machine without reading a wall of specifications.{%- endcapture -%}
+  {%- assign cap_kicker = 'Larger bore capacity' -%}
+  {%- assign cap_title = 'Up to 50g per shot' -%}
+  {%- capture cap_text -%}The larger bore gives more headroom for bigger parts, thicker sections, and low-volume production runs that were tight on the 30g machine.{%- endcapture -%}
+  {%- assign cap_spec = 'maximum supported shot capacity' -%}
+  {%- assign melt_kicker = 'Material upgrade' -%}
+  {%- assign melt_title = 'Steel melt zone' -%}
+  {%- capture melt_text -%}The melt zone changes from aluminum to steel for better durability and improved suitability around higher-temperature operation.{%- endcapture -%}
+  {%- assign melt_spec = 'replaces the 30g aluminum melt zone' -%}
+  {%- assign heat_kicker = 'Heating package' -%}
+  {%- assign heat_title = 'Dual 350W heater bands' -%}
+  {%- capture heat_text -%}Two 220V 350W hot runner heater bands replace the previous 300W bands for stronger heat-up performance and a more durable heating setup.{%- endcapture -%}
+  {%- assign heat_spec = '220V hot runner heater bands' -%}
+  {%- assign height_kicker = 'Frame height' -%}
+  {%- assign height_title = 'Taller 1014.5mm machine' -%}
+  {%- capture height_text -%}The overall machine height increases from the 30g frame to support the larger 50g configuration while keeping the same compact pneumatic architecture.{%- endcapture -%}
+  {%- assign height_spec = 'overall machine height' -%}
+  {%- assign mold_kicker = 'Mold envelope' -%}
+  {%- assign mold_title = 'Supports 240 x 240 x 100mm molds' -%}
+  {%- capture mold_text -%}The 50g version supports a maximum mold size of 240 x 240 x 100mm, with the open lower frame shown clearly for mold planning.{%- endcapture -%}
+  {%- assign mold_spec = 'largest supported mold size' -%}
+  {%- assign upgrades_title = 'What changed from the 30g machine' -%}
+  {%- capture upgrades_intro -%}The 50g version keeps the compact pneumatic workflow while upgrading the parts that matter for larger shots and higher-duty heating.{%- endcapture -%}
+  {%- assign up_capacity = 'Capacity' -%}
+  {%- assign up_capacity_text = 'Larger bore capacity gives more working headroom for bigger low-volume molded parts.' -%}
+  {%- assign up_melt = 'Melt zone' -%}
+  {%- assign up_melt_delta = 'Aluminum → Steel' -%}
+  {%- assign up_melt_text = 'More durable melt-zone material for higher-temperature operation and longer service life.' -%}
+  {%- assign up_heaters = 'Heaters' -%}
+  {%- assign up_heaters_text = 'Dual 220V 350W hot runner heater bands improve heat-up performance over the standard setup.' -%}
+  {%- assign specs_title = '50g machine specifications' -%}
+  {%- capture specs_intro -%}The launch model is sized for 50g shots with a taller frame and a maximum mold envelope of 240 x 240 x 100mm.{%- endcapture -%}
+  {%- assign spec_shot = 'Shot capacity' -%}
+  {%- assign spec_shot_value = 'Up to 50g' -%}
+  {%- assign spec_melt = 'Melt zone material' -%}
+  {%- assign spec_melt_value = 'Steel' -%}
+  {%- assign spec_heater = 'Heater bands' -%}
+  {%- assign spec_heater_value = '2 x 220V 350W hot runner bands' -%}
+  {%- assign spec_height = 'Overall height' -%}
+  {%- assign spec_mold = 'Largest supported mold' -%}
+  {%- assign spec_lead = 'Lead time' -%}
+  {%- assign spec_lead_value = '30 days' -%}
+{%- endif -%}
+
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    --pimm50-bg: #070b10;
+    --pimm50-panel: #111820;
+    --pimm50-ink: #f7fbff;
+    --pimm50-muted: #b9c7d3;
+    --pimm50-line: rgba(255, 255, 255, 0.12);
+    --pimm50-dark: #070b10;
+    --pimm50-dark-panel: #101720;
+    --pimm50-cyan: #18b7ff;
+    --pimm50-orange: #ff7a1a;
+    --pimm50-amber: #ffc247;
+    background: var(--pimm50-bg);
+    color: var(--pimm50-ink);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch {
+    background: var(--pimm50-bg);
+    overflow: clip;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__hero {
+    align-items: center;
+    background:
+      radial-gradient(circle at 78% 22%, rgba(24, 183, 255, 0.22), transparent 28%),
+      radial-gradient(circle at 62% 82%, rgba(255, 122, 26, 0.24), transparent 32%),
+      #070b10;
+    display: block;
+    justify-content: center;
+    min-height: min(920px, 96svh);
+    overflow: hidden;
+    position: relative;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__hero::after {
+    background:
+      linear-gradient(90deg, rgba(7, 11, 16, 0.96) 0%, rgba(7, 11, 16, 0.86) 33%, rgba(7, 11, 16, 0.28) 68%, rgba(7, 11, 16, 0.72) 100%),
+      linear-gradient(180deg, rgba(7, 11, 16, 0.1) 0%, rgba(7, 11, 16, 0.15) 56%, rgba(7, 11, 16, 0.96) 100%);
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__copy {
+    align-content: start;
+    background: none;
+    color: var(--pimm50-ink);
+    display: grid;
+    gap: 1.6rem;
+    justify-items: start;
+    max-width: 112rem;
+    padding: clamp(6rem, 7vw, 9rem) max(2rem, calc((100vw - 128rem) / 2)) clamp(16rem, 14vw, 20rem);
+    position: relative;
+    text-align: left;
+    width: min(72vw, 112rem);
+    z-index: 3;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__copy::after {
+    display: none;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__copy > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__eyebrow {
+    align-items: center;
+    background: rgba(24, 183, 255, 0.12);
+    border: 1px solid rgba(24, 183, 255, 0.36);
+    border-radius: 999px;
+    color: #d7f4ff;
+    display: inline-flex;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    margin: 0;
+    padding: 0.8rem 1.2rem;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__title {
+    color: #ffffff;
+    font-size: clamp(4.2rem, 4.8vw, 6.8rem);
+    letter-spacing: 0;
+    line-height: 0.94;
+    margin: 0;
+    max-width: 16.8em;
+    overflow-wrap: normal;
+    text-shadow: 0 2.4rem 7rem rgba(0, 0, 0, 0.5);
+    text-wrap: normal;
+    word-break: normal;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__lead {
+    color: rgba(235, 245, 255, 0.82);
+    font-size: clamp(1.65rem, 1.65vw, 2.05rem);
+    line-height: 1.45;
+    margin: 0;
+    max-width: 86rem;
+    text-wrap: balance;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__price {
+    align-items: center;
+    background: rgba(10, 16, 22, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    box-shadow: 0 1.8rem 5rem rgba(0, 0, 0, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.9rem 1.2rem;
+    justify-content: center;
+    padding: 0.9rem 1.6rem;
+    width: fit-content;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__price-compare {
+    color: rgba(255, 255, 255, 0.52);
+    font-size: clamp(1.8rem, 2.2vw, 2.8rem);
+    font-weight: 600;
+    line-height: 1;
+    position: relative;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__price-compare::after {
+    background: var(--pimm50-orange);
+    content: "";
+    height: 2px;
+    left: -0.1em;
+    position: absolute;
+    right: -0.1em;
+    top: 50%;
+    transform: rotate(-8deg);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__price-now {
+    color: #ffffff;
+    font-size: clamp(2.6rem, 3.6vw, 4.5rem);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__price-label {
+    color: var(--pimm50-amber);
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    justify-content: center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__button {
+    background: linear-gradient(135deg, var(--pimm50-orange), #ffb347);
+    border: 1px solid rgba(255, 194, 71, 0.7);
+    border-radius: 6px;
+    box-shadow: 0 1.8rem 4rem rgba(255, 122, 26, 0.24);
+    color: #090d12;
+    display: inline-flex;
+    font-weight: 600;
+    min-height: 4.8rem;
+    padding: 1.3rem 2rem;
+    text-decoration: none;
+    transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__button:hover,
+  #shopify-section-{{ section.id }} .pimm50-launch__button:focus-visible {
+    transform: translateY(-1px);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__button--secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    backdrop-filter: blur(12px);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__carousel {
+    inset: 0;
+    min-height: 100%;
+    padding: 0;
+    position: absolute;
+    z-index: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide {
+    inset: 0;
+    opacity: 0;
+    position: absolute;
+    transform: scale(1.035);
+    transition: opacity 900ms ease, transform 1600ms ease;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide.is-active {
+    opacity: 1;
+    transform: scale(1);
+    z-index: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide img {
+    background: #070b10;
+    display: block;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    object-position: center center;
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide--overview img {
+    object-fit: cover;
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide--upper img {
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide--melt img {
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__slide--base img {
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-tabs {
+    bottom: clamp(2rem, 3vw, 3.4rem);
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    left: 50%;
+    max-width: 110rem;
+    padding: 0 2rem;
+    position: absolute;
+    transform: translateX(-50%);
+    width: min(100%, 114rem);
+    z-index: 3;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__tab {
+    background: rgba(8, 13, 18, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.74);
+    cursor: pointer;
+    display: grid;
+    gap: 0.35rem;
+    min-height: 7rem;
+    padding: 1rem 1.2rem;
+    text-align: left;
+    transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+    backdrop-filter: blur(14px);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__tab:hover,
+  #shopify-section-{{ section.id }} .pimm50-launch__tab:focus-visible {
+    border-color: rgba(24, 183, 255, 0.56);
+    color: #ffffff;
+    transform: translateY(-1px);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__tab.is-active {
+    background: linear-gradient(135deg, rgba(255, 122, 26, 0.92), rgba(24, 183, 255, 0.78));
+    border-color: rgba(255, 255, 255, 0.42);
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__tab span {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__tab strong {
+    font-size: clamp(1.25rem, 1.2vw, 1.55rem);
+    font-weight: 600;
+    line-height: 1.12;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock {
+    align-items: center;
+    background: rgba(8, 12, 17, 0.88);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr auto auto;
+    padding: 1rem max(2rem, calc((100vw - 128rem) / 2));
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    backdrop-filter: blur(18px);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-title {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-title strong {
+    font-size: 1.45rem;
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-title span {
+    color: var(--pimm50-muted);
+    font-size: 1.15rem;
+    line-height: 1.2;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-links {
+    align-items: center;
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-links a,
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-cta {
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 1rem 1.1rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-links a:hover,
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-links a:focus-visible {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__dock-cta {
+    background: linear-gradient(135deg, var(--pimm50-orange), var(--pimm50-amber));
+    color: #070b10;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__band {
+    background:
+      linear-gradient(90deg, rgba(24, 183, 255, 0.1), transparent 28%, rgba(255, 122, 26, 0.12)),
+      #090e14;
+    border-bottom: 1px solid var(--pimm50-line);
+    border-top: 1px solid var(--pimm50-line);
+    padding: 1.2rem 2rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__band-inner {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 auto;
+    max-width: 128rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__stat {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+    border: 1px solid var(--pimm50-line);
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 2.6rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__stat strong {
+    color: #ffffff;
+    display: block;
+    font-size: clamp(2.6rem, 3vw, 4rem);
+    line-height: 1;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__stat span {
+    color: rgba(235, 245, 255, 0.72);
+    display: block;
+    font-size: 1.3rem;
+    margin-top: 0.8rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__section {
+    margin: 0 auto;
+    max-width: 128rem;
+    padding: clamp(4rem, 7vw, 8rem) 2rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__section--tight {
+    padding-top: clamp(2rem, 4vw, 4rem);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__section-head {
+    display: grid;
+    gap: 1.4rem;
+    margin-bottom: 3rem;
+    max-width: 84rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__section-head h2 {
+    color: #ffffff;
+    font-size: clamp(4rem, 5.6vw, 7.6rem);
+    line-height: 0.94;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__section-head p {
+    color: rgba(235, 245, 255, 0.72);
+    font-size: clamp(1.8rem, 2vw, 2.35rem);
+    line-height: 1.38;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-list {
+    display: grid;
+    gap: clamp(2rem, 5vw, 6rem);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    box-shadow: none;
+    display: grid;
+    grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.05fr);
+    overflow: hidden;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature:nth-child(even) {
+    grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature:nth-child(even) .pimm50-launch__feature-media {
+    order: 2;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-media {
+    background:
+      linear-gradient(135deg, rgba(24, 183, 255, 0.08), rgba(255, 122, 26, 0.1)),
+      #0c1218;
+    display: block;
+    min-height: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-media img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-media--full img {
+    object-fit: cover;
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-media--upper img {
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-media--melt img {
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-media--base img {
+    object-position: center center;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-copy {
+    align-content: center;
+    display: grid;
+    gap: 1.4rem;
+    padding: clamp(2.6rem, 4vw, 5rem);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-kicker {
+    color: var(--pimm50-cyan);
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature h3 {
+    color: #ffffff;
+    font-size: clamp(3.2rem, 4vw, 5.6rem);
+    line-height: 0.98;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature p {
+    color: rgba(235, 245, 255, 0.72);
+    font-size: clamp(1.65rem, 1.7vw, 2rem);
+    line-height: 1.46;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-spec {
+    align-items: baseline;
+    border-top: 1px solid var(--pimm50-line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1.2rem;
+    padding-top: 1.6rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-spec strong {
+    color: #ffffff;
+    font-size: 2rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__feature-spec span {
+    color: rgba(235, 245, 255, 0.66);
+    font-size: 1.3rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__specs {
+    background:
+      radial-gradient(circle at 12% 0%, rgba(24, 183, 255, 0.22), transparent 28%),
+      radial-gradient(circle at 90% 100%, rgba(255, 122, 26, 0.18), transparent 32%),
+      #06090d;
+    color: #f8f5ee;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__specs .pimm50-launch__section-head h2 {
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__specs .pimm50-launch__section-head p {
+    color: rgba(255, 255, 255, 0.74);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__spec-grid {
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__spec {
+    background: #1d2226;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: minmax(13rem, 0.9fr) minmax(0, 1.1fr);
+    padding: 1.8rem;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__spec span {
+    color: #aeb8bf;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__spec strong {
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-grid {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    display: grid;
+    gap: 1.2rem;
+    min-height: 23rem;
+    padding: clamp(2.4rem, 4vw, 4rem);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card--dark {
+    background:
+      linear-gradient(145deg, rgba(127, 215, 255, 0.14), rgba(127, 215, 255, 0)),
+      var(--pimm50-dark-panel);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card--dark strong {
+    color: #ffffff;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card span {
+    color: var(--pimm50-cyan);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card--dark span {
+    color: var(--pimm50-cyan);
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card strong {
+    color: #ffffff;
+    font-size: clamp(3.2rem, 4vw, 5.8rem);
+    line-height: 0.98;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card p {
+    color: rgba(235, 245, 255, 0.72);
+    font-size: clamp(1.55rem, 1.6vw, 1.9rem);
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  #shopify-section-{{ section.id }} .pimm50-launch__upgrade-card--dark p {
+    color: rgba(255, 255, 255, 0.74);
+  }
+
+  @media screen and (max-width: 900px) {
+    #shopify-section-{{ section.id }} .pimm50-launch__feature,
+    #shopify-section-{{ section.id }} .pimm50-launch__feature:nth-child(even),
+    #shopify-section-{{ section.id }} .pimm50-launch__upgrade-grid,
+    #shopify-section-{{ section.id }} .pimm50-launch__spec-grid {
+      grid-template-columns: 1fr;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__feature:nth-child(even) .pimm50-launch__feature-media {
+      order: 0;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__band-inner {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__dock {
+      grid-template-columns: 1fr auto;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__dock-links {
+      display: none;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__copy {
+      width: min(92vw, 88rem);
+    }
+
+  }
+
+  @media screen and (max-width: 560px) {
+    #shopify-section-{{ section.id }} .pimm50-launch__hero {
+      min-height: 96svh;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__copy {
+      gap: 1.1rem;
+      padding: 4rem 1.6rem 18rem;
+      width: auto;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__title {
+      font-size: clamp(3.8rem, 13vw, 5.2rem);
+      max-width: 10em;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__slide img {
+      object-position: 62% center;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__feature-tabs {
+      bottom: 1.2rem;
+      gap: 0.65rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding: 0 1.2rem;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__tab {
+      min-height: 6rem;
+      padding: 0.85rem 0.9rem;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__dock {
+      gap: 0.8rem;
+      padding: 0.8rem 1.2rem;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__dock-title span {
+      display: none;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__dock-cta {
+      padding: 0.9rem 1rem;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__band-inner {
+      grid-template-columns: 1fr;
+    }
+
+    #shopify-section-{{ section.id }} .pimm50-launch__spec {
+      grid-template-columns: 1fr;
+    }
+  }
+{%- endstyle -%}
+
+<div class="pimm50-launch">
+  <section class="pimm50-launch__hero" aria-label="{{ hero_title }} product launch">
+    <div class="pimm50-launch__copy">
+      <p class="pimm50-launch__eyebrow">{{ hero_label }}</p>
+      <h1 class="pimm50-launch__title">{{ hero_title }}</h1>
+      <p class="pimm50-launch__lead">{{ hero_lead }}</p>
+      <div class="pimm50-launch__price">
+        {%- if selected_variant.compare_at_price > selected_variant.price -%}
+          <span class="pimm50-launch__price-compare">{{ selected_variant.compare_at_price | money_without_trailing_zeros }}</span>
+        {%- endif -%}
+        <strong class="pimm50-launch__price-now">{{ selected_variant.price | money_without_trailing_zeros }}</strong>
+        <span class="pimm50-launch__price-label">{{ price_label }}</span>
+      </div>
+      <div class="pimm50-launch__actions">
+        <a class="pimm50-launch__button" href="#ProductInfo-{{ main_product_section_id }}">{{ configure_label }}</a>
+        <a class="pimm50-launch__button pimm50-launch__button--secondary" href="http://line.me/ti/p/@maliev">{{ mold_label }}</a>
+      </div>
+    </div>
+    <div class="pimm50-launch__carousel" data-pimm50-carousel>
+      <div class="pimm50-launch__slide pimm50-launch__slide--overview is-active" data-pimm50-slide>
+        <img
+          src="{{ 'pimm-50g-launch-backdrop.png' | asset_url }}"
+          alt="{{ hero_title }} cinematic launch image showing the 50g machine"
+          width="2400"
+          height="1350"
+          loading="eager"
+        >
+      </div>
+      <div class="pimm50-launch__slide pimm50-launch__slide--upper" data-pimm50-slide>
+        <img
+          src="{{ 'pimm-50g-launch-air-energy.png' | asset_url }}"
+          alt="{{ hero_title }} upper pneumatic cylinder, regulator, blue hose, and control panel"
+          width="2400"
+          height="1350"
+          loading="lazy"
+        >
+      </div>
+      <div class="pimm50-launch__slide pimm50-launch__slide--melt" data-pimm50-slide>
+        <img
+          src="{{ 'pimm-50g-launch-melt-energy.png' | asset_url }}"
+          alt="{{ hero_title }} steel melt zone and lower heater block area"
+          width="2400"
+          height="1350"
+          loading="lazy"
+        >
+      </div>
+      <div class="pimm50-launch__slide pimm50-launch__slide--base" data-pimm50-slide>
+        <img
+          src="{{ 'pimm-50g-wide-base-space.png' | asset_url }}"
+          alt="{{ hero_title }} lower frame, spring assemblies, perforated base plate, and mold workspace"
+          width="2400"
+          height="1350"
+          loading="lazy"
+        >
+      </div>
+    </div>
+    <div class="pimm50-launch__feature-tabs" role="tablist" aria-label="{{ hero_title }} feature carousel">
+      <button class="pimm50-launch__tab is-active" type="button" role="tab" aria-selected="true" data-pimm50-target="0">
+        <span>{{ tab_overview }}</span>
+        <strong>{{ tab_full }}</strong>
+      </button>
+      <button class="pimm50-launch__tab" type="button" role="tab" aria-selected="false" data-pimm50-target="1">
+        <span>01</span>
+        <strong>{{ tab_air }}</strong>
+      </button>
+      <button class="pimm50-launch__tab" type="button" role="tab" aria-selected="false" data-pimm50-target="2">
+        <span>02</span>
+        <strong>{{ tab_melt }}</strong>
+      </button>
+      <button class="pimm50-launch__tab" type="button" role="tab" aria-selected="false" data-pimm50-target="3">
+        <span>03</span>
+        <strong>{{ tab_base }}</strong>
+      </button>
+    </div>
+  </section>
+
+  <nav class="pimm50-launch__dock" aria-label="{{ hero_title }} page sections">
+    <div class="pimm50-launch__dock-title">
+      <strong>{{ hero_title }}</strong>
+      <span>{{ dock_specs }}</span>
+    </div>
+    <div class="pimm50-launch__dock-links">
+      <a href="#pimm50-features">{{ nav_features }}</a>
+      <a href="#pimm50-upgrades">{{ nav_upgrades }}</a>
+      <a href="#pimm50-specs">{{ nav_specs }}</a>
+    </div>
+    <a class="pimm50-launch__dock-cta" href="#ProductInfo-{{ main_product_section_id }}">{{ order_label }}</a>
+  </nav>
+
+  <div class="pimm50-launch__band" aria-label="{{ hero_title }} core specifications">
+    <div class="pimm50-launch__band-inner">
+      <div class="pimm50-launch__stat">
+        <strong>50g</strong>
+        <span>{{ stat_capacity }}</span>
+      </div>
+      <div class="pimm50-launch__stat">
+        <strong>Steel</strong>
+        <span>{{ stat_steel }}</span>
+      </div>
+      <div class="pimm50-launch__stat">
+        <strong>2 x 350W</strong>
+        <span>{{ stat_heater }}</span>
+      </div>
+      <div class="pimm50-launch__stat">
+        <strong>1014.5mm</strong>
+        <span>{{ stat_height }}</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="pimm50-launch__section" id="pimm50-features">
+    <div class="pimm50-launch__section-head">
+      <h2>{{ features_title }}</h2>
+      <p>{{ features_intro }}</p>
+    </div>
+    <div class="pimm50-launch__feature-list">
+      <article class="pimm50-launch__feature">
+        <div class="pimm50-launch__feature-media pimm50-launch__feature-media--full">
+          <img
+            src="{{ 'pimm-50g-wide-hero.png' | asset_url }}"
+            alt="{{ hero_title }} render showing the taller 50g machine capacity"
+            width="2400"
+            height="1350"
+            loading="lazy"
+          >
+        </div>
+        <div class="pimm50-launch__feature-copy">
+          <p class="pimm50-launch__feature-kicker">{{ cap_kicker }}</p>
+          <h3>{{ cap_title }}</h3>
+          <p>{{ cap_text }}</p>
+          <div class="pimm50-launch__feature-spec">
+            <strong>50g</strong>
+            <span>{{ cap_spec }}</span>
+          </div>
+        </div>
+      </article>
+      <article class="pimm50-launch__feature">
+        <div class="pimm50-launch__feature-media pimm50-launch__feature-media--melt">
+          <img
+            src="{{ 'pimm-50g-launch-melt-energy.png' | asset_url }}"
+            alt="{{ hero_title }} render focused on the steel melt zone area"
+            width="2400"
+            height="1350"
+            loading="lazy"
+          >
+        </div>
+        <div class="pimm50-launch__feature-copy">
+          <p class="pimm50-launch__feature-kicker">{{ melt_kicker }}</p>
+          <h3>{{ melt_title }}</h3>
+          <p>{{ melt_text }}</p>
+          <div class="pimm50-launch__feature-spec">
+            <strong>Steel</strong>
+            <span>{{ melt_spec }}</span>
+          </div>
+        </div>
+      </article>
+      <article class="pimm50-launch__feature">
+        <div class="pimm50-launch__feature-media pimm50-launch__feature-media--melt">
+          <img
+            src="{{ 'pimm-50g-launch-heater-coils.png' | asset_url }}"
+            alt="Coiled hot runner heater elements for {{ hero_title }}"
+            width="2400"
+            height="1350"
+            loading="lazy"
+          >
+        </div>
+        <div class="pimm50-launch__feature-copy">
+          <p class="pimm50-launch__feature-kicker">{{ heat_kicker }}</p>
+          <h3>{{ heat_title }}</h3>
+          <p>{{ heat_text }}</p>
+          <div class="pimm50-launch__feature-spec">
+            <strong>2 x 350W</strong>
+            <span>{{ heat_spec }}</span>
+          </div>
+        </div>
+      </article>
+      <article class="pimm50-launch__feature">
+        <div class="pimm50-launch__feature-media pimm50-launch__feature-media--full">
+          <img
+            src="{{ 'pimm-50g-wide-tall-frame.png' | asset_url }}"
+            alt="Full-height {{ hero_title }} render showing the taller frame"
+            width="2400"
+            height="1350"
+            loading="lazy"
+          >
+        </div>
+        <div class="pimm50-launch__feature-copy">
+          <p class="pimm50-launch__feature-kicker">{{ height_kicker }}</p>
+          <h3>{{ height_title }}</h3>
+          <p>{{ height_text }}</p>
+          <div class="pimm50-launch__feature-spec">
+            <strong>1014.5mm</strong>
+            <span>{{ height_spec }}</span>
+          </div>
+        </div>
+      </article>
+      <article class="pimm50-launch__feature">
+        <div class="pimm50-launch__feature-media pimm50-launch__feature-media--base">
+          <img
+            src="{{ 'pimm-50g-wide-base-space.png' | asset_url }}"
+            alt="{{ hero_title }} render showing lower frame, mold workspace, and perforated base plate"
+            width="2400"
+            height="1350"
+            loading="lazy"
+          >
+        </div>
+        <div class="pimm50-launch__feature-copy">
+          <p class="pimm50-launch__feature-kicker">{{ mold_kicker }}</p>
+          <h3>{{ mold_title }}</h3>
+          <p>{{ mold_text }}</p>
+          <div class="pimm50-launch__feature-spec">
+            <strong>240 x 240 x 100mm</strong>
+            <span>{{ mold_spec }}</span>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="pimm50-launch__section pimm50-launch__section--tight" id="pimm50-upgrades">
+    <div class="pimm50-launch__section-head">
+      <h2>{{ upgrades_title }}</h2>
+      <p>{{ upgrades_intro }}</p>
+    </div>
+    <div class="pimm50-launch__upgrade-grid">
+      <article class="pimm50-launch__upgrade-card pimm50-launch__upgrade-card--dark">
+        <span>{{ up_capacity }}</span>
+        <strong>30g → 50g</strong>
+        <p>{{ up_capacity_text }}</p>
+      </article>
+      <article class="pimm50-launch__upgrade-card">
+        <span>{{ up_melt }}</span>
+        <strong>{{ up_melt_delta }}</strong>
+        <p>{{ up_melt_text }}</p>
+      </article>
+      <article class="pimm50-launch__upgrade-card">
+        <span>{{ up_heaters }}</span>
+        <strong>300W → 350W</strong>
+        <p>{{ up_heaters_text }}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="pimm50-launch__specs" id="pimm50-specs">
+    <div class="pimm50-launch__section">
+      <div class="pimm50-launch__section-head">
+        <h2>{{ specs_title }}</h2>
+        <p>{{ specs_intro }}</p>
+      </div>
+      <div class="pimm50-launch__spec-grid">
+        <div class="pimm50-launch__spec"><span>{{ spec_shot }}</span><strong>{{ spec_shot_value }}</strong></div>
+        <div class="pimm50-launch__spec"><span>{{ spec_melt }}</span><strong>{{ spec_melt_value }}</strong></div>
+        <div class="pimm50-launch__spec"><span>{{ spec_heater }}</span><strong>{{ spec_heater_value }}</strong></div>
+        <div class="pimm50-launch__spec"><span>{{ spec_height }}</span><strong>1014.5mm</strong></div>
+        <div class="pimm50-launch__spec"><span>{{ spec_mold }}</span><strong>240 x 240 x 100mm</strong></div>
+        <div class="pimm50-launch__spec"><span>{{ spec_lead }}</span><strong>{{ spec_lead_value }}</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const section = document.getElementById('shopify-section-{{ section.id }}');
+      if (!section) return;
+
+      const slides = Array.from(section.querySelectorAll('[data-pimm50-slide]'));
+      const tabs = Array.from(section.querySelectorAll('[data-pimm50-target]'));
+      if (slides.length < 2 || tabs.length !== slides.length) return;
+
+      let activeIndex = 0;
+      let timerId;
+
+      const showSlide = (nextIndex) => {
+        activeIndex = (nextIndex + slides.length) % slides.length;
+        slides.forEach((slide, index) => {
+          slide.classList.toggle('is-active', index === activeIndex);
+        });
+        tabs.forEach((tab, index) => {
+          const isActive = index === activeIndex;
+          tab.classList.toggle('is-active', isActive);
+          tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+      };
+
+      const startCarousel = () => {
+        window.clearInterval(timerId);
+        timerId = window.setInterval(() => showSlide(activeIndex + 1), 5500);
+      };
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => {
+          showSlide(index);
+          startCarousel();
+        });
+      });
+
+      section.addEventListener('mouseenter', () => window.clearInterval(timerId));
+      section.addEventListener('mouseleave', startCarousel);
+      document.addEventListener('shopify:section:unload', () => window.clearInterval(timerId), { once: true });
+
+      showSlide(0);
+      startCarousel();
+
+      if (document.documentElement.lang && document.documentElement.lang.toLowerCase().startsWith('th')) {
+        const replacements = new Map([
+          ['Based in Thailand', 'ทีมงานอยู่ในประเทศไทย'],
+          ['Online Support', 'ซัพพอร์ตออนไลน์'],
+          ['Secure Payment', 'ชำระเงินปลอดภัย'],
+          ['Contact us on LINE Official Account @maliev for questions about molds, materials, or machine selection.', 'ติดต่อเราผ่าน LINE Official Account @maliev เพื่อสอบถามเรื่องแม่พิมพ์ วัสดุ หรือการเลือกรุ่นเครื่อง'],
+          ['Our staff is based in Nonthaburi, Thailand, handling support, shipping, and development from our headquarters.', 'ทีมงานของเราอยู่ที่ นนทบุรี ประเทศไทย ดูแลการซัพพอร์ต การจัดส่ง และการพัฒนาสินค้าจากสำนักงานใหญ่'],
+          ['We support safe payments through Opn Payment, including credit/debit cards, ShopeePay, LINE Pay, QR PromptPay, and more.', 'รองรับการชำระเงินผ่าน Opn Payment รวมถึงบัตรเครดิต/เดบิต ShopeePay LINE Pay QR PromptPay และช่องทางอื่น ๆ'],
+          ['You may also like', 'สินค้าแนะนำเพิ่มเติม']
+        ]);
+
+        const translateThaiProductSupport = () => {
+          const translateNode = (node) => {
+            const normalized = node.textContent.replace(/\s+/g, ' ').trim();
+            if (replacements.has(normalized)) {
+              node.textContent = replacements.get(normalized);
+            }
+          };
+
+          document.querySelectorAll('h2, h3, strong, p, span').forEach(translateNode);
+        };
+
+        translateThaiProductSupport();
+        document.addEventListener('DOMContentLoaded', translateThaiProductSupport, { once: true });
+        window.addEventListener('load', translateThaiProductSupport, { once: true });
+        window.setTimeout(translateThaiProductSupport, 800);
+        window.setTimeout(translateThaiProductSupport, 1800);
+      }
+    })();
+  </script>
+</div>
+
+{% schema %}
+{
+  "name": "IMM 50g launch",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [],
+  "presets": [
+    {
+      "name": "IMM 50g launch"
+    }
+  ]
+}
+{% endschema %}

@@ -7,16 +7,16 @@
         "aria_label": "MALIEV introduction",
         "heading": "Mold the future. In your workshop.",
         "lead": "Compact injection molding machines, designed and built in Thailand for real small-batch production.",
-        "primary_label": "Explore the machines",
-        "primary_link": "/collections/เครื่องฉีดพลาสติก",
-        "secondary_label": "Book a demo session",
-        "secondary_link": "/pages/contact",
+        "primary_label": "Book a factory visit",
+        "primary_link": "/pages/contact",
+        "secondary_label": "Explore the machines",
+        "secondary_link": "/collections/เครื่องฉีดพลาสติก",
         "tertiary_label": "Sim racing? See SimMount",
         "tertiary_link": "#simmount",
         "layout": "overlay",
-        "asset_name": "maliev-homepage-pimm-20260901-r14-hero-desktop-studio.webp",
-        "mobile_asset_name": "maliev-homepage-pimm-20260901-r14-hero-mobile-studio.webp",
-        "image_alt": "MALIEV PIMM 30G and 50G injection molding machines side by side, turned left toward the page introduction",
+        "asset_name": "maliev-pimm-30g-hero-alpha.png",
+        "mobile_asset_name": "",
+        "image_alt": "MALIEV compact pneumatic injection molding machine, three-quarter studio view",
         "note": "Built in-house. Supported in Thailand. One-year warranty.",
         "show_social": false
       }
@@ -36,8 +36,8 @@
             "description": "Compact molding machines, built in Thailand.",
             "link_label": "Compare machines",
             "link": "/collections/เครื่องฉีดพลาสติก",
-            "asset_name": "maliev-homepage-pimm-20260901-r14-catalogue-alpha.webp",
-            "image_alt": "MALIEV PIMM 50G and 30G compact injection molding machines in a separated front-facing comparison view with all feet grounded",
+            "asset_name": "maliev-catalogue-machines.webp",
+            "image_alt": "MALIEV PIMM 30G and 50G compact injection molding machines in a cool gray studio",
             "theme": "light"
           }
         },
@@ -112,21 +112,9 @@
             "image_alt": "Natural white, black, and blue molding pellets with molded material samples",
             "theme": "light"
           }
-        },
-        "manufacturing_services": {
-          "type": "catalogue",
-          "settings": {
-            "title": "Manufacturing services",
-            "description": "Custom parts, tooling, and production support from MALIEV in Thailand.",
-            "link_label": "Explore services",
-            "link": "https://www.maliev.com/",
-            "asset_name": "maliev-catalogue-manufacturing-services.webp",
-            "image_alt": "Thai MALIEV technician inspecting a custom machined aluminum part in a CNC workshop",
-            "theme": "light"
-          }
         }
       },
-      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter", "printed_items", "digital_files", "molding_materials", "manufacturing_services"]
+      "block_order": ["machines", "simmount", "molds_parts", "mesh_splitter", "printed_items", "digital_files", "molding_materials"]
     },
     "keynote_machines": {
       "type": "maliev-keynote-machines",
@@ -136,9 +124,9 @@
         "heading": "Real production. Workshop footprint.",
         "lead": "Every PIMM — our pneumatic injection molding machine — is engineered and assembled at the MALIEV factory. Pneumatic clamping and injection, precise heat control, and mold costs that make small-batch production practical.",
         "chips": "Made in Thailand | One-year warranty | Replacement parts in stock | Mold-making assistance",
-        "stage_asset_name": "",
+        "stage_asset_name": "maliev-pimm-lineup-wide.webp",
         "stage_image_alt": "MALIEV PIMM 30G and PIMM 50G injection molding machines side by side in a bright studio",
-        "primary_label": "Book a demo session",
+        "primary_label": "Book a factory visit",
         "primary_link": "/pages/contact",
         "secondary_label": "Chat on LINE",
         "secondary_link": "https://line.me/ti/p/@maliev",
@@ -154,8 +142,8 @@
             "name": "PIMM 30G",
             "description": "The entry point to in-house molding. Compact enough for a desk-height bench, capable enough for production parts up to 30 grams.",
             "spec": "30 g shot capacity",
-            "price_note": "Made to order",
-            "asset_name": "",
+            "price_note": "50% deposit starts production",
+            "asset_name": "maliev-pimm-30g-alpha.webp",
             "image_alt": "MALIEV PIMM 30G injection molding machine, three-quarter studio view"
           }
         },
@@ -166,8 +154,8 @@
             "name": "PIMM 50G",
             "description": "More shot volume, taller mold space, and the same footprint discipline — for bigger parts and longer production runs.",
             "spec": "50 g shot capacity",
-            "price_note": "Made to order",
-            "asset_name": "",
+            "price_note": "50% deposit starts production",
+            "asset_name": "maliev-pimm-50g-alpha.webp",
             "image_alt": "MALIEV PIMM 50G injection molding machine, three-quarter studio view"
           }
         }
@@ -243,7 +231,7 @@
         "lead": "The same factory that builds our machines makes molds, spare parts, and custom production runs. Bring a part, a drawing, or an idea — we will help you match it to the right process.",
         "media_side": "left",
         "background": "canvas",
-        "asset_name": "",
+        "asset_name": "maliev-pimm-nozzle-detail.webp",
         "media_alt": "Mold and clamping area of a MALIEV PIMM injection molding machine",
         "primary_label": "Talk to our engineers",
         "primary_link": "/pages/contact"

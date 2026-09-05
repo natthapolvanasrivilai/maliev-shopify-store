@@ -113,21 +113,6 @@ body main .mcat .mcat__title {
   transition: transform 500ms cubic-bezier(.22, 1, .36, 1);
 }
 
-.mcat__card--pimm-lineup .mcat__media {
-  background: linear-gradient(180deg, #f3f5f6 0%, #e7ebed 68%, #d8dde0 100%);
-}
-
-.mcat__card--pimm-lineup .mcat__media img {
-  object-fit: cover;
-  object-position: center bottom;
-  transform: none;
-  transform-origin: center bottom;
-}
-
-.mcat__card--pimm-lineup::after {
-  background: linear-gradient(180deg, rgba(247, 248, 249, .99) 0%, rgba(247, 248, 249, .96) 30%, rgba(247, 248, 249, .42) 40%, transparent 48%);
-}
-
 .mcat__copy {
   padding: clamp(2rem, 2.2vw, 2.8rem);
   position: relative;
@@ -233,10 +218,6 @@ body main .mcat .mcat__title {
 }
 
 .mcat__card:hover .mcat__media img {
-  transform: scale(1.02);
-}
-
-.mcat__card--pimm-lineup:hover .mcat__media img {
   transform: scale(1.02);
 }
 

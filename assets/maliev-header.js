@@ -20,7 +20,6 @@
     var localizationSelectSelector = '[data-header-localization-select]';
     var localizationSubmitting = false;
     var desktopQuery = window.matchMedia('(min-width: 1100px)');
-    var reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     var controller = new AbortController();
     var listenerOptions = { signal: controller.signal };
     var overlaySentinel = null;
@@ -172,112 +171,8 @@
       closeAll(group);
     }
 
-    function initMegaPreview(group) {
-      var panel = group.querySelector('.mc-nav__panel');
-      var feature = panel ? panel.querySelector('[data-mc-menu-feature]') : null;
-      var featureLink = feature ? feature.querySelector('.mc-menu-link--featured') : null;
-      var featureTitle = featureLink ? featureLink.querySelector('.mc-menu-link__title') : null;
-      var featureDescription = featureLink ? featureLink.querySelector('.mc-menu-link__description') : null;
-      var featureImage = featureLink ? featureLink.querySelector('.mc-menu-link__media img') : null;
-      if (!panel || !feature || !featureLink || !featureTitle) return function () {};
-
-      var defaultState = {
-        title: featureTitle.textContent.trim(),
-        description: featureDescription ? featureDescription.textContent.trim() : '',
-        url: featureLink.getAttribute('href') || '',
-        image: featureImage ? featureImage.getAttribute('src') || '' : '',
-        imageSrcset: featureImage ? featureImage.getAttribute('srcset') || '' : '',
-        imageSizes: featureImage ? featureImage.getAttribute('sizes') || '' : '',
-      };
-      var activeLink = null;
-      var previewSequence = 0;
-      var featureAnimation = null;
-
-      function animateFeature() {
-        if (reducedMotionQuery.matches || typeof featureLink.animate !== 'function') return;
-        if (featureAnimation) featureAnimation.cancel();
-        featureAnimation = featureLink.animate([
-          { opacity: 0.72, transform: 'translateY(0.2rem)' },
-          { opacity: 1, transform: 'translateY(0)' },
-        ], {
-          duration: 180,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        });
-      }
-
-      function setActiveLink(link) {
-        if (activeLink === link) return;
-        if (activeLink) activeLink.classList.remove('is-preview-active');
-        activeLink = link;
-        if (activeLink) activeLink.classList.add('is-preview-active');
-      }
-
-      function applyState(state, link) {
-        featureLink.setAttribute('href', state.url);
-        featureTitle.textContent = state.title;
-        feature.setAttribute('aria-label', state.title);
-        if (featureDescription) {
-          featureDescription.textContent = state.description;
-          featureDescription.hidden = !state.description;
-        }
-        setActiveLink(link);
-        animateFeature();
-      }
-
-      function applyFeatureImage(state) {
-        if (!featureImage) return;
-
-        if (state.imageSrcset) featureImage.setAttribute('srcset', state.imageSrcset);
-        else featureImage.removeAttribute('srcset');
-
-        if (state.imageSizes) featureImage.setAttribute('sizes', state.imageSizes);
-        else featureImage.removeAttribute('sizes');
-
-        featureImage.setAttribute('src', state.image);
-      }
-
-      function showPreview(link) {
-        if (!link || link === activeLink) return;
-        var state = {
-          title: link.dataset.previewTitle || link.textContent.trim(),
-          description: link.dataset.previewDescription || '',
-          url: link.dataset.previewUrl || link.getAttribute('href') || '',
-          image: link.dataset.previewImage || '',
-          imageSrcset: '',
-          imageSizes: '',
-        };
-        var sequence = ++previewSequence;
-        applyState(state, link);
-
-        if (!featureImage || !state.image || state.image === featureImage.getAttribute('src')) return;
-        var image = new Image();
-        image.onload = function () {
-          if (sequence !== previewSequence) return;
-          applyFeatureImage(state);
-        };
-        image.src = state.image;
-      }
-
-      function resetPreview() {
-        previewSequence += 1;
-        applyState(defaultState, null);
-        if (featureImage && defaultState.image) applyFeatureImage(defaultState);
-      }
-
-      panel.addEventListener('pointerover', function (event) {
-        showPreview(event.target.closest('[data-mc-menu-preview]'));
-      }, listenerOptions);
-      panel.addEventListener('focusin', function (event) {
-        showPreview(event.target.closest('[data-mc-menu-preview]'));
-      }, listenerOptions);
-      panel.addEventListener('pointerleave', resetPreview, listenerOptions);
-
-      return resetPreview;
-    }
-
     groups.forEach(function (group) {
       var summary = group.querySelector(':scope > summary');
-      var resetPreview = initMegaPreview(group);
       setExpanded(group, group.open);
 
       summary.addEventListener('keydown', function (event) {
@@ -293,7 +188,6 @@
       }, listenerOptions);
 
       group.addEventListener('toggle', function () {
-        resetPreview();
         if (group.open) {
           closeAll(group);
           setExpanded(group, true);
