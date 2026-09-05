@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../../', import.meta.url);
 const width = 400;
@@ -15,11 +16,11 @@ test('white callout ring follows the native magnifier mask instead of drifting a
   const asset = manifest.assets.find(({ shot }) => shot === 'air-pressure');
   const videoPath = new URL(`assets/${asset.filename}`, root);
   const decode = spawnSync('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error', '-ss', '5', '-i', videoPath.pathname.slice(1),
+    '-hide_banner', '-loglevel', 'error', '-ss', '5', '-i', fileURLToPath(videoPath),
     '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1',
   ], { maxBuffer: width * height * 4 });
 
-  assert.equal(decode.status, 0, decode.stderr.toString());
+  assert.equal(decode.status, 0, decode.stderr?.toString() ?? decode.error?.message);
   assert.equal(decode.stdout.length, width * height * 3);
 
   const brightness = (x, y) => {
