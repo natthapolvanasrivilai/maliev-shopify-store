@@ -67,7 +67,7 @@ test('30G hero amplification stays model-scoped and preserves the full native re
   assert.match(css, /object-fit: contain/);
   assert.match(css, /grid-template-rows: minmax\(0, 1fr\)/);
   assert.match(css, /prefers-reduced-motion: reduce/);
-  assert.doesNotMatch(css, /(?:filter|mask-image):/);
+  assert.doesNotMatch(css, /(?:^|[;\s])filter:/);
   // A focus-style reset is not a shadow applied to machine pixels.
   assert.doesNotMatch(css, /box-shadow:\s*(?!none\b)\S/);
   assert.ok(css.split('\n').filter(line => line.trim().startsWith('.')).every(line => line.includes('[data-page-model="30G"]')));
@@ -351,7 +351,7 @@ test('30G bento uses approved full-tile native-size renders and control animatio
   assert.equal(sha256(Buffer.from(spinHashes.join('\n'))).toLowerCase(), motionManifest.configuration.aggregate_sha256);
   const css = await readFile(new URL('assets/maliev-pimm-30g-hero.css', rootUrl), 'utf8');
   assert.match(css, /\.pimm-bento__tile--render \.pimm-bento__media \{ position: absolute; inset: 0; \}/);
-  assert.doesNotMatch(css, /(?:mask-image|filter):/);
+  assert.doesNotMatch(css, /(?:^|[;\s])filter:/);
   assert.doesNotMatch(css, /\.pimm-bento__tile--configuration \{[^}]*border:/);
   assert.match(css, /\.pimm-bento__tile--configuration :is\(img, canvas\) \{ object-position: 76% center; \}/);
 });

@@ -23,6 +23,9 @@
   if request.page_type == 'product'
     if template.suffix == 'injection-molding-machine' or template.suffix == 'pimm-configurator'
       assign header_has_overlay = true
+      if template.suffix == 'pimm-configurator'
+        assign header_overlay_is_bright = true
+      endif
     endif
     if request.path contains '/products_preview'
       if template.suffix == 'pimm-collection-preview'

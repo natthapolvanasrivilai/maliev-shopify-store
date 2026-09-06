@@ -14,7 +14,7 @@
 
 {%- assign display_product_title = product.title | remove: ' (Development)' | strip -%}
 
-<header class="pimm-machine__hero" data-pimm-hero>
+<header class="pimm-machine__hero" data-pimm-hero {% if section.settings.page_model == '30G' %}data-header-overlay-sentinel data-header-overlay-tone="bright" data-header-scroll-threshold="24"{% endif %}>
   <div class="pimm-machine__decision">
     <div class="pimm-machine__introduction">
       <h1 class="pimm-machine__title">{% if section.settings.page_model == '30G' or section.settings.page_model == '50G' %}PIMM {{ selected_model_code | escape }}{% else %}{{ display_product_title | escape }}{% endif %}</h1>

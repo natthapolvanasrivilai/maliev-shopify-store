@@ -98,6 +98,7 @@
 
       var isPastHero =
         !overlaySentinel ||
+        (overlaySentinel.hasAttribute('data-header-scroll-threshold') && window.scrollY > Number(overlaySentinel.getAttribute('data-header-scroll-threshold'))) ||
         document.documentElement.classList.contains('pimm30-footer-active') ||
         overlaySentinel.hasAttribute('data-header-overlay-complete') ||
         overlaySentinel.getBoundingClientRect().bottom <= header.offsetHeight + 1;
