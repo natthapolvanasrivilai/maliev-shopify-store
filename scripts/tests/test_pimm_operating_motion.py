@@ -2,9 +2,17 @@ import unittest
 import hashlib
 import json
 from pathlib import Path
-from scripts.blender.pimm_production.pimm_operating_motion import pose
+from scripts.blender.pimm_production.pimm_operating_motion import pose, tube_transform
 
 class OperatingMotionTests(unittest.TestCase):
+    def test_tube_approaches_and_withdraws_on_left(self):
+        for frame in range(288):
+            location, tilt=tube_transform(pose('pellets',frame/287)['pour'])
+            self.assertLessEqual(location[0],-25)
+            self.assertLess(tilt,0)
+        self.assertEqual(tube_transform(0)[0][0],-175)
+        self.assertEqual(tube_transform(1)[0][0],-25)
+
     def test_supplied_mold_provenance_and_dimensions(self):
         fixture=Path(__file__).parents[1]/'blender/pimm_production/fixtures/4040-single-cavity.glb'
         provenance=json.loads(fixture.with_suffix('.json').read_text())

@@ -24,6 +24,10 @@ def pose(shot, t):
                 mold_y=-260*(1-ramp(t,.12,.58)),
                 pour=ramp(t,.15,.28)*(1-ramp(t,.76,.90)))
 
+def tube_transform(pour):
+    """Pouring lip and tilt approach from the open left side of the machine."""
+    return (-25-150*(1-pour), -15, 322+50*(1-pour)), math.radians(-15-50*pour)
+
 class Operations:
     def __init__(self, bpy):
         self.bpy=bpy
@@ -153,7 +157,9 @@ class Operations:
             self.mold.location.y=s['mold_y']
         if shot=='pellets':
             u=s['pour'];self.tube.hide_render=False
-            self.tube.location=(25+150*(1-u),-15,322+50*(1-u));self.tube.rotation_euler=(0,math.radians(15+50*u),0)
+            # Approach from the open left side, away from the controller box.
+            location, tilt=tube_transform(u)
+            self.tube.location=location;self.tube.rotation_euler=(0,tilt,0)
             for i,o in enumerate(self.pellets):
                 release=.29+i*(.42/239)
                 q=(t-release)/.13
@@ -163,5 +169,5 @@ class Operations:
                     radius=9*math.sqrt((i%13+.5)/13)
                     local=Vector((radius*math.cos(angle),radius*math.sin(angle),min(86,max(2,(release-t)*180))))
                     o.location=self.tube.location+self.tube.rotation_euler.to_matrix()@local
-                elif not o.hide_render:o.location=(25*(1-q)+(i%3-1)*2,-15*(1-q),322-65*q*q)
+                elif not o.hide_render:o.location=(-25*(1-q)+(i%3-1)*2,-15*(1-q),322-65*q*q)
         return s
