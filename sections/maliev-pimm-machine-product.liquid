@@ -79,6 +79,7 @@
   <script src="{{ 'pimm-bento-orbit.js' | asset_url }}" defer="defer"></script>
   <script src="{{ 'pimm-bento-spin.js' | asset_url }}" defer="defer"></script>
 {% endif %}
+<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'maliev-pimm-machine.js' | asset_url }}&amp;pimm_release=pimm-master-20260901-r05-hdri-cycles-1&amp;pimm_ui=story-fill-v2" defer="defer"></script>
 
 <pimm-machine-product
@@ -123,7 +124,7 @@
   {% if page_model == '30G' %}
     {% render 'pimm-machine-gallery', section: section %}
   {% endif %}
-  {% render 'pimm-purchase-qualification', selected_variant: selected_variant, model_contract_valid: model_contract_valid, section: section %}
+  {% render 'pimm-purchase-qualification', product: product, selected_variant: selected_variant, model_contract_valid: model_contract_valid, section: section %}
 
   <script
     type="application/json"

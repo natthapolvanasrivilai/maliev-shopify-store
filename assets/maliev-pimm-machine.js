@@ -172,6 +172,7 @@
       const status = this.querySelector('[data-pimm-variant-status]');
       const announcement = contractValid ? variant.announcementText : this.invalidMessage;
       if (status && status.textContent.trim() !== announcement) status.textContent = announcement;
+      this.updatePurchaseForm(variant, contractValid);
 
       this.applyMedia(variant, contractValid);
       this.showOnlyStory(contractValid ? variant.model : '');
@@ -300,6 +301,36 @@
       });
     }
 
+    updatePurchaseForm(variant, contractValid) {
+      const purchasable = contractValid && variant.available === true;
+      this.querySelectorAll('[data-pimm-cart-variant-id]').forEach((input) => {
+        input.value = String(variant.id);
+        input.disabled = !purchasable;
+      });
+      this.querySelectorAll('[data-pimm-add-to-cart]').forEach((button) => {
+        const label = button.querySelector('[data-pimm-add-to-cart-label]');
+        button.disabled = !purchasable;
+        button.removeAttribute('aria-disabled');
+        if (label) {
+          label.textContent = contractValid
+            ? (purchasable ? button.dataset.pimmAddLabel : button.dataset.pimmSoldOutLabel)
+            : button.dataset.pimmUnavailableLabel;
+        }
+      });
+    }
+
+    disablePurchaseForm() {
+      this.querySelectorAll('[data-pimm-cart-variant-id]').forEach((input) => {
+        input.disabled = true;
+      });
+      this.querySelectorAll('[data-pimm-add-to-cart]').forEach((button) => {
+        button.disabled = true;
+        button.removeAttribute('aria-disabled');
+        const label = button.querySelector('[data-pimm-add-to-cart-label]');
+        if (label) label.textContent = button.dataset.pimmUnavailableLabel;
+      });
+    }
+
     decodeSelectedHero(model) {
       if (this.decodedHeroModels.has(model)) return;
 
@@ -327,6 +358,7 @@
       const status = this.querySelector('[data-pimm-variant-status]');
       if (status) status.textContent = this.invalidMessage;
 
+      this.disablePurchaseForm();
       this.applyMedia({ model: '', specifications: {} }, false);
     }
   }

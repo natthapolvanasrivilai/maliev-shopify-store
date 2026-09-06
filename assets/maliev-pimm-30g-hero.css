@@ -606,6 +606,14 @@
   background: var(--pimm-blue);
   border-color: var(--pimm-blue);
 }
+.pimm-machine[data-page-model="30G"] .pimm-machine__purchase .pimm-machine__add-to-cart {
+  background: var(--pimm-blue);
+  border-color: var(--pimm-blue);
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__purchase .pimm-machine__add-to-cart:not([disabled]):hover {
+  background: var(--pimm-blue-dark);
+  border-color: var(--pimm-blue-dark);
+}
 @media (hover: hover) {
   .pimm-machine[data-page-model="30G"] .pimm-machine__purchase .button--primary:hover .pimm-invitation-arrow { transform: translateX(4px); }
 }

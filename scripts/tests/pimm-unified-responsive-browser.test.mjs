@@ -250,6 +250,49 @@ test('missing preview URL is an intentional browser-matrix skip', { skip: Boolea
   assert.equal(previewUrl, undefined);
 });
 
+test('native add-to-cart action remains visible and usable across PIMM breakpoints', {
+  skip: previewUrl ? false : 'PIMM_UNIFIED_PREVIEW_URL is not set',
+  timeout: 120_000,
+}, async () => {
+  const browser = await launchBrowser();
+  const { session } = browser;
+  try {
+    await session.send('Page.enable');
+    await session.send('Runtime.enable');
+    for (const [width, height] of viewports) {
+      await setViewport(session, width, height);
+      await navigate(session, previewUrl);
+      await suppressCookieConsent(session);
+      const result = await evaluate(session, `(() => {
+        const purchase = document.querySelector('[data-pimm-purchase-qualification]');
+        const form = purchase?.querySelector('[data-pimm-product-form]');
+        const input = form?.querySelector('[data-pimm-cart-variant-id]');
+        const button = form?.querySelector('[data-pimm-add-to-cart]');
+        purchase?.scrollIntoView({ block: 'center' });
+        const rect = button?.getBoundingClientRect();
+        return {
+          buttonText: button?.textContent.trim(),
+          disabled: button?.disabled,
+          formAction: form?.querySelector('form')?.action,
+          height: rect?.height,
+          inViewport: Boolean(rect && rect.left >= 0 && rect.right <= innerWidth),
+          overflowX: document.documentElement.scrollWidth - innerWidth,
+          variantId: input?.value,
+        };
+      })()`);
+      assert.equal(result.buttonText, 'Add to cart', `${width}x${height} button label`);
+      assert.equal(result.disabled, false, `${width}x${height} button availability`);
+      assert.match(result.formAction, /\/cart\/add$/);
+      assert.equal(result.variantId, '54823758627095', `${width}x${height} active variant`);
+      assert.ok(result.height >= 44, `${width}x${height} touch target is too short`);
+      assert.equal(result.inViewport, true, `${width}x${height} button escapes the viewport`);
+      assert.ok(result.overflowX <= 1, `${width}x${height} introduces horizontal overflow`);
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test('30G fixture render preserves full-tile geometry at responsive widths', {
   skip: previewUrl ? false : 'PIMM_UNIFIED_PREVIEW_URL is not set',
   timeout: 120_000,

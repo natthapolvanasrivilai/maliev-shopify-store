@@ -161,6 +161,22 @@ test('variant payload preserves verified commerce and specification boundaries',
   assert.doesNotMatch(renderedContract, /deposit|มัดจำ|50%/i);
 });
 
+test('purchase close preserves the native Shopify add-to-cart contract for the active model', () => {
+  assert.match(section, /render 'pimm-purchase-qualification',[\s\S]*product: product/);
+  assert.match(section, /<script src="\{\{ 'product-form\.js' \| asset_url \}\}" defer="defer"><\/script>/);
+  assert.match(purchase, /<product-form[\s\S]*data-pimm-product-form/);
+  assert.match(purchase, /\{%-?\s*form 'product', product,/);
+  assert.match(purchase, /name="id"[\s\S]*value="\{\{ selected_variant\.id \}\}"[\s\S]*data-pimm-cart-variant-id/);
+  assert.match(purchase, /type="submit"[\s\S]*name="add"[\s\S]*data-pimm-add-to-cart/);
+  assert.match(purchase, /'products\.product\.add_to_cart' \| t/);
+  assert.match(purchase, /'products\.product\.sold_out' \| t/);
+  assert.match(purchase, /'products\.product\.unavailable' \| t/);
+  assert.match(js, /querySelectorAll\('\[data-pimm-cart-variant-id\]'\)/);
+  assert.match(js, /input\.value = String\(variant\.id\)/);
+  assert.match(js, /button\.disabled = !purchasable/);
+  assert.match(js, /disablePurchaseForm\(\)/);
+});
+
 test('selector remains native accessible and model state uses stable DOM nodes', () => {
   assert.match(selector, /<fieldset[^>]*data-pimm-model-selector/);
   assert.match(selector, /type="radio"/);

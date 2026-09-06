@@ -97,7 +97,10 @@ test('missing animation APIs leave static content and teardown cancels listeners
 
 test('Liquid preserves route, statuses and copy while enhancing only 30G', async () => {
   const source = (await readFile(new URL('snippets/pimm-purchase-qualification.liquid', root), 'utf8'))
-    .replace(/{% doc %}[\s\S]*?{% enddoc %}/, '');
+    .replace(/{% doc %}[\s\S]*?{% enddoc %}/, '')
+    .replace(/{%-?\s*form 'product'[\s\S]*?-?%}/g, '<form>')
+    .replace(/{%-?\s*endform\s*-?%}/g, '</form>')
+    .replace(/{%-?\s*render 'loading-spinner'\s*-?%}/g, '');
   const liquid = new Liquid();
   liquid.registerFilter('t', key => key);
   for (const pageModel of ['30G', '50G']) {

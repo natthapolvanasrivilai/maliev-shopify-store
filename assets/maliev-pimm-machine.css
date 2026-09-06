@@ -249,6 +249,13 @@
 .pimm-machine__purchase-action { align-items: flex-start; display: flex; flex-direction: column; gap: 1.4rem; }
 .pimm-machine__ownership-links a { color: var(--pimm-ink); font-size: 1.6rem; font-weight: 600; min-height: 4.4rem; padding-block: 1rem; }
 .pimm-machine__variant-status { color: var(--pimm-ink) !important; font-weight: 600; }
+.pimm-machine__product-form,
+.pimm-machine__product-form form,
+.pimm-machine__product-form .product-form__buttons { display: block; width: 100%; }
+.pimm-machine__product-form .product-form__error-message-wrapper:not([hidden]) { align-items: flex-start; color: #b42318; display: flex; font-size: 1.4rem; gap: .8rem; margin-bottom: 1.2rem; }
+.pimm-machine__product-form .product-form__error-message-wrapper .svg-wrapper { flex: 0 0 1.8rem; }
+.pimm-machine__add-to-cart { background: var(--pimm-blue); border-color: var(--pimm-blue); color: #fff; min-height: 4.8rem; width: 100%; }
+.pimm-machine__add-to-cart:not([disabled]):hover { background: var(--pimm-blue-dark); border-color: var(--pimm-blue-dark); }
 .pimm-machine__app-integrations { margin-inline: auto; max-width: 148rem; padding: 4rem clamp(2rem, 4vw, 6.4rem); }
 
 @media (max-width: 1299px) {
