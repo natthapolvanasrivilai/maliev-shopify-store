@@ -18,6 +18,14 @@ rotate the glTF assembly -90 degrees about X and offset X by -6 mm, placing its
 bottom on the 42.5 mm-high base plate. No vise, stops, or invented spacer is used.
 Source and tessellation hashes are in `fixtures/4040-single-cavity.json`.
 
+Pellet loading uses 240 native rigid bodies with gravity, friction, and pellet,
+glass-shell, and CAD melt-bore collisions. The tube approaches from the left,
+starts upright to retain its load, and tips gradually. The simulation advances
+every 24 fps timeline frame even when proof images sample fewer frames. Pellet
+collision shapes are spheres (a granular approximation, not process validation).
+The preview glass uses thin-wall transparency with restrained reflections to
+avoid an exaggerated dark refraction patch from the fixture behind it.
+
 For quick motion review, use the component renderer with `--operations
 --profile motion-proof --samples 8 --frame-step 3`. This renders 96 images per
 shot with Eevee at 640x360, sampling the 24 fps timeline at 8 fps. Use a fresh

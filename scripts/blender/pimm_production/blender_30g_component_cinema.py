@@ -78,6 +78,14 @@ def render(args):
         indices = [round(t*(frame_count-1)) for t in (0,.2,.4,.6,.8,1)] if args.proof else range(0,frame_count,args.frame_step)
         for frame in indices:
             t = frame/(frame_count-1)
+            if name == 'pellets':
+                # A hollow glass tube crosses four interfaces; allow refraction
+                # paths to exit instead of terminating inside the glass wall.
+                scene.cycles.max_bounces = 20
+                scene.cycles.transmission_bounces = 16
+                scene.cycles.transparent_max_bounces = 16
+                scene.cycles.film_transparent_glass = True
+                scene.cycles.film_transparent_roughness = .2
             if operations: operations.apply(name,t)
             bpy.context.view_layer.update()
             # Near-linear drift with gentle starts/ends, no mid-shot whip.

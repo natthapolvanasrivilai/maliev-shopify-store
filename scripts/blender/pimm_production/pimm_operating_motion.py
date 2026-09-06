@@ -24,10 +24,6 @@ def pose(shot, t):
                 mold_y=-260*(1-ramp(t,.12,.58)),
                 pour=ramp(t,.15,.28)*(1-ramp(t,.76,.90)))
 
-def tube_transform(pour):
-    """Pouring lip and tilt approach from the open left side of the machine."""
-    return (-25-150*(1-pour), -15, 322+50*(1-pour)), math.radians(-15-50*pour)
-
 class Operations:
     def __init__(self, bpy):
         self.bpy=bpy
@@ -75,8 +71,17 @@ class Operations:
     def mat(self,name,color,metal=0.,glass=False):
         m=self.bpy.data.materials.new(name);m.use_nodes=True
         p=m.node_tree.nodes.get('Principled BSDF');p.inputs['Base Color'].default_value=(*color,1)
-        p.inputs['Metallic'].default_value=metal;p.inputs['Roughness'].default_value=.12 if glass else .3
-        if glass:p.inputs['Transmission Weight'].default_value=1.;p.inputs['IOR'].default_value=1.46
+        p.inputs['Metallic'].default_value=metal;p.inputs['Roughness'].default_value=.025 if glass else .3
+        if glass:
+            # Thin-wall preview glass: preserve restrained highlights without
+            # magnifying the dark fixture behind the tube into an opaque patch.
+            nodes=m.node_tree.nodes;links=m.node_tree.links
+            clear=nodes.new('ShaderNodeBsdfTransparent')
+            reflection=nodes.new('ShaderNodeBsdfGlossy');reflection.inputs['Roughness'].default_value=.025
+            mix=nodes.new('ShaderNodeMixShader')
+            mix.inputs[0].default_value=.10
+            links.new(clear.outputs[0],mix.inputs[1]);links.new(reflection.outputs[0],mix.inputs[2])
+            links.new(mix.outputs[0],nodes.get('Material Output').inputs['Surface'])
         return m
 
     def make_props(self):
@@ -111,7 +116,7 @@ class Operations:
         self.mold_meshes=imported;self.props.extend(imported)
         # Open glass tube, closed far end; its local origin is the pouring lip.
         verts=[]; faces=[]; n=64
-        profile=[(14,0),(14,86)]
+        profile=[(15.2,0),(15.2,1),(14,2.4),(14,86)]
         profile.extend((14*math.cos(j*math.pi/24),86+14*math.sin(j*math.pi/24)) for j in range(1,12))
         profile.append((0,100))
         for radius,z in profile:
@@ -120,7 +125,7 @@ class Operations:
             for i in range(n):faces.append((row*n+i,row*n+(i+1)%n,(row+1)*n+(i+1)%n,(row+1)*n+i))
         mesh=b.data.meshes.new('OP_TEST_TUBE');mesh.from_pydata(verts,[],faces)
         self.tube=b.data.objects.new('OP_TEST_TUBE',mesh);b.context.collection.objects.link(self.tube)
-        solid=self.tube.modifiers.new('Glass wall','SOLIDIFY');solid.thickness=1.2
+        solid=self.tube.modifiers.new('Glass wall','SOLIDIFY');solid.thickness=2
         for polygon in mesh.polygons:polygon.use_smooth=True
         mesh.materials.append(self.mat('OP_GLASS',(.96,.98,1),glass=True));self.props.append(self.tube)
         blue=self.mat('OP_BLUE_PELLETS',(.015,.25,.65))
@@ -156,18 +161,9 @@ class Operations:
             for o in self.mold_meshes:o.hide_render=False
             self.mold.location.y=s['mold_y']
         if shot=='pellets':
-            u=s['pour'];self.tube.hide_render=False
-            # Approach from the open left side, away from the controller box.
-            location, tilt=tube_transform(u)
-            self.tube.location=location;self.tube.rotation_euler=(0,tilt,0)
-            for i,o in enumerate(self.pellets):
-                release=.29+i*(.42/239)
-                q=(t-release)/.13
-                o.hide_render=q>1
-                if q<0:
-                    angle=i*2.39996323
-                    radius=9*math.sqrt((i%13+.5)/13)
-                    local=Vector((radius*math.cos(angle),radius*math.sin(angle),min(86,max(2,(release-t)*180))))
-                    o.location=self.tube.location+self.tube.rotation_euler.to_matrix()@local
-                elif not o.hide_render:o.location=(-25*(1-q)+(i%3-1)*2,-15*(1-q),322-65*q*q)
+            from scripts.blender.pimm_production.pimm_pellet_simulation import PelletSimulation
+            if not hasattr(self,'pellet_simulation'):
+                self.pellet_simulation=PelletSimulation(self)
+            self.pellet_simulation.apply(t)
+            return s
         return s

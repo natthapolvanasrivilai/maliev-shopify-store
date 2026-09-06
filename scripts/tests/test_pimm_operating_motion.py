@@ -2,16 +2,24 @@ import unittest
 import hashlib
 import json
 from pathlib import Path
-from scripts.blender.pimm_production.pimm_operating_motion import pose, tube_transform
+from scripts.blender.pimm_production.pimm_operating_motion import pose
+from scripts.blender.pimm_production.pimm_pellet_simulation import tube_pose, pellet_sites
 
 class OperatingMotionTests(unittest.TestCase):
     def test_tube_approaches_and_withdraws_on_left(self):
         for frame in range(288):
-            location, tilt=tube_transform(pose('pellets',frame/287)['pour'])
+            location, tilt=tube_pose(frame/287)
             self.assertLessEqual(location[0],-25)
             self.assertLess(tilt,0)
-        self.assertEqual(tube_transform(0)[0][0],-175)
-        self.assertEqual(tube_transform(1)[0][0],-25)
+        self.assertEqual(tube_pose(0)[0][0],-175)
+        self.assertEqual(tube_pose(.6)[0][0],-25)
+        self.assertEqual(tube_pose(1)[0][0],-175)
+
+    def test_pellet_packing_has_no_initial_overlap(self):
+        sites=pellet_sites()
+        for i,(x,y) in enumerate(sites):
+            for xx,yy in sites[i+1:]:
+                self.assertGreater((x-xx)**2+(y-yy)**2,16)
 
     def test_supplied_mold_provenance_and_dimensions(self):
         fixture=Path(__file__).parents[1]/'blender/pimm_production/fixtures/4040-single-cavity.glb'
