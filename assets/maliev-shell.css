@@ -740,7 +740,7 @@ html.js:not(.pimm30-consent-ready)
 #shopify-pc__banner .shopify-pc__banner__btns {
   display: grid !important;
   gap: 0.6rem;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   margin: 0;
 }
 
@@ -775,9 +775,14 @@ html.js:not(.pimm30-consent-ready)
 }
 
 #shopify-pc__banner #shopify-pc__banner__btn-decline {
-  background: var(--maliev-surface);
-  border: 0.1rem solid var(--maliev-rule);
+  background: transparent;
+  border: 0;
   color: var(--maliev-ink);
+}
+
+#shopify-pc__banner .shopify-pc__banner__btns button:focus-visible {
+  outline: 0.2rem solid var(--maliev-ink);
+  outline-offset: 0.2rem;
 }
 
 @media screen and (max-width: 749px) {

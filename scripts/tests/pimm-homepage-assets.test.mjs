@@ -4,6 +4,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../../', import.meta.url);
+
+test('cookie consent stacks full-width actions and keeps decline borderless with visible focus', async () => {
+  const css = await readFile(new URL('assets/maliev-shell.css', root), 'utf8');
+  assert.match(css, /#shopify-pc__banner \.shopify-pc__banner__btns\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(css, /#shopify-pc__banner \.shopify-pc__banner__btns button\s*\{[^}]*width: 100%/);
+  assert.match(css, /#shopify-pc__banner #shopify-pc__banner__btn-decline\s*\{[^}]*background: transparent;\s*border: 0;/);
+  assert.match(css, /#shopify-pc__banner \.shopify-pc__banner__btns button:focus-visible\s*\{[^}]*outline:/);
+});
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 
 test('homepage hero prioritizes machine exploration ahead of demo booking in both contexts', async () => {
