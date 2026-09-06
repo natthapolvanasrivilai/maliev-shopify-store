@@ -107,3 +107,35 @@ test('the four released alpha clips match the verified native-render manifest',a
     }
   }
 });
+
+test('component cinema has distinct CAD anchors, restrained eight-second moves, and verified media',async()=>{
+  const snippet=await readFile(new URL('../../snippets/pimm-cinematic-hero.liquid',import.meta.url),'utf8');
+  assert.match(snippet,/'cylinder,temperature,pressure,mounting,actuator,complete'/);
+  assert.match(snippet,/pimm-cinematic-r59-/);
+  assert.doesNotMatch(snippet,/pimm-cinematic-r58-/);
+  const manifest=JSON.parse(await readFile(new URL('../../assets/pimm-cinematic-r59.json',import.meta.url),'utf8'));
+  assert.equal(manifest.fps,24);assert.equal(manifest.frames_per_shot,192);
+  assert.equal(manifest.alpha,true);
+  assert.deepEqual(manifest.shots.map(s=>s.shot),['cylinder','temperature','pressure','mounting','actuator','complete']);
+  assert.equal(new Set(manifest.shots.slice(0,-1).map(s=>s.anchor)).size,5);
+  assert.ok(new Set(manifest.shots.map(s=>s.target[0])).size>=3);
+  assert.ok(new Set(manifest.shots.map(s=>s.lens_mm)).size>=3);
+  assert.ok(manifest.shots.find(s=>s.shot==='mounting').elevation[0]>=45);
+  for(const shot of manifest.shots){
+    const duration=manifest.frames_per_shot/manifest.fps;
+    // The mixed linear/smoothstep timing curve peaks at 1.175 times mean speed.
+    assert.ok(Math.abs(shot.azimuth[1]-shot.azimuth[0])/duration*1.175<=2.5);
+  }
+  assert.equal(manifest.frames.length,1152);
+  assert.equal(new Set(manifest.frames.map(f=>f.filename)).size,1152);
+  assert.equal(manifest.outputs.length,7);
+  for(const output of manifest.outputs){
+    const bytes=await readFile(new URL(`../../assets/${output.filename}`,import.meta.url));
+    assert.equal(bytes.length,output.bytes);
+    assert.equal(createHash('sha256').update(bytes).digest('hex'),output.sha256);
+    if(output.filename.endsWith('.webm')){
+      assert.equal(output.width,960);assert.equal(output.height,1080);
+      assert.equal(output.nb_read_frames,'192');assert.equal(output.tags.alpha_mode,'1');
+    }
+  }
+});

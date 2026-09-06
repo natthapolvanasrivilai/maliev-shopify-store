@@ -71,7 +71,7 @@ pimm-cinematic-hero video { opacity: 0; transition: opacity 400ms ease; }
 pimm-cinematic-hero video.is-current { opacity: 1; }
 pimm-cinematic-hero[data-started] img { opacity: 0; }
 .pimm-machine[data-page-model="30G"] .pimm-machine__specifications { grid-column: 1; grid-row: 2; }
-@media (max-width: 749px) {
+@media (max-width: 1399px) {
   .pimm-machine[data-page-model="30G"] .pimm-machine__hero { grid-template-rows: minmax(700px, 100svh) auto; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__decision { width: 100%; padding: 88px 0 24px; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__introduction { max-width: 270px; gap: 8px; }
@@ -79,6 +79,8 @@ pimm-cinematic-hero[data-started] img { opacity: 0; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__hero-stage { width: 130%; padding: 190px 0 150px; max-height: none; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__actions { align-self: stretch; gap: 8px; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__demo-note { max-width: none; font-size: 12px; }
+}
+@media (max-width: 749px) {
   .pimm-cinematic-type { font-size: clamp(2.6rem, 7.8vw, 4.8rem); gap: 20svh; }
 }
 @media (prefers-reduced-motion: reduce) {
