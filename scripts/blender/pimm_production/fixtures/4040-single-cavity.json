@@ -1,0 +1,12 @@
+{
+  "source": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/assets/molds/4040 - Slot 10 - Single Cavity Mold.step",
+  "source_sha256": "6D42D18456E166078BE90DCC66DD7D5F30C47FC8548A3206DC41097E96FB2CD1",
+  "glb_sha256": "0F460B33B91290D0065C361D84976C6F0E9DE9DF8402B8F337A1B4DFCDB1904E",
+  "tessellation_linear_deflection_mm": 0.08,
+  "tessellation_angular_deflection_radians": 0.35,
+  "glb_units": "metres",
+  "assembly_bounds_mm": [80, 30, 49],
+  "source_step_sprue_axis_xy_mm": [6, 0],
+  "mesh_count": 6,
+  "components": "Supplied mold, insert and four screws; no vise or mold stops."
+}
