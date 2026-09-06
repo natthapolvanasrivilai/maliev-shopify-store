@@ -50,6 +50,19 @@ test('offscreen and hidden tabs preserve the current shot timeline',async()=>{
   doc.hidden=false;el.sync();assert.equal(videos[0].currentTime,1.2);
   doc.hidden=false;el.visible=false;el.sync();assert.equal(videos[0].paused,true);
 });
+test('responsive sources request only the selected profile and preserve the legacy fallback',async()=>{
+  for(const portrait of [true,false]){
+    const {el,videos}=await harness();
+    el.portrait=portrait;
+    videos[1].dataset.srcPortrait='mobile.webm';
+    videos[1].dataset.srcLandscape='desktop.webm';
+    assert.equal(el.prepare(1).src,portrait?'mobile.webm':'desktop.webm');
+    el.portrait=!portrait;
+    assert.equal(el.prepare(1).src,portrait?'mobile.webm':'desktop.webm');
+    assert.equal(el.prepare(2).src,'shot-2.webm');
+    assert.ok(videos.slice(3).every(v=>!v.src));
+  }
+});
 test('reduced motion and data saving do not request video',async()=>{
   for(const options of [{reduced:true},{saveData:true}]){
     const {videos}=await harness(options);assert.ok(videos.every(v=>!v.src && v.plays===0));

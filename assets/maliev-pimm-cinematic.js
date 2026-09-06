@@ -7,6 +7,8 @@
       const options = { signal: this.abort.signal };
       this.videos = [...this.querySelectorAll('video')];
       this.motion = matchMedia('(prefers-reduced-motion: reduce)');
+      // Select once per connection; resizing must not restart a playing shot.
+      this.portrait = matchMedia('(max-aspect-ratio: 1/1)').matches;
       this.index = 0;
       this.visible = false;
       this.failed = false;
@@ -49,7 +51,10 @@
     allowed() { return !this.failed && !this.motion.matches && !navigator.connection?.saveData && this.visible && !document.hidden; }
     prepare(index) {
       const video = this.videos[index];
-      if (!video.getAttribute('src')) { video.src = video.dataset.src; video.load(); }
+      if (!video.getAttribute('src')) {
+        video.src = (this.portrait ? video.dataset.srcPortrait : video.dataset.srcLandscape) || video.dataset.src;
+        video.load();
+      }
       return video;
     }
     sync() {
