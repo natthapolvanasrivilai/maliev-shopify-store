@@ -15,6 +15,9 @@
 {%- assign display_product_title = product.title | remove: ' (Development)' | strip -%}
 
 <header class="pimm-machine__hero" data-pimm-hero {% if section.settings.page_model == '30G' %}data-header-overlay-sentinel data-header-overlay-tone="bright" data-header-scroll-threshold="24"{% endif %}>
+  {% if section.settings.page_model == '30G' %}
+    <div class="pimm-cinematic-type" aria-hidden="true"><span>{{ 'products.pimm_machine.hero.cinematic_top' | t }}</span><span>{{ 'products.pimm_machine.hero.cinematic_bottom' | t }}</span></div>
+  {% endif %}
   <div class="pimm-machine__decision">
     <div class="pimm-machine__introduction">
       <h1 class="pimm-machine__title">{% if section.settings.page_model == '30G' or section.settings.page_model == '50G' %}PIMM {{ selected_model_code | escape }}{% else %}{{ display_product_title | escape }}{% endif %}</h1>
@@ -51,7 +54,7 @@
       {% unless selected_model_code == '30G' and model_contract_valid %}hidden inert aria-hidden="true"{% else %}aria-hidden="false"{% endunless %}
     >
         {% if section.settings.page_model == '30G' %}
-          {% render 'pimm-30g-hero-reveal' %}
+          {% render 'pimm-cinematic-hero' %}
         {% else %}
         <img
           src="{{ 'pimm-master-20260901-r05-30g-hero.webp' | asset_url }}"

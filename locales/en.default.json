@@ -232,6 +232,9 @@
         "props_disclaimer": "Environmental equipment, molds, tools and process props shown in these images are illustrative and are not included with the machine."
       },
       "hero": {
+        "cinematic_pause": "Pause motion",
+        "cinematic_top": "SMALL FOOTPRINT",
+        "cinematic_bottom": "REAL INJECTION",
         "demo_cta": "Book a 30G demo",
         "demo_note": "See the machine in action with our team in Thailand.",
         "fit_statement": "Workshop-scale injection molding, built and supported in Thailand. Choose 30G or 50G capacity without changing the ownership path.",

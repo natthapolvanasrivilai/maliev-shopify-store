@@ -1,0 +1,101 @@
+/* The first viewport is a machine study; its lettering lives behind native alpha. */
+.pimm-machine[data-page-model="30G"] .pimm-machine__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(620px, 100svh) auto;
+  padding: 0;
+  position: relative;
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__hero::before { bottom: 0; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__hero-stage {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: stretch;
+  justify-self: center;
+  width: min(76vw, 900px);
+  height: 100%;
+  max-height: 100svh;
+  padding-top: 64px;
+  mix-blend-mode: normal;
+  z-index: 1;
+  pointer-events: none;
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__decision {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 120px 0 40px;
+  width: min(26%, 320px);
+  z-index: 2;
+  pointer-events: none;
+}
+.pimm-machine[data-page-model="30G"] .pimm-machine__decision a { pointer-events: auto; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__introduction { gap: 16px; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__title { color: var(--pimm-ink); font-size: clamp(28px, 3vw, 44px) !important; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__promise { font-size: clamp(18px, 1.6vw, 24px) !important; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__fit { display: none; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__actions { margin-top: 24px; }
+.pimm-cinematic-type {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  display: grid;
+  gap: 5svh;
+  width: 94%;
+  justify-self: center;
+  overflow: clip;
+  pointer-events: none;
+  color: #ffffff;
+  font-family: var(--maliev-font-sans);
+  font-weight: 600;
+  line-height: .95;
+  letter-spacing: -.035em;
+  font-size: clamp(40px, 8vw, 130px);
+}
+.pimm-cinematic-type span { white-space: nowrap; animation: pimm-type-drift 20s ease-in-out infinite alternate; animation-play-state: paused; }
+.pimm-cinematic-type span + span { text-align: right; animation-name: pimm-type-drift-back; }
+[data-cinematic-playing="true"] .pimm-cinematic-type span { animation-play-state: running; }
+@keyframes pimm-type-drift { from { transform: translateX(0); } to { transform: translateX(5%); } }
+@keyframes pimm-type-drift-back { from { transform: translateX(0); } to { transform: translateX(-5%); } }
+pimm-cinematic-hero { display: block; position: relative; width: 100%; height: 100%; }
+pimm-cinematic-hero :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+pimm-cinematic-hero video { opacity: 0; transition: opacity 600ms ease; }
+pimm-cinematic-hero video.is-current { opacity: 1; }
+pimm-cinematic-hero[data-started] img { opacity: 0; }
+.pimm-cinematic-pause {
+  position: absolute;
+  right: 0;
+  bottom: 24px;
+  z-index: 2;
+  pointer-events: auto;
+  border: 0;
+  border-radius: 4px;
+  padding: 12px;
+  min-height: 44px;
+  background: #f3f5f6;
+  color: var(--pimm-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pimm-cinematic-pause[aria-pressed="true"] { text-decoration: underline; }
+.pimm-cinematic-pause:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.pimm-machine[data-page-model="30G"] .pimm-machine__specifications { grid-column: 1; grid-row: 2; }
+@media (max-width: 749px) {
+  .pimm-machine[data-page-model="30G"] .pimm-machine__hero { grid-template-rows: minmax(700px, 100svh) auto; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__decision { width: 100%; padding: 88px 0 24px; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__introduction { max-width: 270px; gap: 8px; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__promise { font-size: 18px !important; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__hero-stage { width: 130%; padding: 190px 0 150px; max-height: none; }
+  .pimm-machine[data-page-model="30G"] .pimm-cinematic-pause { right: 12%; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__actions { align-self: stretch; gap: 8px; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__demo-note { max-width: none; font-size: 12px; }
+  .pimm-cinematic-type { font-size: clamp(28px, 8.5vw, 48px); gap: 18svh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pimm-cinematic-type span { animation: none; }
+  pimm-cinematic-hero video { transition: none; }
+}

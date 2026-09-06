@@ -1,0 +1,10 @@
+{% doc %}Four transparent native camera studies over live, localized typography.{% enddoc %}
+<pimm-cinematic-hero>
+  <img src="{{ 'pimm-cinematic-r58-complete.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}" width="960" height="1080" loading="eager" fetchpriority="high">
+  {% assign cinematic_shots = 'drive,control,tooling,complete' | split: ',' %}
+  {% for shot in cinematic_shots %}
+    {% assign cinematic_asset = 'pimm-cinematic-r58-' | append: shot | append: '.webm' %}
+    <video data-src="{{ cinematic_asset | asset_url }}" crossorigin="anonymous" muted playsinline preload="none" aria-hidden="true"></video>
+  {% endfor %}
+  <button type="button" class="pimm-cinematic-pause" aria-pressed="false" hidden>{{ 'products.pimm_machine.hero.cinematic_pause' | t }}</button>
+</pimm-cinematic-hero>
