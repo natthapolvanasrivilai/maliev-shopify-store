@@ -403,7 +403,7 @@
       "purchase": {
         "heading": "See the machine before you commit",
         "body": "Book a demo session in Thailand to review your part, material, mold plan and utilities with the MALIEV team before confirming the right machine.",
-        "full_price": "Full machine price",
+        "full_price": "Full machine price (excluding VAT)",
         "lead_time_label": "Production lead time",
         "lead_time": "Approximately {{ days }} days",
         "book_visit": "Book a demo session"
