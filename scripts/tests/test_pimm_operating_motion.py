@@ -27,10 +27,10 @@ class OperatingMotionTests(unittest.TestCase):
                 self.assertGreater((x-xx)**2+(y-yy)**2,16)
 
     def test_supplied_mold_provenance_and_dimensions(self):
-        fixture=Path(__file__).parents[1]/'blender/pimm_production/fixtures/4040-single-cavity.glb'
+        fixture=Path(__file__).parents[1]/'blender/pimm_production/fixtures/80mm-coaster.glb'
         provenance=json.loads(fixture.with_suffix('.json').read_text())
         self.assertEqual(hashlib.sha256(fixture.read_bytes()).hexdigest().upper(),provenance['glb_sha256'])
-        self.assertEqual(provenance['assembly_bounds_mm'],[80,30,49])
+        self.assertEqual(provenance['source_step_sprue_axis_xy_mm'],[0,0])
         self.assertEqual(provenance['mesh_count'],6)
 
     def test_clockwise_turn_after_unlock_and_before_relock(self):

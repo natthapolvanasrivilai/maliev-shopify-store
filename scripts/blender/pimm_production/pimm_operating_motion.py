@@ -88,7 +88,7 @@ class Operations:
         from mathutils import Matrix,Vector
         b=self.bpy
         before=set(b.data.objects)
-        fixture=Path(__file__).parent/'fixtures'/'4040-single-cavity.glb'
+        fixture=Path(__file__).parent/'fixtures'/'80mm-coaster.glb'
         provenance=json.loads(fixture.with_suffix('.json').read_text())
         if hashlib.sha256(fixture.read_bytes()).hexdigest().upper()!=provenance['glb_sha256']:raise ValueError('Supplied mold asset hash changed')
         b.ops.import_scene.gltf(filepath=str(fixture))
@@ -101,18 +101,17 @@ class Operations:
         b.context.view_layer.update()
         points=[o.matrix_world@Vector(c) for o in imported for c in o.bound_box]
         low=[min(p[i] for p in points) for i in range(3)];high=[max(p[i] for p in points) for i in range(3)]
-        if any(abs((high[i]-low[i])-expected)>.01 for i,expected in enumerate((80,30,49))):raise ValueError(f'Supplied mold dimensions changed: {[high[i]-low[i] for i in range(3)]}')
-        self.mold=b.data.objects.new('OP_SUPPLIED_4040_MOLD',None);b.context.collection.objects.link(self.mold)
-        # The supplied assembly's sprue face points along -Y; turn it upward.
-        orient=Matrix.Rotation(-math.pi/2,4,'X')
+        if any(abs((high[i]-low[i])-expected)>.05 for i,expected in enumerate((101.05,101.05,30.023))):raise ValueError(f'Supplied mold dimensions changed: {[high[i]-low[i] for i in range(3)]}')
+        self.mold=b.data.objects.new('OP_SUPPLIED_COASTER_MOLD',None);b.context.collection.objects.link(self.mold)
+        # Coaster tooling is already Z-up, with its sprue on the XY origin.
+        orient=Matrix.Identity(4)
         points=[orient@p for p in points]
         low=[min(p[i] for p in points) for i in range(3)];high=[max(p[i] for p in points) for i in range(3)]
-        # STEP sprue cone is at X=6, Y=0, not the bounding-box centre.
-        offset=Matrix.Translation((-6,0,42.5-low[2]))@orient
+        offset=Matrix.Translation((0,0,42.5-low[2]))@orient
         metal=self.mat('OP_MOLD_METAL',(.36,.39,.42),.8)
         for o in imported:
             o.matrix_world=offset@o.matrix_world;o.parent=self.mold
-            if o.name.startswith('Mold'):o.data.materials.clear();o.data.materials.append(metal)
+            o.data.materials.clear();o.data.materials.append(metal)
         self.mold_meshes=imported;self.props.extend(imported)
         # Open glass tube, closed far end; its local origin is the pouring lip.
         verts=[]; faces=[]; n=64

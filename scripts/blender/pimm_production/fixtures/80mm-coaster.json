@@ -1,0 +1,11 @@
+{
+  "source": "M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\assets\\molds\\80mm Coaster.step",
+  "source_sha256": "3C3E693FE35524BD0DDFCE15238A1FC82EA2FE659588F55831ACA9B05145D819",
+  "glb_sha256": "99BCBF3156698A1D0A6182DB7D0A5EB5ED80422E267F0779BF103F82417E6679",
+  "mesh_count": 6,
+  "source_step_sprue_axis_xy_mm": [
+    0,
+    0
+  ],
+  "components": "Injection side, cavity side, four screws; excludes finished plastic coaster."
+}
