@@ -124,6 +124,12 @@ class Operations:
         for row in range(len(profile)-1):
             for i in range(n):faces.append((row*n+i,row*n+(i+1)%n,(row+1)*n+(i+1)%n,(row+1)*n+i))
         mesh=b.data.meshes.new('OP_TEST_TUBE');mesh.from_pydata(verts,[],faces)
+        # Weld the rounded-end pole so the collision shell has no open seam.
+        import bmesh
+        topology=bmesh.new();topology.from_mesh(mesh)
+        bmesh.ops.remove_doubles(topology,verts=list(topology.verts),dist=.001)
+        bmesh.ops.recalc_face_normals(topology,faces=list(topology.faces))
+        topology.to_mesh(mesh);topology.free()
         self.tube=b.data.objects.new('OP_TEST_TUBE',mesh);b.context.collection.objects.link(self.tube)
         solid=self.tube.modifiers.new('Glass wall','SOLIDIFY');solid.thickness=2
         for polygon in mesh.polygons:polygon.use_smooth=True

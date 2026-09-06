@@ -26,8 +26,9 @@ every 24 fps timeline frame even when proof images sample fewer frames. Pellet
 collision shapes are spheres (a granular approximation, not process validation).
 The preview glass uses thin-wall transparency with restrained reflections to
 avoid an exaggerated dark refraction patch from the fixture behind it.
-Tube and pellets fade in together over the first 1.7 seconds, stay fully visible
-through the pour, and fade out in place over the last 1.9 seconds.
+Tube and pellets fade in together over the first second; tipping starts at
+1.1 seconds. They stay fully visible through the pour and fade out in place
+from 8.4 to 10.3 seconds. The lip is centered at (-24, 0, 325) mm, over the bore.
 Shader visibility leaves the rigid-body simulation running throughout.
 
 For quick motion review, use the component renderer with `--operations

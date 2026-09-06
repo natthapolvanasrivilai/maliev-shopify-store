@@ -3,14 +3,14 @@ import math
 
 def prop_visibility(t):
     from scripts.blender.pimm_production.pimm_operating_motion import ramp
-    return ramp(t, 0, .14)*(1-ramp(t, .84, 1))
+    return ramp(t, 0, .08)*(1-ramp(t, .70, .86))
 
 def tube_pose(t):
     from scripts.blender.pimm_production.pimm_operating_motion import ramp
-    tip = ramp(t, .30, .72)
+    tip = ramp(t, .09, .40)
     # Fixed pouring lip: appear in place, tilt, then disappear in place.
     # A shallow initial tilt retains pellets without extending below the plate.
-    return (-40, -15, 325), math.radians(-105+40*tip)
+    return (-24, 0, 325), math.radians(-95+30*tip)
 
 def pellet_sites():
     return [(x*4.3, y*4.3) for y in range(-2,3) for x in range(-2,3) if (x*4.3)**2+(y*4.3)**2 < 9.5**2]
@@ -56,7 +56,9 @@ class PelletSimulation:
         sites = pellet_sites()
         for i, pellet in enumerate(ops.pellets):
             x,y = sites[i % len(sites)]
-            z = 20+(i//len(sites))*4.3
+            # Keep every starting layer in the straight bore, below the domed
+            # bottom; packing into the rounded cap launches overlapping grains.
+            z = 5+(i//len(sites))*4.3
             pellet.location = ops.tube.matrix_world @ Vector((x,y,z))
             pellet.scale = (1,1,1)
             self.body(pellet, 'ACTIVE', 'SPHERE')
@@ -68,11 +70,14 @@ class PelletSimulation:
         # Actual open CAD melt bore, not a convex hull sealing the opening.
         self.body(ops.part('0cd746d4874417b8'), 'PASSIVE', 'MESH')
         world = scene.rigidbody_world
-        world.substeps_per_frame = 16
-        world.solver_iterations = 30
+        world.substeps_per_frame = 64
+        world.solver_iterations = 60
         world.point_cache.frame_start = 1
         world.point_cache.frame_end = 288
         b.context.view_layer.update()
+        # Reinitialize Bullet after every body has its final starting transform.
+        scene.frame_set(0)
+        scene.frame_set(1)
 
     def body(self, obj, kind, shape):
         b = self.ops.bpy

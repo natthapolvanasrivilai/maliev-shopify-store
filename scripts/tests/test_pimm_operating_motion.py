@@ -9,18 +9,19 @@ class OperatingMotionTests(unittest.TestCase):
     def test_props_fade_before_and_after_pouring(self):
         self.assertEqual(prop_visibility(0),0)
         self.assertEqual(prop_visibility(1),0)
-        self.assertTrue(0 < prop_visibility(.07) < 1)
-        self.assertTrue(0 < prop_visibility(.92) < 1)
-        for t in (.14,.3,.5,.72,.84):self.assertEqual(prop_visibility(t),1)
+        self.assertTrue(0 < prop_visibility(.04) < 1)
+        self.assertTrue(0 < prop_visibility(.78) < 1)
+        for t in (.08,.3,.5,.70):self.assertEqual(prop_visibility(t),1)
 
     def test_tube_fades_in_place_without_travel(self):
         for frame in range(288):
             location, tilt=tube_pose(frame/287)
-            self.assertEqual(location,(-40,-15,325))
+            self.assertEqual(location,(-24,0,325))
             self.assertLess(tilt,0)
 
     def test_pellet_packing_has_no_initial_overlap(self):
         sites=pellet_sites()
+        self.assertLess(5+(239//len(sites))*4.3+2,86)
         for i,(x,y) in enumerate(sites):
             for xx,yy in sites[i+1:]:
                 self.assertGreater((x-xx)**2+(y-yy)**2,16)
