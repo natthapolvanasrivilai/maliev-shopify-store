@@ -19,36 +19,35 @@ async function harness({reduced=false, saveData=false, denied=false, alpha}={}) 
   const motion={matches:reduced,addEventListener(){}};
   const doc={hidden:false,addEventListener(){}};
   if(alpha!==undefined)doc.createElement=()=>({getContext:()=>({drawImage(){},getImageData:()=>({data:[0,0,0,alpha]})})});
-  const videos=Array.from({length:4},(_,i)=>({
+  const videos=Array.from({length:6},(_,i)=>({
     dataset:{src:`shot-${i}.webm`},events:{},currentTime:0,plays:0,paused:true,
     classList:{toggle(name,on){this.current=on;},remove(){this.current=false;}},
     addEventListener(name,cb){this.events[name]=cb;},getAttribute(){return this.src;},
     removeAttribute(){delete this.src;},load(){},pause(){this.paused=true;},
     play(){this.paused=false;this.plays++;return denied?Promise.reject(Error('denied')):Promise.resolve();}
   }));
-  const button={hidden:true,addEventListener(n,cb){this.click=cb;},setAttribute(n,v){this[n]=v;}};
-  class Element {constructor(){this.dataset={};}querySelectorAll(){return videos;}querySelector(){return button;}closest(){return hero;}}
+  class Element {constructor(){this.dataset={};}querySelectorAll(){return videos;}closest(){return hero;}}
   vm.runInNewContext(await readFile(new URL('../../assets/maliev-pimm-cinematic.js',import.meta.url),'utf8'),{
     HTMLElement:Element,AbortController,window:{IntersectionObserver:true},document:doc,navigator:{connection:{saveData}},matchMedia:()=>motion,
     IntersectionObserver:class {constructor(cb){this.cb=cb;}observe(){}disconnect(){}},
     customElements:{get(){},define(n,c){Controller=c;}}
   });
   const el=new Controller();el.connectedCallback();el.observer.cb([{isIntersecting:true}]);
-  return {el,videos,button,hero,motion,doc};
+  return {el,videos,hero,motion,doc};
 }
-test('four authored shots play in order and wrap after the full-machine shot',async()=>{
+test('six authored shots play in order and wrap after the full-machine shot',async()=>{
   const {el,videos}=await harness();
-  for(let i=0;i<4;i++){
+  for(let i=0;i<6;i++){
     assert.equal(el.index,i);videos[i].events.playing();assert.equal(videos[i].classList.current,true);
     videos[i].events.ended();
   }
   assert.equal(el.index,0);assert.equal(videos[0].plays,2);
 });
-test('pause, offscreen and hidden tabs preserve the current shot timeline',async()=>{
-  const {el,videos,button,hero,doc}=await harness();videos[0].events.playing();videos[0].currentTime=1.2;
-  button.click();assert.equal(videos[0].paused,true);assert.equal(hero.dataset.cinematicPlaying,'false');
-  button.click();assert.equal(videos[0].currentTime,1.2);
+test('offscreen and hidden tabs preserve the current shot timeline',async()=>{
+  const {el,videos,hero,doc}=await harness();videos[0].events.playing();videos[0].currentTime=1.2;
   doc.hidden=true;el.sync();assert.equal(videos[0].paused,true);
+  assert.equal(hero.dataset.cinematicPlaying,'false');
+  doc.hidden=false;el.sync();assert.equal(videos[0].currentTime,1.2);
   doc.hidden=false;el.visible=false;el.sync();assert.equal(videos[0].paused,true);
 });
 test('reduced motion and data saving do not request video',async()=>{
@@ -57,8 +56,8 @@ test('reduced motion and data saving do not request video',async()=>{
   }
 });
 test('failure and changing reduced-motion preference restore static fallback',async()=>{
-  const {el,videos,button}=await harness({denied:true});await Promise.resolve();await Promise.resolve();
-  assert.equal(el.failed,true);assert.equal(el.dataset.started,undefined);assert.equal(button.hidden,true);
+  const {el,videos}=await harness({denied:true});await Promise.resolve();await Promise.resolve();
+  assert.equal(el.failed,true);assert.equal(el.dataset.started,undefined);
   const h=await harness();h.videos[0].events.playing();h.motion.matches=true;h.el.sync();
   assert.equal(h.el.dataset.started,undefined);h.videos[0].events.playing();assert.equal(h.videos[0].paused,true);
 });
@@ -75,11 +74,18 @@ test('opaque video decoders keep the transparent poster instead of a black recta
 });
 
 test('a theme-editor reconnect starts from the poster and rechecks video alpha',async()=>{
-  const {el,videos,button}=await harness({alpha:0});
-  videos[0].events.playing();button.click();el.disconnectedCallback();el.connectedCallback();
+  const {el,videos}=await harness({alpha:0});
+  videos[0].events.playing();el.disconnectedCallback();el.connectedCallback();
   assert.equal(el.alphaChecked,false);assert.equal(el.dataset.started,undefined);
-  assert.equal(button.hidden,true);assert.equal(button['aria-pressed'],'false');
   assert.ok(videos.every(video=>!video.classList.current));
+});
+
+test('hero has no pause button and uses restrained background type motion',async()=>{
+  const snippet=await readFile(new URL('../../snippets/pimm-cinematic-hero.liquid',import.meta.url),'utf8');
+  assert.doesNotMatch(snippet,/<button|cinematic_pause/);
+  const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
+  assert.match(css,/pimm-type-drift 40s linear/);
+  assert.match(css,/prefers-reduced-motion: reduce/);
 });
 
 test('the four released alpha clips match the verified native-render manifest',async()=>{

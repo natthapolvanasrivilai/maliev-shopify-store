@@ -10,18 +10,9 @@
       this.index = 0;
       this.visible = false;
       this.failed = false;
-      this.paused = false;
       this.alphaChecked = false;
       delete this.dataset.started;
       this.videos.forEach(video => video.classList.remove('is-current'));
-      this.button = this.querySelector('button');
-      this.button.hidden = true;
-      this.button.setAttribute('aria-pressed', 'false');
-      this.button.addEventListener('click', () => {
-        this.paused = !this.paused;
-        this.button.setAttribute('aria-pressed', String(this.paused));
-        this.sync();
-      }, options);
       this.videos.forEach((video, index) => {
         video.addEventListener('playing', () => {
           if (!this.allowed() || index !== this.index) { video.pause(); return; }
@@ -38,7 +29,6 @@
           }
           this.videos.forEach(item => item.classList.toggle('is-current', item === video));
           this.dataset.started = 'true';
-          this.button.hidden = false;
           this.closest('[data-pimm-hero]').dataset.cinematicPlaying = 'true';
           this.prepare((index + 1) % this.videos.length);
         }, options);
@@ -56,7 +46,7 @@
       this.observer = new IntersectionObserver(([entry]) => { this.visible = entry.isIntersecting; this.sync(); }, {threshold:.15});
       this.observer.observe(this);
     }
-    allowed() { return !this.paused && !this.failed && !this.motion.matches && !navigator.connection?.saveData && this.visible && !document.hidden; }
+    allowed() { return !this.failed && !this.motion.matches && !navigator.connection?.saveData && this.visible && !document.hidden; }
     prepare(index) {
       const video = this.videos[index];
       if (!video.getAttribute('src')) { video.src = video.dataset.src; video.load(); }
@@ -69,7 +59,6 @@
         this.closest('[data-pimm-hero]').dataset.cinematicPlaying = 'false';
         if (this.failed || this.motion.matches || navigator.connection?.saveData) {
           delete this.dataset.started;
-          this.button.hidden = true;
           this.videos.forEach(video => video.classList.remove('is-current'));
         }
         return;
