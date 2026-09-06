@@ -84,8 +84,14 @@ test('hero has no pause button and uses restrained background type motion',async
   const snippet=await readFile(new URL('../../snippets/pimm-cinematic-hero.liquid',import.meta.url),'utf8');
   assert.doesNotMatch(snippet,/<button|cinematic_pause/);
   const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
-  assert.match(css,/pimm-type-drift 40s linear/);
+  assert.match(css,/pimm-type-drift 24s linear/);
+  assert.match(css,/translateX\(-8%\)/);
+  assert.match(css,/font-size: clamp\(4.8rem, 10vw, 16rem\)/);
   assert.match(css,/prefers-reduced-motion: reduce/);
+  assert.match(css,/width: 100vw/);
+  assert.doesNotMatch(css,/width: 130%/);
+  assert.match(css,/video:not\(\[data-shot="complete"\]\) \{ object-fit: cover; \}/);
+  assert.match(snippet,/data-shot="\{\{ shot \}\}"/);
 });
 
 test('the four released alpha clips match the verified native-render manifest',async()=>{

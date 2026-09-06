@@ -4,6 +4,6 @@
   {% assign cinematic_shots = 'cylinder,temperature,pressure,mounting,actuator,complete' | split: ',' %}
   {% for shot in cinematic_shots %}
     {% assign cinematic_asset = 'pimm-cinematic-r59-' | append: shot | append: '.webm' %}
-    <video data-src="{{ cinematic_asset | asset_url }}" crossorigin="anonymous" muted playsinline preload="none" aria-hidden="true"></video>
+    <video data-shot="{{ shot }}" data-src="{{ cinematic_asset | asset_url }}" crossorigin="anonymous" muted playsinline preload="none" aria-hidden="true"></video>
   {% endfor %}
 </pimm-cinematic-hero>

@@ -16,10 +16,10 @@
   grid-row: 1;
   align-self: stretch;
   justify-self: center;
-  width: min(76vw, 900px);
+  width: 100vw;
   height: 100%;
   max-height: 100svh;
-  padding-top: 64px;
+  padding: 0;
   mix-blend-mode: normal;
   z-index: 1;
   pointer-events: none;
@@ -48,25 +48,37 @@
   align-self: center;
   display: grid;
   gap: clamp(6rem, 14svh, 16rem);
-  width: 92%;
+  width: 100%;
   justify-self: center;
   overflow: clip;
   pointer-events: none;
   color: #ffffff;
   font-family: var(--maliev-font-sans);
-  font-weight: 500;
+  font-weight: 600;
   font-kerning: normal;
   line-height: 1.05;
   letter-spacing: -.02em;
-  font-size: clamp(4rem, 7.4vw, 9.6rem);
+  font-size: clamp(4.8rem, 10vw, 16rem);
 }
-.pimm-cinematic-type span { white-space: nowrap; animation: pimm-type-drift 40s linear infinite alternate; animation-play-state: paused; }
+.pimm-cinematic-type span { white-space: nowrap; animation: pimm-type-drift 24s linear infinite alternate; animation-play-state: paused; }
 .pimm-cinematic-type span + span { text-align: right; animation-name: pimm-type-drift-back; }
 [data-cinematic-playing="true"] .pimm-cinematic-type span { animation-play-state: running; }
-@keyframes pimm-type-drift { from { transform: translateX(0); } to { transform: translateX(2%); } }
-@keyframes pimm-type-drift-back { from { transform: translateX(0); } to { transform: translateX(-2%); } }
+@keyframes pimm-type-drift { from { transform: translateX(-8%); } to { transform: translateX(4%); } }
+@keyframes pimm-type-drift-back { from { transform: translateX(4%); } to { transform: translateX(-8%); } }
 pimm-cinematic-hero { display: block; position: relative; width: 100%; height: 100%; }
 pimm-cinematic-hero :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+pimm-cinematic-hero video:not([data-shot="complete"]) { object-fit: cover; }
+/* Quiet only the copy/navigation edges, without a hard-edged media rectangle. */
+pimm-cinematic-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, #f3f5f6, transparent 10rem),
+    radial-gradient(ellipse 36rem 28rem at 8rem 12rem, #f3f5f6 35%, transparent 100%),
+    radial-gradient(ellipse 36rem 18rem at 8rem 100%, #f3f5f6 35%, transparent 100%);
+}
 pimm-cinematic-hero video { opacity: 0; transition: opacity 400ms ease; }
 pimm-cinematic-hero video.is-current { opacity: 1; }
 pimm-cinematic-hero[data-started] img { opacity: 0; }
@@ -76,12 +88,12 @@ pimm-cinematic-hero[data-started] img { opacity: 0; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__decision { width: 100%; padding: 88px 0 24px; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__introduction { max-width: 270px; gap: 8px; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__promise { font-size: 18px !important; }
-  .pimm-machine[data-page-model="30G"] .pimm-machine__hero-stage { width: 130%; padding: 190px 0 150px; max-height: none; }
+  .pimm-machine[data-page-model="30G"] .pimm-machine__hero-stage { width: 100vw; padding: 0; max-height: none; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__actions { align-self: stretch; gap: 8px; }
   .pimm-machine[data-page-model="30G"] .pimm-machine__demo-note { max-width: none; font-size: 12px; }
 }
 @media (max-width: 749px) {
-  .pimm-cinematic-type { font-size: clamp(2.6rem, 7.8vw, 4.8rem); gap: 20svh; }
+  .pimm-cinematic-type { font-size: clamp(3.6rem, 11vw, 7.2rem); gap: 20svh; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pimm-cinematic-type span { animation: none; }
