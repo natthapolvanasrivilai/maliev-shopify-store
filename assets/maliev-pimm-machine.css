@@ -62,7 +62,7 @@
 .pimm-machine .button,
 .pimm-machine__text-link {
   align-items: center;
-  border-radius: .5rem;
+  border-radius: 4px;
   display: inline-flex;
   font-size: 1.6rem;
   font-weight: 600;
@@ -104,7 +104,7 @@
   align-items: stretch;
   align-self: stretch;
   background: #f4f4f2;
-  border-radius: 1.6rem;
+  border-radius: 14px;
   display: grid;
   min-height: 68rem;
   min-width: 0;
@@ -118,7 +118,7 @@
   align-content: space-between;
   align-self: stretch;
   background: var(--pimm-ink);
-  border-radius: 1.4rem;
+  border-radius: 14px;
   color: #fff;
   display: grid;
   gap: clamp(3.2rem, 4vw, 5.6rem);
@@ -130,7 +130,7 @@
 .pimm-machine__specifications dl { border-block: 1px solid rgba(255, 255, 255, .24); }
 .pimm-machine__specifications dl > div { border-bottom: 1px solid rgba(255, 255, 255, .18); display: grid; gap: 1rem; padding-block: clamp(2rem, 2.5vw, 3.2rem); }
 .pimm-machine__specifications dl > div:last-child { border-bottom: 0; }
-.pimm-machine__specifications dt { color: #c1c9d0; font-size: 1.3rem; font-weight: 500; line-height: 1.35; }
+.pimm-machine__specifications dt { color: var(--pimm-line); font-size: 1.3rem; font-weight: 500; line-height: 1.35; }
 .pimm-machine__qualification-facts dt { color: var(--pimm-muted); font-size: 1.3rem; line-height: 1.35; }
 .pimm-machine__specifications dd { color: #fff; font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: clamp(2.2rem, 2vw, 3rem); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.025em; line-height: 1.05; overflow-wrap: anywhere; }
 .pimm-machine__qualification-facts dd { color: var(--pimm-ink); font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.7rem; font-variant-numeric: tabular-nums; font-weight: 600; overflow-wrap: anywhere; }
@@ -154,7 +154,7 @@
 }
 .pimm-story__chapter:nth-child(odd) .pimm-story__media { order: 2; }
 .pimm-story__chapter:nth-child(odd) { grid-template-columns: minmax(24rem, .85fr) minmax(0, 1.15fr); }
-.pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 1.4rem; display: grid; min-height: 48rem; overflow: hidden; position: relative; }
+.pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 14px; display: grid; min-height: 48rem; overflow: hidden; position: relative; }
 .pimm-story__media img { height: 100%; max-height: 68rem; width: 100%; }
 .pimm-story__media[data-pimm-media-shot] { --pimm-media-pending-scale: 1.05; --pimm-media-scale: 1; }
 .pimm-story__media[data-pimm-media-shot] img {
