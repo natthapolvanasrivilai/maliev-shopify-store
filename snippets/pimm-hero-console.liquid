@@ -16,7 +16,27 @@
 
 <header class="pimm-machine__hero" data-pimm-hero {% if section.settings.page_model == '30G' %}data-header-overlay-sentinel data-header-overlay-tone="bright" data-header-scroll-threshold="24"{% endif %}>
   {% if section.settings.page_model == '30G' %}
-    <div class="pimm-cinematic-type" aria-hidden="true"><span>{{ 'products.pimm_machine.hero.cinematic_top' | t }}</span><span>{{ 'products.pimm_machine.hero.cinematic_bottom' | t }}</span></div>
+    <div class="pimm-cinematic-type" aria-hidden="true">
+      {% for row in (1..2) %}
+        <div class="pimm-cinematic-type__row">
+          <div class="pimm-cinematic-type__track">
+            {% for copy in (1..2) %}
+              <div class="pimm-cinematic-type__group">
+                {% if row == 1 %}
+                  <span>{{ 'products.pimm_machine.hero.cinematic_top' | t }}</span>
+                  <span>{{ 'pimm_bento.air_pressure_heading' | t }}</span>
+                  <span>{{ 'pimm_bento.tooling_heading' | t }}</span>
+                {% else %}
+                  <span>{{ 'products.pimm_machine.hero.cinematic_bottom' | t }}</span>
+                  <span>{{ 'pimm_bento.temperature_heading' | t }}</span>
+                  <span>{{ 'pimm_bento.plunger_heading' | t }}</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
   {% endif %}
   <div class="pimm-machine__decision">
     <div class="pimm-machine__introduction">

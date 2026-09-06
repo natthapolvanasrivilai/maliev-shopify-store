@@ -84,8 +84,14 @@ test('hero has no pause button and uses restrained background type motion',async
   const snippet=await readFile(new URL('../../snippets/pimm-cinematic-hero.liquid',import.meta.url),'utf8');
   assert.doesNotMatch(snippet,/<button|cinematic_pause/);
   const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
-  assert.match(css,/pimm-type-drift 24s linear/);
-  assert.match(css,/translateX\(-8%\)/);
+  assert.match(css,/pimm-type-marquee 120s linear infinite reverse/);
+  assert.match(css,/translateX\(-50%\)/);
+  assert.match(css,/font-weight: 800/);
+  assert.match(css,/mask-image: linear-gradient\(to right, transparent, #000 10%, #000 90%, transparent\)/);
+  assert.match(css,/animation-direction: normal/);
+  const consoleMarkup=await readFile(new URL('../../snippets/pimm-hero-console.liquid',import.meta.url),'utf8');
+  assert.match(consoleMarkup,/for copy in \(1\.\.2\)/);
+  for(const key of ['air_pressure_heading','tooling_heading','temperature_heading','plunger_heading']) assert.ok(consoleMarkup.includes(`pimm_bento.${key}`));
   assert.match(css,/font-size: clamp\(4.8rem, 10vw, 16rem\)/);
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.match(css,/width: 100vw/);

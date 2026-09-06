@@ -54,17 +54,35 @@
   pointer-events: none;
   color: #ffffff;
   font-family: var(--maliev-font-sans);
-  font-weight: 600;
+  font-weight: 800;
   font-kerning: normal;
   line-height: 1.05;
   letter-spacing: -.02em;
   font-size: clamp(4.8rem, 10vw, 16rem);
 }
-.pimm-cinematic-type span { white-space: nowrap; animation: pimm-type-drift 24s linear infinite alternate; animation-play-state: paused; }
-.pimm-cinematic-type span + span { text-align: right; animation-name: pimm-type-drift-back; }
-[data-cinematic-playing="true"] .pimm-cinematic-type span { animation-play-state: running; }
-@keyframes pimm-type-drift { from { transform: translateX(-8%); } to { transform: translateX(4%); } }
-@keyframes pimm-type-drift-back { from { transform: translateX(4%); } to { transform: translateX(-8%); } }
+.pimm-cinematic-type__row {
+  min-width: 0;
+  overflow: clip;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+}
+.pimm-cinematic-type__track {
+  display: flex;
+  width: max-content;
+  animation: pimm-type-marquee 120s linear infinite reverse;
+  animation-play-state: paused;
+}
+.pimm-cinematic-type__row + .pimm-cinematic-type__row .pimm-cinematic-type__track { animation-direction: normal; }
+.pimm-cinematic-type__group {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1em;
+  padding-inline-end: 1em;
+}
+.pimm-cinematic-type span { white-space: nowrap; text-transform: uppercase; }
+[data-cinematic-playing="true"] .pimm-cinematic-type__track { animation-play-state: running; }
+@keyframes pimm-type-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 pimm-cinematic-hero { display: block; position: relative; width: 100%; height: 100%; }
 pimm-cinematic-hero :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 pimm-cinematic-hero video:not([data-shot="complete"]) { object-fit: cover; }
@@ -96,6 +114,7 @@ pimm-cinematic-hero[data-started] img { opacity: 0; }
   .pimm-cinematic-type { font-size: clamp(3.6rem, 11vw, 7.2rem); gap: 20svh; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pimm-cinematic-type span { animation: none; }
+  .pimm-cinematic-type__track { animation: none; }
+  .pimm-cinematic-type__group + .pimm-cinematic-type__group { display: none; }
   pimm-cinematic-hero video { transition: none; }
 }
