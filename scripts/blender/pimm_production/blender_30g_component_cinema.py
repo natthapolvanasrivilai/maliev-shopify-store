@@ -76,6 +76,8 @@ def render(args):
         if name == 'mounting' and args.operations: target[2] = 90
         camera.data.lens = lens
         indices = [round(t*(frame_count-1)) for t in (0,.2,.4,.6,.8,1)] if args.proof else range(0,frame_count,args.frame_step)
+        if args.proof and name == 'pellets':
+            indices = [round(t*(frame_count-1)) for t in (0,.07,.2,.6,.92,1)]
         for frame in indices:
             t = frame/(frame_count-1)
             if name == 'pellets':

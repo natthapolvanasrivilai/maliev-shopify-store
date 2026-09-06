@@ -3,9 +3,16 @@ import hashlib
 import json
 from pathlib import Path
 from scripts.blender.pimm_production.pimm_operating_motion import pose
-from scripts.blender.pimm_production.pimm_pellet_simulation import tube_pose, pellet_sites
+from scripts.blender.pimm_production.pimm_pellet_simulation import tube_pose, pellet_sites, prop_visibility
 
 class OperatingMotionTests(unittest.TestCase):
+    def test_props_fade_before_and_after_pouring(self):
+        self.assertEqual(prop_visibility(0),0)
+        self.assertEqual(prop_visibility(1),0)
+        self.assertTrue(0 < prop_visibility(.07) < 1)
+        self.assertTrue(0 < prop_visibility(.92) < 1)
+        for t in (.14,.3,.5,.72,.84):self.assertEqual(prop_visibility(t),1)
+
     def test_tube_approaches_and_withdraws_on_left(self):
         for frame in range(288):
             location, tilt=tube_pose(frame/287)

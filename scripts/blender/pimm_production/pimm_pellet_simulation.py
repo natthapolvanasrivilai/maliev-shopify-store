@@ -1,6 +1,10 @@
 """Native rigid-body pellet pour in the master scene's millimetre coordinates."""
 import math
 
+def prop_visibility(t):
+    from scripts.blender.pimm_production.pimm_operating_motion import ramp
+    return ramp(t, 0, .14)*(1-ramp(t, .84, 1))
+
 def tube_pose(t):
     from scripts.blender.pimm_production.pimm_operating_motion import ramp
     approach = ramp(t, .08, .28)
@@ -23,6 +27,18 @@ class PelletSimulation:
         scene.gravity = (0, 0, -9810)
         self.frame = 1
         scene.frame_set(1)
+        # Fade the props, including their shadows, without disabling physics.
+        self.fade_inputs = []
+        materials = {slot.material for obj in [ops.tube,*ops.pellets] for slot in obj.material_slots if slot.material}
+        for material in materials:
+            nodes=material.node_tree.nodes;links=material.node_tree.links
+            output=next(n for n in nodes if n.type=='OUTPUT_MATERIAL' and n.is_active_output)
+            surface=output.inputs['Surface'].links[0].from_socket
+            clear=nodes.new('ShaderNodeBsdfTransparent')
+            fade=nodes.new('ShaderNodeMixShader');fade.name='OP_PROP_VISIBILITY'
+            links.new(clear.outputs[0],fade.inputs[1]);links.new(surface,fade.inputs[2])
+            links.new(fade.outputs[0],output.inputs['Surface'])
+            self.fade_inputs.append(fade.inputs[0])
         # Evaluate the complete glass shell as a concave, animated collider.
         self.body(ops.tube, 'PASSIVE', 'MESH')
         ops.tube.rigid_body.kinematic = True
@@ -75,6 +91,8 @@ class PelletSimulation:
         for frame in range(self.frame+1,target+1):
             scene.frame_set(frame)
         self.frame = target
+        for socket in self.fade_inputs:
+            socket.default_value = prop_visibility(t)
         self.ops.tube.hide_render = False
         for pellet in self.ops.pellets:
             pellet.hide_render = False
