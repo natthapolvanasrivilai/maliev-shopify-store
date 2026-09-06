@@ -5,8 +5,9 @@ them or start high-resolution rendering until the motion review is complete.
 
 Seven 12-second shots: pneumatic overview, pressure adjustment, temperature
 startup, supplied mold loading, pellet loading, injection, full-machine orbit.
-The pressure knob and locking nut lift, turn clockwise as viewed from above,
-then reseat. The gauge sweeps from zero toward 0.7 MPa. The connected five-body
+Only the upper pressure adjustment knob lifts, turns clockwise as viewed from
+above, then reseats. The lower mounting nut, bracket, regulator body, and gauge
+housing stay fixed. The gauge needle sweeps from zero toward 0.7 MPa. The connected five-body
 plunger assembly travels 145 mm, holds, and retracts. Temperature time is
 compressed; independent 215/220 C set values are illustration values, not a
 resin-processing recommendation. Both displays blink twice at completion.

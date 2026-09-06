@@ -129,7 +129,9 @@ class Operations:
         for o in self.props:o.hide_render=True
         if shot=='pressure':
             pivot=Vector((-90,-120,0))
-            for o in (self.knob,self.ring):
+            # Only the upper adjustment handle unlocks. The lower mounting nut
+            # remains seated against the bracket throughout the demonstration.
+            for o in (self.knob,):
                 o.matrix_world=Matrix.Translation((0,0,s['lock_lift_mm']))@Matrix.Translation(pivot)@Matrix.Rotation(math.radians(s['clockwise_degrees']),4,'Z')@Matrix.Translation(-pivot)@self.original[o.name]
             pivot=Vector((-90,-164.72,530.5))
             self.needle.matrix_world=Matrix.Translation(pivot)@Matrix.Rotation(math.radians(s['gauge_degrees']),4,'Y')@Matrix.Translation(-pivot)@self.original[self.needle.name]
