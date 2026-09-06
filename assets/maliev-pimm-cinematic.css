@@ -1,4 +1,8 @@
 /* The first viewport is a machine study; its lettering lives behind native alpha. */
+.pimm-machine[data-page-model="30G"] {
+  /* Let the viewport-wide stage escape the capped product content wrapper. */
+  overflow: visible;
+}
 .pimm-machine[data-page-model="30G"] .pimm-machine__hero:lang(en),
 .pimm-machine[data-page-model="30G"] .pimm-machine__hero:lang(en) :is(h1, h2, p, a, button, dt, dd, .pimm-cinematic-type) {
   font-family: 'Outfit', sans-serif;

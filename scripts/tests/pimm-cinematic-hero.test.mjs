@@ -133,6 +133,11 @@ test('the four released alpha clips match the verified native-render manifest',a
   }
 });
 
+test('cinematic stage escapes the capped product wrapper',async()=>{
+  const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
+  assert.match(css,/\.pimm-machine\[data-page-model="30G"\]\s*\{[^}]*overflow:\s*visible;/);
+});
+
 test('component cinema has distinct CAD anchors, restrained eight-second moves, and verified media',async()=>{
   const snippet=await readFile(new URL('../../snippets/pimm-cinematic-hero.liquid',import.meta.url),'utf8');
   assert.match(snippet,/'cylinder,temperature,pressure,mounting,actuator,complete'/);
