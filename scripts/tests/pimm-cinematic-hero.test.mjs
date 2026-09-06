@@ -4,6 +4,15 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 
+test('English hero typography uses the existing self-hosted Outfit without changing Thai or navigation',async()=>{
+  const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
+  assert.match(css,/\.pimm-machine__hero:lang\(en\)[\s\S]*?font-family: 'Outfit', sans-serif;/);
+  assert.doesNotMatch(css,/\.mc-header/);
+  const fonts=await readFile(new URL('../../assets/maliev-pimm-30g-hero.css',import.meta.url),'utf8');
+  assert.match(fonts,/font-family: 'Outfit'/);
+  assert.ok((await readFile(new URL('../../assets/Outfit-Latin.woff2',import.meta.url))).length>1000);
+});
+
 async function harness({reduced=false, saveData=false, denied=false, alpha}={}) {
   let Controller;
   const hero={dataset:{}};
