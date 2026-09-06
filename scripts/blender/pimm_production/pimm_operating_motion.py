@@ -106,18 +106,22 @@ class Operations:
             if o.name.startswith('Mold'):o.data.materials.clear();o.data.materials.append(metal)
         self.mold_meshes=imported;self.props.extend(imported)
         # Open glass tube, closed far end; its local origin is the pouring lip.
-        verts=[]; faces=[]; n=48
-        for z in (0,100):
-            verts.extend([(14*math.cos(i*2*math.pi/n),14*math.sin(i*2*math.pi/n),z) for i in range(n)])
-        for i in range(n):faces.append((i,(i+1)%n,(i+1)%n+n,i+n))
-        faces.append(tuple(range(n,2*n)))
+        verts=[]; faces=[]; n=64
+        profile=[(14,0),(14,86)]
+        profile.extend((14*math.cos(j*math.pi/24),86+14*math.sin(j*math.pi/24)) for j in range(1,12))
+        profile.append((0,100))
+        for radius,z in profile:
+            verts.extend([(radius*math.cos(i*2*math.pi/n),radius*math.sin(i*2*math.pi/n),z) for i in range(n)])
+        for row in range(len(profile)-1):
+            for i in range(n):faces.append((row*n+i,row*n+(i+1)%n,(row+1)*n+(i+1)%n,(row+1)*n+i))
         mesh=b.data.meshes.new('OP_TEST_TUBE');mesh.from_pydata(verts,[],faces)
         self.tube=b.data.objects.new('OP_TEST_TUBE',mesh);b.context.collection.objects.link(self.tube)
         solid=self.tube.modifiers.new('Glass wall','SOLIDIFY');solid.thickness=1.2
+        for polygon in mesh.polygons:polygon.use_smooth=True
         mesh.materials.append(self.mat('OP_GLASS',(.96,.98,1),glass=True));self.props.append(self.tube)
         blue=self.mat('OP_BLUE_PELLETS',(.015,.25,.65))
         self.pellets=[]
-        for i in range(48):
+        for i in range(240):
             b.ops.mesh.primitive_uv_sphere_add(segments=12,ring_count=6,radius=2)
             o=b.context.object;o.name=f'OP_PELLET_{i:02d}';o.scale.z=.6;o.data.materials.append(blue)
             self.pellets.append(o);self.props.append(o)
@@ -151,11 +155,13 @@ class Operations:
             u=s['pour'];self.tube.hide_render=False
             self.tube.location=(25+150*(1-u),-15,322+50*(1-u));self.tube.rotation_euler=(0,math.radians(15+50*u),0)
             for i,o in enumerate(self.pellets):
-                release=.29+i*.009
+                release=.29+i*(.42/239)
                 q=(t-release)/.13
                 o.hide_render=q>1
                 if q<0:
-                    local=Vector(((i%3-1)*3,(i%5-2)*2,min(90,max(2,(release-t)*200))))
+                    angle=i*2.39996323
+                    radius=9*math.sqrt((i%13+.5)/13)
+                    local=Vector((radius*math.cos(angle),radius*math.sin(angle),min(86,max(2,(release-t)*180))))
                     o.location=self.tube.location+self.tube.rotation_euler.to_matrix()@local
                 elif not o.hide_render:o.location=(25*(1-q)+(i%3-1)*2,-15*(1-q),322-65*q*q)
         return s

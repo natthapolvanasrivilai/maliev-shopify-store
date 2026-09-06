@@ -12,7 +12,7 @@ from scripts.blender.pimm_production.blender_collection_card_render import MASTE
 
 FPS = 24
 FRAMES = 192
-PROFILES = {'legacy': (960, 1080), 'desktop': (1920, 1080), 'mobile': (1080, 1920), 'motion-proof': (640, 360)}
+PROFILES = {'legacy': (960, 1080), 'desktop': (1920, 1080), 'mobile': (1080, 1920), 'material-proof': (960, 540), 'motion-proof': (640, 360)}
 # Each shot has an explicit CAD anchor, lens, radius, azimuth and elevation move.
 SHOTS = {
     'cylinder': ('30G__MDB125-200Z-0-_BODY__d7889d7dc749a14f', 1100, 65, (-16, -6), (5, 9)),
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--proof',action='store_true')
-    parser.add_argument('--shot',choices=SHOTS)
+    parser.add_argument('--shot',choices=(*SHOTS,'pellets'))
     parser.add_argument('--profile',choices=PROFILES,default='legacy')
     parser.add_argument('--samples',type=int,default=48)
     parser.add_argument('--operations',action='store_true')
