@@ -13,14 +13,11 @@ class OperatingMotionTests(unittest.TestCase):
         self.assertTrue(0 < prop_visibility(.92) < 1)
         for t in (.14,.3,.5,.72,.84):self.assertEqual(prop_visibility(t),1)
 
-    def test_tube_approaches_and_withdraws_on_left(self):
+    def test_tube_fades_in_place_without_travel(self):
         for frame in range(288):
             location, tilt=tube_pose(frame/287)
-            self.assertLessEqual(location[0],-25)
+            self.assertEqual(location,(-40,-15,325))
             self.assertLess(tilt,0)
-        self.assertEqual(tube_pose(0)[0][0],-175)
-        self.assertEqual(tube_pose(.6)[0][0],-25)
-        self.assertEqual(tube_pose(1)[0][0],-175)
 
     def test_pellet_packing_has_no_initial_overlap(self):
         sites=pellet_sites()

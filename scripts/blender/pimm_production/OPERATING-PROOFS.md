@@ -19,14 +19,15 @@ bottom on the 42.5 mm-high base plate. No vise, stops, or invented spacer is use
 Source and tessellation hashes are in `fixtures/4040-single-cavity.json`.
 
 Pellet loading uses 240 native rigid bodies with gravity, friction, and pellet,
-glass-shell, and CAD melt-bore collisions. The tube approaches from the left,
-starts upright to retain its load, and tips gradually. The simulation advances
+glass-shell, and CAD melt-bore collisions. The tube fades in at a fixed position
+left of the opening, retains its load at a shallow tilt, and tips gradually.
+There is no approach or withdrawal translation. The simulation advances
 every 24 fps timeline frame even when proof images sample fewer frames. Pellet
 collision shapes are spheres (a granular approximation, not process validation).
 The preview glass uses thin-wall transparency with restrained reflections to
 avoid an exaggerated dark refraction patch from the fixture behind it.
 Tube and pellets fade in together over the first 1.7 seconds, stay fully visible
-through the pour, and fade out over the last 1.9 seconds during withdrawal.
+through the pour, and fade out in place over the last 1.9 seconds.
 Shader visibility leaves the rigid-body simulation running throughout.
 
 For quick motion review, use the component renderer with `--operations

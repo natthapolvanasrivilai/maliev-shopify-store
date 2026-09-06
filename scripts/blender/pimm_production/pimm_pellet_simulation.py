@@ -7,10 +7,10 @@ def prop_visibility(t):
 
 def tube_pose(t):
     from scripts.blender.pimm_production.pimm_operating_motion import ramp
-    approach = ramp(t, .08, .28)
     tip = ramp(t, .30, .72)
-    withdraw = ramp(t, .80, 1)
-    return (-25-150*(1-approach)-150*withdraw, -15, 315+60*(1-approach)+60*withdraw), math.radians(-170+105*tip)
+    # Fixed pouring lip: appear in place, tilt, then disappear in place.
+    # A shallow initial tilt retains pellets without extending below the plate.
+    return (-40, -15, 325), math.radians(-105+40*tip)
 
 def pellet_sites():
     return [(x*4.3, y*4.3) for y in range(-2,3) for x in range(-2,3) if (x*4.3)**2+(y*4.3)**2 < 9.5**2]
