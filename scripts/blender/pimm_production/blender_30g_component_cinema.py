@@ -23,9 +23,19 @@ SHOTS = {
     'complete': (None, 2300, 70, (-8, 8), (3, 3)),
 }
 
+def stabilize_decal(bpy):
+    """Runtime-only stand-off; preserve master geometry, UVs and artwork."""
+    decal=bpy.data.objects['PIMM30_MASTER_AirTAC_Decal']
+    if not decal.get('pimm_cinema_decal_stabilized'):
+        normal=(decal.matrix_world.to_3x3().inverted().transposed()@decal.data.polygons[0].normal).normalized()
+        transform=decal.matrix_world.copy();transform.translation+=normal*.25
+        decal.matrix_world=transform
+        decal['pimm_cinema_decal_stabilized']=True
+
 def render(args):
     import bpy
     meshes, provenance = studio._validate_master(bpy, '30G', MASTER_HASHES['30G'])
+    stabilize_decal(bpy)
     low, high = studio._world_bounds(meshes)
     runtime = studio._runtime_collection(bpy)
     studio._install_studio(bpy, runtime, low, high)
@@ -43,6 +53,7 @@ def render(args):
     runtime.objects.link(camera)
     scene.camera = camera
     camera.data.type = 'PERSP'
+    camera.data.clip_start = 10
     camera.data.clip_end = 20000
     camera.data.dof.use_dof = False
     # Preserve vertical composition while revealing the wider desktop frame.
