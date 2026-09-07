@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "generation": "bento-20260903-r11-stills",
+  "encoding": "native-size lossless RGB WebP from individually approved Blender PNG",
+  "scope": "Approved r10 lighting and r11 white configuration, static preview until orbit is complete",
+  "assets": [
+    {
+      "shot": "capacity",
+      "size": [
+        1600,
+        2200
+      ],
+      "generation": "bento-20260903-r10-lighting",
+      "approval": "docs/pimm-blender-governance/bento-r10-approval.json",
+      "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+      "scene_sha256": "F2D1E744C533557BF4844F7487FD3EAF520C1810E0352EC3E417BAD301FD2431",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\capacity\\frame-0001.png",
+      "native_sha256": "51194D0DFD1B92F2DC8230AE499BD2A4F7348ECC61E8BA21F08FFACED587C3DA",
+      "filename": "pimm-bento-20260903-r11-30g-capacity.webp",
+      "sha256": "390278BC0A9DC4D8BE2CC6AFD4D26C5FD0AD923F2F8917FA135FF9FCF894F987",
+      "bytes": 416624
+    },
+    {
+      "shot": "controls",
+      "size": [
+        2400,
+        1200
+      ],
+      "generation": "bento-20260903-r10-orbit",
+      "approval": "docs/pimm-blender-governance/bento-r10-approval.json",
+      "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+      "scene_sha256": "CD7BE09A537CF2C90AC61593046473131FD56E27DFBB7BBE6694B3763F5A60C7",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\controls-orbit\\frame-0001.png",
+      "native_sha256": "4BDD6211BE7024B2962C3DC8841BE6DD38EBE355E6ED4FB6F1FCF923FBD953D3",
+      "filename": "pimm-bento-20260903-r11-30g-controls.webp",
+      "sha256": "E0C205A0F4A6277E87DAF17618BD800A250E18B73E35B2FB768AA55E74114530",
+      "bytes": 326536
+    },
+    {
+      "shot": "tooling",
+      "size": [
+        1600,
+        2000
+      ],
+      "generation": "bento-20260903-r10-lighting",
+      "approval": "docs/pimm-blender-governance/bento-r10-approval.json",
+      "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+      "scene_sha256": "547479ED550714544CFB1DBA36507B74DE87622069088A454034AF3DE90538FC",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\tooling\\frame-0001.png",
+      "native_sha256": "DABA59BE768FD40DA554C82E6FC73B1433D35099A8F52B0499C1BE59F1FC4B41",
+      "filename": "pimm-bento-20260903-r11-30g-tooling.webp",
+      "sha256": "78BE5AEE5E75ECB3F5EB9D29B9B5CC26395388A33A1D2A4CF42121B50D4944A8",
+      "bytes": 598370
+    },
+    {
+      "shot": "configuration",
+      "size": [
+        2400,
+        1200
+      ],
+      "generation": "bento-20260903-r11-white",
+      "approval": "docs/pimm-blender-governance/bento-r11-white-approval.json",
+      "approval_sha256": "8A744F3038BA9305343209D7854BD0B70431A85076C3FD94D38F7A65776BB0DE",
+      "scene_sha256": "20592AF5D78492D0A902E5298CC31DEC6681212C12A680F044CDEEE2F9996325",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r11-white-native\\configuration\\frame-0001.png",
+      "native_sha256": "EAAD73FF4EDB0331907DE41CDF9BAA98380A566B973BE5999610D875F86E4C93",
+      "filename": "pimm-bento-20260903-r11-30g-configuration.webp",
+      "sha256": "3377359A6448B399C71FA586C634AE51DF3A66966A452E1C71557C2B8B111E41",
+      "bytes": 224096
+    }
+  ]
+}
