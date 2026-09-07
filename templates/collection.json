@@ -12,7 +12,9 @@
     "pimm-machine-comparison": {
       "type": "maliev-pimm-collection",
       "settings": {
-        "pimm_product": "pimm-pneumatic-injection-molding-machine-development",
+        "pimm_product": "",
+        "model_30g_product": "pneumatic-injection-molding-machine",
+        "model_50g_product": "pneumatic-injection-molding-machine-50g",
         "support_url": "",
         "factory_visit_url": ""
       }

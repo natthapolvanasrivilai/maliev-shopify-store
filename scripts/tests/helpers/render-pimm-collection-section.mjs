@@ -38,17 +38,22 @@ export const renderPimmCollectionSection = async (pimmProduct, context = {}) => 
 
   return engine.parseAndRender(source, {
     canonical_url: 'https://shop.example.test/collections/pimm',
-    collection: { handle: context.collectionHandle ?? 'เครื่องฉีดพลาสติก' },
+    collection: {
+      id: context.collectionId ?? 475589673239,
+      handle: context.collectionHandle ?? 'เครื่องฉีดพลาสติก',
+    },
     product: context.product,
     request: {
       origin: 'https://shop.example.test',
-      page_type: context.pageType,
-      path: context.path,
+      page_type: context.pageType ?? 'collection',
+      path: context.path ?? '/collections/เครื่องฉีดพลาสติก',
     },
     section: {
       id: 'contract-fixture',
       settings: {
         pimm_product: pimmProduct,
+        model_30g_product: context.model30gProduct,
+        model_50g_product: context.model50gProduct,
         support_url: context.supportUrl ?? '',
         factory_visit_url: context.factoryVisitUrl ?? '',
       },

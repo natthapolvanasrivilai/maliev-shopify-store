@@ -45,6 +45,25 @@ const productFixture = () => ({
   })),
 });
 
+const storefrontProductFixture = (model) => ({
+  handle: model === '30G'
+    ? 'pneumatic-injection-molding-machine'
+    : 'pneumatic-injection-molding-machine-50g',
+  url: model === '30G'
+    ? '/products/pneumatic-injection-molding-machine'
+    : '/products/pneumatic-injection-molding-machine-50g',
+  selected_or_first_available_variant: {
+    id: model === '30G' ? 30 : 50,
+    available: true,
+    price: model === '30G' ? 120000 : 170000,
+  },
+});
+
+const storefrontContext = () => ({
+  model30gProduct: storefrontProductFixture('30G'),
+  model50gProduct: storefrontProductFixture('50G'),
+});
+
 const mutateFirstVariant = (mutator) => {
   const product = productFixture();
   mutator(product.variants[0]);
@@ -59,7 +78,9 @@ test('alternate collection template contains only the dedicated PIMM comparison 
   assert.deepEqual(Object.keys(template.sections), ['main']);
   assert.equal(template.sections.main.type, 'maliev-pimm-collection');
   assert.deepEqual(template.sections.main.settings, {
-    pimm_product: 'pimm-pneumatic-injection-molding-machine-development',
+    pimm_product: '',
+    model_30g_product: 'pneumatic-injection-molding-machine',
+    model_50g_product: 'pneumatic-injection-molding-machine-50g',
     support_url: '',
     factory_visit_url: '',
   });
@@ -71,7 +92,9 @@ test('canonical injection-machine collection route renders the PIMM comparison w
 
   assert.equal(template.sections['pimm-machine-comparison'].type, 'maliev-pimm-collection');
   assert.deepEqual(template.sections['pimm-machine-comparison'].settings, {
-    pimm_product: 'pimm-pneumatic-injection-molding-machine-development',
+    pimm_product: '',
+    model_30g_product: 'pneumatic-injection-molding-machine',
+    model_50g_product: 'pneumatic-injection-molding-machine-50g',
     support_url: '',
     factory_visit_url: '',
   });
@@ -81,9 +104,9 @@ test('canonical injection-machine collection route renders the PIMM comparison w
   const heroSection = await readThemeFile('sections/maliev-collection-hero.liquid');
   const gridSection = await readThemeFile('sections/maliev-collection-grid.liquid');
 
-  assert.match(pimmSection, /collection\.handle == 'เครื่องฉีดพลาสติก'/);
-  assert.match(heroSection, /unless collection\.handle == 'เครื่องฉีดพลาสติก'/);
-  assert.match(gridSection, /unless collection\.handle == 'เครื่องฉีดพลาสติก'/);
+  assert.match(pimmSection, /collection_id == '475589673239'/);
+  assert.match(heroSection, /unless collection_id == '475589673239'/);
+  assert.match(gridSection, /unless collection_id == '475589673239'/);
 });
 
 test('preview-only product template contains only the dedicated PIMM comparison section', async () => {
@@ -95,6 +118,8 @@ test('preview-only product template contains only the dedicated PIMM comparison 
   assert.equal(template.sections.main.type, 'maliev-pimm-collection');
   assert.deepEqual(template.sections.main.settings, {
     pimm_product: '',
+    model_30g_product: '',
+    model_50g_product: '',
     support_url: '/pages/contact?intent=general#ContactForm',
     factory_visit_url: '/pages/contact?intent=demo#ContactVisitTitle',
   });
@@ -170,6 +195,20 @@ test('executable Liquid contract emits exactly the governed 30G and 50G model re
   assert.equal((output.match(/type="application\/ld\+json"/g) ?? []).length, 1);
 });
 
+test('collection route emits the side-by-side cards from the two published storefront products', async () => {
+  const { renderPimmCollectionSection, readModelRecords } = await loadLiquidHarness();
+  const output = await renderPimmCollectionSection(null, storefrontContext());
+  const records = readModelRecords(output);
+
+  assert.match(output, /data-contract-valid="true"/);
+  assert.equal((output.match(/data-pimm-collection-card(?:\s|>)/g) ?? []).length, 2);
+  assert.deepEqual(records.map(({ model }) => model), ['30G', '50G']);
+  assert.deepEqual(records.map(({ url }) => url), [
+    '/products/pneumatic-injection-molding-machine?variant=30',
+    '/products/pneumatic-injection-molding-machine-50g?variant=50',
+  ]);
+});
+
 test('executable Liquid contract fails closed for every invalid governed metafield boundary', async (context) => {
   const { renderPimmCollectionSection } = await loadLiquidHarness();
   const invalidProducts = [
@@ -210,7 +249,7 @@ test('valid server fallback exposes semantic cards dossiers payload and canonica
   assert.equal(section.match(/data-pimm-collection-inline-dossier/g)?.length, 2);
   assert.match(section, /aria-live="polite"/);
   assert.match(section, /data-pimm-collection-models/);
-  assert.match(section, /"id":\s*\{\{ variant\.id \| json \}\}/);
+  assert.match(section, /"id":\s*\{\{ model_30g\.id \| json \}\}/);
   assert.match(section, /"model":/);
   assert.match(section, /"url":/);
   assert.match(section, /"fullPrice":/);
@@ -314,13 +353,19 @@ test('every installed locale carries the collection key and interpolation contra
   assert.equal(thaiCollection.title, 'เลือกเครื่องที่เหมาะกับเวิร์กช็อปของคุณ');
 });
 
-test('section schema exposes only the canonical product and optional support destinations', async () => {
+test('section schema exposes the two storefront products, legacy preview product, and support destinations', async () => {
   const section = await readThemeFile('sections/maliev-pimm-collection.liquid');
   const schema = JSON.parse(section.match(/{% schema %}([\s\S]*?){% endschema %}/)?.[1]);
 
-  assert.deepEqual(schema.settings.map((setting) => setting.id), ['pimm_product', 'support_url', 'factory_visit_url']);
-  assert.equal(schema.settings[0].type, 'product');
-  assert.deepEqual(schema.settings.slice(1).map((setting) => setting.type), ['url', 'url']);
+  assert.deepEqual(schema.settings.map((setting) => setting.id), [
+    'pimm_product',
+    'model_30g_product',
+    'model_50g_product',
+    'support_url',
+    'factory_visit_url',
+  ]);
+  assert.deepEqual(schema.settings.slice(0, 3).map((setting) => setting.type), ['product', 'product', 'product']);
+  assert.deepEqual(schema.settings.slice(3).map((setting) => setting.type), ['url', 'url']);
 });
 
 test('collection comparison owns the precision stage and transparent header contract', async () => {

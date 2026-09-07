@@ -1,4 +1,5 @@
-{%- unless collection.handle == 'เครื่องฉีดพลาสติก' -%}
+{%- assign collection_id = collection.id | append: '' -%}
+{%- unless collection_id == '475589673239' -%}
 {{ 'component-facets.css' | asset_url | stylesheet_tag }}
 {%- if section.settings.enable_filtering or section.settings.enable_sorting -%}
   <script src="{{ 'facets.js' | asset_url }}" defer="defer"></script>

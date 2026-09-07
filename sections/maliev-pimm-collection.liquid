@@ -1,8 +1,27 @@
-{%- if collection.handle == 'เครื่องฉีดพลาสติก' or request.page_type == 'product' -%}
+{%- liquid
+  assign collection_id = collection.id | append: ''
+  assign is_pimm_collection = false
+  if request.page_type == 'collection' and collection_id == '475589673239'
+    assign is_pimm_collection = true
+  endif
+-%}
+{%- if is_pimm_collection or request.page_type == 'product' -%}
 {{ 'maliev-pimm-collection.css' | asset_url | stylesheet_tag }}
 
 {%- liquid
   assign pimm_product = section.settings.pimm_product
+  assign model_30g_product = nil
+  assign model_50g_product = nil
+  if is_pimm_collection
+    assign model_30g_product = section.settings.model_30g_product
+    assign model_50g_product = section.settings.model_50g_product
+    if model_30g_product == blank
+      assign model_30g_product = all_products['pneumatic-injection-molding-machine']
+    endif
+    if model_50g_product == blank
+      assign model_50g_product = all_products['pneumatic-injection-molding-machine-50g']
+    endif
+  endif
   if pimm_product == blank and request.page_type == 'product'
     if request.path contains '/products_preview'
       if template.suffix == 'pimm-collection-preview'
@@ -20,7 +39,30 @@
   assign model_50g_valid = false
   assign contract_valid = false
 
-  if pimm_product.options.size == 1 and pimm_product.options.first == 'Model' and pimm_product.variants.size == 2
+  if is_pimm_collection and model_30g_product != blank and model_50g_product != blank
+    assign model_30g = model_30g_product.selected_or_first_available_variant
+    assign model_50g = model_50g_product.selected_or_first_available_variant
+    assign model_30g_count = 1
+    assign model_50g_count = 1
+    assign model_30g_full_price = model_30g.price
+    assign model_50g_full_price = model_50g.price
+    assign model_30g_lead_time_days = 30
+    assign model_50g_lead_time_days = 30
+    assign model_30g_shot_capacity_g = 30
+    assign model_30g_max_melt_temperature_c = 300
+    assign model_30g_mold_width = 100
+    assign model_30g_mold_height = 100
+    assign model_30g_mold_depth = 100
+    assign model_30g_max_air_pressure_mpa = 0.7
+    assign model_50g_shot_capacity_g = 50
+    assign model_50g_max_melt_temperature_c = 350
+    assign model_50g_mold_width = 240
+    assign model_50g_mold_height = 240
+    assign model_50g_mold_depth = 100
+    assign model_50g_max_air_pressure_mpa = 0.7
+    assign model_30g_valid = true
+    assign model_50g_valid = true
+  elsif pimm_product.options.size == 1 and pimm_product.options.first == 'Model' and pimm_product.variants.size == 2
     for variant in pimm_product.variants
       assign variant_model = variant.option1 | strip
       assign specifications = variant.metafields.custom.pimm_specifications.value
@@ -46,14 +88,24 @@
         when '30G'
           assign model_30g_count = model_30g_count | plus: 1
           assign model_30g = variant
-          assign model_30g_specifications = specifications
+          assign model_30g_shot_capacity_g = specifications.shot_capacity_g
+          assign model_30g_max_melt_temperature_c = specifications.max_melt_temperature_c
+          assign model_30g_mold_width = specifications.mold_envelope_mm.width
+          assign model_30g_mold_height = specifications.mold_envelope_mm.height
+          assign model_30g_mold_depth = specifications.mold_envelope_mm.depth
+          assign model_30g_max_air_pressure_mpa = specifications.max_air_pressure_mpa
           assign model_30g_full_price = full_price
           assign model_30g_lead_time_days = lead_time_days
           assign model_30g_valid = variant_valid
         when '50G'
           assign model_50g_count = model_50g_count | plus: 1
           assign model_50g = variant
-          assign model_50g_specifications = specifications
+          assign model_50g_shot_capacity_g = specifications.shot_capacity_g
+          assign model_50g_max_melt_temperature_c = specifications.max_melt_temperature_c
+          assign model_50g_mold_width = specifications.mold_envelope_mm.width
+          assign model_50g_mold_height = specifications.mold_envelope_mm.height
+          assign model_50g_mold_depth = specifications.mold_envelope_mm.depth
+          assign model_50g_max_air_pressure_mpa = specifications.max_air_pressure_mpa
           assign model_50g_full_price = full_price
           assign model_50g_lead_time_days = lead_time_days
           assign model_50g_valid = variant_valid
@@ -68,12 +120,20 @@
   endif
 
   capture model_30g_url
-    echo pimm_product.url
+    if model_30g_product != blank
+      echo model_30g_product.url
+    else
+      echo pimm_product.url
+    endif
     echo '?variant='
     echo model_30g.id
   endcapture
   capture model_50g_url
-    echo pimm_product.url
+    if model_50g_product != blank
+      echo model_50g_product.url
+    else
+      echo pimm_product.url
+    endif
     echo '?variant='
     echo model_50g.id
   endcapture
@@ -179,15 +239,15 @@
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt>
-                    <dd>{{ model_30g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd>
+                    <dd>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt>
-                    <dd>{{ model_30g_specifications.mold_envelope_mm.width }} × {{ model_30g_specifications.mold_envelope_mm.height }} × {{ model_30g_specifications.mold_envelope_mm.depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd>
+                    <dd>{{ model_30g_mold_width }} × {{ model_30g_mold_height }} × {{ model_30g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt>
-                    <dd>{{ model_30g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd>
+                    <dd>{{ model_30g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd>
                   </div>
                 </dl>
                 <div class="pimm-collection__card-actions">
@@ -254,15 +314,15 @@
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt>
-                    <dd>{{ model_50g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd>
+                    <dd>{{ model_50g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt>
-                    <dd>{{ model_50g_specifications.mold_envelope_mm.width }} × {{ model_50g_specifications.mold_envelope_mm.height }} × {{ model_50g_specifications.mold_envelope_mm.depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd>
+                    <dd>{{ model_50g_mold_width }} × {{ model_50g_mold_height }} × {{ model_50g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt>
-                    <dd>{{ model_50g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd>
+                    <dd>{{ model_50g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd>
                   </div>
                 </dl>
                 <div class="pimm-collection__card-actions">
@@ -289,10 +349,10 @@
                 <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_30g_specifications.mold_envelope_mm.width }} × {{ model_30g_specifications.mold_envelope_mm.height }} × {{ model_30g_specifications.mold_envelope_mm.depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_specifications.max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_30g_mold_width }} × {{ model_30g_mold_height }} × {{ model_30g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
               </dl>
               <div class="pimm-collection__dossier-actions">
                 <a data-pimm-dossier-configure href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
@@ -318,10 +378,10 @@
                 <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_full_price | money_with_currency }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_50g_status_key | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_50g_lead_time | strip }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_50g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_50g_specifications.mold_envelope_mm.width }} × {{ model_50g_specifications.mold_envelope_mm.height }} × {{ model_50g_specifications.mold_envelope_mm.depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_50g_specifications.max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
-                <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_50g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_50g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_50g_mold_width }} × {{ model_50g_mold_height }} × {{ model_50g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_50g_max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_50g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
               </dl>
               <div class="pimm-collection__dossier-actions">
                 <a data-pimm-dossier-configure href="{{ model_50g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '50G' }}</a>
@@ -345,10 +405,10 @@
             <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
-            <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_specifications.shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
-            <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_30g_specifications.mold_envelope_mm.width }} × {{ model_30g_specifications.mold_envelope_mm.height }} × {{ model_30g_specifications.mold_envelope_mm.depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
-            <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_specifications.max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
-            <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_specifications.max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_30g_mold_width }} × {{ model_30g_mold_height }} × {{ model_30g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
           </dl>
           <div class="pimm-collection__dossier-actions">
             <a data-pimm-dossier-configure href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
@@ -372,36 +432,42 @@
 
       <script type="application/json" data-pimm-collection-models>
         [
-          {%- for variant in pimm_product.variants -%}
-            {%- liquid
-              assign variant_model = variant.option1 | strip
-              assign variant_specifications = variant.metafields.custom.pimm_specifications.value
-              assign variant_full_price = variant.metafields.custom.full_machine_price.value
-              assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
-              assign variant_url = pimm_product.url | append: '?variant=' | append: variant.id
-              capture variant_lead_time
-                echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
-              endcapture
-            -%}
-            {
-              "id": {{ variant.id | json }},
-              "model": {{ variant_model | json }},
-              "url": {{ variant_url | json }},
-              "fullPrice": {{ variant_full_price | money_with_currency | strip_html | json }},
-              "available": {{ variant.available | json }},
-              "leadTime": {{ variant_lead_time | strip | json }},
-              "specifications": {
-                "shotCapacityG": {{ variant_specifications.shot_capacity_g | plus: 0 | json }},
-                "maxMeltTemperatureC": {{ variant_specifications.max_melt_temperature_c | plus: 0 | json }},
-                "moldEnvelopeMm": {
-                  "width": {{ variant_specifications.mold_envelope_mm.width | plus: 0 | json }},
-                  "height": {{ variant_specifications.mold_envelope_mm.height | plus: 0 | json }},
-                  "depth": {{ variant_specifications.mold_envelope_mm.depth | plus: 0 | json }}
-                },
-                "maxAirPressureMpa": {{ variant_specifications.max_air_pressure_mpa | plus: 0 | json }}
-              }
-            }{% unless forloop.last %},{% endunless %}
-          {%- endfor -%}
+          {
+            "id": {{ model_30g.id | json }},
+            "model": "30G",
+            "url": {{ model_30g_url | strip | json }},
+            "fullPrice": {{ model_30g_full_price | money_with_currency | strip_html | json }},
+            "available": {{ model_30g.available | json }},
+            "leadTime": {{ model_30g_lead_time | strip | json }},
+            "specifications": {
+              "shotCapacityG": {{ model_30g_shot_capacity_g | plus: 0 | json }},
+              "maxMeltTemperatureC": {{ model_30g_max_melt_temperature_c | plus: 0 | json }},
+              "moldEnvelopeMm": {
+                "width": {{ model_30g_mold_width | plus: 0 | json }},
+                "height": {{ model_30g_mold_height | plus: 0 | json }},
+                "depth": {{ model_30g_mold_depth | plus: 0 | json }}
+              },
+              "maxAirPressureMpa": {{ model_30g_max_air_pressure_mpa | plus: 0 | json }}
+            }
+          },
+          {
+            "id": {{ model_50g.id | json }},
+            "model": "50G",
+            "url": {{ model_50g_url | strip | json }},
+            "fullPrice": {{ model_50g_full_price | money_with_currency | strip_html | json }},
+            "available": {{ model_50g.available | json }},
+            "leadTime": {{ model_50g_lead_time | strip | json }},
+            "specifications": {
+              "shotCapacityG": {{ model_50g_shot_capacity_g | plus: 0 | json }},
+              "maxMeltTemperatureC": {{ model_50g_max_melt_temperature_c | plus: 0 | json }},
+              "moldEnvelopeMm": {
+                "width": {{ model_50g_mold_width | plus: 0 | json }},
+                "height": {{ model_50g_mold_height | plus: 0 | json }},
+                "depth": {{ model_50g_mold_depth | plus: 0 | json }}
+              },
+              "maxAirPressureMpa": {{ model_50g_max_air_pressure_mpa | plus: 0 | json }}
+            }
+          }
         ]
       </script>
 
@@ -454,7 +520,17 @@
     {
       "type": "product",
       "id": "pimm_product",
-      "label": "Canonical PIMM product"
+      "label": "Legacy unified PIMM preview product"
+    },
+    {
+      "type": "product",
+      "id": "model_30g_product",
+      "label": "30G product"
+    },
+    {
+      "type": "product",
+      "id": "model_50g_product",
+      "label": "50G product"
     },
     {
       "type": "url",
