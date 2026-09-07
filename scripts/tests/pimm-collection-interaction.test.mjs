@@ -199,6 +199,24 @@ function createCard(model) {
   card.nodes.set('img[loading="lazy"]', []);
   card.nodes.set('[data-pimm-collection-select]', select);
   card.nodes.set('.pimm-collection__card-actions a', configure);
+  const video = new FakeNode();
+  video.currentTime = 0;
+  video.paused = true;
+  video.play = () => { video.paused = false; return Promise.resolve(); };
+  video.pause = () => { video.paused = true; };
+  card.nodes.set('[data-pimm-collection-video]', video);
+  for (const direction of ['down', 'up']) {
+    const lighting = new FakeNode();
+    lighting.currentTime = 0;
+    lighting.paused = true;
+    lighting.hidden = true;
+    lighting.play = () => { lighting.paused = false; return Promise.resolve(); };
+    lighting.pause = () => { lighting.paused = true; };
+    card.nodes.set(`[data-pimm-lighting="${direction}"]`, lighting);
+  }
+  const dimStill = new FakeNode();
+  dimStill.hidden = true;
+  card.nodes.set('[data-pimm-lighting-still]', dimStill);
   return card;
 }
 
@@ -283,6 +301,98 @@ function createComparison(Controller, {
 const visibleFrame = (card) => card.querySelectorAll('[data-pimm-collection-frame]')
   .find((frame) => !frame.hidden)?.dataset.pimmCollectionFrame;
 
+test('hover uses native sibling lighting and restores it before active rotation', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  const up = cards[1].querySelector('[data-pimm-lighting="up"]');
+  assert.equal(down.hidden, false);
+  assert.equal(cards[0].pimmLighting, null);
+  down.dispatch('ended');
+  assert.equal(cards[1].querySelector('[data-pimm-lighting-still]').hidden, false);
+  cards[0].dispatch('pointerleave', { pointerType: 'mouse' });
+  cards[1].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  assert.equal(up.hidden, false);
+  assert.equal(cards[1].querySelector('[data-pimm-collection-video]').paused, true);
+  up.dispatch('ended');
+  await Promise.resolve();
+  assert.equal(cards[1].querySelector('[data-pimm-collection-video]').paused, false);
+  assert.equal(cards[1].classList.contains('is-studio-dim'), false);
+});
+
+test('rapid reversals seek the matching native lighting frame and ignore stale completion', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  down.currentTime = 4 / 24;
+  cards[0].dispatch('pointerleave', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const up = cards[1].querySelector('[data-pimm-lighting="up"]');
+  assert.ok(Math.abs(up.currentTime - 7 / 24) < .000001);
+  down.dispatch('ended');
+  assert.equal(cards[1].pimmLighting.video, up);
+  comparison.disconnectedCallback();
+  assert.equal(up.paused, true);
+  assert.equal(up.hidden, true);
+});
+
+test('reduced motion uses the native dim still and touch focus does not dim a sibling', async () => {
+  const { Controller } = await loadController({ reducedMotion: true });
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  cards[0].dispatch('pointerdown', { pointerType: 'touch' });
+  cards[0].dispatch('focusin');
+  assert.equal(cards[1].pimmLighting, null);
+  cards[0].dispatch('keydown', { key: 'Tab' });
+  assert.equal(cards[1].querySelector('[data-pimm-lighting-still]').hidden, false);
+  assert.equal(cards[1].querySelector('[data-pimm-lighting="down"]').paused, true);
+  cards[0].dispatch('focusout');
+  assert.equal(cards[1].querySelector('[data-pimm-lighting-still]').hidden, true);
+});
+
+test('failed lighting playback falls back to the unfiltered bright poster', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  down.play = () => Promise.reject(new Error('unavailable'));
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(cards[1].pimmLighting, null);
+  assert.equal(down.hidden, true);
+  assert.equal(cards[1].classList.contains('is-studio-dim'), false);
+});
+
+test('lighting holds the native last frame until its still decodes without a bright flash', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  const still = cards[1].querySelector('[data-pimm-lighting-still]');
+  let decoded;
+  still.decode = () => new Promise(resolve => { decoded = resolve; });
+  cards[0].dispatch('pointerenter', { pointerType: 'mouse' });
+  await Promise.resolve();
+  const down = cards[1].querySelector('[data-pimm-lighting="down"]');
+  down.currentTime = .5;
+  down.dispatch('ended');
+  assert.equal(down.hidden, false);
+  assert.equal(still.hidden, true);
+  cards[0].dispatch('pointerleave', { pointerType: 'mouse' });
+  await Promise.resolve();
+  decoded();
+  await Promise.resolve();
+  assert.equal(still.hidden, true, 'late decode cannot restore a stale dark state');
+  assert.equal(cards[1].querySelector('[data-pimm-lighting="up"]').currentTime, 0);
+});
+
 test('30G is committed initially and a preview does not overwrite the committed model', async () => {
   const { Controller } = await loadController();
   const { comparison } = createComparison(Controller);
@@ -346,27 +456,24 @@ test('pointer preview restores the committed model while click commits and plays
 
   cards[1].dispatch('click');
   assert.equal(comparison.committedModel, '50G');
-  assert.equal(activeTimerCount(), 5);
+  assert.equal(activeTimerCount(), 0);
+  assert.equal(cards[1].querySelector('[data-pimm-collection-video]').paused, false);
 });
 
-test('physical frame playback is exact, non-looping, and replaces overlapping timers', async () => {
-  const { Controller, runDelay, activeTimerCount } = await loadController();
+test('native video playback starts at front, resets on exit, and never schedules still swaps', async () => {
+  const { Controller, activeTimerCount } = await loadController();
   const { comparison, cards } = createComparison(Controller);
   comparison.connectedCallback();
 
   comparison.playSequence(cards[0]);
-  assert.equal(activeTimerCount(), 5);
+  const video = cards[0].querySelector('[data-pimm-collection-video]');
+  assert.equal(video.paused, false);
+  video.currentTime = 1.5;
   comparison.playSequence(cards[0]);
-  assert.equal(activeTimerCount(), 5);
-  runDelay(0);
-  assert.equal(visibleFrame(cards[0]), 'front');
-  runDelay(180);
-  assert.equal(visibleFrame(cards[0]), 'left');
-  runDelay(360);
-  assert.equal(visibleFrame(cards[0]), 'front');
-  runDelay(540);
-  assert.equal(visibleFrame(cards[0]), 'right');
-  runDelay(720);
+  assert.equal(video.currentTime, 0);
+  comparison.stopSequence(cards[0]);
+  assert.equal(video.paused, true);
+  assert.equal(video.currentTime, 0);
   assert.equal(visibleFrame(cards[0]), 'front');
   assert.equal(activeTimerCount(), 0);
 });
@@ -379,7 +486,30 @@ test('reduced motion never schedules angle playback', async () => {
   comparison.playSequence(cards[0]);
 
   assert.equal(timers.length, 0);
+  assert.equal(cards[0].querySelector('[data-pimm-collection-video]').paused, true);
   assert.equal(visibleFrame(cards[0]), 'front');
+});
+
+test('ended and failed video restore the poster, rejected playback is handled', async () => {
+  const { Controller } = await loadController();
+  const { comparison, cards } = createComparison(Controller);
+  comparison.connectedCallback();
+  const video = cards[0].querySelector('[data-pimm-collection-video]');
+  comparison.playSequence(cards[0]);
+  await Promise.resolve();
+  assert.equal(video.classList.contains('is-playing'), true);
+  video.dispatch('ended');
+  assert.equal(video.classList.contains('is-playing'), false);
+  assert.equal(video.paused, true);
+  comparison.playSequence(cards[0]);
+  video.dispatch('error');
+  await Promise.resolve();
+  assert.equal(video.classList.contains('is-playing'), false);
+  video.play = () => Promise.reject(new Error('blocked'));
+  comparison.playSequence(cards[0]);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(video.classList.contains('is-playing'), false);
 });
 
 test('invalid records preserve the server fallback and attach no playback listeners', async () => {
@@ -518,6 +648,81 @@ test('disconnect clears timers and aborts all listeners', async () => {
     assert.equal(select.hidden, true);
     assert.equal(select.disabled, true);
   }
+});
+
+test('preview navigation retains its key and locale for both cards and all dossiers across reconnects', async () => {
+  const key = '0123456789abcdef0123456789abcdef';
+  for (const prefix of ['', '/th']) {
+    const { Controller } = await loadController({
+      pageUrl: `https://shop.maliev.com${prefix}/products_preview?preview_key=${key}&view=pimm-collection-preview&variant=30&cb=ignored#details`,
+    });
+    const { comparison, cards, inlineDossiers, desktopDossier } = createComparison(Controller);
+    comparison.dataset.previewNavigation = 'true';
+    for (let connection = 0; connection < 2; connection += 1) {
+      comparison.connectedCallback();
+      assert.equal(comparison.committedModel, '30G');
+      for (const [index, model] of ['30G', '50G'].entries()) {
+        const expected = `${prefix}/products_preview?preview_key=${key}&view=pimm-configurator&variant=${index === 0 ? 30 : 50}`;
+        assert.equal(cards[index].querySelector('.pimm-collection__card-actions a').href, expected);
+        assert.equal(inlineDossiers[index].querySelector('[data-pimm-dossier-configure]').href, expected);
+        comparison.commitModel(model);
+        assert.equal(desktopDossier.querySelector('[data-pimm-dossier-configure]').href, expected);
+      }
+      comparison.disconnectedCallback();
+      assert.equal(inlineDossiers[0].querySelector('[data-pimm-dossier-configure]').href, '/products/pimm?variant=30');
+    }
+  }
+});
+
+test('preview keys never leak into public, foreign, malformed or untrusted navigation', async () => {
+  const key = '0123456789abcdef0123456789abcdef';
+  for (const [path, enabled] of [
+    [`/collections/pimm?preview_key=${key}&view=pimm-collection-preview`, true],
+    [`/products_preview?preview_key=${key}&view=pimm-collection-preview`, false],
+    ['/products_preview?view=pimm-collection-preview', true],
+    [`/products_preview?preview_key=${key}&preview_key=other&view=pimm-collection-preview`, true],
+    ['/products_preview?preview_key=bad&view=pimm-collection-preview', true],
+    [`/products_preview?preview_key=${key}&view=pimm-configurator`, true],
+    [`/products_preview?preview_key=${key}&view=pimm-collection-preview&view=other`, true],
+    [`/other/products_preview?preview_key=${key}&view=pimm-collection-preview`, true],
+  ]) {
+    const { Controller } = await loadController({ pageUrl: `https://shop.maliev.com${path}` });
+    const { comparison, cards, desktopDossier } = createComparison(Controller);
+    comparison.dataset.previewNavigation = String(enabled);
+    comparison.connectedCallback();
+    comparison.commitModel('50G');
+    assert.equal(cards[0].querySelector('.pimm-collection__card-actions a').href, '/products/pimm?variant=30');
+    assert.equal(desktopDossier.querySelector('[data-pimm-dossier-configure]').href, '/products/pimm?variant=50');
+  }
+  const { Controller } = await loadController({ pageUrl: `https://shop.maliev.com/products_preview?preview_key=${key}&view=pimm-collection-preview` });
+  const { comparison, cards } = createComparison(Controller, {
+    payload: JSON.stringify([{ ...records[0], url: 'https://evil.example/products/pimm?variant=30' }, records[1]]),
+  });
+  comparison.dataset.previewNavigation = 'true';
+  comparison.connectedCallback();
+  assert.equal(comparison.committedModel, undefined);
+  assert.equal(cards[0].querySelector('.pimm-collection__card-actions a').href, '/products/pimm?variant=30');
+});
+
+test('configurator view is the only optional trusted product query and must match the server route', async () => {
+  const { Controller } = await loadController();
+  for (const view of ['pimm-configurator', 'other', '', 'pimm-configurator&view=pimm-configurator']) {
+    const { comparison, inlineDossiers } = createComparison(Controller, {
+      payload: JSON.stringify(records.map(record => ({ ...record, url: `${record.url}&view=${view}` }))),
+    });
+    for (const dossier of inlineDossiers) {
+      const anchor = dossier.querySelector('[data-pimm-dossier-configure]');
+      anchor.href += `&view=${view}`;
+      anchor.setAttribute('href', anchor.href);
+    }
+    comparison.connectedCallback();
+    assert.equal(comparison.committedModel, view === 'pimm-configurator' ? '30G' : undefined);
+  }
+  const { comparison } = createComparison(Controller, {
+    payload: JSON.stringify(records.map(record => ({ ...record, url: `${record.url}&view=pimm-configurator` }))),
+  });
+  comparison.connectedCallback();
+  assert.equal(comparison.committedModel, undefined);
 });
 
 test('reconnect restores the 30G fallback before rejecting a newly invalid payload', async () => {

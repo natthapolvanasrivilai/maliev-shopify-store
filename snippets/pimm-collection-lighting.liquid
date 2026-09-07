@@ -1,0 +1,12 @@
+{% comment %}Native Blender lighting clips. No color filters, masks, or artificial shadows.{% endcomment %}
+{%- assign lighting_prefix = 'maliev-pimm-collection-lighting-20260902-r01-' | append: model -%}
+{%- assign dim_asset = lighting_prefix | append: '-dim.webp' -%}
+<img class="pimm-collection__lighting" data-pimm-lighting-still hidden
+  src="{{ dim_asset | asset_url }}" width="1440" height="1920" alt="" aria-hidden="true" loading="eager">
+{%- assign directions = 'down,up' | split: ',' -%}
+{%- for direction in directions -%}
+  {%- assign video_asset = lighting_prefix | append: '-' | append: direction | append: '.mp4' -%}
+  <video class="pimm-collection__lighting" data-pimm-lighting="{{ direction }}" hidden
+    width="1440" height="1920" muted playsinline preload="metadata" aria-hidden="true"
+    src="{{ video_asset | asset_url }}"></video>
+{%- endfor -%}

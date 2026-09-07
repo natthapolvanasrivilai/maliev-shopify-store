@@ -16,6 +16,40 @@ const expectedStorefront = expectedPairs.map(
 );
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
 
+for (const revision of ['r01', 'r02']) test(`${revision} motion release contains two native 72-frame 24fps Blender animations`, async () => {
+  const motionRelease = `maliev-pimm-collection-motion-20260902-${revision}`;
+  const dimensions = revision === 'r02' ? [1440, 1920] : [720, 960];
+  const manifest = JSON.parse(await readFile(new URL(`${motionRelease}-assets.v1.json`, assetsUrl), 'utf8'));
+  assert.equal(manifest.release_id, motionRelease);
+  assert.equal(manifest.shadow_source, 'Native Blender Cycles physical studio floor');
+  assert.deepEqual(manifest.assets.map(asset => asset.machine), ['30G', '50G']);
+  for (const asset of manifest.assets) {
+    assert.equal(asset.fps, 24);
+    assert.equal(asset.frame_count, 72);
+    assert.equal(asset.frames.length, 72);
+    assert.ok(new Set(asset.frames.map(frame => frame.sha256)).size > 60);
+    assert.equal(asset.frames[0].angle_degrees, 0);
+    assert.equal(asset.frames[71].angle_degrees, 0);
+    assert.equal(Math.min(...asset.frames.map(frame => frame.angle_degrees)), -12);
+    assert.equal(Math.max(...asset.frames.map(frame => frame.angle_degrees)), 12);
+    assert.equal(asset.video.r_frame_rate, '24/1');
+    assert.equal(asset.video.nb_frames, '72');
+    assert.equal(asset.video.duration, '3.000000');
+    assert.deepEqual([asset.video.width, asset.video.height], dimensions);
+    if (revision === 'r02') assert.equal(asset.depth_of_field, false);
+    for (const kind of ['video', 'poster']) {
+      const bytes = await readFile(new URL(asset[kind].filename, assetsUrl));
+      assert.equal(sha256(bytes), asset[kind].sha256);
+      if (kind === 'poster') {
+        const metadata = webpMetadata(bytes);
+        assert.deepEqual([metadata.width, metadata.height, metadata.mode], [...dimensions, 'RGB']);
+      } else {
+        assert.equal(bytes.subarray(4, 8).toString(), 'ftyp');
+      }
+    }
+  }
+});
+
 function pngMetadata(bytes) {
   assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'PNG signature');
   assert.equal(bytes.subarray(12, 16).toString('ascii'), 'IHDR', 'PNG IHDR');
@@ -134,5 +168,39 @@ test('collection release filenames do not collide with other PIMM manifests', as
       false,
       `${filename} collides with another PIMM manifest`,
     );
+  }
+});
+
+test('native studio lighting is twelve high-resolution Cycles frames with reversible playback', async () => {
+  const release = 'maliev-pimm-collection-lighting-20260902-r01';
+  const manifest = JSON.parse(await readFile(new URL(`${release}-assets.v1.json`, assetsUrl), 'utf8'));
+  assert.match(manifest.lighting_source, /Native Blender Cycles emitter powers; fixed exposure/);
+  assert.deepEqual(manifest.assets.map(asset => asset.machine), ['30G', '50G']);
+  for (const asset of manifest.assets) {
+    assert.equal(asset.proof, false);
+    assert.equal(asset.resolution_percentage, 100);
+    assert.equal(asset.frame_count, 12);
+    assert.equal(asset.fps, 24);
+    assert.equal(asset.samples, 128);
+    assert.ok(Math.abs(asset.exposure + .15) < .000001);
+    assert.equal(asset.frames.length, 12);
+    assert.ok(Object.values(asset.frames[0].emitters).every(value => value === 1));
+    for (const [index, frame] of asset.frames.entries()) {
+      assert.equal(frame.index, index);
+      assert.match(frame.sha256, /^[A-F0-9]{64}$/);
+      if (index) for (const name of Object.keys(frame.emitters)) {
+        assert.ok(frame.emitters[name] < asset.frames[index - 1].emitters[name]);
+      }
+    }
+    for (const direction of ['down', 'up']) {
+      const clip = asset[direction];
+      assert.deepEqual([clip.width, clip.height, clip.nb_frames, clip.r_frame_rate, clip.duration],
+        [1440, 1920, '12', '24/1', '0.500000']);
+      assert.equal(sha256(await readFile(new URL(clip.filename, assetsUrl))), clip.sha256);
+    }
+    const bytes = await readFile(new URL(asset.dim.filename, assetsUrl));
+    assert.equal(sha256(bytes), asset.dim.sha256);
+    const metadata = webpMetadata(bytes);
+    assert.deepEqual([metadata.width, metadata.height], [1440, 1920]);
   }
 });

@@ -1,8 +1,6 @@
 (() => {
   const ELEMENT_NAME = 'pimm-collection-comparison';
   const MODELS = ['30G', '50G'];
-  const FRAME_SEQUENCE = ['front', 'left', 'front', 'right', 'front'];
-  const FRAME_DELAYS = [0, 180, 360, 540, 720];
 
   const isPositiveNumber = (value) => Number.isFinite(value) && value > 0;
   const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -31,11 +29,11 @@
       this.records = records;
       this.recordByModel = new Map(records.map((record) => [record.model, record]));
       this.presentations = presentations;
+      this.bindNavigation();
       this.committedModel = '30G';
       this.applyModel('30G', false);
       this.setEnhancedState(true);
       this.bindCards();
-      this.preloadDeferredFrames();
     }
 
     disconnectedCallback() {
@@ -79,6 +77,7 @@
         if (!this.isSafeHttpUrl(url)
           || url.origin !== trustedRoute.origin
           || this.normalizePath(url.pathname) !== trustedRoute.pathname
+          || (url.searchParams.get('view') || '') !== trustedRoute.view
           || !this.hasExactVariantQuery(url, record.id)) return false;
 
         const specifications = record.specifications;
@@ -161,6 +160,7 @@
         origin: url.origin,
         pathname: this.normalizePath(url.pathname),
         variantId: Number(url.searchParams.get('variant')),
+        view: url.searchParams.get('view') || '',
       };
     }
 
@@ -173,8 +173,11 @@
 
     hasExactVariantQuery(url, expectedId = null) {
       const entries = [...url.searchParams.entries()];
-      if (entries.length !== 1 || entries[0][0] !== 'variant') return false;
-      const variantId = Number(entries[0][1]);
+      if (url.searchParams.getAll('variant').length !== 1
+        || entries.some(([key]) => key !== 'variant' && key !== 'view')
+        || url.searchParams.getAll('view').length > 1
+        || (url.searchParams.has('view') && url.searchParams.get('view') !== 'pimm-configurator')) return false;
+      const variantId = Number(url.searchParams.get('variant'));
       if (!Number.isSafeInteger(variantId) || variantId <= 0) return false;
       return expectedId === null || variantId === expectedId;
     }
@@ -183,31 +186,98 @@
       return pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
     }
 
+    navigationHref(route) {
+      const current = new URL(window.location.href);
+      current.hash = '';
+      const keys = current.searchParams.getAll('preview_key');
+      if (this.dataset.previewNavigation !== 'true'
+        || !this.isSafeHttpUrl(current)
+        || !/^\/(?:[a-z]{2}(?:-[a-z0-9]{2,8})?\/)?products_preview\/?$/i.test(current.pathname)
+        || current.searchParams.getAll('view').length !== 1
+        || current.searchParams.get('view') !== 'pimm-collection-preview'
+        || keys.length !== 1 || !/^[a-z0-9_-]{16,128}$/i.test(keys[0])) return route.href;
+
+      const target = new URL(current.pathname, current.origin);
+      target.searchParams.set('preview_key', keys[0]);
+      target.searchParams.set('view', 'pimm-configurator');
+      target.searchParams.set('variant', String(route.variantId));
+      return target.pathname + target.search;
+    }
+
+    setNavigationHref(anchor, route) {
+      if (!anchor) return;
+      this.originalNavigation ??= new Map();
+      if (!this.originalNavigation.has(anchor)) {
+        this.originalNavigation.set(anchor, anchor.getAttribute('href') || anchor.href);
+      }
+      anchor.href = this.navigationHref(route);
+    }
+
+    bindNavigation() {
+      for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
+        const route = this.presentations.get(card.dataset.model)?.trustedRoute;
+        if (route) this.setNavigationHref(card.querySelector('.pimm-collection__card-actions a'), route);
+      }
+      for (const dossier of this.querySelectorAll('[data-pimm-collection-inline-dossier]')) {
+        const route = this.presentations.get(dossier.dataset.model)?.trustedRoute;
+        if (route) this.setNavigationHref(dossier.querySelector('[data-pimm-dossier-configure]'), route);
+      }
+    }
+
     bindCards() {
       for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
         const model = card.dataset.model;
         if (!this.recordByModel.has(model)) continue;
         const signal = this.controller.signal;
+        const video = card.querySelector('[data-pimm-collection-video]');
+        video?.addEventListener('ended', () => this.stopSequence(card), { signal });
+        video?.addEventListener('error', () => this.stopSequence(card), { signal });
+        for (const direction of ['down', 'up']) {
+          const lighting = card.querySelector(`[data-pimm-lighting="${direction}"]`);
+          lighting?.addEventListener('ended', () => this.finishLighting(card, lighting), { signal });
+          lighting?.addEventListener('error', () => {
+            if (card.pimmLighting?.video === lighting) this.resetLighting(card);
+          }, { signal });
+        }
+        card.addEventListener('pointerdown', (event) => {
+          card.pimmTouchFocus = event.pointerType === 'touch';
+        }, { signal });
+        card.addEventListener('keydown', () => {
+          card.pimmTouchFocus = false;
+          this.focusCard = card;
+          this.updateStudioFocus();
+        }, { signal });
 
         card.addEventListener('pointerenter', (event) => {
           if (event.pointerType === 'touch') return;
+          card.pimmTouchFocus = false;
+          this.hoverCard = card;
+          this.updateStudioFocus();
           this.previewModel(model);
           this.playSequence(card);
         }, { signal });
 
         card.addEventListener('pointerleave', (event) => {
           if (event.pointerType === 'touch') return;
+          this.hoverCard = null;
+          this.updateStudioFocus();
           this.restoreCommittedModel();
           this.stopSequence(card, true);
         }, { signal });
 
         card.addEventListener('focusin', () => {
+          if (!card.pimmTouchFocus) {
+            this.focusCard = card;
+            this.updateStudioFocus();
+          }
           this.previewModel(model);
           this.playSequence(card);
         }, { signal });
 
         card.addEventListener('focusout', (event) => {
           if (card.contains(event.relatedTarget)) return;
+          this.focusCard = null;
+          this.updateStudioFocus();
           this.restoreCommittedModel();
           this.stopSequence(card, true);
         }, { signal });
@@ -217,6 +287,12 @@
           this.playSequence(card);
         }, { signal });
       }
+      this.reduceMotion?.addEventListener?.('change', () => {
+        if (this.reduceMotion.matches) {
+          for (const card of this.querySelectorAll('[data-pimm-collection-card]')) this.stopSequence(card);
+        }
+        this.updateStudioFocus(true);
+      }, { signal: this.controller.signal });
     }
 
     setEnhancedState(enhanced) {
@@ -248,6 +324,8 @@
         }
       }
       this.setEnhancedState(false);
+      for (const [anchor, href] of this.originalNavigation ?? []) anchor.href = href;
+      this.originalNavigation?.clear();
     }
 
     commitModel(model, announce = true) {
@@ -316,7 +394,7 @@
 
       const configure = dossier.querySelector('[data-pimm-dossier-configure]');
       if (configure) {
-        configure.href = presentation.trustedRoute.href;
+        this.setNavigationHref(configure, presentation.trustedRoute);
         configure.textContent = presentation.configure;
       }
     }
@@ -336,27 +414,33 @@
     playSequence(card) {
       this.stopSequence(card, true);
       if (this.reduceMotion?.matches) return;
-
-      this.timerSets ??= new Map();
-      const timerSet = new Set();
-      this.timerSets.set(card, timerSet);
-
-      FRAME_SEQUENCE.forEach((frame, index) => {
-        let timerId;
-        timerId = window.setTimeout(() => {
-          timerSet.delete(timerId);
-          this.exposeFrame(card, frame);
-          if (index === FRAME_SEQUENCE.length - 1) this.timerSets.delete(card);
-        }, FRAME_DELAYS[index]);
-        timerSet.add(timerId);
+      if (card.pimmLighting?.dim || card.pimmLighting?.video) {
+        card.pimmRotateRequested = true;
+        return;
+      }
+      const video = card.querySelector('[data-pimm-collection-video]');
+      if (!video) return;
+      video.muted = true;
+      video.loop = false;
+      const attempt = {};
+      video.pimmPlaybackAttempt = attempt;
+      video.play()?.then(() => {
+        if (video.pimmPlaybackAttempt === attempt && !video.paused) video.classList.add('is-playing');
+      }).catch(() => {
+        if (video.pimmPlaybackAttempt === attempt) this.stopSequence(card);
       });
     }
 
     stopSequence(card, reset = true) {
-      const timerSet = this.timerSets?.get(card);
-      if (timerSet) {
-        for (const timerId of timerSet) window.clearTimeout(timerId);
-        this.timerSets.delete(card);
+      card.pimmRotateRequested = false;
+      const video = card.querySelector('[data-pimm-collection-video]');
+      if (video) {
+        video.pimmPlaybackAttempt = null;
+        video.pause();
+        video.classList.remove('is-playing');
+        if (reset) {
+          try { video.currentTime = 0; } catch (_) { /* Metadata may not have arrived. */ }
+        }
       }
       if (reset) this.exposeFrame(card, 'front');
     }
@@ -375,18 +459,91 @@
       }
     }
 
-    preloadDeferredFrames() {
+    updateStudioFocus(force = false) {
+      const focused = this.hoverCard || this.focusCard;
       for (const card of this.querySelectorAll('[data-pimm-collection-card]')) {
-        for (const image of card.querySelectorAll('img[loading="lazy"]')) {
-          if (typeof image.decode === 'function') image.decode().catch(() => {});
-        }
+        this.setStudioLighting(card, Boolean(focused && card !== focused), force);
       }
+    }
+
+    resetLighting(card) {
+      card.pimmLighting = null;
+      card.classList.remove('is-studio-dim');
+      for (const direction of ['down', 'up']) {
+        const video = card.querySelector(`[data-pimm-lighting="${direction}"]`);
+        if (video) { video.pause(); video.hidden = true; }
+      }
+      const still = card.querySelector('[data-pimm-lighting-still]');
+      if (still) still.hidden = true;
+    }
+
+    setStudioLighting(card, dim, force = false) {
+      const previous = card.pimmLighting;
+      if (!force && Boolean(previous?.dim) === dim) return;
+      const direction = dim ? 'down' : 'up';
+      const video = card.querySelector(`[data-pimm-lighting="${direction}"]`);
+      const still = card.querySelector('[data-pimm-lighting-still]');
+      if (!video || !still) return;
+      // Reverse at the corresponding native frame, not by interpolating pixels.
+      const start = previous?.video && !previous.completed
+        ? Math.max(0, Math.min(11 / 24, 11 / 24 - previous.video.currentTime)) : 0;
+      previous?.video?.pause();
+      if (dim) this.stopSequence(card);
+      const state = { dim, video };
+      card.pimmLighting = state;
+      if (this.reduceMotion?.matches) {
+        this.resetLighting(card);
+        card.pimmLighting = { dim, video: null };
+        still.hidden = !dim;
+        card.classList.toggle('is-studio-dim', dim);
+        return;
+      }
+      video.muted = true;
+      video.loop = false;
+      try { video.currentTime = start; } catch (_) { /* Starts at frame zero until metadata arrives. */ }
+      video.play()?.then(() => {
+        if (card.pimmLighting !== state) return;
+        // Keep the previous rendered state until the new clip can actually play.
+        for (const otherDirection of ['down', 'up']) {
+          const other = card.querySelector(`[data-pimm-lighting="${otherDirection}"]`);
+          if (other && other !== video) other.hidden = true;
+        }
+        still.hidden = true;
+        video.hidden = false;
+        card.classList.toggle('is-studio-dim', dim);
+      }).catch(() => {
+        if (card.pimmLighting === state) this.resetLighting(card);
+      });
+    }
+
+    finishLighting(card, video) {
+      const state = card.pimmLighting;
+      if (state?.video !== video) return;
+      state.completed = true;
+      const still = card.querySelector('[data-pimm-lighting-still]');
+      const settle = () => {
+        if (card.pimmLighting !== state) return;
+        video.hidden = true;
+        state.video = null;
+        if (still) still.hidden = !state.dim;
+        card.classList.toggle('is-studio-dim', state.dim);
+        if (!state.dim && card.pimmRotateRequested) this.playSequence(card);
+      };
+      // Hold the final native video frame until its lossless still is decoded.
+      if (state.dim && still?.decode) {
+        still.decode().then(settle).catch(() => {
+          if (card.pimmLighting === state) this.resetLighting(card);
+        });
+      } else settle();
     }
 
     releaseRuntime() {
       this.controller?.abort();
+      this.hoverCard = null;
+      this.focusCard = null;
       for (const card of this.querySelectorAll?.('[data-pimm-collection-card]') ?? []) {
         this.stopSequence(card, true);
+        this.resetLighting(card);
       }
     }
   }

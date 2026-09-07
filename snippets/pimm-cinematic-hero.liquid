@@ -1,0 +1,10 @@
+{% doc %}Seven native 24fps operating scenes, 84 seconds at original speed.{% enddoc %}
+<pimm-cinematic-hero>
+  <img src="{{ 'pimm-cinematic-r61-desktop-complete.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}" width="1920" height="1080" loading="eager" fetchpriority="high">
+  {% assign cinematic_shots = 'cylinder,pressure,temperature,mounting,pellets,actuator,complete' | split: ',' %}
+  {% for shot in cinematic_shots %}
+    {% assign cinematic_asset = 'pimm-cinematic-r61-desktop-' | append: shot | append: '.webm' %}
+    {% assign cinematic_portrait = 'pimm-cinematic-r61-mobile-' | append: shot | append: '.webm' %}
+    <video data-shot="{{ shot }}" data-src="{{ cinematic_asset | asset_url }}" data-src-portrait="{{ cinematic_portrait | asset_url }}" crossorigin="anonymous" muted playsinline preload="none" aria-hidden="true"></video>
+  {% endfor %}
+</pimm-cinematic-hero>

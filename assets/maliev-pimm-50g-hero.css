@@ -1,0 +1,160 @@
+.pimm-machine[data-page-model="50G"] {
+  overflow: visible;
+}
+
+body:has(.pimm-machine[data-page-model="50G"]) .mc-header--overlay {
+  background: transparent;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__hero { background: var(--pimm-surface, #f3f5f6); }
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__decision {
+  align-self: center;
+  padding: 48px 24px 120px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__introduction {
+  gap: 20px;
+  max-width: 520px;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__title {
+  font-size: clamp(4rem, 5.2vw, 7.2rem);
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__promise {
+  font-size: clamp(2rem, 2.1vw, 3rem);
+  font-weight: 600;
+  line-height: 1.12;
+  max-width: 28ch;
+  text-wrap: balance;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__fit {
+  color: var(--pimm-muted, #626a73);
+  max-width: 48ch;
+  text-wrap: pretty;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__actions {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__demo-cta {
+  align-items: center;
+  background: var(--pimm-blue, #006fd6);
+  border-color: var(--pimm-blue, #006fd6);
+  display: inline-flex;
+  gap: 28px;
+  justify-content: space-between;
+  min-width: 232px;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__demo-cta:is(:hover, :focus-visible) {
+  background: var(--pimm-blue-dark, #005bb5);
+  border-color: var(--pimm-blue-dark, #005bb5);
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__demo-cta:focus-visible {
+  outline: 3px solid var(--maliev-focus, #ffd21c);
+  outline-offset: 4px;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__demo-note {
+  color: var(--pimm-ink-soft, #353a40);
+  margin: 0;
+  max-width: 34ch;
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__hero-media--50g { min-height: 0; }
+
+.pimm-machine[data-page-model="50G"] .pimm-machine__specifications {
+  align-self: end;
+  grid-column: 1 / -1;
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 999px) {
+  .pimm-machine[data-page-model="50G"] .pimm-machine__fit {
+    display: none;
+  }
+
+  .pimm-machine[data-page-model="50G"] .pimm-machine__demo-cta {
+    width: 100%;
+  }
+}
+
+.pimm-machine[data-page-model="50G"] .pimm-story--50g .pimm-story__intro {
+  align-items: start;
+  gap: clamp(32px, 5vw, 80px);
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  max-width: none;
+}
+.pimm-machine[data-page-model="50G"] .pimm-story--50g .pimm-story__intro h2 { font-size: clamp(2.8rem, 3.6vw, 5.2rem); max-width: 20ch; }
+.pimm-machine[data-page-model="50G"] .pimm-story--50g .pimm-story__intro > p { color: #353a40; font-size: 2rem; line-height: 1.65; max-width: 60ch; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento {
+  display: grid;
+  gap: 16px;
+  grid-template-areas: "capacity capacity controls" "tooling complete complete";
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile {
+  background: #f3f5f6;
+  border-radius: 14px;
+  min-height: clamp(360px, 40vw, 620px);
+  overflow: hidden;
+  position: relative;
+}
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile--capacity { grid-area: capacity; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile--controls { grid-area: controls; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile--tooling { grid-area: tooling; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile--complete { grid-area: complete; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile img { height: 100%; inset: 0; object-fit: cover; position: absolute; width: 100%; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__copy {
+  background: linear-gradient(to top, rgba(243,245,246,.98) 18%, rgba(243,245,246,.82) 72%, transparent);
+  bottom: 0;
+  left: 0;
+  padding: 88px clamp(20px, 4vw, 48px) clamp(24px, 4vw, 48px);
+  position: absolute;
+  right: 0;
+  z-index: 1;
+}
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__copy h3 { font-family: 'Outfit', 'IBM Plex Sans Thai', sans-serif; font-size: clamp(2.4rem, 3vw, 4rem); line-height: 1.08; margin: 0 0 12px; text-wrap: balance; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-bento__copy p { color: #353a40; line-height: 1.55; margin: 0; max-width: 52ch; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade { background: #111315; border-radius: 14px; color: #fff; margin-top: 16px; padding: clamp(28px, 5vw, 72px); }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__header { align-items: end; display: grid; gap: 24px; grid-template-columns: 1fr auto auto; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__header h3 { font-family: 'Outfit', 'IBM Plex Sans Thai', sans-serif; font-size: clamp(3rem, 4.5vw, 6rem); margin: 0; max-width: 15ch; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__model { color: #d9dde1; font-weight: 600; min-width: 12rem; text-align: right; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__model--active { color: #fff; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dl { margin: 32px 0 0; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dl > div { align-items: baseline; border-top: 1px solid #3a4148; display: grid; gap: 24px; grid-template-columns: 1fr auto auto; padding: 20px 0; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dt { color: #d9dde1; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dd { margin: 0; min-width: 12rem; text-align: right; }
+.pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dd:last-child { font-size: 1.15em; font-weight: 700; }
+
+@media (max-width: 749px) {
+  .pimm-machine[data-page-model="50G"] .pimm-story--50g .pimm-story__intro { gap: 20px; grid-template-columns: 1fr; }
+  .pimm-machine[data-page-model="50G"] .pimm-story--50g .pimm-story__intro > p { font-size: 1.7rem; }
+  .pimm-machine[data-page-model="50G"] .pimm-50g-bento { grid-template-areas: "capacity" "controls" "tooling" "complete"; grid-template-columns: 1fr; gap: 10px; }
+  .pimm-machine[data-page-model="50G"] .pimm-50g-bento__tile { border-radius: 10px; min-height: min(120vw, 520px); }
+  .pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__header { grid-template-columns: 1fr auto auto; }
+  .pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__header h3 { grid-column: 1 / -1; }
+  .pimm-machine[data-page-model="50G"] .pimm-50g-upgrade__model,
+  .pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dd { min-width: 7rem; }
+  .pimm-machine[data-page-model="50G"] .pimm-50g-upgrade dl > div { gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pimm-machine[data-page-model="50G"] .pimm-machine__hero * {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

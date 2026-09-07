@@ -62,7 +62,7 @@
 .pimm-machine .button,
 .pimm-machine__text-link {
   align-items: center;
-  border-radius: .5rem;
+  border-radius: 4px;
   display: inline-flex;
   font-size: 1.6rem;
   font-weight: 600;
@@ -92,13 +92,11 @@
   min-height: 7.6rem;
   padding: 1.4rem 1.6rem;
 }
-.pimm-machine__model-option:has(input:checked),
-.pimm-machine__model-option.is-selected { background: var(--pimm-blue); border-color: var(--pimm-blue); color: #fff; }
+.pimm-machine__model-option:has(input:checked) { background: var(--pimm-blue); border-color: var(--pimm-blue); color: #fff; }
 .pimm-machine__model-option input { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; }
 .pimm-machine__model-name { font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
 .pimm-machine__model-price { font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.4rem; font-variant-numeric: tabular-nums; font-weight: 600; line-height: 1.3; opacity: .72; }
-.pimm-machine__model-option:has(input:checked) .pimm-machine__model-price,
-.pimm-machine__model-option.is-selected .pimm-machine__model-price { opacity: 1; }
+.pimm-machine__model-option:has(input:checked) .pimm-machine__model-price { opacity: 1; }
 .pimm-machine :is(a, button, input):focus-visible,
 .pimm-machine__model-option:has(input:focus-visible) { box-shadow: inset 0 0 0 .3rem #ffd21c; outline: .3rem solid var(--pimm-ink); outline-offset: .3rem; }
 
@@ -106,7 +104,7 @@
   align-items: stretch;
   align-self: stretch;
   background: #f4f4f2;
-  border-radius: 1.6rem;
+  border-radius: 14px;
   display: grid;
   min-height: 68rem;
   min-width: 0;
@@ -120,7 +118,7 @@
   align-content: space-between;
   align-self: stretch;
   background: var(--pimm-ink);
-  border-radius: 1.4rem;
+  border-radius: 14px;
   color: #fff;
   display: grid;
   gap: clamp(3.2rem, 4vw, 5.6rem);
@@ -128,11 +126,11 @@
   overflow: hidden;
   padding: clamp(2.8rem, 3vw, 4.8rem);
 }
-.pimm-machine .pimm-machine__specifications h2 { color: #fff; font-size: clamp(3.2rem, 2.8vw, 4.2rem); letter-spacing: -.03em; line-height: .98; max-width: 10ch; }
+.pimm-machine .pimm-machine__specifications h2 { color: #fff; font-size: clamp(2.4rem, 2vw, 3.2rem); letter-spacing: -.03em; line-height: 1.15; max-width: 100%; overflow-wrap: normal; text-wrap: balance; }
 .pimm-machine__specifications dl { border-block: 1px solid rgba(255, 255, 255, .24); }
 .pimm-machine__specifications dl > div { border-bottom: 1px solid rgba(255, 255, 255, .18); display: grid; gap: 1rem; padding-block: clamp(2rem, 2.5vw, 3.2rem); }
 .pimm-machine__specifications dl > div:last-child { border-bottom: 0; }
-.pimm-machine__specifications dt { color: #c1c9d0; font-size: 1.3rem; font-weight: 500; line-height: 1.35; }
+.pimm-machine__specifications dt { color: var(--pimm-line); font-size: 1.3rem; font-weight: 500; line-height: 1.35; }
 .pimm-machine__qualification-facts dt { color: var(--pimm-muted); font-size: 1.3rem; line-height: 1.35; }
 .pimm-machine__specifications dd { color: #fff; font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: clamp(2.2rem, 2vw, 3rem); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.025em; line-height: 1.05; overflow-wrap: anywhere; }
 .pimm-machine__qualification-facts dd { color: var(--pimm-ink); font-family: var(--maliev-font-mono, "IBM Plex Mono", monospace); font-size: 1.7rem; font-variant-numeric: tabular-nums; font-weight: 600; overflow-wrap: anywhere; }
@@ -156,7 +154,7 @@
 }
 .pimm-story__chapter:nth-child(odd) .pimm-story__media { order: 2; }
 .pimm-story__chapter:nth-child(odd) { grid-template-columns: minmax(24rem, .85fr) minmax(0, 1.15fr); }
-.pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 1.4rem; display: grid; min-height: 48rem; overflow: hidden; position: relative; }
+.pimm-story__media { align-items: center; background: #f4f4f2; border-radius: 14px; display: grid; min-height: 48rem; overflow: hidden; position: relative; }
 .pimm-story__media img { height: 100%; max-height: 68rem; width: 100%; }
 .pimm-story__media[data-pimm-media-shot] { --pimm-media-pending-scale: 1.05; --pimm-media-scale: 1; }
 .pimm-story__media[data-pimm-media-shot] img {
@@ -251,6 +249,13 @@
 .pimm-machine__purchase-action { align-items: flex-start; display: flex; flex-direction: column; gap: 1.4rem; }
 .pimm-machine__ownership-links a { color: var(--pimm-ink); font-size: 1.6rem; font-weight: 600; min-height: 4.4rem; padding-block: 1rem; }
 .pimm-machine__variant-status { color: var(--pimm-ink) !important; font-weight: 600; }
+.pimm-machine__product-form,
+.pimm-machine__product-form form,
+.pimm-machine__product-form .product-form__buttons { display: block; width: 100%; }
+.pimm-machine__product-form .product-form__error-message-wrapper:not([hidden]) { align-items: flex-start; color: #b42318; display: flex; font-size: 1.4rem; gap: .8rem; margin-bottom: 1.2rem; }
+.pimm-machine__product-form .product-form__error-message-wrapper .svg-wrapper { flex: 0 0 1.8rem; }
+.pimm-machine__add-to-cart { background: var(--pimm-blue); border-color: var(--pimm-blue); color: #fff; min-height: 4.8rem; width: 100%; }
+.pimm-machine__add-to-cart:not([disabled]):hover { background: var(--pimm-blue-dark); border-color: var(--pimm-blue-dark); }
 .pimm-machine__app-integrations { margin-inline: auto; max-width: 148rem; padding: 4rem clamp(2rem, 4vw, 6.4rem); }
 
 @media (max-width: 1299px) {

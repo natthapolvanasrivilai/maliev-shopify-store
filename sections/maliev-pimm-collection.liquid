@@ -1,14 +1,13 @@
-{%- liquid
-  assign collection_id = collection.id | append: ''
-  assign is_pimm_collection = false
-  if request.page_type == 'collection' and collection_id == '475589673239'
-    assign is_pimm_collection = true
-  endif
--%}
-{%- if is_pimm_collection or request.page_type == 'product' -%}
 {{ 'maliev-pimm-collection.css' | asset_url | stylesheet_tag }}
 
 {%- liquid
+  assign collection_id = collection.id | append: ''
+  assign is_pimm_collection = false
+  assign is_pimm_surface = false
+  if request.page_type == 'collection' and collection_id == '475589673239'
+    assign is_pimm_collection = true
+    assign is_pimm_surface = true
+  endif
   assign pimm_product = section.settings.pimm_product
   assign model_30g_product = nil
   assign model_50g_product = nil
@@ -22,11 +21,14 @@
       assign model_50g_product = all_products['pneumatic-injection-molding-machine-50g']
     endif
   endif
-  if pimm_product == blank and request.page_type == 'product'
+  if request.page_type == 'product'
     if request.path contains '/products_preview'
       if template.suffix == 'pimm-collection-preview'
         if product.handle == 'pimm-pneumatic-injection-molding-machine-development'
-          assign pimm_product = product
+          assign is_pimm_surface = true
+          if pimm_product == blank
+            assign pimm_product = product
+          endif
         endif
       endif
     endif
@@ -122,20 +124,26 @@
   capture model_30g_url
     if model_30g_product != blank
       echo model_30g_product.url
+      echo '?variant='
+      echo model_30g.id
     else
       echo pimm_product.url
+      echo '?variant='
+      echo model_30g.id
+      echo '&view=pimm-configurator'
     endif
-    echo '?variant='
-    echo model_30g.id
   endcapture
   capture model_50g_url
     if model_50g_product != blank
       echo model_50g_product.url
+      echo '?variant='
+      echo model_50g.id
     else
       echo pimm_product.url
+      echo '?variant='
+      echo model_50g.id
+      echo '&view=pimm-configurator'
     endif
-    echo '?variant='
-    echo model_50g.id
   endcapture
 
   capture model_30g_lead_time
@@ -143,6 +151,12 @@
   endcapture
   capture model_50g_lead_time
     echo 'products.pimm_machine.purchase.lead_time' | t: days: model_50g_lead_time_days
+  endcapture
+  capture model_30g_price_label
+    render 'pimm-collection-price', amount_cents: model_30g_full_price
+  endcapture
+  capture model_50g_price_label
+    render 'pimm-collection-price', amount_cents: model_50g_full_price
   endcapture
 
   assign model_30g_status_key = 'products.pimm_machine.status.out_of_stock'
@@ -155,11 +169,13 @@
   endif
 -%}
 
+{%- if is_pimm_surface -%}
 <pimm-collection-comparison
   class="pimm-collection"
   data-pimm-collection-comparison
   data-section-id="{{ section.id }}"
   data-contract-valid="{{ contract_valid }}"
+  data-preview-navigation="{% if request.path contains '/products_preview' and template.suffix == 'pimm-collection-preview' and pimm_product.id == product.id %}true{% else %}false{% endif %}"
   data-available-label="{{ 'products.pimm_machine.status.made_to_order' | t | escape }}"
   data-unavailable-label="{{ 'products.pimm_machine.status.out_of_stock' | t | escape }}"
 >
@@ -192,32 +208,19 @@
               <div class="pimm-collection__media" aria-label="{{ 'products.pimm_collection.models.30g.media_label' | t }}">
                 <div class="pimm-collection__frame is-active" data-pimm-collection-frame="front" aria-hidden="false">
                   <img
-                    src="{{ 'maliev-pimm-collection-20260901-r01-30g-front.webp' | asset_url }}"
+                    src="{{ 'maliev-pimm-collection-motion-20260902-r02-30g-poster.webp' | asset_url }}"
                     alt="{{ 'products.pimm_collection.models.30g.alt' | t | escape }}"
-                    width="1200"
-                    height="1600"
+                    width="1440"
+                    height="1920"
                     loading="eager"
                     fetchpriority="high"
                   >
                 </div>
-                <div class="pimm-collection__frame" data-pimm-collection-frame="left" hidden aria-hidden="true">
-                  <img
-                    src="{{ 'maliev-pimm-collection-20260901-r01-30g-left.webp' | asset_url }}"
-                    alt=""
-                    width="1200"
-                    height="1600"
-                    loading="lazy"
-                  >
-                </div>
-                <div class="pimm-collection__frame" data-pimm-collection-frame="right" hidden aria-hidden="true">
-                  <img
-                    src="{{ 'maliev-pimm-collection-20260901-r01-30g-right.webp' | asset_url }}"
-                    alt=""
-                    width="1200"
-                    height="1600"
-                    loading="lazy"
-                  >
-                </div>
+                <video class="pimm-collection__video" data-pimm-collection-video
+                  width="1440" height="1920" muted playsinline preload="none" aria-hidden="true"
+                  src="{{ 'maliev-pimm-collection-motion-20260902-r02-30g.mp4' | asset_url }}">
+                </video>
+                {% render 'pimm-collection-lighting', model: '30g' %}
               </div>
 
               <div class="pimm-collection__card-copy">
@@ -227,7 +230,7 @@
                 <dl class="pimm-collection__card-facts">
                   <div>
                     <dt>{{ 'products.pimm_collection.price' | t }}</dt>
-                    <dd>{{ model_30g_full_price | money_with_currency }}</dd>
+                    <dd data-pimm-card-price>{{ model_30g_price_label | strip }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.availability' | t }}</dt>
@@ -268,31 +271,18 @@
               <div class="pimm-collection__media" aria-label="{{ 'products.pimm_collection.models.50g.media_label' | t }}">
                 <div class="pimm-collection__frame is-active" data-pimm-collection-frame="front" aria-hidden="false">
                   <img
-                    src="{{ 'maliev-pimm-collection-20260901-r01-50g-front.webp' | asset_url }}"
+                    src="{{ 'maliev-pimm-collection-motion-20260902-r02-50g-poster.webp' | asset_url }}"
                     alt="{{ 'products.pimm_collection.models.50g.alt' | t | escape }}"
-                    width="1200"
-                    height="1600"
+                    width="1440"
+                    height="1920"
                     loading="lazy"
                   >
                 </div>
-                <div class="pimm-collection__frame" data-pimm-collection-frame="left" hidden aria-hidden="true">
-                  <img
-                    src="{{ 'maliev-pimm-collection-20260901-r01-50g-left.webp' | asset_url }}"
-                    alt=""
-                    width="1200"
-                    height="1600"
-                    loading="lazy"
-                  >
-                </div>
-                <div class="pimm-collection__frame" data-pimm-collection-frame="right" hidden aria-hidden="true">
-                  <img
-                    src="{{ 'maliev-pimm-collection-20260901-r01-50g-right.webp' | asset_url }}"
-                    alt=""
-                    width="1200"
-                    height="1600"
-                    loading="lazy"
-                  >
-                </div>
+                <video class="pimm-collection__video" data-pimm-collection-video
+                  width="1440" height="1920" muted playsinline preload="none" aria-hidden="true"
+                  src="{{ 'maliev-pimm-collection-motion-20260902-r02-50g.mp4' | asset_url }}">
+                </video>
+                {% render 'pimm-collection-lighting', model: '50g' %}
               </div>
 
               <div class="pimm-collection__card-copy">
@@ -302,7 +292,7 @@
                 <dl class="pimm-collection__card-facts">
                   <div>
                     <dt>{{ 'products.pimm_collection.price' | t }}</dt>
-                    <dd>{{ model_50g_full_price | money_with_currency }}</dd>
+                    <dd data-pimm-card-price>{{ model_50g_price_label | strip }}</dd>
                   </div>
                   <div>
                     <dt>{{ 'products.pimm_collection.availability' | t }}</dt>
@@ -346,7 +336,7 @@
               <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
               <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
               <dl>
-                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_price_label | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
@@ -375,7 +365,7 @@
               <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.50g.choose_this' | t }}</p>
               <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '30G' }}</p>
               <dl>
-                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_full_price | money_with_currency }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_price_label | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_50g_status_key | t }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_50g_lead_time | strip }}</dd></div>
                 <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_50g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
@@ -402,7 +392,7 @@
           <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
           <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
           <dl>
-            <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_full_price | money_with_currency }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_price_label | strip }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
             <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
@@ -432,42 +422,78 @@
 
       <script type="application/json" data-pimm-collection-models>
         [
-          {
-            "id": {{ model_30g.id | json }},
-            "model": "30G",
-            "url": {{ model_30g_url | strip | json }},
-            "fullPrice": {{ model_30g_full_price | money_with_currency | strip_html | json }},
-            "available": {{ model_30g.available | json }},
-            "leadTime": {{ model_30g_lead_time | strip | json }},
-            "specifications": {
-              "shotCapacityG": {{ model_30g_shot_capacity_g | plus: 0 | json }},
-              "maxMeltTemperatureC": {{ model_30g_max_melt_temperature_c | plus: 0 | json }},
-              "moldEnvelopeMm": {
-                "width": {{ model_30g_mold_width | plus: 0 | json }},
-                "height": {{ model_30g_mold_height | plus: 0 | json }},
-                "depth": {{ model_30g_mold_depth | plus: 0 | json }}
-              },
-              "maxAirPressureMpa": {{ model_30g_max_air_pressure_mpa | plus: 0 | json }}
+          {%- if is_pimm_collection -%}
+            {
+              "id": {{ model_30g.id | json }},
+              "model": "30G",
+              "url": {{ model_30g_url | strip | json }},
+              "fullPrice": {{ model_30g_price_label | strip | json }},
+              "available": {{ model_30g.available | json }},
+              "leadTime": {{ model_30g_lead_time | strip | json }},
+              "specifications": {
+                "shotCapacityG": {{ model_30g_shot_capacity_g | plus: 0 | json }},
+                "maxMeltTemperatureC": {{ model_30g_max_melt_temperature_c | plus: 0 | json }},
+                "moldEnvelopeMm": {
+                  "width": {{ model_30g_mold_width | plus: 0 | json }},
+                  "height": {{ model_30g_mold_height | plus: 0 | json }},
+                  "depth": {{ model_30g_mold_depth | plus: 0 | json }}
+                },
+                "maxAirPressureMpa": {{ model_30g_max_air_pressure_mpa | plus: 0 | json }}
+              }
+            },
+            {
+              "id": {{ model_50g.id | json }},
+              "model": "50G",
+              "url": {{ model_50g_url | strip | json }},
+              "fullPrice": {{ model_50g_price_label | strip | json }},
+              "available": {{ model_50g.available | json }},
+              "leadTime": {{ model_50g_lead_time | strip | json }},
+              "specifications": {
+                "shotCapacityG": {{ model_50g_shot_capacity_g | plus: 0 | json }},
+                "maxMeltTemperatureC": {{ model_50g_max_melt_temperature_c | plus: 0 | json }},
+                "moldEnvelopeMm": {
+                  "width": {{ model_50g_mold_width | plus: 0 | json }},
+                  "height": {{ model_50g_mold_height | plus: 0 | json }},
+                  "depth": {{ model_50g_mold_depth | plus: 0 | json }}
+                },
+                "maxAirPressureMpa": {{ model_50g_max_air_pressure_mpa | plus: 0 | json }}
+              }
             }
-          },
-          {
-            "id": {{ model_50g.id | json }},
-            "model": "50G",
-            "url": {{ model_50g_url | strip | json }},
-            "fullPrice": {{ model_50g_full_price | money_with_currency | strip_html | json }},
-            "available": {{ model_50g.available | json }},
-            "leadTime": {{ model_50g_lead_time | strip | json }},
-            "specifications": {
-              "shotCapacityG": {{ model_50g_shot_capacity_g | plus: 0 | json }},
-              "maxMeltTemperatureC": {{ model_50g_max_melt_temperature_c | plus: 0 | json }},
-              "moldEnvelopeMm": {
-                "width": {{ model_50g_mold_width | plus: 0 | json }},
-                "height": {{ model_50g_mold_height | plus: 0 | json }},
-                "depth": {{ model_50g_mold_depth | plus: 0 | json }}
-              },
-              "maxAirPressureMpa": {{ model_50g_max_air_pressure_mpa | plus: 0 | json }}
-            }
-          }
+          {%- else -%}
+          {%- for variant in pimm_product.variants -%}
+            {%- liquid
+              assign variant_model = variant.option1 | strip
+              assign variant_specifications = variant.metafields.custom.pimm_specifications.value
+              assign variant_full_price = variant.metafields.custom.full_machine_price.value
+              assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
+              assign variant_url = pimm_product.url | append: '?variant=' | append: variant.id | append: '&view=pimm-configurator'
+              capture variant_lead_time
+                echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
+              endcapture
+              capture variant_price_label
+                render 'pimm-collection-price', amount_cents: variant_full_price
+              endcapture
+            -%}
+            {
+              "id": {{ variant.id | json }},
+              "model": {{ variant_model | json }},
+              "url": {{ variant_url | json }},
+              "fullPrice": {{ variant_price_label | strip | json }},
+              "available": {{ variant.available | json }},
+              "leadTime": {{ variant_lead_time | strip | json }},
+              "specifications": {
+                "shotCapacityG": {{ variant_specifications.shot_capacity_g | plus: 0 | json }},
+                "maxMeltTemperatureC": {{ variant_specifications.max_melt_temperature_c | plus: 0 | json }},
+                "moldEnvelopeMm": {
+                  "width": {{ variant_specifications.mold_envelope_mm.width | plus: 0 | json }},
+                  "height": {{ variant_specifications.mold_envelope_mm.height | plus: 0 | json }},
+                  "depth": {{ variant_specifications.mold_envelope_mm.depth | plus: 0 | json }}
+                },
+                "maxAirPressureMpa": {{ variant_specifications.max_air_pressure_mpa | plus: 0 | json }}
+              }
+            }{% unless forloop.last %},{% endunless %}
+          {%- endfor -%}
+          {%- endif -%}
         ]
       </script>
 
@@ -520,17 +546,17 @@
     {
       "type": "product",
       "id": "pimm_product",
-      "label": "Legacy unified PIMM preview product"
+      "label": "Canonical PIMM product"
     },
     {
       "type": "product",
       "id": "model_30g_product",
-      "label": "30G product"
+      "label": "Published 30G product"
     },
     {
       "type": "product",
       "id": "model_50g_product",
-      "label": "50G product"
+      "label": "Published 50G product"
     },
     {
       "type": "url",

@@ -1,0 +1,10 @@
+{% comment %}Dedicated, model-authentic 50G footage.{% endcomment %}
+<pimm-cinematic-hero data-model="50G">
+  <img src="{{ 'pimm50-cinematic-r01-poster.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.hero' | t | escape }}" width="640" height="360" loading="eager" fetchpriority="high">
+  {% assign cinematic_shots = 'cylinder,capacity,melt-zone,heating,mounting,actuator,complete' | split: ',' %}
+  {% for shot in cinematic_shots %}
+    {% assign cinematic_asset = 'pimm50-cinematic-r01-desktop-' | append: shot | append: '.webm' %}
+    {% assign cinematic_portrait = 'pimm50-cinematic-r01-mobile-' | append: shot | append: '.webm' %}
+    <video data-shot="{{ shot }}" data-src="{{ cinematic_asset | asset_url }}" data-src-portrait="{{ cinematic_portrait | asset_url }}" crossorigin="anonymous" muted playsinline preload="none" aria-hidden="true"></video>
+  {% endfor %}
+</pimm-cinematic-hero>

@@ -1,27 +1,36 @@
 {% doc %}
   Renders the demo-led qualification close for the selected machine.
 
+  @param {object} product - The Shopify product.
   @param {object} selected_variant - The selected Shopify variant.
   @param {boolean} model_contract_valid - Whether the selected machine data is valid.
   @param {section} section - The owning machine-product section.
+  @param {string} page_model - Dedicated machine model.
 {% enddoc %}
 
 {%- liquid
   assign factory_visit_url = section.settings.factory_visit_url
   if factory_visit_url == blank
-    assign factory_visit_url = routes.root_url | append: 'pages/contact'
+    assign factory_visit_url = pages['contact'].url
+  endif
+  if factory_visit_url == blank
+    assign factory_visit_url = routes.root_url | append: '/pages/contact' | replace: '//', '/'
   endif
   assign selected_status_text = 'products.pimm_machine.status.unavailable' | t
+  assign purchase_available = false
   if model_contract_valid
     if selected_variant.available
       assign selected_status_text = 'products.pimm_machine.status.made_to_order' | t
+      assign purchase_available = true
     else
       assign selected_status_text = 'products.pimm_machine.status.out_of_stock' | t
     endif
   endif
+  assign product_form_id = 'PimmProductForm-' | append: section.id
 -%}
 
 <section class="pimm-machine__purchase" data-pimm-purchase-qualification aria-labelledby="PimmMachinePurchase-{{ section.id }}">
+  {% if page_model == '30G' %}<pimm-demo-invitation>{% endif %}
   <div class="pimm-machine__purchase-copy">
     <h2 id="PimmMachinePurchase-{{ section.id }}">{{ 'products.pimm_machine.purchase.heading' | t }}</h2>
     <p>{{ 'products.pimm_machine.purchase.body' | t }}</p>
@@ -32,7 +41,51 @@
       {{- selected_status_text -}}
     </p>
     <a class="button button--primary" href="{{ factory_visit_url }}" data-pimm-book-visit>
-      {{ 'products.pimm_machine.purchase.book_visit' | t }}
+      <span>{{ 'products.pimm_machine.purchase.book_visit' | t }}</span>
+      {% if page_model == '30G' %}<svg class="pimm-invitation-arrow" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="28" height="28"><path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>{% endif %}
     </a>
+
+    <product-form class="pimm-machine__product-form" data-section-id="{{ section.id }}" data-pimm-product-form>
+      <div class="product-form__error-message-wrapper" role="alert" hidden>
+        <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+        <span class="product-form__error-message"></span>
+      </div>
+      {%- form 'product', product, id: product_form_id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+        <input
+          type="hidden"
+          name="id"
+          value="{{ selected_variant.id }}"
+          class="product-variant-id"
+          data-pimm-cart-variant-id
+          {% unless purchase_available %}disabled{% endunless %}
+        >
+        <input type="hidden" name="quantity" value="1">
+        <div class="product-form__buttons">
+          <button
+            id="PimmProductSubmitButton-{{ section.id }}"
+            type="submit"
+            name="add"
+            class="product-form__submit button button--primary button--full-width pimm-machine__add-to-cart"
+            data-pimm-add-to-cart
+            data-pimm-add-label="{{ 'products.product.add_to_cart' | t | escape }}"
+            data-pimm-sold-out-label="{{ 'products.product.sold_out' | t | escape }}"
+            data-pimm-unavailable-label="{{ 'products.product.unavailable' | t | escape }}"
+            {% unless purchase_available %}disabled{% endunless %}
+          >
+            <span data-pimm-add-to-cart-label>
+              {%- if model_contract_valid == false -%}
+                {{ 'products.product.unavailable' | t }}
+              {%- elsif selected_variant.available == false -%}
+                {{ 'products.product.sold_out' | t }}
+              {%- else -%}
+                {{ 'products.product.add_to_cart' | t }}
+              {%- endif -%}
+            </span>
+            {%- render 'loading-spinner' -%}
+          </button>
+        </div>
+      {%- endform -%}
+    </product-form>
   </div>
+  {% if page_model == '30G' %}</pimm-demo-invitation>{% endif %}
 </section>
