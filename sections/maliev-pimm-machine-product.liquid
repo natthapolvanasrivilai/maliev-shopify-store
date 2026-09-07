@@ -1,6 +1,20 @@
 {%- liquid
+  assign is_published_pimm_product = false
+  assign is_pimm_machine_product = false
+  if product.handle == 'pneumatic-injection-molding-machine' or product.handle == 'pneumatic-injection-molding-machine-50g'
+    assign is_published_pimm_product = true
+    assign is_pimm_machine_product = true
+  elsif product.handle == 'pimm-pneumatic-injection-molding-machine-development'
+    assign is_pimm_machine_product = true
+  endif
+
   assign selected_variant = product.selected_or_first_available_variant
   assign selected_model_code = selected_variant.option1 | strip
+  if product.handle == 'pneumatic-injection-molding-machine'
+    assign selected_model_code = '30G'
+  elsif product.handle == 'pneumatic-injection-molding-machine-50g'
+    assign selected_model_code = '50G'
+  endif
   assign selected_model_block = nil
   assign model_block_match_count = 0
   assign product_model_contract_valid = false
@@ -11,6 +25,9 @@
     if first_model_variant.option1 == '30G' and second_model_variant.option1 == '50G'
       assign product_model_contract_valid = true
     endif
+  endif
+  if is_published_pimm_product
+    assign product_model_contract_valid = true
   endif
 
   for block in section.blocks
@@ -32,8 +49,12 @@
 
   assign specifications = selected_variant.metafields.custom.pimm_specifications.value
   assign full_price = selected_variant.metafields.custom.full_machine_price.value
-  assign selected_full_price_cents = full_price
   assign lead_time = selected_variant.metafields.custom.lead_time_days.value
+  if is_published_pimm_product
+    assign full_price = selected_variant.price
+    assign lead_time = product.metafields.custom.lead_time.value | default: 30
+  endif
+  assign selected_full_price_cents = full_price
   assign model_contract_valid = false
   assign selected_story_binding_valid = false
 
@@ -41,7 +62,11 @@
     assign selected_story_binding_valid = true
   endif
 
-  if product_model_contract_valid and selected_model_block != blank and model_block_match_count == 1
+  if is_published_pimm_product and selected_variant.id > 0 and full_price > 0 and selected_model_block != blank and model_block_match_count == 1
+    if selected_story_binding_valid and lead_time > 0
+      assign model_contract_valid = true
+    endif
+  elsif product_model_contract_valid and selected_model_block != blank and model_block_match_count == 1
     if selected_story_binding_valid and specifications != blank
       if specifications.schema_version == 1 and specifications.model == selected_model_code
         if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
@@ -63,12 +88,14 @@
   endif
 -%}
 
+{%- if is_pimm_machine_product -%}
 <link rel="stylesheet" href="{{ 'maliev-pimm-machine.css' | asset_url }}&amp;pimm_release=pimm-master-20260901-r05-hdri-cycles-1&amp;pimm_ui=story-fill-v2" media="all">
 <script src="{{ 'maliev-pimm-machine.js' | asset_url }}&amp;pimm_release=pimm-master-20260901-r05-hdri-cycles-1&amp;pimm_ui=story-fill-v2" defer="defer"></script>
 
 <pimm-machine-product
   class="pimm-machine"
   data-pimm-machine-product
+  data-page-model="{{ selected_model_code | escape }}"
   data-section-id="{{ section.id }}"
   data-model-contract-valid="{{ model_contract_valid }}"
 >
@@ -81,7 +108,8 @@
     full_price_cents: selected_full_price_cents,
     lead_time: lead_time,
     model_contract_valid: model_contract_valid,
-    factory_visit_url: factory_visit_url
+    factory_visit_url: factory_visit_url,
+    is_published_pimm_product: is_published_pimm_product
   %}
 
   <main class="pimm-machine__stories" data-pimm-stories>
@@ -111,6 +139,51 @@
     data-pimm-currency="{{ cart.currency.iso_code | escape }}"
   >
     [
+      {%- if is_published_pimm_product -%}
+        {%- liquid
+          assign published_status_text = 'products.pimm_machine.status.out_of_stock' | t
+          if selected_variant.available
+            assign published_status_text = 'products.pimm_machine.status.made_to_order' | t
+          endif
+          capture published_lead_time_text
+            echo 'products.pimm_machine.purchase.lead_time' | t: days: lead_time
+          endcapture
+          assign published_shot_capacity = 30
+          assign published_max_temperature = 300
+          assign published_mold_width = 100
+          assign published_mold_height = 100
+          assign published_mold_depth = 100
+          if selected_model_code == '50G'
+            assign published_shot_capacity = 50
+            assign published_max_temperature = 350
+            assign published_mold_width = 240
+            assign published_mold_height = 240
+          endif
+        -%}
+        {
+          "id": {{ selected_variant.id | json }},
+          "model": {{ selected_model_code | json }},
+          "storyAssetSet": {{ expected_story_asset_set | json }},
+          "fullPrice": {{ selected_variant.price | money_with_currency | strip_html | json }},
+          "available": {{ selected_variant.available | json }},
+          "leadTime": {{ published_lead_time_text | strip_html | strip | json }},
+          "specifications": {
+            "schema_version": 1,
+            "model": {{ selected_model_code | json }},
+            "shot_capacity_g": {{ published_shot_capacity | json }},
+            "max_melt_temperature_c": {{ published_max_temperature | json }},
+            "mold_envelope_mm": {
+              "width": {{ published_mold_width | json }},
+              "height": {{ published_mold_height | json }},
+              "depth": {{ published_mold_depth | json }}
+            },
+            "max_air_pressure_mpa": 0.7
+          },
+          "statusText": {{ published_status_text | strip_html | json }},
+          "announcementText": {{ published_status_text | strip_html | strip | json }},
+          "contractValid": true
+        }
+      {%- else -%}
       {%- for variant in product.variants -%}
         {%- liquid
           assign variant_model = variant.option1 | strip
@@ -214,6 +287,7 @@
           "contractValid": {{ variant_contract_valid | json }}
         }{% unless forloop.last %},{% endunless %}
       {%- endfor -%}
+      {%- endif -%}
     ]
   </script>
 </pimm-machine-product>
@@ -228,6 +302,8 @@
       {%- endcase -%}
     {%- endfor -%}
   </aside>
+{%- endif -%}
+
 {%- endif -%}
 
 {% schema %}

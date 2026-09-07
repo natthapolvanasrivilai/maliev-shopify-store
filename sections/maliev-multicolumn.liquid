@@ -1,3 +1,4 @@
+{%- unless product.handle == 'pneumatic-injection-molding-machine' or product.handle == 'pneumatic-injection-molding-machine-50g' -%}
 {{ 'section-multicolumn.css' | asset_url | stylesheet_tag }}
 {{ 'component-slider.css' | asset_url | stylesheet_tag }}
 
@@ -189,6 +190,8 @@
     </div>
   </div>
 </div>
+
+{%- endunless -%}
 
 {% schema %}
 {

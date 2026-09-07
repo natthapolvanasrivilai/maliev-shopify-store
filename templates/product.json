@@ -9,6 +9,31 @@
  */
 {
   "sections": {
+    "pimm-machine": {
+      "type": "maliev-pimm-machine-product",
+      "blocks": {
+        "model_30g": {
+          "type": "model",
+          "settings": {
+            "model_code": "30G",
+            "story_asset_set": "pimm-master-20260901-r05-30g"
+          }
+        },
+        "model_50g": {
+          "type": "model",
+          "settings": {
+            "model_code": "50G",
+            "story_asset_set": "pimm-master-20260901-r05-50g"
+          }
+        }
+      },
+      "block_order": ["model_30g", "model_50g"],
+      "settings": {
+        "factory_visit_url": "",
+        "document_url": "",
+        "support_url": ""
+      }
+    },
     "main": {
       "type": "maliev-product",
       "blocks": {
@@ -199,6 +224,7 @@
     }
   },
   "order": [
+    "pimm-machine",
     "main",
     "1759825891c797312d",
     "related-products",

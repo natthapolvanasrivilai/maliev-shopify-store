@@ -10,9 +10,33 @@
   @param {number} lead_time
   @param {boolean} model_contract_valid
   @param {string} factory_visit_url
+  @param {boolean} is_published_pimm_product
 {% enddoc %}
 
-{%- assign display_product_title = product.title | remove: ' (Development)' | strip -%}
+{%- liquid
+  assign display_product_title = product.title | remove: ' (Development)' | strip
+  assign shot_capacity_g = specifications.shot_capacity_g
+  assign max_melt_temperature_c = specifications.max_melt_temperature_c
+  assign mold_width = specifications.mold_envelope_mm.width
+  assign mold_height = specifications.mold_envelope_mm.height
+  assign mold_depth = specifications.mold_envelope_mm.depth
+  assign max_air_pressure_mpa = specifications.max_air_pressure_mpa
+  if is_published_pimm_product and selected_model_code == '30G'
+    assign shot_capacity_g = 30
+    assign max_melt_temperature_c = 300
+    assign mold_width = 100
+    assign mold_height = 100
+    assign mold_depth = 100
+    assign max_air_pressure_mpa = 0.7
+  elsif is_published_pimm_product and selected_model_code == '50G'
+    assign shot_capacity_g = 50
+    assign max_melt_temperature_c = 350
+    assign mold_width = 240
+    assign mold_height = 240
+    assign mold_depth = 100
+    assign max_air_pressure_mpa = 0.7
+  endif
+-%}
 
 <header class="pimm-machine__hero" data-pimm-hero>
   <div class="pimm-machine__decision">
@@ -22,7 +46,7 @@
       <p class="pimm-machine__fit">{{ 'products.pimm_machine.hero.fit_statement' | t }}</p>
     </div>
 
-    {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section %}
+    {% render 'pimm-model-selector', product: product, selected_variant: selected_variant, section: section, selected_model_code: selected_model_code, is_published_pimm_product: is_published_pimm_product %}
 
     <div class="pimm-machine__actions">
       <a class="button button--primary" href="{{ factory_visit_url }}">{{ 'products.pimm_machine.purchase.book_visit' | t }}</a>
@@ -72,10 +96,10 @@
   <aside class="pimm-machine__specifications" aria-labelledby="PimmMachineEvidence-{{ section.id }}">
     <h2 id="PimmMachineEvidence-{{ section.id }}">{{ 'products.pimm_machine.engineering.heading' | t }}</h2>
     <dl>
-      <div><dt>{{ 'products.pimm_machine.specs.capacity.label' | t }}</dt><dd><span data-pimm-spec="shot_capacity_g">{% if model_contract_valid %}{{ specifications.shot_capacity_g }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="shot_capacity_g" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.capacity.unit' | t }}</span></dd></div>
-      <div><dt>{{ 'products.pimm_machine.specs.temperature.label' | t }}</dt><dd><span data-pimm-spec="max_melt_temperature_c">{% if model_contract_valid %}{{ specifications.max_melt_temperature_c }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="max_melt_temperature_c" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.temperature.unit' | t }}</span></dd></div>
-      <div><dt>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</dt><dd><span data-pimm-spec="mold_envelope">{% if model_contract_valid %}{{ specifications.mold_envelope_mm.width }} × {{ specifications.mold_envelope_mm.height }} × {{ specifications.mold_envelope_mm.depth }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="mold_envelope" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</span></dd></div>
-      <div><dt>{{ 'products.pimm_machine.specs.pressure.label' | t }}</dt><dd><span data-pimm-spec="max_air_pressure_mpa">{% if model_contract_valid %}{{ specifications.max_air_pressure_mpa }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="max_air_pressure_mpa" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.pressure.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.capacity.label' | t }}</dt><dd><span data-pimm-spec="shot_capacity_g">{% if model_contract_valid %}{{ shot_capacity_g }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="shot_capacity_g" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.capacity.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.temperature.label' | t }}</dt><dd><span data-pimm-spec="max_melt_temperature_c">{% if model_contract_valid %}{{ max_melt_temperature_c }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="max_melt_temperature_c" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.temperature.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.mold_envelope.label' | t }}</dt><dd><span data-pimm-spec="mold_envelope">{% if model_contract_valid %}{{ mold_width }} × {{ mold_height }} × {{ mold_depth }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="mold_envelope" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</span></dd></div>
+      <div><dt>{{ 'products.pimm_machine.specs.pressure.label' | t }}</dt><dd><span data-pimm-spec="max_air_pressure_mpa">{% if model_contract_valid %}{{ max_air_pressure_mpa }}{% else %}{{ 'products.pimm_machine.status.unavailable' | t }}{% endif %}</span><span data-pimm-spec-unit="max_air_pressure_mpa" aria-hidden="true" {% unless model_contract_valid %}hidden{% endunless %}> {{ 'products.pimm_machine.specs.pressure.unit' | t }}</span></dd></div>
     </dl>
   </aside>
 </header>

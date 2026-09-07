@@ -77,8 +77,8 @@ test('engineering summary uses a responsive technical ledger instead of equal ca
 });
 
 test('capacity selector and every engineering chapter expose deliberate type roles', () => {
-  assert.equal(selector.match(/class="pimm-machine__model-name"/g)?.length, 1);
-  assert.equal(selector.match(/class="pimm-machine__model-price"/g)?.length, 1);
+  assert.equal(selector.match(/class="pimm-machine__model-name"/g)?.length, 3);
+  assert.equal(selector.match(/class="pimm-machine__model-price"/g)?.length, 3);
   assert.match(css, /\.pimm-machine__model-name[^}]*font-size:\s*1\.6rem[^}]*font-weight:\s*600/s);
   assert.match(css, /\.pimm-machine__model-price[^}]*font-family:\s*var\(--maliev-font-mono/s);
   assert.equal([story30G, story50G].join('\n').match(/class="pimm-story__index"/g)?.length, 8);
@@ -150,7 +150,7 @@ test('variant payload preserves verified commerce and specification boundaries',
   assert.doesNotMatch(section, /variant\.price \| times: 2/);
   assert.match(selector, /assign model_full_price = variant\.metafields\.custom\.full_machine_price\.value/);
   assert.match(selector, /model_full_price \| money_with_currency/);
-  assert.doesNotMatch(selector, /variant\.price/);
+  assert.doesNotMatch(selector, /\{\{\s*variant\.price/);
   assert.match(section, /metafields\.custom\.full_machine_price\.value/);
   assert.match(section, /metafields\.custom\.lead_time_days\.value/);
   assert.match(section, /variant_specifications\.schema_version == 1/);
@@ -158,6 +158,23 @@ test('variant payload preserves verified commerce and specification boundaries',
   assert.match(section, /data-pimm-country="\{\{ localization\.country\.iso_code/);
   assert.match(section, /data-pimm-currency="\{\{ cart\.currency\.iso_code/);
   assert.doesNotMatch(renderedContract, /deposit|มัดจำ|50%/i);
+});
+
+test('published machine handles render the custom product experience on their canonical URLs', async () => {
+  const productTemplateSource = await readThemeFile('templates/product.json');
+  const productTemplate = JSON.parse(stripShopifyComment(productTemplateSource));
+  const standardProductSection = await readThemeFile('sections/maliev-product.liquid');
+
+  assert.equal(productTemplate.sections['pimm-machine'].type, 'maliev-pimm-machine-product');
+  assert.equal(productTemplate.order[0], 'pimm-machine');
+  assert.match(section, /product\.handle == 'pneumatic-injection-molding-machine'/);
+  assert.match(section, /product\.handle == 'pneumatic-injection-molding-machine-50g'/);
+  assert.match(section, /data-page-model="\{\{ selected_model_code \| escape \}\}"/);
+  assert.match(section, /if is_published_pimm_product[\s\S]*?"contractValid": true/);
+  assert.match(js, /variants\.length === 1[\s\S]*?variants\[0\]\?\.model === pageModel/);
+  assert.match(standardProductSection, /unless product\.handle == 'pneumatic-injection-molding-machine'/);
+  assert.match(selector, /model_30g_product\.url[\s\S]*?model_50g_product\.url/);
+  assert.match(selector, /selected_model_code \| default: selected_variant\.option1/);
 });
 
 test('selector remains native accessible and model state uses stable DOM nodes', () => {

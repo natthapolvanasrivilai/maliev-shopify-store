@@ -68,6 +68,12 @@
     }
 
     hasExactPayloadContract(variants) {
+      const pageModel = this.dataset.pageModel;
+      if (Array.isArray(variants) && variants.length === 1 && (pageModel === '30G' || pageModel === '50G')) {
+        return variants[0]?.model === pageModel
+          && Number.isInteger(variants[0]?.id)
+          && variants[0].id > 0;
+      }
       return (
         Array.isArray(variants) &&
         variants.length === 2 &&

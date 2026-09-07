@@ -4,6 +4,8 @@
   @param {product} product - The unified PIMM product.
   @param {object} selected_variant - The initially selected Shopify variant.
   @param {section} section - The owning machine-product section.
+  @param {string} selected_model_code
+  @param {boolean} is_published_pimm_product
 {% enddoc %}
 
 <fieldset class="pimm-machine__model-selector" data-pimm-model-selector>
@@ -12,8 +14,22 @@
     class="pimm-machine__selected-model"
     data-pimm-selected-model
     aria-label="{{ 'products.pimm_machine.model_selector.selected_model' | t }}"
-  >{{ selected_variant.option1 | escape }}</output>
+  >{{ selected_model_code | default: selected_variant.option1 | escape }}</output>
   <div class="pimm-machine__model-options">
+    {%- if is_published_pimm_product -%}
+      {%- assign model_30g_product = all_products['pneumatic-injection-molding-machine'] -%}
+      {%- assign model_50g_product = all_products['pneumatic-injection-molding-machine-50g'] -%}
+      {%- assign model_30g_variant = model_30g_product.selected_or_first_available_variant -%}
+      {%- assign model_50g_variant = model_50g_product.selected_or_first_available_variant -%}
+      <a class="pimm-machine__model-option{% if selected_model_code == '30G' %} is-selected{% endif %}" href="{{ model_30g_product.url }}?variant={{ model_30g_variant.id }}" {% if selected_model_code == '30G' %}aria-current="page"{% endif %}>
+        <span class="pimm-machine__model-name">{{ 'products.pimm_machine.model_selector.models.30g' | t }}</span>
+        <span class="pimm-machine__model-price">{{ model_30g_variant.price | money_with_currency }}</span>
+      </a>
+      <a class="pimm-machine__model-option{% if selected_model_code == '50G' %} is-selected{% endif %}" href="{{ model_50g_product.url }}?variant={{ model_50g_variant.id }}" {% if selected_model_code == '50G' %}aria-current="page"{% endif %}>
+        <span class="pimm-machine__model-name">{{ 'products.pimm_machine.model_selector.models.50g' | t }}</span>
+        <span class="pimm-machine__model-price">{{ model_50g_variant.price | money_with_currency }}</span>
+      </a>
+    {%- else -%}
     {%- for variant in product.variants -%}
       {%- if variant.option1 == '30G' or variant.option1 == '50G' -%}
         {%- liquid
@@ -38,5 +54,6 @@
         </label>
       {%- endif -%}
     {%- endfor -%}
+    {%- endif -%}
   </div>
 </fieldset>
