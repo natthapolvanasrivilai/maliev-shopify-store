@@ -65,6 +65,27 @@ test('alternate collection template contains only the dedicated PIMM comparison 
   });
 });
 
+test('canonical injection-machine collection route renders the PIMM comparison without relying on an Admin template assignment', async () => {
+  const source = await readThemeFile('templates/collection.json');
+  const template = JSON.parse(stripShopifyComment(source));
+
+  assert.equal(template.sections['pimm-machine-comparison'].type, 'maliev-pimm-collection');
+  assert.deepEqual(template.sections['pimm-machine-comparison'].settings, {
+    pimm_product: 'pimm-pneumatic-injection-molding-machine-development',
+    support_url: '',
+    factory_visit_url: '',
+  });
+  assert.deepEqual(template.order.slice(0, 3), ['pimm-machine-comparison', 'banner', 'product-grid']);
+
+  const pimmSection = await readThemeFile('sections/maliev-pimm-collection.liquid');
+  const heroSection = await readThemeFile('sections/maliev-collection-hero.liquid');
+  const gridSection = await readThemeFile('sections/maliev-collection-grid.liquid');
+
+  assert.match(pimmSection, /collection\.handle == 'เครื่องฉีดพลาสติก'/);
+  assert.match(heroSection, /unless collection\.handle == 'เครื่องฉีดพลาสติก'/);
+  assert.match(gridSection, /unless collection\.handle == 'เครื่องฉีดพลาสติก'/);
+});
+
 test('preview-only product template contains only the dedicated PIMM comparison section', async () => {
   const source = await readThemeFile('templates/product.pimm-collection-preview.json');
   const template = JSON.parse(stripShopifyComment(source));

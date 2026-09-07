@@ -38,6 +38,7 @@ export const renderPimmCollectionSection = async (pimmProduct, context = {}) => 
 
   return engine.parseAndRender(source, {
     canonical_url: 'https://shop.example.test/collections/pimm',
+    collection: { handle: context.collectionHandle ?? 'เครื่องฉีดพลาสติก' },
     product: context.product,
     request: {
       origin: 'https://shop.example.test',
