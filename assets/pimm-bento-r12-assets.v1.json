@@ -94,5 +94,5 @@
     "encoder": "Locked Blender 5.2 bundled FFmpeg; H264 perceptually lossless, sRGB, no resizing or retouching"
   },
   "previous_manifest": "pimm-bento-r11-motion.v1.json",
-  "previous_manifest_sha256": "F4EA7DE93A4A0CF5CC53930A7622D27423C9D3647260FA0A2FD8C3C6F5A9182B"
+  "previous_manifest_sha256": "C8559B55DCA43075B19917AA530621058A00E36124DC5F38084DC0588B924384"
 }
