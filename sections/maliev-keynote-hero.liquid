@@ -15,7 +15,7 @@
         {%- if section.settings.image != blank -%}
           <img src="{{ section.settings.image | image_url: width: 2600 }}" alt="" width="2600" height="1463" fetchpriority="high">
         {%- elsif section.settings.asset_name != blank -%}
-          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="2200" fetchpriority="high">
+          <img src="{{ section.settings.asset_name | asset_url }}" alt="" width="1800" height="1200" fetchpriority="high">
         {%- elsif section.settings.image_url != blank -%}
           <img src="{{ section.settings.image_url }}" alt="" width="2592" height="1458" fetchpriority="high">
         {%- endif -%}
@@ -96,7 +96,7 @@
       "type": "text",
       "id": "primary_label",
       "label": "Primary button label",
-      "default": "Book a factory visit"
+      "default": "Book a demo session"
     },
     {
       "type": "url",

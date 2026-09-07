@@ -1,0 +1,574 @@
+{{ 'maliev-pimm-collection.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign collection_id = collection.id | append: ''
+  assign is_pimm_collection = false
+  assign is_pimm_surface = false
+  if request.page_type == 'collection' and collection_id == '475589673239'
+    assign is_pimm_collection = true
+    assign is_pimm_surface = true
+  endif
+  assign pimm_product = section.settings.pimm_product
+  assign model_30g_product = nil
+  assign model_50g_product = nil
+  if is_pimm_collection
+    assign model_30g_product = section.settings.model_30g_product
+    assign model_50g_product = section.settings.model_50g_product
+    if model_30g_product == blank
+      assign model_30g_product = all_products['pneumatic-injection-molding-machine']
+    endif
+    if model_50g_product == blank
+      assign model_50g_product = all_products['pneumatic-injection-molding-machine-50g']
+    endif
+  endif
+  if request.page_type == 'product'
+    if request.path contains '/products_preview'
+      if template.suffix == 'pimm-collection-preview'
+        if product.handle == 'pimm-pneumatic-injection-molding-machine-development'
+          assign is_pimm_surface = true
+          if pimm_product == blank
+            assign pimm_product = product
+          endif
+        endif
+      endif
+    endif
+  endif
+  assign model_30g = nil
+  assign model_50g = nil
+  assign model_30g_count = 0
+  assign model_50g_count = 0
+  assign model_30g_valid = false
+  assign model_50g_valid = false
+  assign contract_valid = false
+
+  if is_pimm_collection and model_30g_product != blank and model_50g_product != blank
+    assign model_30g = model_30g_product.selected_or_first_available_variant
+    assign model_50g = model_50g_product.selected_or_first_available_variant
+    assign model_30g_count = 1
+    assign model_50g_count = 1
+    assign model_30g_full_price = model_30g.price
+    assign model_50g_full_price = model_50g.price
+    assign model_30g_lead_time_days = 30
+    assign model_50g_lead_time_days = 30
+    assign model_30g_shot_capacity_g = 30
+    assign model_30g_max_melt_temperature_c = 300
+    assign model_30g_mold_width = 100
+    assign model_30g_mold_height = 100
+    assign model_30g_mold_depth = 100
+    assign model_30g_max_air_pressure_mpa = 0.7
+    assign model_50g_shot_capacity_g = 50
+    assign model_50g_max_melt_temperature_c = 350
+    assign model_50g_mold_width = 240
+    assign model_50g_mold_height = 240
+    assign model_50g_mold_depth = 100
+    assign model_50g_max_air_pressure_mpa = 0.7
+    assign model_30g_valid = true
+    assign model_50g_valid = true
+  elsif pimm_product.options.size == 1 and pimm_product.options.first == 'Model' and pimm_product.variants.size == 2
+    for variant in pimm_product.variants
+      assign variant_model = variant.option1 | strip
+      assign specifications = variant.metafields.custom.pimm_specifications.value
+      assign full_price = variant.metafields.custom.full_machine_price.value
+      assign lead_time_days = variant.metafields.custom.lead_time_days.value
+      assign variant_valid = false
+
+      if specifications != blank
+        if specifications.schema_version == 1 and specifications.model == variant_model
+          if specifications.shot_capacity_g > 0 and specifications.max_melt_temperature_c > 0
+            if specifications.mold_envelope_mm.width > 0 and specifications.mold_envelope_mm.height > 0
+              if specifications.mold_envelope_mm.depth > 0 and specifications.max_air_pressure_mpa > 0
+                if full_price > 0 and lead_time_days > 0
+                  assign variant_valid = true
+                endif
+              endif
+            endif
+          endif
+        endif
+      endif
+
+      case variant.option1 | strip
+        when '30G'
+          assign model_30g_count = model_30g_count | plus: 1
+          assign model_30g = variant
+          assign model_30g_shot_capacity_g = specifications.shot_capacity_g
+          assign model_30g_max_melt_temperature_c = specifications.max_melt_temperature_c
+          assign model_30g_mold_width = specifications.mold_envelope_mm.width
+          assign model_30g_mold_height = specifications.mold_envelope_mm.height
+          assign model_30g_mold_depth = specifications.mold_envelope_mm.depth
+          assign model_30g_max_air_pressure_mpa = specifications.max_air_pressure_mpa
+          assign model_30g_full_price = full_price
+          assign model_30g_lead_time_days = lead_time_days
+          assign model_30g_valid = variant_valid
+        when '50G'
+          assign model_50g_count = model_50g_count | plus: 1
+          assign model_50g = variant
+          assign model_50g_shot_capacity_g = specifications.shot_capacity_g
+          assign model_50g_max_melt_temperature_c = specifications.max_melt_temperature_c
+          assign model_50g_mold_width = specifications.mold_envelope_mm.width
+          assign model_50g_mold_height = specifications.mold_envelope_mm.height
+          assign model_50g_mold_depth = specifications.mold_envelope_mm.depth
+          assign model_50g_max_air_pressure_mpa = specifications.max_air_pressure_mpa
+          assign model_50g_full_price = full_price
+          assign model_50g_lead_time_days = lead_time_days
+          assign model_50g_valid = variant_valid
+      endcase
+    endfor
+  endif
+
+  if model_30g_count == 1 and model_50g_count == 1
+    if model_30g_valid and model_50g_valid
+      assign contract_valid = true
+    endif
+  endif
+
+  capture model_30g_url
+    if model_30g_product != blank
+      echo model_30g_product.url
+      echo '?variant='
+      echo model_30g.id
+    else
+      echo pimm_product.url
+      echo '?variant='
+      echo model_30g.id
+      echo '&view=pimm-configurator'
+    endif
+  endcapture
+  capture model_50g_url
+    if model_50g_product != blank
+      echo model_50g_product.url
+      echo '?variant='
+      echo model_50g.id
+    else
+      echo pimm_product.url
+      echo '?variant='
+      echo model_50g.id
+      echo '&view=pimm-configurator'
+    endif
+  endcapture
+
+  capture model_30g_lead_time
+    echo 'products.pimm_machine.purchase.lead_time' | t: days: model_30g_lead_time_days
+  endcapture
+  capture model_50g_lead_time
+    echo 'products.pimm_machine.purchase.lead_time' | t: days: model_50g_lead_time_days
+  endcapture
+  capture model_30g_price_label
+    render 'pimm-collection-price', amount_cents: model_30g_full_price
+  endcapture
+  capture model_50g_price_label
+    render 'pimm-collection-price', amount_cents: model_50g_full_price
+  endcapture
+
+  assign model_30g_status_key = 'products.pimm_machine.status.out_of_stock'
+  if model_30g.available
+    assign model_30g_status_key = 'products.pimm_machine.status.made_to_order'
+  endif
+  assign model_50g_status_key = 'products.pimm_machine.status.out_of_stock'
+  if model_50g.available
+    assign model_50g_status_key = 'products.pimm_machine.status.made_to_order'
+  endif
+-%}
+
+{%- if is_pimm_surface -%}
+<pimm-collection-comparison
+  class="pimm-collection"
+  data-pimm-collection-comparison
+  data-section-id="{{ section.id }}"
+  data-contract-valid="{{ contract_valid }}"
+  data-preview-navigation="{% if request.path contains '/products_preview' and template.suffix == 'pimm-collection-preview' and pimm_product.id == product.id %}true{% else %}false{% endif %}"
+  data-available-label="{{ 'products.pimm_machine.status.made_to_order' | t | escape }}"
+  data-unavailable-label="{{ 'products.pimm_machine.status.out_of_stock' | t | escape }}"
+>
+  <div class="pimm-collection__shell">
+    <header
+      class="pimm-collection__introduction"
+      data-header-overlay-sentinel
+      data-header-overlay-tone="bright"
+    >
+      <h1>{{ 'products.pimm_collection.title' | t }}</h1>
+      <p>{{ 'products.pimm_collection.intro' | t }}</p>
+    </header>
+
+    {%- unless contract_valid -%}
+      <p class="pimm-collection__configuration-error" role="status">
+        {{ 'products.pimm_collection.configuration_error' | t }}
+      </p>
+    {%- endunless -%}
+
+    {%- if contract_valid -%}
+      <div class="pimm-collection__comparison-layout">
+        <div class="pimm-collection__stage">
+          <div class="pimm-collection__cards">
+            <article
+              class="pimm-collection__card is-active"
+              data-pimm-collection-card
+              data-model="30G"
+              aria-current="true"
+            >
+              <div class="pimm-collection__media" aria-label="{{ 'products.pimm_collection.models.30g.media_label' | t }}">
+                <div class="pimm-collection__frame is-active" data-pimm-collection-frame="front" aria-hidden="false">
+                  <img
+                    src="{{ 'maliev-pimm-collection-motion-20260902-r02-30g-poster.webp' | asset_url }}"
+                    alt="{{ 'products.pimm_collection.models.30g.alt' | t | escape }}"
+                    width="1440"
+                    height="1920"
+                    loading="eager"
+                    fetchpriority="high"
+                  >
+                </div>
+                <video class="pimm-collection__video" data-pimm-collection-video
+                  width="1440" height="1920" muted playsinline preload="none" aria-hidden="true"
+                  src="{{ 'maliev-pimm-collection-motion-20260902-r02-30g.mp4' | asset_url }}">
+                </video>
+                {% render 'pimm-collection-lighting', model: '30g' %}
+              </div>
+
+              <div class="pimm-collection__card-copy">
+                <p class="pimm-collection__model-designation">{{ 'products.pimm_collection.models.30g.designation' | t }}</p>
+                <h2>30G</h2>
+                <p><strong>{{ 'products.pimm_collection.best_for' | t }}:</strong> {{ 'products.pimm_collection.models.30g.best_for' | t }}</p>
+                <dl class="pimm-collection__card-facts">
+                  <div>
+                    <dt>{{ 'products.pimm_collection.price' | t }}</dt>
+                    <dd data-pimm-card-price>{{ model_30g_price_label | strip }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.availability' | t }}</dt>
+                    <dd>{{ model_30g_status_key | t }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.lead_time' | t }}</dt>
+                    <dd>{{ model_30g_lead_time | strip }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt>
+                    <dd>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt>
+                    <dd>{{ model_30g_mold_width }} × {{ model_30g_mold_height }} × {{ model_30g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt>
+                    <dd>{{ model_30g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd>
+                  </div>
+                </dl>
+                <div class="pimm-collection__card-actions">
+                  <a href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
+                  <button type="button" data-pimm-collection-select hidden disabled aria-label="{{ 'products.pimm_collection.select_model' | t: model: '30G' | escape }}">
+                    {{ 'products.pimm_collection.select_model' | t: model: '30G' }}
+                  </button>
+                </div>
+              </div>
+            </article>
+
+            <article
+              class="pimm-collection__card"
+              data-pimm-collection-card
+              data-model="50G"
+              aria-current="false"
+            >
+              <div class="pimm-collection__media" aria-label="{{ 'products.pimm_collection.models.50g.media_label' | t }}">
+                <div class="pimm-collection__frame is-active" data-pimm-collection-frame="front" aria-hidden="false">
+                  <img
+                    src="{{ 'maliev-pimm-collection-motion-20260902-r02-50g-poster.webp' | asset_url }}"
+                    alt="{{ 'products.pimm_collection.models.50g.alt' | t | escape }}"
+                    width="1440"
+                    height="1920"
+                    loading="lazy"
+                  >
+                </div>
+                <video class="pimm-collection__video" data-pimm-collection-video
+                  width="1440" height="1920" muted playsinline preload="none" aria-hidden="true"
+                  src="{{ 'maliev-pimm-collection-motion-20260902-r02-50g.mp4' | asset_url }}">
+                </video>
+                {% render 'pimm-collection-lighting', model: '50g' %}
+              </div>
+
+              <div class="pimm-collection__card-copy">
+                <p class="pimm-collection__model-designation">{{ 'products.pimm_collection.models.50g.designation' | t }}</p>
+                <h2>50G</h2>
+                <p><strong>{{ 'products.pimm_collection.best_for' | t }}:</strong> {{ 'products.pimm_collection.models.50g.best_for' | t }}</p>
+                <dl class="pimm-collection__card-facts">
+                  <div>
+                    <dt>{{ 'products.pimm_collection.price' | t }}</dt>
+                    <dd data-pimm-card-price>{{ model_50g_price_label | strip }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.availability' | t }}</dt>
+                    <dd>{{ model_50g_status_key | t }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.lead_time' | t }}</dt>
+                    <dd>{{ model_50g_lead_time | strip }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt>
+                    <dd>{{ model_50g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt>
+                    <dd>{{ model_50g_mold_width }} × {{ model_50g_mold_height }} × {{ model_50g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt>
+                    <dd>{{ model_50g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd>
+                  </div>
+                </dl>
+                <div class="pimm-collection__card-actions">
+                  <a href="{{ model_50g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '50G' }}</a>
+                  <button type="button" data-pimm-collection-select hidden disabled aria-label="{{ 'products.pimm_collection.select_model' | t: model: '50G' | escape }}">
+                    {{ 'products.pimm_collection.select_model' | t: model: '50G' }}
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="pimm-collection__inline-dossiers">
+            <aside
+              class="pimm-collection__dossier pimm-collection__dossier--inline is-active"
+              data-pimm-collection-dossier
+              data-pimm-collection-inline-dossier
+              data-model="30G"
+            >
+              <h2 data-pimm-dossier-model>30G</h2>
+              <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
+              <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
+              <dl>
+                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_price_label | strip }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_30g_mold_width }} × {{ model_30g_mold_height }} × {{ model_30g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
+              </dl>
+              <div class="pimm-collection__dossier-actions">
+                <a data-pimm-dossier-configure href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
+                {%- if section.settings.factory_visit_url != blank -%}
+                  <a href="{{ section.settings.factory_visit_url }}">{{ 'products.pimm_collection.factory_visit' | t }}</a>
+                {%- endif -%}
+                {%- if section.settings.support_url != blank -%}
+                  <a href="{{ section.settings.support_url }}">{{ 'products.pimm_collection.support' | t }}</a>
+                {%- endif -%}
+              </div>
+            </aside>
+
+            <aside
+              class="pimm-collection__dossier pimm-collection__dossier--inline"
+              data-pimm-collection-dossier
+              data-pimm-collection-inline-dossier
+              data-model="50G"
+            >
+              <h2 data-pimm-dossier-model>50G</h2>
+              <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.50g.choose_this' | t }}</p>
+              <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '30G' }}</p>
+              <dl>
+                <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_50g_price_label | strip }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_50g_status_key | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_50g_lead_time | strip }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_50g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_50g_mold_width }} × {{ model_50g_mold_height }} × {{ model_50g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_50g_max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
+                <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_50g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
+              </dl>
+              <div class="pimm-collection__dossier-actions">
+                <a data-pimm-dossier-configure href="{{ model_50g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '50G' }}</a>
+                {%- if section.settings.factory_visit_url != blank -%}
+                  <a href="{{ section.settings.factory_visit_url }}">{{ 'products.pimm_collection.factory_visit' | t }}</a>
+                {%- endif -%}
+                {%- if section.settings.support_url != blank -%}
+                  <a href="{{ section.settings.support_url }}">{{ 'products.pimm_collection.support' | t }}</a>
+                {%- endif -%}
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <aside class="pimm-collection__dossier pimm-collection__dossier--desktop" data-pimm-collection-dossier data-model="30G">
+          <p class="pimm-collection__dossier-label">{{ 'products.pimm_collection.dossier_heading' | t }}</p>
+          <h2 data-pimm-dossier-model>30G</h2>
+          <p data-pimm-dossier-recommendation>{{ 'products.pimm_collection.models.30g.choose_this' | t }}</p>
+          <p data-pimm-dossier-compare>{{ 'products.pimm_collection.compare_with' | t: model: '50G' }}</p>
+          <dl>
+            <div><dt>{{ 'products.pimm_collection.price' | t }}</dt><dd data-pimm-dossier-price>{{ model_30g_price_label | strip }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.availability' | t }}</dt><dd data-pimm-dossier-availability>{{ model_30g_status_key | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.lead_time' | t }}</dt><dd data-pimm-dossier-lead-time>{{ model_30g_lead_time | strip }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd data-pimm-dossier-shot-capacity>{{ model_30g_shot_capacity_g }} {{ 'products.pimm_machine.specs.capacity.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.mold_envelope' | t }}</dt><dd data-pimm-dossier-mold-envelope>{{ model_30g_mold_width }} × {{ model_30g_mold_height }} × {{ model_30g_mold_depth }} {{ 'products.pimm_machine.specs.mold_envelope.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.melt_temperature' | t }}</dt><dd data-pimm-dossier-melt-temperature>{{ model_30g_max_melt_temperature_c }} {{ 'products.pimm_machine.specs.temperature.unit' | t }}</dd></div>
+            <div><dt>{{ 'products.pimm_collection.air_pressure' | t }}</dt><dd data-pimm-dossier-air-pressure>{{ model_30g_max_air_pressure_mpa }} {{ 'products.pimm_machine.specs.pressure.unit' | t }}</dd></div>
+          </dl>
+          <div class="pimm-collection__dossier-actions">
+            <a data-pimm-dossier-configure href="{{ model_30g_url | strip | escape }}">{{ 'products.pimm_collection.configure' | t: model: '30G' }}</a>
+            {%- if section.settings.factory_visit_url != blank -%}
+              <a href="{{ section.settings.factory_visit_url }}">{{ 'products.pimm_collection.factory_visit' | t }}</a>
+            {%- endif -%}
+            {%- if section.settings.support_url != blank -%}
+              <a href="{{ section.settings.support_url }}">{{ 'products.pimm_collection.support' | t }}</a>
+            {%- endif -%}
+          </div>
+        </aside>
+      </div>
+
+      <p
+        class="visually-hidden"
+        aria-live="polite"
+        aria-atomic="true"
+        data-pimm-collection-announcement
+        data-announcement-template="{{ 'products.pimm_collection.updated_announcement' | t: model: '__MODEL__' | escape }}"
+      ></p>
+
+      <script type="application/json" data-pimm-collection-models>
+        [
+          {%- if is_pimm_collection -%}
+            {
+              "id": {{ model_30g.id | json }},
+              "model": "30G",
+              "url": {{ model_30g_url | strip | json }},
+              "fullPrice": {{ model_30g_price_label | strip | json }},
+              "available": {{ model_30g.available | json }},
+              "leadTime": {{ model_30g_lead_time | strip | json }},
+              "specifications": {
+                "shotCapacityG": {{ model_30g_shot_capacity_g | plus: 0 | json }},
+                "maxMeltTemperatureC": {{ model_30g_max_melt_temperature_c | plus: 0 | json }},
+                "moldEnvelopeMm": {
+                  "width": {{ model_30g_mold_width | plus: 0 | json }},
+                  "height": {{ model_30g_mold_height | plus: 0 | json }},
+                  "depth": {{ model_30g_mold_depth | plus: 0 | json }}
+                },
+                "maxAirPressureMpa": {{ model_30g_max_air_pressure_mpa | plus: 0 | json }}
+              }
+            },
+            {
+              "id": {{ model_50g.id | json }},
+              "model": "50G",
+              "url": {{ model_50g_url | strip | json }},
+              "fullPrice": {{ model_50g_price_label | strip | json }},
+              "available": {{ model_50g.available | json }},
+              "leadTime": {{ model_50g_lead_time | strip | json }},
+              "specifications": {
+                "shotCapacityG": {{ model_50g_shot_capacity_g | plus: 0 | json }},
+                "maxMeltTemperatureC": {{ model_50g_max_melt_temperature_c | plus: 0 | json }},
+                "moldEnvelopeMm": {
+                  "width": {{ model_50g_mold_width | plus: 0 | json }},
+                  "height": {{ model_50g_mold_height | plus: 0 | json }},
+                  "depth": {{ model_50g_mold_depth | plus: 0 | json }}
+                },
+                "maxAirPressureMpa": {{ model_50g_max_air_pressure_mpa | plus: 0 | json }}
+              }
+            }
+          {%- else -%}
+          {%- for variant in pimm_product.variants -%}
+            {%- liquid
+              assign variant_model = variant.option1 | strip
+              assign variant_specifications = variant.metafields.custom.pimm_specifications.value
+              assign variant_full_price = variant.metafields.custom.full_machine_price.value
+              assign variant_lead_time_days = variant.metafields.custom.lead_time_days.value
+              assign variant_url = pimm_product.url | append: '?variant=' | append: variant.id | append: '&view=pimm-configurator'
+              capture variant_lead_time
+                echo 'products.pimm_machine.purchase.lead_time' | t: days: variant_lead_time_days
+              endcapture
+              capture variant_price_label
+                render 'pimm-collection-price', amount_cents: variant_full_price
+              endcapture
+            -%}
+            {
+              "id": {{ variant.id | json }},
+              "model": {{ variant_model | json }},
+              "url": {{ variant_url | json }},
+              "fullPrice": {{ variant_price_label | strip | json }},
+              "available": {{ variant.available | json }},
+              "leadTime": {{ variant_lead_time | strip | json }},
+              "specifications": {
+                "shotCapacityG": {{ variant_specifications.shot_capacity_g | plus: 0 | json }},
+                "maxMeltTemperatureC": {{ variant_specifications.max_melt_temperature_c | plus: 0 | json }},
+                "moldEnvelopeMm": {
+                  "width": {{ variant_specifications.mold_envelope_mm.width | plus: 0 | json }},
+                  "height": {{ variant_specifications.mold_envelope_mm.height | plus: 0 | json }},
+                  "depth": {{ variant_specifications.mold_envelope_mm.depth | plus: 0 | json }}
+                },
+                "maxAirPressureMpa": {{ variant_specifications.max_air_pressure_mpa | plus: 0 | json }}
+              }
+            }{% unless forloop.last %},{% endunless %}
+          {%- endfor -%}
+          {%- endif -%}
+        ]
+      </script>
+
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": {{ 'products.pimm_collection.title' | t | json }},
+          "description": {{ 'products.pimm_collection.intro' | t | json }},
+          "url": {{ canonical_url | json }},
+          "isPartOf": {
+            "@type": "WebSite",
+            "name": {{ shop.name | json }},
+            "url": {{ request.origin | append: '/' | json }}
+          },
+          "mainEntity": {
+            "@type": "ItemList",
+            "numberOfItems": 2,
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "30G",
+                "url": {{ request.origin | append: model_30g_url | strip | json }}
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "50G",
+                "url": {{ request.origin | append: model_50g_url | strip | json }}
+              }
+            ]
+          }
+        }
+      </script>
+    {%- endif -%}
+  </div>
+</pimm-collection-comparison>
+
+<script src="{{ 'maliev-pimm-collection.js' | asset_url }}" defer="defer"></script>
+
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "PIMM machine comparison",
+  "tag": "section",
+  "class": "section-pimm-collection",
+  "settings": [
+    {
+      "type": "product",
+      "id": "pimm_product",
+      "label": "Canonical PIMM product"
+    },
+    {
+      "type": "product",
+      "id": "model_30g_product",
+      "label": "Published 30G product"
+    },
+    {
+      "type": "product",
+      "id": "model_50g_product",
+      "label": "Published 50G product"
+    },
+    {
+      "type": "url",
+      "id": "support_url",
+      "label": "Support URL"
+    },
+    {
+      "type": "url",
+      "id": "factory_visit_url",
+      "label": "Factory visit URL"
+    }
+  ],
+  "presets": [{ "name": "PIMM machine comparison" }]
+}
+{% endschema %}

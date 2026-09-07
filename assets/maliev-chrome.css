@@ -642,20 +642,20 @@
 
 .mc-footer__social .list-social__link {
   align-items: center;
-  background: transparent;
-  border: 0.1rem solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
   border-radius: var(--maliev-radius-compact);
   color: #eef0f2;
   display: inline-flex;
   height: 4.4rem;
   justify-content: center;
+  opacity: 0.72;
   padding: 0;
   text-decoration: none;
   transition:
     background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
     color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
   width: 4.4rem;
 }
 
@@ -665,13 +665,17 @@
   width: 1.9rem;
 }
 
+.mc-footer__social .list-social__link:focus-visible {
+  opacity: 1;
+}
+
 @media (hover: hover) {
   .mc-footer__social .list-social__link:hover {
-    background: var(--maliev-surface);
-    border-color: var(--maliev-surface);
-    color: var(--maliev-ink);
+    background: rgba(255, 255, 255, 0.12);
+    color: #eef0f2;
+    opacity: 1;
     text-decoration: none;
-    transform: translateY(-0.2rem);
+    transform: none;
   }
 
   .mc-footer__social .list-social__link:hover .icon {
@@ -680,9 +684,9 @@
 }
 
 .mc-footer__social .list-social__link:active {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.48);
-  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.09);
+  opacity: 1;
+  transform: none;
 }
 
 .mc-footer h2 {
@@ -981,17 +985,19 @@
   width: auto;
 }
 
-/* Homepage presentation: a compact fixed top bar keeps the product stage clear. */
+/* Homepage presentation: the hero continues behind the fixed shell at page top. */
 .mc-header--home {
   background: transparent;
   border-bottom-color: transparent;
+  box-shadow: none;
   left: 0;
   position: fixed;
   right: 0;
   top: 0;
   transition:
     background-color 240ms var(--maliev-ease),
-    border-color 240ms var(--maliev-ease);
+    border-color 240ms var(--maliev-ease),
+    box-shadow 240ms var(--maliev-ease);
   z-index: 35;
 }
 
@@ -1000,7 +1006,7 @@
    only the foreground tone; open surfaces and the post-presentation state stay solid. */
 .mc-header--overlay {
   background: transparent;
-  border-bottom-color: transparent;
+  border-bottom: 0;
   left: 0;
   position: fixed;
   right: 0;
@@ -1019,7 +1025,7 @@
 .mc-header--overlay:has(.mc-localization[open]),
 .mc-header--overlay:has(.mc-mobile-menu[open]) {
   background: var(--maliev-surface);
-  border-bottom-color: var(--maliev-rule);
+  border-bottom: 0.1rem solid var(--maliev-rule);
   color: var(--maliev-ink);
 }
 
@@ -1078,8 +1084,15 @@
 .mc-header--home.is-solid,
 .mc-header--home.is-mega-open,
 .mc-header--home:has(.mc-mobile-menu[open]) {
-  background: var(--maliev-canvas);
+  background: var(--maliev-surface);
   border-bottom-color: rgba(17, 19, 21, 0.1);
+  box-shadow: 0 0.6rem 2.4rem rgba(17, 19, 21, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-header--home {
+    transition: none;
+  }
 }
 
 @media screen and (min-width: 1100px) {

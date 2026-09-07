@@ -8,6 +8,56 @@
  * ------------------------------------------------------------
  */
 {
+  "pimm_support": {
+    "made_in_thailand": "Made in Thailand",
+    "guidance": "Operating guidance",
+    "documentation": "Documentation",
+    "parts": "Replacement parts",
+    "team": "Direct team support"
+  },
+  "pimm_bento": {
+    "capacity_body": "Mold small parts with up to 30g per shot. An aluminum melt bore transfers heat efficiently from the heater bands to the resin. Allow for the runner when sizing your shot.",
+    "capacity_compact": "Up to 30g per shot for small parts. The aluminum melt bore efficiently transfers heat from the heater bands to the resin.",
+    "controls_heading": "Pneumatic operation",
+    "controls_body": "Compressed air drives the injection stroke. A pressure regulator, gauge and hand-operated valve keep pneumatic control within reach, while separate temperature controllers manage heating.",
+    "controls_compact": "Compressed-air injection with a regulator, pressure gauge and hand-operated valve.",
+    "plunger_heading": "Simple injection control",
+    "plunger_body": "A simple pneumatic hand toggle controls injection and retraction, delivering up to 876 kgf of cylinder force for confident, repeatable shots.",
+    "plunger_compact": "One pneumatic toggle controls up to 876 kgf of injection force.",
+    "air_pressure_heading": "Control force with air",
+    "air_pressure_body": "Set input pressure for clear, repeatable injection force from shot to shot.",
+    "air_pressure_compact": "Set input pressure for repeatable injection force from shot to shot.",
+    "temperature_heading": "Precise temperature control",
+    "temperature_body": "Set each heating zone independently. The process value rises toward the set value for repeatable barrel temperature.",
+    "temperature_compact": "Set each heating zone independently for repeatable barrel temperature.",
+    "tooling_heading": "Flexible fixture mounting",
+    "tooling_body": "The threaded base plate provides mounting points for different molds and custom fixtures. Build a setup around your part, then reposition or change fixtures as your molding needs evolve.",
+    "tooling_compact": "Mount different molds and custom fixtures on the threaded base plate. Adapt your setup to the part you want to make.",
+    "configuration_compact": "Review your part, material and mold plan with the MALIEV team."
+  },
+  "pimm_gallery": {
+    "heading": "See the 30G in action.",
+    "description": "Real demonstrations. A closer look at the machine.",
+    "browse": "Browse gallery",
+    "hint": "Select a video or image to explore.",
+    "pause": "Pause previews",
+    "resume": "Resume previews",
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next",
+    "open_source": "Open original media",
+    "play_full": "Play full video",
+    "expand": "View larger image",
+    "video": "Video",
+    "image": "Image",
+    "demonstration": "Machine demonstration",
+    "molding": "Molding demonstration",
+    "end_caps": "Making aluminum profile end caps",
+    "controls": "Controls, up close",
+    "details": "Machine details",
+    "empty_editor": "Add gallery video or image blocks to this 30G product section.",
+    "add_media": "Choose an image or a full video for this gallery block."
+  },
   "general": {
     "password_page": {
       "login_form_heading": "Влизане в магазина с парола:",
@@ -114,12 +164,49 @@
     "product_title": "Примерно название на продукт"
   },
   "products": {
+    "pimm_collection": {
+      "title": "Choose the machine for your workshop",
+      "intro": "Compare the compact 30G and extended-capacity 50G before opening the full machine configurator.",
+      "best_for": "Best for",
+      "price": "Full machine price",
+      "currency_unit": "THB",
+      "availability": "Availability",
+      "lead_time": "Lead time",
+      "shot_capacity": "Shot capacity",
+      "mold_envelope": "Mold envelope (W × H × D)",
+      "melt_temperature": "Maximum melt temperature",
+      "air_pressure": "Maximum air pressure",
+      "compare_with": "Compared with {{ model }}",
+      "configure": "View {{ model }} machine",
+      "select_model": "Compare {{ model }}",
+      "configuration_error": "Machine comparison is not configured.",
+      "updated_announcement": "Now comparing {{ model }}",
+      "dossier_heading": "Machine comparison",
+      "factory_visit": "Book a factory visit",
+      "support": "Contact machine support",
+      "models": {
+        "30g": {
+          "designation": "Compact capacity",
+          "best_for": "prototypes, replacement parts, and focused small-batch production",
+          "choose_this": "Choose 30G when workshop footprint and compact shot capacity are the priority.",
+          "media_label": "30G machine views",
+          "alt": "MALIEV 30G pneumatic injection molding machine in a purpose-rendered studio front view"
+        },
+        "50g": {
+          "designation": "Extended capacity",
+          "best_for": "larger parts, heavier runners, and expanded small-batch production",
+          "choose_this": "Choose 50G when the mold and total shot need additional capacity.",
+          "media_label": "50G machine views",
+          "alt": "MALIEV 50G pneumatic injection molding machine in a purpose-rendered studio front view"
+        }
+      }
+    },
     "pimm30_story": {
       "aria_label": "PIMM 30G machine presentation",
       "media_stage": "PIMM 30G feature media",
       "chapter_navigation": "PIMM 30G presentation chapters",
       "identity": "Pneumatic injection molding machine",
-      "book_visit": "Book a factory visit",
+      "book_visit": "Book a demo session",
       "view_50g": "View the PIMM 50G",
       "next_model_unconfigured": "Choose the 50g product in the Theme Editor to show live price and availability.",
       "next_model": {
@@ -225,6 +312,129 @@
           "metric": "50 g",
           "metric_label": "Maximum shot capacity",
           "media_alt": "MALIEV PIMM 50G pneumatic injection molding machine in a bright studio"
+        }
+      }
+    },
+    "pimm_machine": {
+      "editorial": {
+        "heading": "Your selected machine, in context",
+        "intro": "The story below follows the model selected above, from workshop fit and operating access to the mold path for a demo session.",
+        "architectural": {
+          "heading": "Workshop scale, engineered in Thailand",
+          "body": "The 30G combines a compact frame with direct pneumatic operation and independent temperature control, with the machine kept fully visible for installation planning.",
+          "caption": "30G shown in architectural daylight.",
+          "alt": "MALIEV 30G pneumatic injection molding machine grounded in an architectural daylight studio with window-frame shadows across the floor"
+        },
+        "workshop": {
+          "heading": "See how the machine fits the work",
+          "body": "The open frame keeps the pressure regulation, pneumatic valve, controllers, mold area and service access visible in a practical workshop setting.",
+          "caption": "50G shown in an illustrative workshop setting. Surrounding equipment is not included.",
+          "alt": "MALIEV 50G pneumatic injection molding machine grounded in a small-production workshop with a workbench and tool cart in the background"
+        },
+        "engineering": {
+          "heading": "Controls remain easy to inspect",
+          "body": "The 50G keeps pressure regulation, the pneumatic valve and both temperature controllers visible so utilities and operating access can be reviewed before installation.",
+          "caption": "50G shown under controlled engineering lighting.",
+          "alt": "MALIEV 50G pneumatic injection molding machine in a full front view under controlled graphite studio lighting"
+        },
+        "process": {
+          "heading": "From part idea to first shot",
+          "body": "Bring your part, material, compressor capacity and utility requirements to a demo session. MALIEV will review the 30G setup and the next mold steps with you.",
+          "caption": "30G shown in an illustrative process-planning setting. Surrounding props are not included.",
+          "alt": "MALIEV 30G pneumatic injection molding machine with process-planning and inspection props arranged around the machine"
+        },
+        "props_disclaimer": "Environmental equipment, molds, tools and process props shown in these images are illustrative and are not included with the machine."
+      },
+      "hero": {
+        "cinematic_pause": "Pause motion",
+        "cinematic_top": "SMALL FOOTPRINT",
+        "cinematic_bottom": "REAL INJECTION",
+        "demo_cta": "Book a 30G demo",
+        "demo_note": "See the machine in action with our team in Thailand.",
+        "fit_statement": "Workshop-scale injection molding, built and supported in Thailand. Choose 30G or 50G capacity without changing the ownership path.",
+        "promise": "Real injection molding capability, sized for your workshop.",
+        "evidence_heading": "Selected machine",
+        "engineering_detail": "Inspect pneumatic controls"
+      },
+      "qualification": {
+        "heading": "Commercial summary",
+        "availability": "Availability"
+      },
+      "model_selector": {
+        "legend": "Choose machine capacity",
+        "selected_model": "Selected model",
+        "models": {
+          "30g": "30G — compact capacity",
+          "50g": "50G — extended capacity"
+        }
+      },
+      "fit": {
+        "heading": "Real injection molding for a practical workshop",
+        "body": "Both models combine a compact footprint with direct pneumatic operation, independent temperature control and a mold area designed for workshop fixtures. Choose capacity around the parts you intend to make, then confirm the process with our team."
+      },
+      "engineering": {
+        "heading": "Engineering at a glance",
+        "body": "Compare the selected machine's verified shot capacity, melt temperature, mold envelope and required air pressure before planning tooling or utilities."
+      },
+      "specs": {
+        "capacity": {
+          "label": "Shot capacity",
+          "unit": "g",
+          "guidance": "Include the part, runner and a practical process margin when estimating shot weight."
+        },
+        "temperature": {
+          "label": "Maximum melt temperature",
+          "unit": "°C",
+          "guidance": "Confirm the material processing range before planning barrel temperatures."
+        },
+        "mold_envelope": {
+          "label": "Mold envelope (W × H × D)",
+          "unit": "mm",
+          "guidance": "Allow clearance for the mold, fixtures, injection entry and service access."
+        },
+        "pressure": {
+          "label": "Maximum air pressure",
+          "unit": "MPa",
+          "guidance": "Verify compressor delivery at the machine while the system is under load."
+        }
+      },
+      "tooling": {
+        "heading": "Confirm your mold path",
+        "body": "The selected machine's open tooling area and threaded fixture grid support custom molds and holding fixtures. Bring the mold dimensions and injection entry to the demo so the required support can be checked together."
+      },
+      "purchase": {
+        "heading": "See the machine before you commit",
+        "body": "Book a demo session in Thailand to review your part, material, mold plan and utilities with the MALIEV team before confirming the right machine.",
+        "full_price": "Full machine price (excluding VAT)",
+        "lead_time_label": "Production lead time",
+        "lead_time": "Approximately {{ days }} days",
+        "book_visit": "Book a demo session"
+      },
+      "status": {
+        "made_to_order": "Made to order",
+        "out_of_stock": "Currently unavailable",
+        "unavailable": "Machine configuration unavailable"
+      },
+      "ownership": {
+        "heading": "Support continues after delivery",
+        "body": "MALIEV provides operating guidance, documentation, replacement-part support and direct help from the team that builds the machine in Thailand.",
+        "navigation": "Machine ownership resources",
+        "documents": "Read machine documentation",
+        "support": "Contact machine support"
+      },
+      "app_integrations": "Additional purchase services",
+      "alt": {
+        "30g": {
+          "hero": "MALIEV 30G pneumatic injection molding machine, straight-on front view",
+          "overview": "MALIEV 30G pneumatic injection molding machine, three-quarter overview",
+          "engineering": "MALIEV 30G pressure controls and pneumatic engineering detail",
+          "tooling": "MALIEV 30G mold tooling area and threaded fixture base"
+        },
+        "50g": {
+          "hero": "MALIEV 50G pneumatic injection molding machine, straight-on front view",
+          "overview": "MALIEV 50G pneumatic injection molding machine, three-quarter overview",
+          "engineering": "MALIEV 50G pressure controls and pneumatic engineering detail",
+          "tooling": "MALIEV 50G mold tooling area and threaded fixture base"
         }
       }
     },
@@ -474,11 +684,12 @@
       "taxes_at_checkout_shipping_at_checkout_without_policy": "Данъците, отстъпките и доставката се изчисляват при плащане."
     },
     "footer": {
+      "explore_heading": "Keep exploring.",
       "payment": "Начини на плащане",
       "support_heading": "Support & visit",
       "policies_heading": "Policies",
       "contact": "Contact MALIEV",
-      "factory_visit": "Book a factory visit",
+      "factory_visit": "Book a demo session",
       "workshop_guides": "Workshop guides",
       "manufacturing_services": "Manufacturing services"
     },

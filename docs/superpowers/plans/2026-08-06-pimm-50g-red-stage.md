@@ -20,7 +20,7 @@
 - Preserve the corrected regulator material assignments in both the source copy and every rendered frame.
 - Use one neutral 5000K key light. Any fill must be weaker and the same temperature. The red source is an effect/backlight, not a competing white key.
 - Keep one fixed camera per composition, no camera movement, no narrow depth of field, and no clipped machine or contact shadow.
-- Use verified claims only: `50g shot capacity`, `Steel melt zone`, and `2 × 350W hot-runner heater bands`. Do not add `350°C` without a new authoritative source.
+- Use verified claims only: `50g shot capacity`, `Steel melt zone`, and `2 × 350W hot-runner heater bands`. The corrected source master also contains the verified 350°C controller readout; keep that readout visible in the production media without baking marketing copy into the render.
 - Available variants must display `Made to order`, never `In stock`. Keep the product and selected variant as the authority for title, THB price, availability, and CTA destination.
 - Preserve English and Thai localization, keyboard/focus behavior, reduced-motion behavior, and Theme Editor schemas.
 - Target zero horizontal overflow at 320, 390, 768, 1024, and 1440 CSS pixels.

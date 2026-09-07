@@ -11,6 +11,7 @@
   assign logo_render_width = section.settings.logo_width | times: 2
   assign header_is_home = false
   assign header_has_overlay = false
+  assign header_overlay_is_bright = false
   assign standalone_link_count = 0
   assign standalone_link_active = false
   assign utility_panel_block = nil
@@ -19,8 +20,22 @@
   if request.page_type == 'index'
     assign header_is_home = true
   endif
-  if request.page_type == 'product' and template.suffix == 'injection-molding-machine'
+  if request.page_type == 'product'
+    if template.suffix == 'injection-molding-machine' or template.suffix == 'pimm-configurator'
+      assign header_has_overlay = true
+    endif
+    if request.path contains '/products_preview'
+      if template.suffix == 'pimm-collection-preview'
+        if product.handle == 'pimm-pneumatic-injection-molding-machine-development'
+          assign header_has_overlay = true
+          assign header_overlay_is_bright = true
+        endif
+      endif
+    endif
+  endif
+  if request.page_type == 'collection' and template.suffix == 'pimm-machines'
     assign header_has_overlay = true
+    assign header_overlay_is_bright = true
   endif
   if customer == blank
     assign account_url = routes.account_login_url
@@ -70,7 +85,7 @@
 -%}
 
 <header
-  class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}{% if header_is_home %} mc-header--home{% endif %}{% if header_has_overlay %} mc-header--overlay{% endif %}"
+  class="mc-header{% if section.settings.sticky %} mc-header--sticky{% endif %}{% if header_is_home %} mc-header--home{% endif %}{% if header_has_overlay %} mc-header--overlay{% endif %}{% if header_overlay_is_bright %} is-overlay-bright{% endif %}"
   data-maliev-header
   {% if header_has_overlay %}
     data-header-overlay

@@ -1,0 +1,63 @@
+{% doc %}
+  Renders the PIMM 30G feature bento with six native Blender renders.
+
+  @param {string} story_asset_set
+{% enddoc %}
+
+{% if story_asset_set == 'pimm-master-20260901-r05-30g' %}
+  <section class="pimm-story pimm-story--30g" aria-label="{{ 'products.pimm_machine.editorial.heading' | t | escape }} — 30G">
+    <header class="pimm-story__intro">
+      <h2>{{ 'products.pimm_machine.fit.heading' | t }}</h2>
+      <p>{{ 'products.pimm_machine.fit.body' | t }}</p>
+    </header>
+
+    <div class="pimm-bento">
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--controls">
+        <div class="pimm-bento__copy"><h3>{{ 'pimm_bento.controls_heading' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'pimm_bento.controls_body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.controls_compact' | t }}</span></p></div>
+        <figure class="pimm-bento__media"><pimm-bento-orbit data-orbit-src="{{ 'pimm-bento-20260903-r10-30g-controls-orbit.mp4' | asset_url }}"><img src="{{ 'pimm-bento-20260903-r11-30g-controls.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.30g.engineering' | t | escape }}" width="2400" height="1200" loading="lazy" decoding="async"></pimm-bento-orbit></figure>
+      </article>
+
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--capacity">
+        <figure class="pimm-bento__media"><pimm-bento-orbit data-orbit-src="{{ 'pimm-bento-20260904-r27-30g-capacity.mp4' | asset_url }}"><img src="{{ 'pimm-bento-20260903-r11-30g-capacity.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.30g.overview' | t | escape }}" width="1600" height="2200" loading="lazy" decoding="async"></pimm-bento-orbit></figure>
+        <div class="pimm-bento__copy"><h3>{{ 'products.pimm_machine.specs.capacity.label' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'pimm_bento.capacity_body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.capacity_compact' | t }}</span></p></div>
+      </article>
+
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--air-pressure">
+        <figure class="pimm-bento__media"><pimm-bento-orbit data-orbit-src="{{ 'pimm-bento-20260905-r56-30g-air-pressure-aligned-callout.mp4' | asset_url }}"><img src="{{ 'pimm-bento-20260905-r56-30g-air-pressure-aligned-callout.webp' | asset_url }}" alt="{{ 'pimm_bento.air_pressure_heading' | t | escape }}" width="400" height="550" loading="lazy" decoding="async"></pimm-bento-orbit></figure>
+        <div class="pimm-bento__copy"><h3>{{ 'pimm_bento.air_pressure_heading' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'pimm_bento.air_pressure_body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.air_pressure_compact' | t }}</span></p></div>
+      </article>
+
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--plunger">
+        <figure class="pimm-bento__media"><pimm-bento-orbit data-orbit-src="{{ 'pimm-bento-20260905-r55-30g-plunger-studio.mp4' | asset_url }}"><img src="{{ 'pimm-bento-20260905-r55-30g-plunger-studio.webp' | asset_url }}" alt="{{ 'pimm_bento.plunger_heading' | t | escape }}" width="960" height="660" loading="lazy" decoding="async"></pimm-bento-orbit></figure>
+        <div class="pimm-bento__copy"><h3>{{ 'pimm_bento.plunger_heading' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'pimm_bento.plunger_body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.plunger_compact' | t }}</span></p></div>
+      </article>
+
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--tooling">
+        <div class="pimm-bento__copy"><h3>{{ 'pimm_bento.tooling_heading' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'pimm_bento.tooling_body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.tooling_compact' | t }}</span></p></div>
+        <figure class="pimm-bento__media"><pimm-bento-orbit data-orbit-src="{{ 'pimm-bento-20260904-r13-30g-tooling-fixtures.mp4' | asset_url }}"><img src="{{ 'pimm-bento-20260903-r11-30g-tooling.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.30g.tooling' | t | escape }}" width="1600" height="2000" loading="lazy" decoding="async"></pimm-bento-orbit></figure>
+      </article>
+
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--temperature">
+        <div class="pimm-bento__copy"><h3>{{ 'pimm_bento.temperature_heading' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'pimm_bento.temperature_body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.temperature_compact' | t }}</span></p></div>
+        <figure class="pimm-bento__media"><pimm-bento-orbit data-orbit-src="{{ 'pimm-bento-20260905-r35-30g-temperature-far-clip.mp4' | asset_url }}"><img src="{{ 'pimm-bento-20260905-r35-30g-temperature-far-clip.webp' | asset_url }}" alt="{{ 'pimm_bento.temperature_heading' | t | escape }}" width="1440" height="960" loading="lazy" decoding="async"></pimm-bento-orbit></figure>
+      </article>
+
+      <article class="pimm-bento__tile pimm-bento__tile--render pimm-bento__tile--configuration">
+        <div class="pimm-bento__copy"><h3>{{ 'products.pimm_machine.purchase.heading' | t }}</h3><p><span class="pimm-bento__text-full">{{ 'products.pimm_machine.purchase.body' | t }}</span><span class="pimm-bento__text-compact">{{ 'pimm_bento.configuration_compact' | t }}</span></p></div>
+        <figure class="pimm-bento__media" data-pimm-full-machine data-pimm-physical-ground-contact>
+          <pimm-bento-spin
+            data-frame-source="{{ 'pimm-bento-20260904-r28-30g-configuration-r00-f0001.webp' | asset_url }}"
+            data-frame-count="120"
+            data-row-count="7"
+            data-default-row="3"
+            data-row-step="2"
+            data-label="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}"
+          >
+            <img src="{{ 'pimm-bento-20260903-r12-30g-configuration.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.30g.hero' | t | escape }}" width="2400" height="1200" loading="lazy" decoding="async">
+          </pimm-bento-spin>
+        </figure>
+      </article>
+
+    </div>
+  </section>
+{% endif %}

@@ -1,3 +1,4 @@
+{%- unless product.handle == 'pneumatic-injection-molding-machine' or product.handle == 'pneumatic-injection-molding-machine-50g' -%}
 {{ 'component-card.css' | asset_url | stylesheet_tag }}
 {{ 'component-price.css' | asset_url | stylesheet_tag }}
 {{ 'section-related-products.css' | asset_url | stylesheet_tag }}
@@ -57,6 +58,8 @@
     {{ 'mask-arch.svg' | inline_asset_content }}
   {%- endif -%}
 </div>
+
+{%- endunless -%}
 
 {% schema %}
 {

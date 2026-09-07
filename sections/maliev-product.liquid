@@ -1,4 +1,6 @@
-{% render 'maliev-product-core', product: product, section: section %}
+{%- unless product.handle == 'pneumatic-injection-molding-machine' or product.handle == 'pneumatic-injection-molding-machine-50g' -%}
+  {% render 'maliev-product-core', product: product, section: section %}
+{%- endunless -%}
 
 {% schema %}
 {

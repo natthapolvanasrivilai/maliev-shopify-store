@@ -1,0 +1,14 @@
+{
+  "schema": "maliev.pimm-editorial-concept-campaign/v1",
+  "campaign_id": "pimm-editorial-concepts-v1",
+  "master_30g_path": "masters/PIMM-30G-MASTER.blend",
+  "master_50g_path": "masters/PIMM-50G-MASTER.blend",
+  "material_library_path": "masters/PIMM-MATERIAL-LIBRARY.blend",
+  "input_policy": "link-only-immutable",
+  "shots": [
+    {"shot_id":"pimm-30g--concept-architectural-daylight","machine":"30G","concept":"architectural-daylight","width":1280,"height":720,"focal_length_mm":85.0,"aperture_fstop":11.0,"render_engine":"CYCLES","color_management":"AgX - Medium High Contrast","preview_samples":32,"denoise":true,"contact_gate":"four-feet-common-plane","final_authorized":false},
+    {"shot_id":"pimm-50g--concept-dark-engineering","machine":"50G","concept":"dark-engineering","width":1280,"height":720,"focal_length_mm":135.0,"aperture_fstop":11.0,"render_engine":"CYCLES","color_management":"AgX - Medium High Contrast","preview_samples":32,"denoise":true,"contact_gate":"four-feet-common-plane","final_authorized":false},
+    {"shot_id":"pimm-50g--concept-modern-workshop","machine":"50G","concept":"modern-workshop","width":1280,"height":720,"focal_length_mm":85.0,"aperture_fstop":11.0,"render_engine":"CYCLES","color_management":"AgX - Medium High Contrast","preview_samples":32,"denoise":true,"contact_gate":"four-feet-common-plane","final_authorized":false},
+    {"shot_id":"pimm-30g--concept-process-still-life","machine":"30G","concept":"process-still-life","width":900,"height":1125,"focal_length_mm":180.0,"aperture_fstop":11.0,"render_engine":"CYCLES","color_management":"AgX - Medium High Contrast","preview_samples":32,"denoise":true,"contact_gate":"four-feet-common-plane","final_authorized":false}
+  ]
+}

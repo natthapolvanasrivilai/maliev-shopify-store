@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "generation": "bento-20260903-r12",
+  "encoding": "native-size lossless RGB WebP from individually approved Blender PNG",
+  "scope": "Complete approved controls orbit and approved lower-exposure white configuration",
+  "assets": [
+    {
+      "shot": "capacity",
+      "size": [
+        1600,
+        2200
+      ],
+      "generation": "bento-20260903-r10-lighting",
+      "approval": "docs/pimm-blender-governance/bento-r10-approval.json",
+      "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+      "scene_sha256": "F2D1E744C533557BF4844F7487FD3EAF520C1810E0352EC3E417BAD301FD2431",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\capacity\\frame-0001.png",
+      "native_sha256": "51194D0DFD1B92F2DC8230AE499BD2A4F7348ECC61E8BA21F08FFACED587C3DA",
+      "filename": "pimm-bento-20260903-r11-30g-capacity.webp",
+      "sha256": "390278BC0A9DC4D8BE2CC6AFD4D26C5FD0AD923F2F8917FA135FF9FCF894F987",
+      "bytes": 416624
+    },
+    {
+      "shot": "controls",
+      "size": [
+        2400,
+        1200
+      ],
+      "generation": "bento-20260903-r10-orbit",
+      "approval": "docs/pimm-blender-governance/bento-r10-approval.json",
+      "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+      "scene_sha256": "CD7BE09A537CF2C90AC61593046473131FD56E27DFBB7BBE6694B3763F5A60C7",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\controls-orbit\\frame-0001.png",
+      "native_sha256": "4BDD6211BE7024B2962C3DC8841BE6DD38EBE355E6ED4FB6F1FCF923FBD953D3",
+      "filename": "pimm-bento-20260903-r11-30g-controls.webp",
+      "sha256": "E0C205A0F4A6277E87DAF17618BD800A250E18B73E35B2FB768AA55E74114530",
+      "bytes": 326536
+    },
+    {
+      "shot": "tooling",
+      "size": [
+        1600,
+        2000
+      ],
+      "generation": "bento-20260903-r10-lighting",
+      "approval": "docs/pimm-blender-governance/bento-r10-approval.json",
+      "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+      "scene_sha256": "547479ED550714544CFB1DBA36507B74DE87622069088A454034AF3DE90538FC",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\tooling\\frame-0001.png",
+      "native_sha256": "DABA59BE768FD40DA554C82E6FC73B1433D35099A8F52B0499C1BE59F1FC4B41",
+      "filename": "pimm-bento-20260903-r11-30g-tooling.webp",
+      "sha256": "78BE5AEE5E75ECB3F5EB9D29B9B5CC26395388A33A1D2A4CF42121B50D4944A8",
+      "bytes": 598370
+    },
+    {
+      "shot": "configuration",
+      "generation": "bento-20260903-r12-white-detail",
+      "size": [
+        2400,
+        1200
+      ],
+      "approval": "docs/pimm-blender-governance/bento-r12-white-detail-approval.json",
+      "approval_sha256": "A1C54997CF0FFDC953490B5D26201C0165A930660441CF4379DEE042B3E5EC58",
+      "scene_sha256": "F2454DD18CC1CAA2D17AD41A914C2A8E09ABA13697330A199B8A94BB050B5062",
+      "master_sha256": "98577604BB25033B5A7229A66A14D12703E6636DF6B064F877DF7EFC6E65CEFA",
+      "native_path": "\\\\maliev\\maliev\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r12-white-detail-native\\configuration\\frame-0001.png",
+      "native_sha256": "C1AE3CDBE6C4692F2A65309FC60A4338DDC09C0C7AF27C49D4ADC34C13A73133",
+      "filename": "pimm-bento-20260903-r12-30g-configuration.webp",
+      "sha256": "4F99A1DD1331FF7F0FC2B743D763D3B256E52F106DA58E0A562943609C777563",
+      "bytes": 225264
+    }
+  ],
+  "stills_manifest": "pimm-bento-r11-stills.v1.json",
+  "stills_manifest_sha256": "FA48724F802355882BEB406749636A8A19DBCC0E8276D472D2B422C4255F1694",
+  "animation": {
+    "filename": "pimm-bento-20260903-r10-30g-controls-orbit.mp4",
+    "path": "M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\controls-orbit\\pimm-bento-20260903-r10-30g-controls-orbit.mp4",
+    "sha256": "EA4E83EF9FF23A94E09B9443D5CEDD36D85E6400C5B9274C07E2863FB3E967CD",
+    "bytes": 5377728,
+    "size": [
+      2400,
+      1200
+    ],
+    "frames": 192,
+    "fps": 24,
+    "duration_ms": 8000,
+    "approval_sha256": "E16FC43AC4D8CF14B71131B96A901EF7549CC16957A3DF6E2AC66AB32FCB11CC",
+    "scene_sha256": "CD7BE09A537CF2C90AC61593046473131FD56E27DFBB7BBE6694B3763F5A60C7",
+    "native_manifest": "M:\\30_Products\\00_Pneumatic Injection Molding Machine\\blender-product-renders\\renders\\final\\bento-20260903-r10-native\\controls-orbit\\final.json",
+    "native_manifest_sha256": "73DAAA0D5614D235451C2531A785E6A60240A4D87CAD0600F3753D09EF58F187",
+    "encoder": "Locked Blender 5.2 bundled FFmpeg; H264 perceptually lossless, sRGB, no resizing or retouching"
+  },
+  "previous_manifest": "pimm-bento-r11-motion.v1.json",
+  "previous_manifest_sha256": "C8559B55DCA43075B19917AA530621058A00E36124DC5F38084DC0588B924384"
+}

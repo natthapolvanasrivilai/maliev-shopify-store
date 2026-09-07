@@ -153,7 +153,7 @@ Renders a MALIEV product card while preserving Shopify price, availability, rati
       {%- endif -%}
 
       <div class="mc-product-card__price">
-        {% render 'price', product: product_card, price_class: '', show_compare_at_price: true %}
+        {% render 'price', product: product_card, price_class: '', show_compare_at_price: true, price_context: catalog_layout | default: false %}
       </div>
 
       {%- if show_rating and product_card.metafields.reviews.rating.value != blank -%}

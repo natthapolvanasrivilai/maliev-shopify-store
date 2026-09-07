@@ -1,0 +1,12 @@
+{
+  "schema": "maliev.pimm-bento-approval/v2",
+  "decision": "approved",
+  "approved_date": "2026-09-03",
+  "owner_message": "approve. How come when i view the page, the images in bento grid is still not animated?",
+  "generation": "bento-20260903-r12-white-detail",
+  "scope": "Exact r12 lower-exposure white configuration proof at native 2400x1200; local preview only. Existing r10 camera-orbit approval remains effective.",
+  "contract_path": "M:/30_Products/00_Pneumatic Injection Molding Machine/blender-product-renders/scenes/contracts/pimm-30g--bento-20260903-r12-white-detail--configuration.json",
+  "contract_sha256": "6230325FEEA318B40873F5558AA8589F3392D5835998E80000E31B01F6B60D91",
+  "scene_sha256": "F2454DD18CC1CAA2D17AD41A914C2A8E09ABA13697330A199B8A94BB050B5062",
+  "proof_sha256": "DFC188976ED7CFCA10FE6792F16122FB0FCB6DBFF8E0FD7F87907E4A5737C3FD"
+}

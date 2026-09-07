@@ -20,8 +20,22 @@
         </button>
         <ul class="mcat__track" data-mcat-track aria-label="{{ section.settings.aria_label | escape }}">
           {%- for block in section.blocks -%}
+            {%- liquid
+              assign card_link = block.settings.link | default: routes.root_url
+              if card_link contains 'www.maliev.com'
+                assign destination_culture = 'en'
+                if request.locale.iso_code contains 'th'
+                  assign destination_culture = 'th'
+                endif
+                if card_link contains '?'
+                  assign card_link = card_link | append: '&culture=' | append: destination_culture
+                else
+                  assign card_link = card_link | append: '?culture=' | append: destination_culture
+                endif
+              endif
+            -%}
             <li class="mcat__item" data-mcat-card data-index="{{ forloop.index0 }}" {{ block.shopify_attributes }}>
-              <a class="mcat__card mcat__card--{{ block.settings.theme }}" href="{{ block.settings.link | default: routes.root_url }}">
+              <a class="mcat__card mcat__card--{{ block.settings.theme }}{% if block.settings.asset_name contains 'homepage-pimm' %} mcat__card--pimm-lineup{% endif %}" href="{{ card_link }}">
                 <div class="mcat__media">
                   {%- if block.settings.image != blank -%}
                     {{

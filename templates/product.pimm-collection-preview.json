@@ -1,0 +1,22 @@
+/*
+ * ------------------------------------------------------------
+ * Preview-only host for the dedicated PIMM collection section.
+ * The section accepts the global draft product only on the
+ * /products_preview route with this exact template suffix.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "main": {
+      "type": "maliev-pimm-collection",
+      "settings": {
+        "pimm_product": "",
+        "model_30g_product": "",
+        "model_50g_product": "",
+        "support_url": "/pages/contact?intent=general#ContactForm",
+        "factory_visit_url": "/pages/contact?intent=demo#ContactVisitTitle"
+      }
+    }
+  },
+  "order": ["main"]
+}

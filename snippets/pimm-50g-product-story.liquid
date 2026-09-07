@@ -1,0 +1,45 @@
+{% doc %}
+  Renders the master-derived PIMM 50G normal-scroll product story.
+
+  @param {string} story_asset_set
+{% enddoc %}
+
+{% if story_asset_set == 'pimm-master-20260901-r05-50g' %}
+  <section class="pimm-story pimm-story--50g" aria-label="{{ 'products.pimm_machine.editorial.heading' | t | escape }} — 50G">
+    <header class="pimm-story__intro">
+      <h2>{{ 'products.pimm_machine.fit.heading' | t }}</h2>
+      <p>{{ 'products.pimm_collection.models.50g.designation' | t }}: {{ 'maliev_home_i18n.featured.pill_capacity_50' | t }}, {{ 'maliev_home_i18n.featured.pill_meltzone_50' | t }}, {{ 'maliev_home_i18n.featured.pill_heaters_50' | t }}. {{ 'products.pimm_collection.models.50g.best_for' | t | capitalize }}.</p>
+    </header>
+
+    <div class="pimm-50g-bento">
+      <article class="pimm-50g-bento__tile pimm-50g-bento__tile--capacity">
+        <img src="{{ 'pimm-master-20260901-r05-50g-overview.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.overview' | t | escape }}" width="1600" height="1312" loading="lazy" decoding="async">
+        <div class="pimm-50g-bento__copy"><h3>{{ 'maliev_home_i18n.featured.pill_capacity_50' | t }}</h3><p>{{ 'products.pimm_collection.models.50g.best_for' | t }}</p></div>
+      </article>
+      <article class="pimm-50g-bento__tile pimm-50g-bento__tile--controls">
+        <img src="{{ 'pimm-master-20260901-r05-50g-controls.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.engineering' | t | escape }}" width="1600" height="1248" loading="lazy" decoding="async">
+        <div class="pimm-50g-bento__copy"><h3>{{ 'maliev_home_i18n.featured.pill_heaters_50' | t }}</h3><p>{{ 'products.pimm_machine.specs.temperature.guidance' | t }}</p></div>
+      </article>
+      <article class="pimm-50g-bento__tile pimm-50g-bento__tile--tooling">
+        <img src="{{ 'pimm-master-20260901-r05-50g-tooling.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.tooling' | t | escape }}" width="1600" height="1248" loading="lazy" decoding="async">
+        <div class="pimm-50g-bento__copy"><h3>{{ 'maliev_home_i18n.featured.pill_meltzone_50' | t }}</h3><p>{{ 'maliev_home_i18n.featured.description_50' | t }}</p></div>
+      </article>
+      <article class="pimm-50g-bento__tile pimm-50g-bento__tile--complete">
+        <img src="{{ 'pimm-master-20260901-r05-50g-configuration.webp' | asset_url }}" alt="{{ 'products.pimm_machine.alt.50g.hero' | t | escape }}" width="1600" height="1920" loading="lazy" decoding="async">
+        <div class="pimm-50g-bento__copy"><h3>{{ 'products.pimm_machine.purchase.heading' | t }}</h3><p>{{ 'products.pimm_machine.purchase.body' | t }}</p></div>
+      </article>
+    </div>
+
+    <section class="pimm-50g-upgrade" aria-labelledby="Pimm50UpgradeHeading">
+      <header class="pimm-50g-upgrade__header">
+        <h3 id="Pimm50UpgradeHeading">{{ 'products.pimm_collection.dossier_heading' | t }}</h3>
+        <span class="pimm-50g-upgrade__model">PIMM 30G</span>
+        <span class="pimm-50g-upgrade__model pimm-50g-upgrade__model--active">PIMM 50G</span>
+      </header>
+      <dl>
+        <div><dt>{{ 'products.pimm_collection.shot_capacity' | t }}</dt><dd>{{ 'maliev_home_i18n.featured.pill_capacity' | t }}</dd><dd>{{ 'maliev_home_i18n.featured.pill_capacity_50' | t }}</dd></div>
+        <div><dt>{{ 'products.pimm_machine.specs.temperature.label' | t }}</dt><dd>{{ 'maliev_home_i18n.featured.pill_heaters' | t }}</dd><dd>{{ 'maliev_home_i18n.featured.pill_heaters_50' | t }}</dd></div>
+      </dl>
+    </section>
+  </section>
+{% endif %}
