@@ -4,6 +4,22 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 
+test('HD operating release has seven verified 24fps shots per responsive profile',async()=>{
+  const manifest=JSON.parse(await readFile(new URL('../../assets/pimm-cinematic-r61.json',import.meta.url),'utf8'));
+  assert.equal(manifest.profiles.length,2);
+  for(const profile of manifest.profiles){
+    assert.equal(profile.fps,24);assert.equal(profile.frames_per_shot,288);
+    assert.equal(profile.frame_step,1);assert.equal(profile.shots.length,7);
+    assert.equal(profile.frames.length,2016);
+    assert.equal(profile.outputs.length,7);
+    for(const output of profile.outputs){
+      const bytes=await readFile(new URL(`../../assets/${output.filename}`,import.meta.url));
+      assert.equal(createHash('sha256').update(bytes).digest('hex'),output.sha256);
+      assert.equal(output.tags.alpha_mode,'1');assert.equal(output.nb_read_frames,'288');
+    }
+  }
+});
+
 test('English hero typography uses the existing self-hosted Outfit without changing Thai or navigation',async()=>{
   const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
   assert.match(css,/\.pimm-machine__hero:lang\(en\)[\s\S]*?font-family: 'Outfit', sans-serif;/);
@@ -19,7 +35,7 @@ async function harness({reduced=false, saveData=false, denied=false, alpha}={}) 
   const motion={matches:reduced,addEventListener(){}};
   const doc={hidden:false,addEventListener(){}};
   if(alpha!==undefined)doc.createElement=()=>({getContext:()=>({drawImage(){},getImageData:()=>({data:[0,0,0,alpha]})})});
-  const videos=Array.from({length:6},(_,i)=>({
+  const videos=Array.from({length:7},(_,i)=>({
     dataset:{src:`shot-${i}.webm`},events:{},currentTime:0,plays:0,paused:true,
     classList:{toggle(name,on){this.current=on;},remove(){this.current=false;}},
     addEventListener(name,cb){this.events[name]=cb;},getAttribute(){return this.src;},
@@ -35,9 +51,9 @@ async function harness({reduced=false, saveData=false, denied=false, alpha}={}) 
   const el=new Controller();el.connectedCallback();el.observer.cb([{isIntersecting:true}]);
   return {el,videos,hero,motion,doc};
 }
-test('six authored shots play in order and wrap after the full-machine shot',async()=>{
+test('seven authored shots play in order and wrap after the full-machine shot',async()=>{
   const {el,videos}=await harness();
-  for(let i=0;i<6;i++){
+  for(let i=0;i<7;i++){
     assert.equal(el.index,i);videos[i].events.playing();assert.equal(videos[i].classList.current,true);
     videos[i].events.ended();
   }
@@ -140,8 +156,8 @@ test('cinematic stage escapes the capped product wrapper',async()=>{
 
 test('component cinema has distinct CAD anchors, restrained eight-second moves, and verified media',async()=>{
   const snippet=await readFile(new URL('../../snippets/pimm-cinematic-hero.liquid',import.meta.url),'utf8');
-  assert.match(snippet,/'cylinder,temperature,pressure,mounting,actuator,complete'/);
-  assert.match(snippet,/pimm-cinematic-r59-/);
+  assert.match(snippet,/'cylinder,pressure,temperature,mounting,pellets,actuator,complete'/);
+  assert.match(snippet,/pimm-cinematic-r61-/);
   assert.doesNotMatch(snippet,/pimm-cinematic-r58-/);
   const manifest=JSON.parse(await readFile(new URL('../../assets/pimm-cinematic-r59.json',import.meta.url),'utf8'));
   assert.equal(manifest.fps,24);assert.equal(manifest.frames_per_shot,192);
