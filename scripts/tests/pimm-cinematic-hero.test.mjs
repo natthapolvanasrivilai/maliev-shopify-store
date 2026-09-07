@@ -67,6 +67,9 @@ test('offscreen and hidden tabs preserve the current shot timeline',async()=>{
   doc.hidden=false;el.visible=false;el.sync();assert.equal(videos[0].paused,true);
 });
 test('responsive sources request only the selected profile and preserve the legacy fallback',async()=>{
+  const controller=await readFile(new URL('../../assets/maliev-pimm-cinematic.js',import.meta.url),'utf8');
+  assert.match(controller,/matchMedia\('\(max-width: 749px\)'\)/);
+  assert.doesNotMatch(controller,/max-aspect-ratio/);
   for(const portrait of [true,false]){
     const {el,videos}=await harness();
     el.portrait=portrait;
@@ -152,6 +155,15 @@ test('the four released alpha clips match the verified native-render manifest',a
 test('cinematic stage escapes the capped product wrapper',async()=>{
   const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
   assert.match(css,/\.pimm-machine\[data-page-model="30G"\]\s*\{[^}]*overflow:\s*visible;/);
+});
+
+test('wider cylinder and actuator cameras preserve context while videos fill the stage',async()=>{
+  const css=await readFile(new URL('../../assets/maliev-pimm-cinematic.css',import.meta.url),'utf8');
+  assert.match(css,/video:not\(\[data-shot="complete"\]\) \{ object-fit: cover; \}/);
+  assert.doesNotMatch(css,/video\[data-shot="(?:cylinder|actuator)"\][\s\S]*?object-fit: contain/);
+  const renderer=await readFile(new URL('../blender/pimm_production/blender_30g_component_cinema.py',import.meta.url),'utf8');
+  assert.match(renderer,/'cylinder': \([^\n]*1400, 65/);
+  assert.match(renderer,/'actuator': \([^\n]*1250, 72/);
 });
 
 test('component cinema has distinct CAD anchors, restrained eight-second moves, and verified media',async()=>{

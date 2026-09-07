@@ -15,11 +15,11 @@ FRAMES = 192
 PROFILES = {'legacy': (960, 1080), 'desktop': (1920, 1080), 'mobile': (1080, 1920), 'material-proof': (960, 540), 'motion-proof': (640, 360)}
 # Each shot has an explicit CAD anchor, lens, radius, azimuth and elevation move.
 SHOTS = {
-    'cylinder': ('30G__MDB125-200Z-0-_BODY__d7889d7dc749a14f', 1100, 65, (-16, -6), (5, 9)),
+    'cylinder': ('30G__MDB125-200Z-0-_BODY__d7889d7dc749a14f', 1400, 65, (-16, -6), (5, 9)),
     'temperature': ('30G__Electronic-Box-Body__d49b1cfe3bdb231d', 700, 85, (12, 4), (3, 5)),
     'pressure': ('PIMM30_MASTER_Pressure_Gauge_Face', 520, 85, (-16, -8), (5, 5)),
     'mounting': ('30G__Base-Plate__bfa12d3b2a10cf6f', 1000, 65, (-28, -16), (48, 55)),
-    'actuator': ('30G__MB125-200Z_ROD__01710571532bdd66', 1000, 80, (6, -4), (3, 7)),
+    'actuator': ('30G__MB125-200Z_ROD__01710571532bdd66', 1250, 72, (6, -4), (3, 7)),
     'complete': (None, 2300, 70, (-8, 8), (3, 3)),
 }
 

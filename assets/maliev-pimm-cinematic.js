@@ -8,7 +8,9 @@
       this.videos = [...this.querySelectorAll('video')];
       this.motion = matchMedia('(prefers-reduced-motion: reduce)');
       // Select once per connection; resizing must not restart a playing shot.
-      this.portrait = matchMedia('(max-aspect-ratio: 1/1)').matches;
+      // The portrait render is composed for phone widths. Near-square tablets
+      // use the landscape source so cover does not remove its top and bottom.
+      this.portrait = matchMedia('(max-width: 749px)').matches;
       this.index = 0;
       this.visible = false;
       this.failed = false;
